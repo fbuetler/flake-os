@@ -1,0 +1,33 @@
+\documentclass[10pt,a4paper,titlepage]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+
+% TODO: Replace the title with your own
+\title{Your-OS-Title Report}
+\author{Group XYZ}
+
+\begin{document}
+	
+	\maketitle
+	
+	TODO: WRite your report. Please also mention whether you have any limitations
+	(e.g., limit of mapped memory, ...) and/or whether you've done extra challenges.
+	
+	\input{memory-allocation.tex}
+	\input{processes.tex}
+	\input{rpc.tex}
+	\input{self-paging.tex}
+	\input{multicore.tex}
+	\input{urpc.tex}
+
+	\input{shell.tex}	
+	\input{capabilities.tex} 
+	\input{filesystem.tex}
+	\input{nameserver.tex}
+	\input{networking.tex}
+	
+\end{document}
