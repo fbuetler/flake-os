@@ -20,7 +20,7 @@
 #include <aos/static_assert.h>
 
 struct block_head {
-    struct block_head *next;///< Pointer to next block in free list
+    struct block_head *next;  ///< Pointer to next block in free list
 };
 
 STATIC_ASSERT_SIZEOF(struct block_head, SLAB_BLOCK_HDRSIZE);
@@ -88,7 +88,8 @@ void *slab_alloc(struct slab_allocator *slabs)
     errval_t err;
     /* find a slab with free blocks */
     struct slab_head *sh;
-    for (sh = slabs->slabs; sh != NULL && sh->free == 0; sh = sh->next);
+    for (sh = slabs->slabs; sh != NULL && sh->free == 0; sh = sh->next)
+        ;
 
     if (sh == NULL) {
         /* out of memory. try refill function if we have one */
@@ -100,7 +101,8 @@ void *slab_alloc(struct slab_allocator *slabs)
                 DEBUG_ERR(err, "slab refill_func failed");
                 return NULL;
             }
-            for (sh = slabs->slabs; sh != NULL && sh->free == 0; sh = sh->next);
+            for (sh = slabs->slabs; sh != NULL && sh->free == 0; sh = sh->next)
+                ;
             if (sh == NULL) {
                 return NULL;
             }

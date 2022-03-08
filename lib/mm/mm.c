@@ -18,12 +18,9 @@
 #include <aos/solution.h>
 
 
-
-errval_t mm_init(struct mm *mm, enum objtype objtype,
-                     slab_refill_func_t slab_refill_func,
-                     slot_alloc_t slot_alloc_func,
-                     slot_refill_t slot_refill_func,
-                     void *slot_alloc_inst)
+errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,
+                 slot_alloc_t slot_alloc_func, slot_refill_t slot_refill_func,
+                 void *slot_alloc_inst)
 {
     return LIB_ERR_NOT_IMPLEMENTED;
 }
@@ -39,7 +36,8 @@ errval_t mm_add(struct mm *mm, struct capref cap)
 }
 
 
-errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment, struct capref *retcap)
+errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
+                          struct capref *retcap)
 {
     return LIB_ERR_NOT_IMPLEMENTED;
 }
@@ -53,5 +51,4 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
 errval_t mm_free(struct mm *mm, struct capref cap)
 {
     return LIB_ERR_NOT_IMPLEMENTED;
-
 }

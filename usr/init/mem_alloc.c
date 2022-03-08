@@ -41,15 +41,14 @@ static inline errval_t initialize_ram_allocator(void)
     }
 
     // Initialize aos_mm
-    err = mm_init(&aos_mm, ObjType_RAM, NULL,
-                  slot_alloc_prealloc, slot_prealloc_refill,
+    err = mm_init(&aos_mm, ObjType_RAM, NULL, slot_alloc_prealloc, slot_prealloc_refill,
                   &init_slot_alloc);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can't initalize the memory manager.");
     }
 
     // Give aos_mm a bit of memory for the initialization
-    // M1 TODO: grow be with some memory!
+    // M1 TODO: grow me with some memory!
     slab_grow(&aos_mm.slabs, NULL, 0);
 
     return SYS_ERR_OK;
@@ -77,7 +76,6 @@ errval_t initialize_ram_alloc(void)
 
     for (int i = 0; i < bi->regions_length; i++) {
         if (bi->regions[i].mr_type == RegionType_Empty) {
-
             struct capability c;
             err = cap_direct_identify(mem_cap, &c);
             if (err_is_fail(err)) {
@@ -93,13 +91,14 @@ errval_t initialize_ram_alloc(void)
             if (err_is_ok(err)) {
                 mem_avail += bi->regions[i].mr_bytes;
             } else {
-                DEBUG_ERR(err, "Warning: adding RAM region %d (%p/%zu) FAILED", i, bi->regions[i].mr_base, bi->regions[i].mr_bytes);
+                DEBUG_ERR(err, "Warning: adding RAM region %d (%p/%zu) FAILED", i,
+                          bi->regions[i].mr_base, bi->regions[i].mr_bytes);
             }
 
             mem_cap.slot++;
         }
     }
-    debug_printf("Added %"PRIu64" MB of physical memory.\n", mem_avail / 1024 / 1024);
+    debug_printf("Added %" PRIu64 " MB of physical memory.\n", mem_avail / 1024 / 1024);
 
     // Finally, we can initialize the generic RAM allocator to use our local allocator
     err = ram_alloc_set(aos_ram_alloc_aligned);
@@ -112,4 +111,3 @@ errval_t initialize_ram_alloc(void)
 
     return SYS_ERR_OK;
 }
-

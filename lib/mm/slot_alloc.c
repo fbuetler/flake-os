@@ -35,7 +35,7 @@ errval_t slot_prealloc_refill(void *this)
     }
 
     if (sa->meta[refill].free == L2_CNODE_SLOTS) {
-        return SYS_ERR_OK; // Nop
+        return SYS_ERR_OK;  // Nop
     }
 
     is_refilling = true;
@@ -68,15 +68,15 @@ errval_t slot_prealloc_refill(void *this)
     }
 
     err = cnode_create_from_mem(cnode_cap, ram_cap, ObjType_L2CNode,
-            &sa->meta[refill].cap.cnode, L2_CNODE_SLOTS);
+                                &sa->meta[refill].cap.cnode, L2_CNODE_SLOTS);
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_CNODE_CREATE);
         goto out;
     }
 
     // Set the metadata
-    sa->meta[refill].cap.slot  = 0;
-    sa->meta[refill].free      = L2_CNODE_SLOTS;
+    sa->meta[refill].cap.slot = 0;
+    sa->meta[refill].free = L2_CNODE_SLOTS;
 
 out:
     is_refilling = false;
@@ -118,23 +118,22 @@ errval_t slot_alloc_prealloc(void *inst, uint64_t nslots, struct capref *ret)
  * \param initial_space Number of slots free in initial cnode
  * \param ram_mm Memory allocator to use for RAM caps when creating new CNodes
  */
-errval_t slot_prealloc_init(struct slot_prealloc *this,
-                            struct capref initial_cnode,
-                            uint64_t initial_space,
-                            struct mm *ram_mm)
+errval_t slot_prealloc_init(struct slot_prealloc *this, struct capref initial_cnode,
+                            uint64_t initial_space, struct mm *ram_mm)
 {
     this->mm = ram_mm;
 
     assert(initial_space == L2_CNODE_SLOTS);
     if (initial_space != L2_CNODE_SLOTS) {
-        debug_printf("Initial CNode for 2 level preallocating slot allocator needs to be 16kB");
+        debug_printf("Initial CNode for 2 level preallocating slot allocator needs to be "
+                     "16kB");
         return LIB_ERR_SLOT_ALLOC_INIT;
     }
 
     this->current = 0;
-    this->meta[0].cap       = initial_cnode;
-    this->meta[0].free      = initial_space;
-    this->meta[1].free      = 0;
+    this->meta[0].cap = initial_cnode;
+    this->meta[0].free = initial_space;
+    this->meta[1].free = 0;
 
     return SYS_ERR_OK;
 }
@@ -175,8 +174,8 @@ errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret)
             return err_push(err, LIB_ERR_SLOT_ALLOC);
         }
 
-        err = cnode_create_from_mem(cnode, ram, ObjType_L2CNode,
-                                    &this->cap.cnode, L2_CNODE_SLOTS);
+        err = cnode_create_from_mem(cnode, ram, ObjType_L2CNode, &this->cap.cnode,
+                                    L2_CNODE_SLOTS);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CNODE_CREATE);
         }
