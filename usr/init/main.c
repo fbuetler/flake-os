@@ -26,28 +26,24 @@
 #include "mem_alloc.h"
 
 
-
-
 struct bootinfo *bi;
 
 coreid_t my_core_id;
 
 
-
-
-static int
-bsp_main(int argc, char *argv[]) {
+static int bsp_main(int argc, char *argv[])
+{
     errval_t err;
 
     // Grading
     grading_setup_bsp_init(argc, argv);
 
     // First argument contains the bootinfo location, if it's not set
-    bi = (struct bootinfo*)strtol(argv[1], NULL, 10);
+    bi = (struct bootinfo *)strtol(argv[1], NULL, 10);
     assert(bi);
 
     err = initialize_ram_alloc();
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
 
@@ -75,8 +71,8 @@ bsp_main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 
-static int
-app_main(int argc, char *argv[]) {
+static int app_main(int argc, char *argv[])
+{
     // Implement me in Milestone 5
     // Remember to call
     // - grading_setup_app_init(..);
@@ -84,7 +80,6 @@ app_main(int argc, char *argv[]) {
     // - grading_test_late();
     return LIB_ERR_NOT_IMPLEMENTED;
 }
-
 
 
 int main(int argc, char *argv[])
@@ -99,12 +94,14 @@ int main(int argc, char *argv[])
 
     debug_printf("init: on core %" PRIuCOREID ", invoked as:", my_core_id);
     for (int i = 0; i < argc; i++) {
-       printf(" %s", argv[i]);
+        printf(" %s", argv[i]);
     }
     printf("\n");
     fflush(stdout);
 
 
-    if(my_core_id == 0) return bsp_main(argc, argv);
-    else                return app_main(argc, argv);
+    if (my_core_id == 0)
+        return bsp_main(argc, argv);
+    else
+        return app_main(argc, argv);
 }
