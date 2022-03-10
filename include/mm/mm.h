@@ -58,11 +58,10 @@ struct mm {
     slot_refill_t slot_refill;    ///< Slot allocator refill function
     void *slot_alloc_inst;        ///< Opaque instance pointer for slot allocator
     enum objtype objtype;         ///< Type of capabilities stored
-    // TODO: add your meta data tracking here...
 
     list_t *buckets[BUCKET_COUNT];  // array of douply linked list of free memory
     map_t *allocations;             // map of allocated memory with (address, size)
-    size_t base_addr;               // base address of memory TODO multiple regions
+    size_t base_addr;               // base address of memory TODO FIXME multiple regions
     bool added;                     // TODO FIXME: handle multiple regions
 };
 

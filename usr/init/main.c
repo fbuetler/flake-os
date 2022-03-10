@@ -49,6 +49,11 @@ static int bsp_main(int argc, char *argv[])
 
     // TODO: initialize mem allocator, vspace management here
 
+    // setup CSpace: L1CNode, L2CNode
+    // L1CNode (cnode_create_l1): initially 256 slots with L2CNodes,
+    // but can be extended with 'root_cnode_resize()'
+    // L1Code (cnode_create_l2): fixed size of 256 slots
+
     // Grading
     grading_test_early();
 

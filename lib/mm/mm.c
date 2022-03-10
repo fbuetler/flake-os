@@ -82,7 +82,6 @@ static size_t next_lower_power_of_two(size_t n)
 
 static void mm_print(struct mm *mm)
 {
-    // TODO remove
     printf("\nCurrent state:\n");
     printf("Free memory lists:\n");
     for (int i = 0; i < BUCKET_COUNT; i++) {
@@ -109,7 +108,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     debug_printf("Size of memory chunk %" PRIu64 " KB\n", c.u.ram.bytes / 1024);
 
     if (mm->added) {
-        return err;  // TODO FIXME: handle multiple regions
+        return LIB_ERR_RAM_ALLOC;  // TODO FIXME: handle multiple regions
     }
 
     // add memory as free memory to datastructure
@@ -131,7 +130,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     mm_print(mm);
     mm->added = true;  // TODO FIXME: handle multiple regions
 
-    return err;
+    return SYS_ERR_OK;
 }
 
 errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
