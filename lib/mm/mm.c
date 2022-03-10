@@ -231,8 +231,102 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
     return mm_alloc_aligned(mm, size, BASE_PAGE_SIZE, retcap);
 }
 
+static errval_t mm_merge_buddies(struct mm *mm, size_t start_addr, int bucket_index)
+{
+    if (bucket_index + 1 == BUCKET_COUNT) {
+        // reached top bucket
+        return 0;
+    }
+
+    // calculate buddy number and buddy address
+    int block_size = 1 << bucket_index;
+    int buddy_address;
+    int buddy_number = (start_addr - mm->base_addr) / block_size;
+    if (buddy_number % 2 == 0) {
+        buddy_address = start_addr + (1 << bucket_index);
+    } else {
+        buddy_address = start_addr - (1 << bucket_index);
+    }
+
+    // search the buddy in the free list
+    bool buddy_found = false;
+    for (int i = 0; i < mm->buckets[bucket_index]->size; i++) {
+        region_t *buddy = list_get_index(mm->buckets[bucket_index], i);
+        if (buddy == NULL) {
+            // nothing found at index (this should not happen)
+            continue;
+        }
+        if (buddy->lower != buddy_address) {
+            // not our buddy
+            continue;
+        }
+        buddy_found = true;
+        // the buddy is also free
+        if (buddy_number % 2 == 0) {
+            // buddy is the block after the freed one
+            region_t *parent = malloc(sizeof(region_t));
+            parent->lower = start_addr;
+            parent->upper = start_addr + 2 * (1 << (bucket_index)) - 1;
+            list_insert_last(mm->buckets[bucket_index + 1], parent);
+            printf("Coalescing blocks in bucket %lu at: %lu and %lu\n", bucket_index,
+                   start_addr, buddy_address);
+        } else {
+            // buddy is the block before the freed one
+            region_t *parent = malloc(sizeof(region_t));
+            parent->lower = buddy_address;
+            parent->upper = buddy_address + 2 * (1 << (bucket_index));
+            list_insert_last(mm->buckets[bucket_index + 1], parent);
+            printf("Coalescing blocks in bucket %lu at: %lu and %lu\n", bucket_index,
+                   buddy_address, start_addr);
+        }
+        // remove coalesced buddy
+        list_remove_index(mm->buckets[bucket_index], i);
+        // remove buddy
+        list_remove_index(mm->buckets[bucket_index], mm->buckets[bucket_index]->size - 1);
+        break;
+    }
+    // remove allocation
+    map_remove(mm->allocations, start_addr);
+
+    if (!buddy_found) {
+        return 0;
+    }
+
+    // TODO make iterative
+    if (buddy_number % 2 == 0) {
+        return mm_merge_buddies(mm, start_addr, bucket_index + 1);
+    } else {
+        return mm_merge_buddies(mm, buddy_address, bucket_index + 1);
+    }
+}
 
 errval_t mm_free(struct mm *mm, struct capref cap)
 {
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+
+    struct capability c;
+    err = cap_direct_identify(cap, &c);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get the frame info\n");
+    }
+
+    size_t start_addr = c.u.ram.base;
+    size_t size = map_get(mm->allocations, start_addr);
+    // Invalid reference, as this was never allocated
+    if (size == -1) {
+        printf("Invalid free request\n");
+        return 1;
+    }
+
+    size_t bucket_index = get_bucket_index(size);
+
+    region_t *region = malloc(sizeof(region_t));
+    region->lower = start_addr;
+    region->upper = start_addr + size - 1;
+
+    // add the freed block to the free list
+    list_insert_last(mm->buckets[bucket_index], region);
+    printf("Memory freed: (%lu, %lu)\n", region->lower, region->upper);
+
+    return mm_merge_buddies(mm, start_addr, bucket_index);
 }
