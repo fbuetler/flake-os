@@ -136,7 +136,94 @@ errval_t mm_add(struct mm *mm, struct capref cap)
 errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
                           struct capref *retcap)
 {
-    return LIB_ERR_NOT_IMPLEMENTED;
+    // no matter what the size has to be a power of 2
+    if (size < MIN_ALLOC || MAX_ALLOC < size) {
+        // requested size is too small or too big
+        // TODO should we allow smaller sizes
+        return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
+    } else if (size % BASE_PAGE_SIZE != 0) {
+        // requested size is not aligned
+        // TODO should we allow unaligned sizes
+        return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
+    }
+
+    size_t bucket_index = get_bucket_index(size);
+    region_t *runner = NULL;
+
+    // there is already such a block
+    if (mm->buckets[bucket_index]->size > 0) {
+        runner = list_remove_first(mm->buckets[bucket_index]);
+        if (runner == NULL) {
+            debug_printf("there should be a block but isnt\n");
+            return LIB_ERR_RAM_ALLOC;
+        }
+
+        size_t block_size = runner->upper - runner->lower + 1;
+        map_put(mm->allocations, runner->lower, block_size);
+        // TODO fill in retcap
+        // TODO use cap_retype
+
+        debug_printf("Memory allocated: (%lu, %lu)\nWasted memory: %lu KB\n",
+                     runner->lower, runner->upper, block_size / 1024);
+        return SYS_ERR_OK;
+    }
+
+    // search for the next larger block
+    int i;
+    for (i = bucket_index + 1; i < BUCKET_COUNT; i++) {
+        if (mm->buckets[i]->size > 0) {
+            // found a larger block
+            break;
+        }
+    }
+
+    // memory is exhausted
+    if (i == BUCKET_COUNT) {
+        debug_printf("Failed to allocate memory\n");
+        return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
+    }
+
+    // remove a block
+    runner = list_remove_first(mm->buckets[i]);
+    if (runner == NULL) {
+        debug_printf("There should be a block but isnt\n");
+        return LIB_ERR_RAM_ALLOC;
+    }
+    i--;
+
+    // split the block until it fits our need
+    for (; i >= bucket_index; i--) {
+        // divide the block in two halfs
+        // TODO use cap_retype
+        region_t *left_split = malloc(sizeof(region_t));
+        left_split->lower = runner->lower;
+        left_split->upper = runner->lower + (runner->upper - runner->lower) / 2;
+
+        region_t *right_split = malloc(sizeof(region_t));
+        right_split->lower = runner->lower + (runner->upper - runner->lower + 1) / 2;
+        right_split->upper = runner->upper;
+
+        // add both halfs to the free list
+        list_insert_last(mm->buckets[i], left_split);
+        list_insert_last(mm->buckets[i], right_split);
+
+        // remove a block and continue the downward pass
+        runner = list_remove_first(mm->buckets[i]);
+        if (runner == NULL) {
+            debug_printf("There should be a block but isnt\n");
+            return LIB_ERR_RAM_ALLOC;
+        }
+    }
+
+    size_t block_size = runner->upper - runner->lower + 1;
+    map_put(mm->allocations, runner->lower, block_size);
+    // TODO fill in retcap
+    // TODO use cap_retype
+
+    debug_printf("Memory allocated: (%lu, %lu)\nWasted memory: %lu KB\n", runner->lower,
+                 runner->upper, block_size / 1024);
+
+    return SYS_ERR_OK;
 }
 
 errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
