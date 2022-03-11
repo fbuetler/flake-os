@@ -123,7 +123,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     debug_printf("Size of memory chunk %" PRIu64 " KB\n", c.u.ram.bytes / 1024);
 
     if (mm->added) {
-        return LIB_ERR_RAM_ALLOC;  // TODO FIXME: handle multiple regions
+        return SYS_ERR_OK;  // TODO FIXME: handle multiple regions
     }
 
     // add memory as free memory to datastructure
@@ -150,21 +150,26 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     return SYS_ERR_OK;
 }
 
-errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
+errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment,
                           struct capref *retcap)
 {
+    debug_printf("Memory allocation request of %lu KB aligned to %lu KB\n",
+                 requested_size / 1024, alignment / 1024);
     // no matter what the size has to be a power of 2
-    if (size < MIN_ALLOC || MAX_ALLOC < size) {
+    if (requested_size < MIN_ALLOC || MAX_ALLOC < requested_size) {
         // requested size is too small or too big
         // TODO should we allow smaller sizes
+        debug_printf("Memory allocation denied: Out of bounds");
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
-    } else if (size % BASE_PAGE_SIZE != 0) {
+    } else if (requested_size % BASE_PAGE_SIZE != 0) {
         // requested size is not aligned
         // TODO should we allow unaligned sizes
+        debug_printf("Memory allocation denied: Not aligned");
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
     }
 
-    size_t bucket_index = get_bucket_index(size);
+    // TODO respect alignment
+    size_t bucket_index = get_bucket_index(requested_size);
     region_t *runner = NULL;
 
     // there is already such a block
@@ -181,8 +186,9 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
         // TODO fill in retcap
         // TODO use cap_retype
 
-        debug_printf("Memory allocated: (%lu, %lu)\nWasted memory: %lu KB\n",
-                     runner->lower, runner->upper, *allocated_size / 1024);
+        debug_printf("Memory allocated: (%lu, %lu)\n", runner->lower, runner->upper);
+        debug_printf("Wasted memory: %lu KB\n", (*allocated_size - requested_size) / 1024);
+        mm_print(mm);
         return SYS_ERR_OK;
     }
 
@@ -197,7 +203,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
 
     // memory is exhausted
     if (i == BUCKET_COUNT) {
-        debug_printf("Failed to allocate memory\n");
+        debug_printf("Failed to allocate memory: memory exhausted\n");
         return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
     }
 
@@ -241,9 +247,10 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
     // TODO fill in retcap
     // TODO use cap_retype
 
-    debug_printf("Memory allocated: (%lu, %lu)\nWasted memory: %lu KB\n", runner->lower,
-                 runner->upper, *allocated_size / 1024);
+    debug_printf("Memory allocated: (%lu, %lu)\n", runner->lower, runner->upper);
+    debug_printf("Wasted memory: %lu KB\n", (*allocated_size - requested_size) / 1024);
 
+    mm_print(mm);
     return SYS_ERR_OK;
 }
 
@@ -336,11 +343,12 @@ errval_t mm_free(struct mm *mm, struct capref cap)
     }
 
     size_t start_addr = c.u.ram.base;
+    debug_printf("Memory free request for address %lu\n", start_addr);
 
     size_t *size = map_get(mm->allocations, start_addr);
     // Invalid reference, as this was never allocated
     if (size == NULL) {
-        printf("Invalid free request\n");
+        printf("Invalid free request: not allocated\n");
         return 1;
     }
 
