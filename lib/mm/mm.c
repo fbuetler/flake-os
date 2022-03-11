@@ -41,6 +41,10 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_re
 
 void mm_destroy(struct mm *mm)
 {
+    if (mm->head == NULL) {
+        return;
+    }
+
     mmnode_t *curr = mm->head;
     mmnode_t *prev = NULL;
     while (curr != NULL) {
@@ -203,6 +207,11 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
     }
 
+    if (mm->head == NULL) {
+        debug_printf("Memory allocation not possible: no memory initialized\n");
+        return LIB_ERR_RAM_ALLOC;
+    }
+
     err = mm_allocate_slot(mm, retcap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not allocate slot for retcap\n");
@@ -321,6 +330,11 @@ errval_t mm_free(struct mm *mm, struct capref cap)
     size_t memory_base = c.u.ram.base;
     size_t memory_size = c.u.ram.bytes;
     debug_printf("Memory free request for address %lu\n", memory_base);
+
+    if (mm->head == NULL) {
+        debug_printf("Memory free not possible: no memory initialized\n");
+        return LIB_ERR_RAM_ALLOC;
+    }
 
     mmnode_t *curr = mm->head;
     while (curr != NULL) {
