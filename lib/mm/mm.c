@@ -24,17 +24,8 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_re
 {
     mm->objtype = objtype;
 
-    // sizes of different types:
-    // list_t: 24
-    // map_t: 24
-    // region_t: 24
-    // list_node_t: 24
-    // map_node_t: 32
-    // capref: 16
-    // size_t: 8
-    size_t blocksize = 32;
     // init slab allocator
-    slab_init(&mm->slabs, blocksize, slab_refill_func);
+    slab_init(&mm->slabs, sizeof(mmnode_t), slab_refill_func);
 
     // init slot allocator
     mm->slot_alloc = slot_alloc_func;
@@ -42,71 +33,101 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_re
     mm->slot_alloc_inst = slot_alloc_inst;
 
     // init datastructure
-    for (int i = 0; i < BUCKET_COUNT; i++) {
-        mm->free_buckets[i] = slab_alloc(&mm->slabs);
-        list_init(mm->free_buckets[i]);
-    }
-    for (int i = 0; i < BUCKET_COUNT; i++) {
-        mm->existing_buckets[i] = slab_alloc(&mm->slabs);
-        map_init(mm->existing_buckets[i]);
-    }
-    mm->allocations = slab_alloc(&mm->slabs);
-    map_init(mm->allocations);
-
-    mm->added = false;  // TODO FIXME: handle multiple regions
+    mm->head = NULL;
+    mm->tail = NULL;
 
     return SYS_ERR_OK;
 }
 
 void mm_destroy(struct mm *mm)
 {
-    for (int i = 0; i < BUCKET_COUNT; i++) {
-        list_destroy(mm->free_buckets[i]);
+    mmnode_t *curr = mm->head;
+    mmnode_t *prev = NULL;
+    while (curr != NULL) {
+        prev = curr;
+        curr = curr->next;
+        slab_free(&mm->slabs, prev);
     }
-    for (int i = 0; i < BUCKET_COUNT; i++) {
-        map_destroy(mm->existing_buckets[i]);
-    }
-    map_destroy(mm->allocations);
-    slab_free(&mm->slabs, mm->free_buckets);
+    mm->head = NULL;
+    mm->tail = NULL;
 }
 
 // helper functions start
 
-static int get_bucket_index(size_t size)
+static void node_insert_last(struct mm *mm, mmnode_t *node)
 {
-    size = size >> MIN_ALLOC_LOG2;
-    int bucket_index = 0;
-    for (; bucket_index < BUCKET_COUNT; bucket_index++) {
-        if (size & 1) {
-            break;
-        }
-        size = size >> 1;
+    if (mm->head == NULL) {
+        mm->head = node;
+    } else {
+        mm->tail->next = node;
+        node->prev = mm->tail;
     }
-    return bucket_index;
+
+    mm->tail = node;
 }
 
-static size_t next_lower_power_of_two(size_t n)
+static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
+                           mmnode_t **left_split, mmnode_t **right_split)
 {
-    size_t i = 0;
-    while (1 << i <= n) {
-        i++;
+    mmnode_t *new_node = slab_alloc(&mm->slabs);
+    if (new_node == NULL) {
+        return LIB_ERR_SLAB_ALLOC_FAIL;
     }
 
-    return 1 << (i - 1);
+    *left_split = node;
+    *right_split = new_node;
+
+    // adjust sizes
+    new_node->base = node->base + offset;
+    new_node->size = node->size - offset;
+    new_node->capinfo = node->capinfo;
+
+    node->size = offset;
+
+    // relink nodes
+    if (node == mm->tail) {
+        new_node->next = NULL;
+        mm->tail = new_node;
+    } else {
+        new_node->next = node->next;
+        node->next->prev = new_node;
+    }
+    new_node->prev = node;
+    node->next = new_node;
+
+    return SYS_ERR_OK;
+}
+
+static errval_t mm_refill_slabs(struct mm *mm)
+{
+    size_t free = slab_freecount(&mm->slabs);
+    if (free < 8) {
+        return slab_default_refill(&mm->slabs);
+    }
+    return SYS_ERR_OK;
 }
 
 static void mm_print(struct mm *mm)
 {
-    printf("\nCurrent state:\n");
-    printf("Free memory lists:\n");
-    for (int i = 0; i < BUCKET_COUNT; i++) {
-        printf("%i: ", i + MIN_ALLOC_LOG2);
-        list_print(mm->free_buckets[i]);
-        printf("\n");
+    printf("===\n");
+    printf("Current state:\n");
+    mmnode_t *curr = mm->head;
+    if (mm->head == NULL) {
+        printf("none");
+        printf("\n\n");
+        return;
     }
-    printf("Allocated memory regions:\n");
-    map_print(mm->allocations);
-    printf("\n\n");
+    while (curr != NULL) {
+        if (curr->type == NodeType_Allocated) {
+            printf("Allocated: (%lu, %lu)\n", curr->base, curr->base + curr->size - 1);
+        } else if (curr->type == NodeType_Free) {
+            printf("Free: (%lu, %lu)\n", curr->base, curr->base + curr->size - 1);
+        } else {
+            printf("Type unknowne\n");
+        }
+        curr = curr->next;
+    }
+    printf("===\n");
 }
 
 // helper functions end
@@ -122,30 +143,22 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     }
     debug_printf("Size of memory chunk %" PRIu64 " KB\n", c.u.ram.bytes / 1024);
 
-    if (mm->added) {
-        return SYS_ERR_OK;  // TODO FIXME: handle multiple regions
-    }
+    size_t memory_base = c.u.ram.base;
+    size_t memory_size = c.u.ram.bytes;
 
-    // add memory as free memory to datastructure
-    size_t memory_base_addr = c.u.ram.base;
-    // TODO FIXME: we throw some memory away here
-    size_t memory_size = next_lower_power_of_two(c.u.ram.bytes);
-    printf("Wasted %lu KB of memory\n", (c.u.ram.bytes - memory_size) / 1024);
+    mmnode_t *new_node = slab_alloc(&mm->slabs);
+    new_node->type = NodeType_Free;
+    new_node->base = memory_base;
+    new_node->size = memory_size;
+    new_node->capinfo = (struct capinfo) {
+        .cap = cap,
+        .base = memory_base,
+        .size = memory_size,
+    };
+    node_insert_last(mm, new_node);
 
-    size_t bucket_index = get_bucket_index(memory_size);
-    region_t *region = slab_alloc(&mm->slabs);
-    region->lower = memory_base_addr;
-    region->upper = memory_base_addr + memory_size - 1;
-    region->cap = &cap;  // TODO is this dangerous?
-    list_insert_last(mm->free_buckets[bucket_index], region);
-    map_put(mm->existing_buckets[bucket_index], memory_base_addr, region);
-
-    mm->base_addr = memory_base_addr;
-
-    debug_printf("Memory added: (%lu,%lu)\n", region->lower, region->upper);
-
+    debug_printf("Memory added: (%lu,%lu)\n", memory_base, memory_base + memory_size - 1);
     mm_print(mm);
-    mm->added = true;  // TODO FIXME: handle multiple regions
 
     return SYS_ERR_OK;
 }
@@ -154,7 +167,6 @@ static errval_t mm_allocate_slot(struct mm *mm, struct capref *cap)
 {
     errval_t err;
     err = mm->slot_alloc(mm->slot_alloc_inst, 1, cap);
-    // TODO move the following to slot_alloc_prealloc
     if (err_is_fail(err)) {
         if (mm->slot_refill == NULL) {
             return err_push(err, MM_ERR_SLOT_NOSLOTS);
@@ -175,6 +187,10 @@ static errval_t mm_allocate_slot(struct mm *mm, struct capref *cap)
     return err;
 }
 
+/*
+ * there are cases where a memory region needs to be aligned to a certain boundary i.e.
+ * has to START at a memory address that is a multiple of the alignment
+ */
 errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment,
                           struct capref *retcap)
 {
@@ -182,16 +198,8 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
                  requested_size / 1024, alignment / 1024);
 
     errval_t err;
-    // no matter what the size has to be a power of 2
     if (requested_size < MIN_ALLOC || MAX_ALLOC < requested_size) {
-        // requested size is too small or too big
-        // TODO should we allow smaller sizes
         debug_printf("Memory allocation denied: Out of bounds");
-        return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
-    } else if (requested_size % BASE_PAGE_SIZE != 0) {
-        // requested size is not aligned
-        // TODO should we allow unaligned sizes
-        debug_printf("Memory allocation denied: Not aligned");
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
     }
 
@@ -201,84 +209,61 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         return err;
     }
 
-    // TODO respect alignment
-    size_t bucket_index = get_bucket_index(requested_size);
-    region_t *runner = NULL;
-
-    // there is already such a block
-    if (mm->free_buckets[bucket_index]->size > 0) {
-        runner = list_remove_first(mm->free_buckets[bucket_index]);
-        if (runner == NULL) {
-            debug_printf("there should be a block but isnt\n");
-            return LIB_ERR_RAM_ALLOC;
+    mmnode_t *curr = mm->head;  // TODO do next fit instead of first fit
+    while (curr != NULL) {
+        // space left in node
+        if (curr->type == NodeType_Allocated || curr->size < requested_size) {
+            curr = curr->next;
+            continue;
         }
 
-        size_t *allocated_size = slab_alloc(&mm->slabs);
-        *allocated_size = runner->upper - runner->lower + 1;
-        map_put(mm->allocations, runner->lower, allocated_size);
-        retcap = runner->cap;  // TODO is this done correctly?
+        // memory base address is not aligned
+        if (curr->base % alignment != 0) {
+            size_t offset = alignment - (curr->base % alignment);
+            if (curr->size - offset < requested_size) {
+                curr = curr->next;
+                continue;
+            }
+            // create an aligned node
+            mmnode_t *left_split, *right_split;
+            err = node_split(mm, curr, offset, &left_split, &right_split);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to split mmnodes");
+                return err;
+            }
+            curr = right_split;
+        }
 
-        debug_printf("Memory allocated: (%lu, %lu)\n", runner->lower, runner->upper);
-        debug_printf("Wasted memory: %lu KB\n", (*allocated_size - requested_size) / 1024);
-        mm_print(mm);
-        return SYS_ERR_OK;
-    }
+        err = cap_retype(*retcap, curr->capinfo.cap, curr->base - curr->capinfo.base,
+                         mm->objtype, requested_size, 1);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "could not retype region cap");
+            return err;
+        }
 
-    // search for the next larger block
-    int i;
-    for (i = bucket_index + 1; i < BUCKET_COUNT; i++) {
-        if (mm->free_buckets[i]->size > 0) {
-            // found a larger block
+        // exact fit
+        if (curr->size == requested_size) {
+            curr->type = NodeType_Allocated;
             break;
         }
-    }
 
-    // memory is exhausted
-    if (i == BUCKET_COUNT) {
-        debug_printf("Failed to allocate memory: memory exhausted\n");
-        return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
-    }
-
-    // remove a block
-    runner = list_remove_first(mm->free_buckets[i]);
-    if (runner == NULL) {
-        debug_printf("There should be a block but isnt\n");
-        return LIB_ERR_RAM_ALLOC;
-    }
-    i--;
-
-    // split the block until it fits our need
-    for (; i >= bucket_index; i--) {
-        // divide the block in two halfs
-        region_t *left_split = slab_alloc(&mm->slabs);
-        left_split->lower = runner->lower;
-        left_split->upper = runner->lower + (runner->upper - runner->lower) / 2;
-
-        region_t *right_split = slab_alloc(&mm->slabs);
-        right_split->lower = runner->lower + (runner->upper - runner->lower + 1) / 2;
-        right_split->upper = runner->upper;
-
-        // add both halfs to the free list
-        list_insert_last(mm->free_buckets[i], left_split);
-        list_insert_last(mm->free_buckets[i], right_split);
-        map_put(mm->existing_buckets[i], left_split->lower, left_split);
-        map_put(mm->existing_buckets[i], right_split->lower, right_split);
-
-        // remove a block and continue the downward pass
-        runner = list_remove_first(mm->free_buckets[i]);
-        if (runner == NULL) {
-            debug_printf("There should be a block but isnt\n");
-            return LIB_ERR_RAM_ALLOC;
+        // split a node
+        mmnode_t *left_split, *right_split;
+        err = node_split(mm, curr, requested_size, &left_split, &right_split);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to split mmnodes");
+            return err;
         }
+        left_split->type = NodeType_Allocated;
+        right_split->type = NodeType_Free;
+
+        // refill slabs as we use slabs in node_split
+        mm_refill_slabs(mm);
+        break;
     }
 
-    size_t *allocated_size = slab_alloc(&mm->slabs);
-    *allocated_size = runner->upper - runner->lower + 1;
-    map_put(mm->allocations, runner->lower, allocated_size);
-    retcap = runner->cap;  // TODO is this done correctly?
-
-    debug_printf("Memory allocated: (%lu, %lu)\n", runner->lower, runner->upper);
-    debug_printf("Wasted memory: %lu KB\n", (*allocated_size - requested_size) / 1024);
+    debug_printf("Memory allocated: (%lu, %lu)\n", curr->base,
+                 curr->base + curr->size - 1);
 
     mm_print(mm);
     return SYS_ERR_OK;
@@ -289,78 +274,38 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
     return mm_alloc_aligned(mm, size, BASE_PAGE_SIZE, retcap);
 }
 
-static errval_t mm_merge_buddies(struct mm *mm, size_t start_addr, int bucket_index)
+static errval_t mm_merge(struct mm *mm, mmnode_t *left_split)
 {
-    if (bucket_index + 1 == BUCKET_COUNT) {
-        // reached top bucket
+    if (left_split == NULL) {
+        return LIB_ERR_RAM_ALLOC;
+    }
+
+    mmnode_t *right_split = left_split->next;
+    if (right_split == NULL) {
+        return LIB_ERR_RAM_ALLOC;
+    }
+
+    if (!capcmp(left_split->capinfo.cap, right_split->capinfo.cap)) {
+        return LIB_ERR_RAM_ALLOC;
+    }
+
+    if (left_split->type == NodeType_Free && right_split->type == NodeType_Free) {
+        assert(left_split->base + left_split->size == right_split->base);
+
+        debug_printf("Coalescing blocks at: %lu and %lu\n", left_split->base,
+                     right_split->base);
+
+        left_split->size += right_split->size;
+        left_split->next = right_split->next;
+
+        if (right_split->next != NULL) {
+            right_split->next->prev = left_split;
+        }
+
+        slab_free(&mm->slabs, right_split);
         return SYS_ERR_OK;
     }
-
-    // calculate buddy number and buddy address
-    size_t block_size = 1 << bucket_index;
-    size_t buddy_address;
-    size_t buddy_number = (start_addr - mm->base_addr) / block_size;
-    if (buddy_number % 2 == 0) {
-        buddy_address = start_addr + (1 << bucket_index);
-    } else {
-        buddy_address = start_addr - (1 << bucket_index);
-    }
-
-    // search the buddy in the free list
-    bool buddy_found = false;
-    for (int i = 0; i < mm->free_buckets[bucket_index]->size; i++) {
-        region_t *buddy = list_get_index(mm->free_buckets[bucket_index], i);
-        if (buddy == NULL) {
-            // nothing found at index (this should not happen)
-            continue;
-        }
-        if (buddy->lower != buddy_address) {
-            // not our buddy
-            continue;
-        }
-        // the buddy is also free
-        buddy_found = true;
-        size_t parent_address;
-        if (buddy_number % 2 == 0) {
-            // buddy is the block after the freed one
-            parent_address = start_addr;
-            printf("Coalescing blocks in bucket %lu at: %lu and %lu\n", bucket_index,
-                   start_addr, buddy_address);
-        } else {
-            // buddy is the block before the freed one
-            parent_address = buddy_address;
-            printf("Coalescing blocks in bucket %lu at: %lu and %lu\n", bucket_index,
-                   buddy_address, start_addr);
-        }
-        // add merged parent to free lsit
-        region_t *parent = map_get(mm->existing_buckets[bucket_index + 1], parent_address);
-        list_insert_last(mm->free_buckets[bucket_index + 1], parent);
-
-        // remove coalesced buddies from free list
-        list_remove_index(mm->free_buckets[bucket_index], i);
-        list_remove_index(mm->free_buckets[bucket_index],
-                          mm->free_buckets[bucket_index]->size - 1);
-
-        // release not anymore use subregions
-        slab_free(&mm->slabs, map_remove(mm->existing_buckets[bucket_index], start_addr));
-        slab_free(&mm->slabs,
-                  map_remove(mm->existing_buckets[bucket_index], buddy_address));
-
-        break;
-    }
-    // remove allocation
-    map_remove(mm->allocations, start_addr);
-
-    if (!buddy_found) {
-        return 0;
-    }
-
-    // TODO make iterative
-    if (buddy_number % 2 == 0) {
-        return mm_merge_buddies(mm, start_addr, bucket_index + 1);
-    } else {
-        return mm_merge_buddies(mm, buddy_address, bucket_index + 1);
-    }
+    return LIB_ERR_RAM_ALLOC;
 }
 
 errval_t mm_free(struct mm *mm, struct capref cap)
@@ -373,22 +318,30 @@ errval_t mm_free(struct mm *mm, struct capref cap)
         DEBUG_ERR(err, "failed to get the frame info\n");
     }
 
-    size_t start_addr = c.u.ram.base;
-    debug_printf("Memory free request for address %lu\n", start_addr);
+    size_t memory_base = c.u.ram.base;
+    size_t memory_size = c.u.ram.bytes;
+    debug_printf("Memory free request for address %lu\n", memory_base);
 
-    size_t *size = map_get(mm->allocations, start_addr);
-    // Invalid reference, as this was never allocated
-    if (size == NULL) {
-        printf("Invalid free request: not allocated\n");
-        return 1;
+    mmnode_t *curr = mm->head;
+    while (curr != NULL) {
+        if (curr->base != memory_base || curr->size != memory_size) {
+            curr = curr->next;
+            continue;
+        }
+
+        err = cap_destroy(cap);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to destroy the ram cap");
+            return err;
+        }
+        curr->type = NodeType_Free;
+        mm_merge(mm, curr);
+        mm_merge(mm, curr->prev);
+
+        printf("Memory freed: (%lu, %lu)\n", memory_base, memory_base + memory_size - 1);
+        return SYS_ERR_OK;
     }
-
-    size_t bucket_index = get_bucket_index(*size);
-    region_t *region = map_get(mm->existing_buckets[bucket_index], start_addr);
-
-    // add the freed block to the free list
-    list_insert_last(mm->free_buckets[bucket_index], region);
-    printf("Memory freed: (%lu, %lu)\n", region->lower, region->upper);
-
-    return mm_merge_buddies(mm, start_addr, bucket_index);
+    // Invalid reference, as this was never allocated
+    printf("Invalid memory free request: (%lu, %lu)\n", memory_base, memory_size);
+    return LIB_ERR_RAM_ALLOC;
 }

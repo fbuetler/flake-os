@@ -22,21 +22,19 @@
 #include <aos/capabilities.h>
 #include <aos/slab.h>
 #include "slot_alloc.h"
-#include "list.h"
-#include "map.h"
 
 __BEGIN_DECLS
 
 /*
- * The minimum allocation size is 1 page i.e. 4KB
+ * The minimum allocation size is 1B
  */
-#define MIN_ALLOC_LOG2 12  // TODO
+#define MIN_ALLOC_LOG2 0
 #define MIN_ALLOC ((size_t)1 << MIN_ALLOC_LOG2)
 
 /*
  * The maxmimum allocation size is 2GB
  */
-#define MAX_ALLOC_LOG2 31  // TODO
+#define MAX_ALLOC_LOG2 31
 #define MAX_ALLOC ((size_t)1 << MAX_ALLOC_LOG2)
 
 /*
@@ -45,6 +43,23 @@ __BEGIN_DECLS
  */
 #define BUCKET_COUNT (MAX_ALLOC_LOG2 - MIN_ALLOC_LOG2 + 1)
 
+
+enum nodetype { NodeType_Free, NodeType_Allocated };
+
+struct capinfo {
+    struct capref cap;
+    genpaddr_t base;
+    size_t size;
+};
+
+typedef struct mmnode_t {
+    enum nodetype type;
+    struct capinfo capinfo;
+    struct mmnode_t *prev;
+    struct mmnode_t *next;
+    genpaddr_t base;
+    gensize_t size;
+} mmnode_t;
 
 /**
  * \brief Memory manager instance data
@@ -59,13 +74,8 @@ struct mm {
     void *slot_alloc_inst;        ///< Opaque instance pointer for slot allocator
     enum objtype objtype;         ///< Type of capabilities stored
 
-    list_t *free_buckets[BUCKET_COUNT];  // array that stores all free memory regions for
-                                         // different sizes
-    map_t *existing_buckets[BUCKET_COUNT];  // array that stores all existing memory
-                                            // regions (important for merging)
-    map_t *allocations;  // map that stores all allocated memory and its sizes
-    size_t base_addr;
-    bool added;  // TODO FIXME: handle multiple regions
+    mmnode_t *head;
+    mmnode_t *tail;
 };
 
 errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,
