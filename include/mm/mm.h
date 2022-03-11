@@ -74,8 +74,7 @@ struct mm {
     void *slot_alloc_inst;        ///< Opaque instance pointer for slot allocator
     enum objtype objtype;         ///< Type of capabilities stored
 
-    mmnode_t *head;
-    mmnode_t *tail;
+    mmnode_t *head;  // points to a circular buffer that holds all memory regions
 };
 
 errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,

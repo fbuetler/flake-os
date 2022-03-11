@@ -34,7 +34,6 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_re
 
     // init datastructure
     mm->head = NULL;
-    mm->tail = NULL;
 
     return SYS_ERR_OK;
 }
@@ -45,29 +44,29 @@ void mm_destroy(struct mm *mm)
         return;
     }
 
-    mmnode_t *curr = mm->head;
-    mmnode_t *prev = NULL;
-    while (curr != NULL) {
-        prev = curr;
+    mmnode_t *curr = mm->head->next;
+    while (curr != mm->head) {
+        mmnode_t *prev = curr;
         curr = curr->next;
-        slab_free(&mm->slabs, prev);
+        free(prev);
     }
+    free(mm->head);
     mm->head = NULL;
-    mm->tail = NULL;
 }
 
 // helper functions start
 
-static void node_insert_last(struct mm *mm, mmnode_t *node)
+static void node_insert(struct mm *mm, mmnode_t *node)
 {
     if (mm->head == NULL) {
         mm->head = node;
     } else {
-        mm->tail->next = node;
-        node->prev = mm->tail;
+        mmnode_t *tail = mm->head->prev;
+        tail->next = node;
+        node->prev = tail;
     }
-
-    mm->tail = node;
+    node->next = mm->head;
+    mm->head->prev = node;
 }
 
 static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
@@ -89,15 +88,10 @@ static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
     node->size = offset;
 
     // relink nodes
-    if (node == mm->tail) {
-        new_node->next = NULL;
-        mm->tail = new_node;
-    } else {
-        new_node->next = node->next;
-        node->next->prev = new_node;
-    }
-    new_node->prev = node;
+    new_node->next = node->next;
+    node->next->prev = new_node;
     node->next = new_node;
+    new_node->prev = node;
 
     return SYS_ERR_OK;
 }
@@ -115,13 +109,14 @@ static void mm_print(struct mm *mm)
 {
     printf("===\n");
     printf("Current state:\n");
-    mmnode_t *curr = mm->head;
     if (mm->head == NULL) {
         printf("none");
         printf("\n\n");
         return;
     }
-    while (curr != NULL) {
+    printf("Head at %d\n", mm->head->base);
+    mmnode_t *curr = mm->head;
+    do {
         if (curr->type == NodeType_Allocated) {
             printf("Allocated: (%lu, %lu)\n", curr->base, curr->base + curr->size - 1);
         } else if (curr->type == NodeType_Free) {
@@ -130,7 +125,7 @@ static void mm_print(struct mm *mm)
             printf("Type unknowne\n");
         }
         curr = curr->next;
-    }
+    } while (curr != mm->head);
     printf("===\n");
 }
 
@@ -159,7 +154,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
         .base = memory_base,
         .size = memory_size,
     };
-    node_insert_last(mm, new_node);
+    node_insert(mm, new_node);
 
     debug_printf("Memory added: (%lu,%lu)\n", memory_base, memory_base + memory_size - 1);
     mm_print(mm);
@@ -218,8 +213,8 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         return err;
     }
 
-    mmnode_t *curr = mm->head;  // TODO do next fit instead of first fit
-    while (curr != NULL) {
+    mmnode_t *curr = mm->head;
+    do {
         // space left in node
         if (curr->type == NodeType_Allocated || curr->size < requested_size) {
             curr = curr->next;
@@ -269,7 +264,8 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         // refill slabs as we use slabs in node_split
         mm_refill_slabs(mm);
         break;
-    }
+    } while (curr != mm->head);
+    mm->head = curr;
 
     debug_printf("Memory allocated: (%lu, %lu)\n", curr->base,
                  curr->base + curr->size - 1);
@@ -294,6 +290,11 @@ static errval_t mm_merge(struct mm *mm, mmnode_t *left_split)
         return LIB_ERR_RAM_ALLOC;
     }
 
+    // we migh have a circular buffer but the memory is still linear
+    if (left_split->base > right_split->base) {
+        return 1;
+    }
+
     if (!capcmp(left_split->capinfo.cap, right_split->capinfo.cap)) {
         return LIB_ERR_RAM_ALLOC;
     }
@@ -304,12 +305,15 @@ static errval_t mm_merge(struct mm *mm, mmnode_t *left_split)
         debug_printf("Coalescing blocks at: %lu and %lu\n", left_split->base,
                      right_split->base);
 
+        // resize left split
         left_split->size += right_split->size;
-        left_split->next = right_split->next;
 
-        if (right_split->next != NULL) {
-            right_split->next->prev = left_split;
+        // relink nodes
+        if (mm->head == right_split) {
+            mm->head = right_split->next;
         }
+        left_split->next = right_split->next;
+        right_split->next->prev = left_split;
 
         slab_free(&mm->slabs, right_split);
         return SYS_ERR_OK;
@@ -337,7 +341,7 @@ errval_t mm_free(struct mm *mm, struct capref cap)
     }
 
     mmnode_t *curr = mm->head;
-    while (curr != NULL) {
+    do {
         if (curr->base != memory_base || curr->size != memory_size) {
             curr = curr->next;
             continue;
@@ -354,7 +358,9 @@ errval_t mm_free(struct mm *mm, struct capref cap)
 
         printf("Memory freed: (%lu, %lu)\n", memory_base, memory_base + memory_size - 1);
         return SYS_ERR_OK;
-    }
+    } while (curr != mm->head);
+    mm->head = curr;
+
     // Invalid reference, as this was never allocated
     printf("Invalid memory free request: (%lu, %lu)\n", memory_base, memory_size);
     return LIB_ERR_RAM_ALLOC;
