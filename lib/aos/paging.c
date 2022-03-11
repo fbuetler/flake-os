@@ -24,13 +24,11 @@
 static struct paging_state current;
 
 
-
 /**
  * \brief Helper function that allocates a slot and
  *        creates a aarch64 page table capability for a certain level
  */
-static errval_t pt_alloc(struct paging_state * st, enum objtype type, 
-                         struct capref *ret) 
+static errval_t pt_alloc(struct paging_state *st, enum objtype type, struct capref *ret)
 {
     errval_t err;
     err = st->slot_alloc->alloc(st->slot_alloc, ret);
@@ -46,17 +44,20 @@ static errval_t pt_alloc(struct paging_state * st, enum objtype type,
     return SYS_ERR_OK;
 }
 
-__attribute__((unused)) static errval_t pt_alloc_l1(struct paging_state * st, struct capref *ret)
+__attribute__((unused)) static errval_t pt_alloc_l1(struct paging_state *st,
+                                                    struct capref *ret)
 {
     return pt_alloc(st, ObjType_VNode_AARCH64_l1, ret);
 }
 
-__attribute__((unused)) static errval_t pt_alloc_l2(struct paging_state * st, struct capref *ret)
+__attribute__((unused)) static errval_t pt_alloc_l2(struct paging_state *st,
+                                                    struct capref *ret)
 {
     return pt_alloc(st, ObjType_VNode_AARCH64_l2, ret);
 }
 
-__attribute__((unused)) static errval_t pt_alloc_l3(struct paging_state * st, struct capref *ret) 
+__attribute__((unused)) static errval_t pt_alloc_l3(struct paging_state *st,
+                                                    struct capref *ret)
 {
     return pt_alloc(st, ObjType_VNode_AARCH64_l3, ret);
 }
@@ -67,7 +68,7 @@ __attribute__((unused)) static errval_t pt_alloc_l3(struct paging_state * st, st
  * TODO(M4): Improve this function.
  * \brief Initialize the paging_state struct for the paging
  *        state of the calling process.
- * 
+ *
  * \param st The struct to be initialized, must not be NULL.
  * \param start_vaddr Virtual address allocation should start at
  *        this address.
@@ -90,7 +91,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
  * TODO(M4): Improve this function.
  * \brief Initialize the paging_state struct for the paging state
  *        of a child process.
- * 
+ *
  * \param st The struct to be initialized, must not be NULL.
  * \param start_vaddr Virtual address allocation should start at
  *        this address.
@@ -100,7 +101,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
  * indicating what went wrong otherwise.
  */
 errval_t paging_init_state_foreign(struct paging_state *st, lvaddr_t start_vaddr,
-                           struct capref pdir, struct slot_allocator *ca)
+                                   struct capref pdir, struct slot_allocator *ca)
 {
     // TODO (M2): Implement state struct initialization
     // TODO (M4): Implement page fault handler that installs frames when a page fault
@@ -143,7 +144,6 @@ errval_t paging_init_onthread(struct thread *t)
 }
 
 
-
 /**
  * @brief Find a free region of virtual address space that is large enough to accomodate a
  *        buffer of size 'bytes'.
@@ -153,7 +153,8 @@ errval_t paging_init_onthread(struct thread *t)
  * @param[in]  bytes       The requested (minimum) size of the region to allocate
  * @param[in]  alignment   The address needs to be a multiple of 'alignment'.
  *
- * @return Either SYS_ERR_OK if no error occured or an error indicating what went wrong otherwise.
+ * @return Either SYS_ERR_OK if no error occured or an error indicating what went wrong
+ * otherwise.
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t alignment)
 {
@@ -178,7 +179,8 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
  * @param[in]  flags   The flags that are to be set for the newly mapped region,
  *                     see 'paging_flags_t' in paging_types.h .
  *
- * @return Either SYS_ERR_OK if no error occured or an error indicating what went wrong otherwise.
+ * @return Either SYS_ERR_OK if no error occured or an error indicating what went wrong
+ * otherwise.
  */
 errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes,
                                struct capref frame, int flags)
@@ -214,7 +216,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
      * TODO(M1):
      *    - Map a frame assuming all mappings will fit into one leaf page table (L3)
      * TODO(M2):
-     *    - General case: you will need to handle mappings spanning multiple leaf page tables.
+     *    - General case: you will need to handle mappings spanning multiple leaf page
+     * tables.
      *    - Make sure to update your paging state to reflect the newly mapped region
      *
      * Hint:
