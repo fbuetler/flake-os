@@ -105,7 +105,7 @@ static errval_t mm_refill_slabs(struct mm *mm)
     return SYS_ERR_OK;
 }
 
-static void mm_print(struct mm *mm)
+void mm_debug_print(struct mm *mm)
 {
     printf("===\n");
     printf("Current state:\n");
@@ -157,7 +157,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     node_insert(mm, new_node);
 
     debug_printf("Memory added: (%lu,%lu)\n", memory_base, memory_base + memory_size - 1);
-    mm_print(mm);
+    mm_debug_print(mm);
 
     return SYS_ERR_OK;
 }
@@ -269,8 +269,8 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
 
     debug_printf("Memory allocated: (%lu, %lu)\n", curr->base,
                  curr->base + curr->size - 1);
+    mm_debug_print(mm);
 
-    mm_print(mm);
     return SYS_ERR_OK;
 }
 
@@ -357,6 +357,8 @@ errval_t mm_free(struct mm *mm, struct capref cap)
         mm_merge(mm, curr->prev);
 
         printf("Memory freed: (%lu, %lu)\n", memory_base, memory_base + memory_size - 1);
+        mm_debug_print(mm);
+
         return SYS_ERR_OK;
     } while (curr != mm->head);
     mm->head = curr;
