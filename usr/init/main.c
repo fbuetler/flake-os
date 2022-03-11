@@ -48,6 +48,11 @@ static int bsp_main(int argc, char *argv[])
     }
 
     // TODO: initialize mem allocator, vspace management here
+    struct capref retcap;
+    err = ram_alloc(&retcap, 1 << 29);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "ram_alloc");
+    }
 
     // setup CSpace: L1CNode, L2CNode
     // L1CNode (cnode_create_l1): initially 256 slots with L2CNodes,

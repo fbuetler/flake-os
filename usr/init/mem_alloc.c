@@ -48,11 +48,10 @@ static inline errval_t initialize_ram_allocator(void)
     }
 
     // Give aos_mm a bit of memory for the initialization
-    // M1 TODO: grow me with some memory!
     // TODO bigger? smaller?
-    size_t init_buffer_size = 1024;
-    char init_buf[init_buffer_size];
-    slab_grow(&aos_mm.slabs, &init_buf, init_buffer_size);
+    size_t init_buffer_size = 1024 * 1024;
+    char *init_buf = malloc(init_buffer_size * sizeof(char));
+    slab_grow(&aos_mm.slabs, init_buf, init_buffer_size);
 
     return SYS_ERR_OK;
 }

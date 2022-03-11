@@ -59,10 +59,13 @@ struct mm {
     void *slot_alloc_inst;        ///< Opaque instance pointer for slot allocator
     enum objtype objtype;         ///< Type of capabilities stored
 
-    list_t *buckets[BUCKET_COUNT];  // array of douply linked list of free memory
-    map_t *allocations;             // map of allocated memory with (address, size)
-    size_t base_addr;               // base address of memory TODO FIXME multiple regions
-    bool added;                     // TODO FIXME: handle multiple regions
+    list_t *free_buckets[BUCKET_COUNT];  // array that stores all free memory regions for
+                                         // different sizes
+    map_t *existing_buckets[BUCKET_COUNT];  // array that stores all existing memory
+                                            // regions (important for merging)
+    map_t *allocations;  // map that stores all allocated memory and its sizes
+    size_t base_addr;
+    bool added;  // TODO FIXME: handle multiple regions
 };
 
 errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,

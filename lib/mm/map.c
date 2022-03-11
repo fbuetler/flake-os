@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-void map_node_init(map_node_t *node, size_t key, size_t value)
+void map_node_init(map_node_t *node, size_t key, void *value)
 {
     node->key = key;
     node->value = value;
@@ -31,7 +31,7 @@ void map_destroy(map_t *map)
     map->size = 0;
 }
 
-void map_put(map_t *map, size_t key, size_t value)
+void map_put(map_t *map, size_t key, void *value)
 {
     map_node_t *entry = malloc(sizeof(map_node_t));
     map_node_init(entry, key, value);
@@ -47,11 +47,11 @@ void map_put(map_t *map, size_t key, size_t value)
     map->size++;
 }
 
-size_t map_get(map_t *map, size_t key)
+void *map_get(map_t *map, size_t key)
 {
     map_node_t *curr = map->head;
     if (map->head == NULL) {
-        return -1;
+        return NULL;
     }
 
     while (curr != NULL) {
@@ -60,19 +60,19 @@ size_t map_get(map_t *map, size_t key)
         }
         curr = curr->next;
     }
-    return -1;
+    return NULL;
 }
 
-size_t map_remove(map_t *map, size_t key)
+void *map_remove(map_t *map, size_t key)
 {
     map_node_t *curr = map->head;
     if (map->head == NULL) {
-        return -1;
+        return NULL;
     }
 
     while (curr->key != key) {
         if (curr->next == NULL) {
-            return -1;
+            return NULL;
         }
         curr = curr->next;
     }
@@ -90,14 +90,14 @@ size_t map_remove(map_t *map, size_t key)
     }
     map->size--;
 
-    size_t value = curr->value;
-    free(curr);
+    size_t *value = curr->value;
+    // free(curr);
     return value;
 }
 
 bool map_contains(map_t *map, size_t key)
 {
-    return map_get(map, key) != -1;
+    return map_get(map, key) != NULL;
 }
 
 void map_print(map_t *map)
@@ -108,7 +108,7 @@ void map_print(map_t *map)
         return;
     }
     while (curr != NULL) {
-        printf("(%lu, %lu),", curr->key, curr->value);
+        printf("(%lu, %lu),", curr->key, *(size_t *)curr->value);
         curr = curr->next;
     }
 }

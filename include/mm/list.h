@@ -1,10 +1,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
+#include <aos/capabilities.h>
 
 // TODO optimize to log log n
 typedef struct region_t {
     size_t lower;  // inclusive
     size_t upper;  // inclusive
+    struct capref *cap;
 } region_t;
 
 typedef struct list_node_t {

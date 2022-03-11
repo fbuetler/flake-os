@@ -22,37 +22,52 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_re
                  slot_alloc_t slot_alloc_func, slot_refill_t slot_refill_func,
                  void *slot_alloc_inst)
 {
-    errval_t err = 0;
+    mm->objtype = objtype;
 
-    // (depends on init_buffer_size in mem_alloc.c)
-    size_t blocksize = 256;  // TODO bigger? smaller?
-    slab_init(&(mm->slabs), blocksize, slab_refill_func);
+    // sizes of different types:
+    // list_t: 24
+    // map_t: 24
+    // region_t: 24
+    // list_node_t: 24
+    // map_node_t: 32
+    // capref: 16
+    // size_t: 8
+    size_t blocksize = 32;
+    // init slab allocator
+    slab_init(&mm->slabs, blocksize, slab_refill_func);
+
+    // init slot allocator
     mm->slot_alloc = slot_alloc_func;
     mm->slot_refill = slot_refill_func;
     mm->slot_alloc_inst = slot_alloc_inst;
-    mm->objtype = objtype;
 
     // init datastructure
     for (int i = 0; i < BUCKET_COUNT; i++) {
-        mm->buckets[i] = malloc(sizeof(list_t));
-        list_init(mm->buckets[i]);
+        mm->free_buckets[i] = malloc(sizeof(list_t));
+        list_init(mm->free_buckets[i]);
+    }
+    for (int i = 0; i < BUCKET_COUNT; i++) {
+        mm->existing_buckets[i] = malloc(sizeof(map_t));
+        map_init(mm->existing_buckets[i]);
     }
     mm->allocations = malloc(sizeof(map_t));
     map_init(mm->allocations);
 
     mm->added = false;  // TODO FIXME: handle multiple regions
 
-    return err;
+    return SYS_ERR_OK;
 }
 
 void mm_destroy(struct mm *mm)
 {
     for (int i = 0; i < BUCKET_COUNT; i++) {
-        list_destroy(mm->buckets[i]);
+        list_destroy(mm->free_buckets[i]);
     }
-    free(mm->buckets);
+    for (int i = 0; i < BUCKET_COUNT; i++) {
+        map_destroy(mm->existing_buckets[i]);
+    }
     map_destroy(mm->allocations);
-    free(mm->allocations);
+    free(mm->free_buckets);
 }
 
 // helper functions start
@@ -86,7 +101,7 @@ static void mm_print(struct mm *mm)
     printf("Free memory lists:\n");
     for (int i = 0; i < BUCKET_COUNT; i++) {
         printf("%i: ", i + MIN_ALLOC_LOG2);
-        list_print(mm->buckets[i]);
+        list_print(mm->free_buckets[i]);
         printf("\n");
     }
     printf("Allocated memory regions:\n");
@@ -112,7 +127,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     }
 
     // add memory as free memory to datastructure
-    genpaddr_t memory_base_addr = c.u.ram.base;
+    size_t memory_base_addr = c.u.ram.base;
     // TODO FIXME: we throw some memory away here
     size_t memory_size = next_lower_power_of_two(c.u.ram.bytes);
     printf("Wasted %lu KB of memory\n", (c.u.ram.bytes - memory_size) / 1024);
@@ -121,7 +136,9 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     region_t *region = malloc(sizeof(region_t));
     region->lower = memory_base_addr;
     region->upper = memory_base_addr + memory_size - 1;
-    list_insert_last(mm->buckets[bucket_index], region);
+    region->cap = &cap;  // TODO is this dangerous?
+    list_insert_last(mm->free_buckets[bucket_index], region);
+    map_put(mm->existing_buckets[bucket_index], memory_base_addr, region);
 
     mm->base_addr = memory_base_addr;
 
@@ -151,27 +168,28 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
     region_t *runner = NULL;
 
     // there is already such a block
-    if (mm->buckets[bucket_index]->size > 0) {
-        runner = list_remove_first(mm->buckets[bucket_index]);
+    if (mm->free_buckets[bucket_index]->size > 0) {
+        runner = list_remove_first(mm->free_buckets[bucket_index]);
         if (runner == NULL) {
             debug_printf("there should be a block but isnt\n");
             return LIB_ERR_RAM_ALLOC;
         }
 
-        size_t block_size = runner->upper - runner->lower + 1;
-        map_put(mm->allocations, runner->lower, block_size);
+        size_t *allocated_size = malloc(sizeof(size_t));
+        *allocated_size = runner->upper - runner->lower + 1;
+        map_put(mm->allocations, runner->lower, allocated_size);
         // TODO fill in retcap
         // TODO use cap_retype
 
         debug_printf("Memory allocated: (%lu, %lu)\nWasted memory: %lu KB\n",
-                     runner->lower, runner->upper, block_size / 1024);
+                     runner->lower, runner->upper, *allocated_size / 1024);
         return SYS_ERR_OK;
     }
 
     // search for the next larger block
     int i;
     for (i = bucket_index + 1; i < BUCKET_COUNT; i++) {
-        if (mm->buckets[i]->size > 0) {
+        if (mm->free_buckets[i]->size > 0) {
             // found a larger block
             break;
         }
@@ -184,7 +202,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
     }
 
     // remove a block
-    runner = list_remove_first(mm->buckets[i]);
+    runner = list_remove_first(mm->free_buckets[i]);
     if (runner == NULL) {
         debug_printf("There should be a block but isnt\n");
         return LIB_ERR_RAM_ALLOC;
@@ -204,24 +222,27 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
         right_split->upper = runner->upper;
 
         // add both halfs to the free list
-        list_insert_last(mm->buckets[i], left_split);
-        list_insert_last(mm->buckets[i], right_split);
+        list_insert_last(mm->free_buckets[i], left_split);
+        list_insert_last(mm->free_buckets[i], right_split);
+        map_put(mm->existing_buckets[i], left_split->lower, left_split);
+        map_put(mm->existing_buckets[i], right_split->lower, right_split);
 
         // remove a block and continue the downward pass
-        runner = list_remove_first(mm->buckets[i]);
+        runner = list_remove_first(mm->free_buckets[i]);
         if (runner == NULL) {
             debug_printf("There should be a block but isnt\n");
             return LIB_ERR_RAM_ALLOC;
         }
     }
 
-    size_t block_size = runner->upper - runner->lower + 1;
-    map_put(mm->allocations, runner->lower, block_size);
+    size_t *allocated_size = malloc(sizeof(size_t));
+    *allocated_size = runner->upper - runner->lower + 1;
+    map_put(mm->allocations, runner->lower, allocated_size);
     // TODO fill in retcap
     // TODO use cap_retype
 
     debug_printf("Memory allocated: (%lu, %lu)\nWasted memory: %lu KB\n", runner->lower,
-                 runner->upper, block_size / 1024);
+                 runner->upper, *allocated_size / 1024);
 
     return SYS_ERR_OK;
 }
@@ -235,13 +256,13 @@ static errval_t mm_merge_buddies(struct mm *mm, size_t start_addr, int bucket_in
 {
     if (bucket_index + 1 == BUCKET_COUNT) {
         // reached top bucket
-        return 0;
+        return SYS_ERR_OK;
     }
 
     // calculate buddy number and buddy address
-    int block_size = 1 << bucket_index;
-    int buddy_address;
-    int buddy_number = (start_addr - mm->base_addr) / block_size;
+    size_t block_size = 1 << bucket_index;
+    size_t buddy_address;
+    size_t buddy_number = (start_addr - mm->base_addr) / block_size;
     if (buddy_number % 2 == 0) {
         buddy_address = start_addr + (1 << bucket_index);
     } else {
@@ -250,8 +271,8 @@ static errval_t mm_merge_buddies(struct mm *mm, size_t start_addr, int bucket_in
 
     // search the buddy in the free list
     bool buddy_found = false;
-    for (int i = 0; i < mm->buckets[bucket_index]->size; i++) {
-        region_t *buddy = list_get_index(mm->buckets[bucket_index], i);
+    for (int i = 0; i < mm->free_buckets[bucket_index]->size; i++) {
+        region_t *buddy = list_get_index(mm->free_buckets[bucket_index], i);
         if (buddy == NULL) {
             // nothing found at index (this should not happen)
             continue;
@@ -260,29 +281,33 @@ static errval_t mm_merge_buddies(struct mm *mm, size_t start_addr, int bucket_in
             // not our buddy
             continue;
         }
-        buddy_found = true;
         // the buddy is also free
+        buddy_found = true;
+        size_t parent_address;
         if (buddy_number % 2 == 0) {
             // buddy is the block after the freed one
-            region_t *parent = malloc(sizeof(region_t));
-            parent->lower = start_addr;
-            parent->upper = start_addr + 2 * (1 << (bucket_index)) - 1;
-            list_insert_last(mm->buckets[bucket_index + 1], parent);
+            parent_address = start_addr;
             printf("Coalescing blocks in bucket %lu at: %lu and %lu\n", bucket_index,
                    start_addr, buddy_address);
         } else {
             // buddy is the block before the freed one
-            region_t *parent = malloc(sizeof(region_t));
-            parent->lower = buddy_address;
-            parent->upper = buddy_address + 2 * (1 << (bucket_index));
-            list_insert_last(mm->buckets[bucket_index + 1], parent);
+            parent_address = buddy_address;
             printf("Coalescing blocks in bucket %lu at: %lu and %lu\n", bucket_index,
                    buddy_address, start_addr);
         }
-        // remove coalesced buddy
-        list_remove_index(mm->buckets[bucket_index], i);
-        // remove buddy
-        list_remove_index(mm->buckets[bucket_index], mm->buckets[bucket_index]->size - 1);
+        // add merged parent to free lsit
+        region_t *parent = map_get(mm->existing_buckets[bucket_index + 1], parent_address);
+        list_insert_last(mm->free_buckets[bucket_index + 1], parent);
+
+        // remove coalesced buddies from free list
+        list_remove_index(mm->free_buckets[bucket_index], i);
+        list_remove_index(mm->free_buckets[bucket_index],
+                          mm->free_buckets[bucket_index]->size - 1);
+
+        // release not anymore use subregions
+        free(map_remove(mm->existing_buckets[bucket_index], start_addr));
+        free(map_remove(mm->existing_buckets[bucket_index], buddy_address));
+
         break;
     }
     // remove allocation
@@ -311,21 +336,19 @@ errval_t mm_free(struct mm *mm, struct capref cap)
     }
 
     size_t start_addr = c.u.ram.base;
-    size_t size = map_get(mm->allocations, start_addr);
+
+    size_t *size = map_get(mm->allocations, start_addr);
     // Invalid reference, as this was never allocated
-    if (size == -1) {
+    if (size == NULL) {
         printf("Invalid free request\n");
         return 1;
     }
 
-    size_t bucket_index = get_bucket_index(size);
-
-    region_t *region = malloc(sizeof(region_t));
-    region->lower = start_addr;
-    region->upper = start_addr + size - 1;
+    size_t bucket_index = get_bucket_index(*size);
+    region_t *region = map_get(mm->existing_buckets[bucket_index], start_addr);
 
     // add the freed block to the free list
-    list_insert_last(mm->buckets[bucket_index], region);
+    list_insert_last(mm->free_buckets[bucket_index], region);
     printf("Memory freed: (%lu, %lu)\n", region->lower, region->upper);
 
     return mm_merge_buddies(mm, start_addr, bucket_index);
