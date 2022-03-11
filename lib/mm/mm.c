@@ -43,14 +43,14 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_re
 
     // init datastructure
     for (int i = 0; i < BUCKET_COUNT; i++) {
-        mm->free_buckets[i] = malloc(sizeof(list_t));
+        mm->free_buckets[i] = slab_alloc(&mm->slabs);
         list_init(mm->free_buckets[i]);
     }
     for (int i = 0; i < BUCKET_COUNT; i++) {
-        mm->existing_buckets[i] = malloc(sizeof(map_t));
+        mm->existing_buckets[i] = slab_alloc(&mm->slabs);
         map_init(mm->existing_buckets[i]);
     }
-    mm->allocations = malloc(sizeof(map_t));
+    mm->allocations = slab_alloc(&mm->slabs);
     map_init(mm->allocations);
 
     mm->added = false;  // TODO FIXME: handle multiple regions
@@ -67,7 +67,7 @@ void mm_destroy(struct mm *mm)
         map_destroy(mm->existing_buckets[i]);
     }
     map_destroy(mm->allocations);
-    free(mm->free_buckets);
+    slab_free(&mm->slabs, mm->free_buckets);
 }
 
 // helper functions start
@@ -133,7 +133,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     printf("Wasted %lu KB of memory\n", (c.u.ram.bytes - memory_size) / 1024);
 
     size_t bucket_index = get_bucket_index(memory_size);
-    region_t *region = malloc(sizeof(region_t));
+    region_t *region = slab_alloc(&mm->slabs);
     region->lower = memory_base_addr;
     region->upper = memory_base_addr + memory_size - 1;
     region->cap = &cap;  // TODO is this dangerous?
@@ -150,11 +150,38 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     return SYS_ERR_OK;
 }
 
+static errval_t mm_allocate_slot(struct mm *mm, struct capref *cap)
+{
+    errval_t err;
+    err = mm->slot_alloc(mm->slot_alloc_inst, 1, cap);
+    // TODO move the following to slot_alloc_prealloc
+    if (err_is_fail(err)) {
+        if (mm->slot_refill == NULL) {
+            return err_push(err, MM_ERR_SLOT_NOSLOTS);
+        }
+
+        err = mm->slot_refill(mm->slot_alloc_inst);
+        if (err_is_fail(err)) {
+            return err_push(err, MM_ERR_SLOT_NOSLOTS);
+        }
+
+        err = mm->slot_alloc(mm->slot_alloc_inst, 1, cap);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Allocating slot");
+            return err_push(err, MM_ERR_SLOT_NOSLOTS);
+        }
+    }
+
+    return err;
+}
+
 errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment,
                           struct capref *retcap)
 {
     debug_printf("Memory allocation request of %lu KB aligned to %lu KB\n",
                  requested_size / 1024, alignment / 1024);
+
+    errval_t err;
     // no matter what the size has to be a power of 2
     if (requested_size < MIN_ALLOC || MAX_ALLOC < requested_size) {
         // requested size is too small or too big
@@ -166,6 +193,12 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         // TODO should we allow unaligned sizes
         debug_printf("Memory allocation denied: Not aligned");
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
+    }
+
+    err = mm_allocate_slot(mm, retcap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not allocate slot for retcap\n");
+        return err;
     }
 
     // TODO respect alignment
@@ -180,11 +213,10 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
             return LIB_ERR_RAM_ALLOC;
         }
 
-        size_t *allocated_size = malloc(sizeof(size_t));
+        size_t *allocated_size = slab_alloc(&mm->slabs);
         *allocated_size = runner->upper - runner->lower + 1;
         map_put(mm->allocations, runner->lower, allocated_size);
-        // TODO fill in retcap
-        // TODO use cap_retype
+        retcap = runner->cap;  // TODO is this done correctly?
 
         debug_printf("Memory allocated: (%lu, %lu)\n", runner->lower, runner->upper);
         debug_printf("Wasted memory: %lu KB\n", (*allocated_size - requested_size) / 1024);
@@ -218,12 +250,11 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
     // split the block until it fits our need
     for (; i >= bucket_index; i--) {
         // divide the block in two halfs
-        // TODO use cap_retype
-        region_t *left_split = malloc(sizeof(region_t));
+        region_t *left_split = slab_alloc(&mm->slabs);
         left_split->lower = runner->lower;
         left_split->upper = runner->lower + (runner->upper - runner->lower) / 2;
 
-        region_t *right_split = malloc(sizeof(region_t));
+        region_t *right_split = slab_alloc(&mm->slabs);
         right_split->lower = runner->lower + (runner->upper - runner->lower + 1) / 2;
         right_split->upper = runner->upper;
 
@@ -241,11 +272,10 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         }
     }
 
-    size_t *allocated_size = malloc(sizeof(size_t));
+    size_t *allocated_size = slab_alloc(&mm->slabs);
     *allocated_size = runner->upper - runner->lower + 1;
     map_put(mm->allocations, runner->lower, allocated_size);
-    // TODO fill in retcap
-    // TODO use cap_retype
+    retcap = runner->cap;  // TODO is this done correctly?
 
     debug_printf("Memory allocated: (%lu, %lu)\n", runner->lower, runner->upper);
     debug_printf("Wasted memory: %lu KB\n", (*allocated_size - requested_size) / 1024);
@@ -312,8 +342,9 @@ static errval_t mm_merge_buddies(struct mm *mm, size_t start_addr, int bucket_in
                           mm->free_buckets[bucket_index]->size - 1);
 
         // release not anymore use subregions
-        free(map_remove(mm->existing_buckets[bucket_index], start_addr));
-        free(map_remove(mm->existing_buckets[bucket_index], buddy_address));
+        slab_free(&mm->slabs, map_remove(mm->existing_buckets[bucket_index], start_addr));
+        slab_free(&mm->slabs,
+                  map_remove(mm->existing_buckets[bucket_index], buddy_address));
 
         break;
     }
