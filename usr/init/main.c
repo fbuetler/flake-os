@@ -30,19 +30,19 @@ struct bootinfo *bi;
 
 coreid_t my_core_id;
 
-// static void test_many_allocs_and_frees(size_t n)
-// {
-//     errval_t err;
-//     for (int i = 0; i < n; i++) {
-//         printf("Iteration %d\n", i);
-//         struct capref cap;
-//         err = ram_alloc_aligned(&cap, 1 << 12, 1);
-//         assert(err_is_ok(err));
-//         err = aos_ram_free(cap);
-//         assert(err_is_ok(err));
-//     }
-//     mm_debug_print(&aos_mm);
-// }
+static void test_alternate_allocs_and_frees(size_t n)
+{
+    errval_t err;
+    for (int i = 0; i < n; i++) {
+        printf("Iteration %d\n", i);
+        struct capref cap;
+        err = ram_alloc_aligned(&cap, 1 << 12, 1);
+        assert(err_is_ok(err));
+        err = aos_ram_free(cap);
+        assert(err_is_ok(err));
+    }
+    mm_debug_print(&aos_mm);
+}
 
 static void test_consecutive_allocs_then_frees(size_t n)
 {
@@ -52,11 +52,33 @@ static void test_consecutive_allocs_then_frees(size_t n)
         err = ram_alloc_aligned(&caps[i], 1 << 12, 1);
         assert(err_is_ok(err));
     }
+    mm_debug_print(&aos_mm);
     for (int i = 0; i < n; i++) {
         err = aos_ram_free(caps[i]);
         assert(err_is_ok(err));
     }
+    mm_debug_print(&aos_mm);
 }
+
+// static void test_expontential_allocs_then_frees(size_t limit)
+// {
+//     // multiples of base page size
+//     int base_page_size_log = 12;
+//     limit -= base_page_size_log;
+
+//     errval_t err;
+//     struct capref caps[limit];
+//     for (int i = 0; i < limit; i++) {
+//         err = ram_alloc_aligned(&caps[i], 1 << (base_page_size_log + i), 1);
+//         assert(err_is_ok(err));
+//     }
+//     mm_debug_print(&aos_mm);
+//     for (int i = 0; i < limit; i++) {
+//         err = aos_ram_free(caps[i]);
+//         assert(err_is_ok(err));
+//     }
+//     mm_debug_print(&aos_mm);
+// }
 
 // static void test_next_fit_alloc(void)
 // {
@@ -98,6 +120,24 @@ static void test_consecutive_allocs_then_frees(size_t n)
 //     printf("base: %d\n", c3.u.ram.base);
 // }
 
+static void test_map_single_frame(void)
+{
+    errval_t err;
+    size_t bytes = BASE_PAGE_SIZE;
+
+    printf("allocate frame\n");
+    struct capref frame_cap;
+    size_t allocated_bytes;
+    err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
+    assert(err_is_ok(err));
+
+    printf("map frame into virtual memory\n");
+    struct paging_state *st = get_current_paging_state();
+    lvaddr_t vaddr = VADDR_OFFSET;  // M1: use a manually chosen VA offset
+    err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
+    assert(err_is_ok(err));
+}
+
 static int bsp_main(int argc, char *argv[])
 {
     errval_t err;
@@ -113,13 +153,23 @@ static int bsp_main(int argc, char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
+    mm_debug_print(&aos_mm);
+
+    test_alternate_allocs_and_frees(8);
+    test_consecutive_allocs_then_frees(8);
+    // test_alternate_allocs_and_frees(1 << 10);
+    // test_consecutive_allocs_then_frees(1 << 10);
+    // test_next_fit_alloc();
+    // test_expontential_allocs_then_frees(20);
+
+    test_map_single_frame();
+
+    // err = slab_default_refill(&aos_mm.slabs);
+    // assert(err_is_ok(err));
+
+    // TODO write test to exhaust slab and slot allocators to test page mappings
 
     // TODO: initialize mem allocator, vspace management here
-
-    // test_many_allocs_and_frees(1);
-    test_consecutive_allocs_then_frees(16);
-    // test_many_allocs_and_frees(1 << 10);
-    // test_next_fit_alloc();
 
     // setup CSpace: L1CNode, L2CNode
     // L1CNode (cnode_create_l1): initially 256 slots with L2CNodes,
