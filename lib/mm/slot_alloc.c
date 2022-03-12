@@ -88,6 +88,24 @@ errval_t slot_alloc_prealloc(void *inst, uint64_t nslots, struct capref *ret)
     struct slot_prealloc *this = inst;
     assert(nslots < L2_CNODE_SLOTS);
 
+    if (slot_freecount(this) - nslots < 8) {
+        errval_t err;
+
+        err = slot_prealloc_refill(this);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to refill slot allocator %d", this->current);
+            return err;
+        }
+
+        this->current = !this->current;  // refill both
+
+        err = slot_prealloc_refill(this);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to refill slot allocator %d", this->current);
+            return err;
+        }
+    }
+
     /* Check if enough space */
     if (this->meta[this->current].free < nslots) {
         /*
@@ -95,6 +113,7 @@ errval_t slot_alloc_prealloc(void *inst, uint64_t nslots, struct capref *ret)
                 this->current, !this->current);
         */
         // Allocate from next cnode
+        // we only have 2 cnodes, so this switches to the other
         this->current = !this->current;
     }
 
@@ -108,6 +127,11 @@ errval_t slot_alloc_prealloc(void *inst, uint64_t nslots, struct capref *ret)
     this->meta[this->current].free -= nslots;
 
     return SYS_ERR_OK;
+}
+
+size_t slot_freecount(struct slot_prealloc *this)
+{
+    return this->meta[0].free + this->meta[1].free;
 }
 
 /**
@@ -130,6 +154,7 @@ errval_t slot_prealloc_init(struct slot_prealloc *this, struct capref initial_cn
         return LIB_ERR_SLOT_ALLOC_INIT;
     }
 
+    // ASK: do we initialize L1CNode here? and if so why are there 2?
     this->current = 0;
     this->meta[0].cap = initial_cnode;
     this->meta[0].free = initial_space;
@@ -138,6 +163,7 @@ errval_t slot_prealloc_init(struct slot_prealloc *this, struct capref initial_cn
     return SYS_ERR_OK;
 }
 
+// ASK: are the following functions an alternative to the above?
 errval_t slot_alloc_basecn_init(struct slot_alloc_basecn *this)
 {
     // Use ROOTCN_SLOT_SLOT_ALLOC0 as CNode fore basecn allocator

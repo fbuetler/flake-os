@@ -55,6 +55,9 @@ errval_t slot_prealloc_init(struct slot_prealloc *slot_alloc, struct capref init
 /// Refill function for the pre-allocating implementation
 errval_t slot_prealloc_refill(void *inst);
 
+/// Free slots couter
+size_t slot_freecount(struct slot_prealloc *this);
+
 /// Instance data for simple base-cnode allocator
 struct slot_alloc_basecn {
     struct capref cap;  ///< Next cap to allocate

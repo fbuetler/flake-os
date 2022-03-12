@@ -96,16 +96,6 @@ static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
     return SYS_ERR_OK;
 }
 
-static errval_t mm_refill_slabs(struct mm *mm)
-{
-    size_t free = slab_freecount(&mm->slabs);
-    if (free < 8) {
-        // TODO maybe set this function as slabs->refill_func
-        return slab_default_refill(&mm->slabs);
-    }
-    return SYS_ERR_OK;
-}
-
 void mm_debug_print(struct mm *mm)
 {
     printf("===\n");
@@ -264,9 +254,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
             right_split->type = NodeType_Free;
 
             curr = left_split;
-
-            // refill slabs as we use slabs in node_split
-            mm_refill_slabs(mm);
         }
         curr->type = NodeType_Allocated;
 

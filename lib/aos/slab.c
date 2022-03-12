@@ -116,6 +116,15 @@ void *slab_alloc(struct slab_allocator *slabs)
     sh->blocks = bh->next;
     sh->free--;
 
+    if (slab_freecount(slabs) < 8) {
+        // TODO maybe set this function as slabs->refill_func
+        err = slab_default_refill(slabs);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to refill slab allocator");
+            return NULL;
+        }
+    }
+
     return bh;
 }
 
