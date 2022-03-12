@@ -17,43 +17,6 @@
 #include <aos/debug.h>
 #include <aos/solution.h>
 
-
-errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,
-                 slot_alloc_t slot_alloc_func, slot_refill_t slot_refill_func,
-                 void *slot_allocator)
-{
-    mm->objtype = objtype;
-
-    // init slab allocator
-    slab_init(&mm->slab_allocator, sizeof(mmnode_t), slab_refill_func);
-
-    // init slot allocator
-    mm->slot_alloc = slot_alloc_func;
-    mm->slot_refill = slot_refill_func;
-    mm->slot_allocator = slot_allocator;
-
-    // init datastructure
-    mm->head = NULL;
-
-    return SYS_ERR_OK;
-}
-
-void mm_destroy(struct mm *mm)
-{
-    if (mm->head == NULL) {
-        return;
-    }
-
-    mmnode_t *curr = mm->head->next;
-    while (curr != mm->head) {
-        mmnode_t *prev = curr;
-        curr = curr->next;
-        free(prev);
-    }
-    free(mm->head);
-    mm->head = NULL;
-}
-
 // helper functions start
 
 static void node_insert(struct mm *mm, mmnode_t *node)
@@ -94,6 +57,85 @@ static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
     new_node->prev = node;
 
     return SYS_ERR_OK;
+}
+
+static errval_t mm_merge(struct mm *mm, mmnode_t *left_split)
+{
+    if (left_split == NULL) {
+        return LIB_ERR_RAM_ALLOC;
+    }
+
+    mmnode_t *right_split = left_split->next;
+    if (right_split == NULL) {
+        return LIB_ERR_RAM_ALLOC;
+    }
+
+    // we migh have a circular buffer but the memory is still linear
+    if (left_split->base > right_split->base) {
+        return SYS_ERR_OK;
+    }
+
+    if (!capcmp(left_split->capinfo.cap, right_split->capinfo.cap)) {
+        return SYS_ERR_OK;
+    }
+
+    if (left_split->type == NodeType_Free && right_split->type == NodeType_Free) {
+        assert(left_split->base + left_split->size == right_split->base);
+
+        debug_printf("Coalescing blocks at: %lu and %lu\n", left_split->base,
+                     right_split->base);
+
+        // resize left split
+        left_split->size += right_split->size;
+
+        // relink nodes
+        if (mm->head == right_split) {
+            mm->head = right_split->next;
+        }
+        left_split->next = right_split->next;
+        right_split->next->prev = left_split;
+
+        slab_free(&mm->slab_allocator, right_split);
+        return SYS_ERR_OK;
+    }
+    return SYS_ERR_OK;
+}
+
+
+errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,
+                 slot_alloc_t slot_alloc_func, slot_refill_t slot_refill_func,
+                 void *slot_allocator)
+{
+    mm->objtype = objtype;
+
+    // init slab allocator
+    slab_init(&mm->slab_allocator, sizeof(mmnode_t), slab_refill_func);
+
+    // init slot allocator
+    mm->slot_alloc = slot_alloc_func;
+    mm->slot_refill = slot_refill_func;
+    mm->slot_allocator = slot_allocator;
+
+    // init datastructure
+    mm->head = NULL;
+
+    return SYS_ERR_OK;
+}
+
+void mm_destroy(struct mm *mm)
+{
+    if (mm->head == NULL) {
+        return;
+    }
+
+    mmnode_t *curr = mm->head->next;
+    while (curr != mm->head) {
+        mmnode_t *prev = curr;
+        curr = curr->next;
+        free(prev);
+    }
+    free(mm->head);
+    mm->head = NULL;
 }
 
 void mm_debug_print(struct mm *mm)
@@ -252,47 +294,6 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
     return mm_alloc_aligned(mm, size, BASE_PAGE_SIZE, retcap);
 }
 
-static errval_t mm_merge(struct mm *mm, mmnode_t *left_split)
-{
-    if (left_split == NULL) {
-        return LIB_ERR_RAM_ALLOC;
-    }
-
-    mmnode_t *right_split = left_split->next;
-    if (right_split == NULL) {
-        return LIB_ERR_RAM_ALLOC;
-    }
-
-    // we migh have a circular buffer but the memory is still linear
-    if (left_split->base > right_split->base) {
-        return SYS_ERR_OK;
-    }
-
-    if (!capcmp(left_split->capinfo.cap, right_split->capinfo.cap)) {
-        return SYS_ERR_OK;
-    }
-
-    if (left_split->type == NodeType_Free && right_split->type == NodeType_Free) {
-        assert(left_split->base + left_split->size == right_split->base);
-
-        debug_printf("Coalescing blocks at: %lu and %lu\n", left_split->base,
-                     right_split->base);
-
-        // resize left split
-        left_split->size += right_split->size;
-
-        // relink nodes
-        if (mm->head == right_split) {
-            mm->head = right_split->next;
-        }
-        left_split->next = right_split->next;
-        right_split->next->prev = left_split;
-
-        slab_free(&mm->slab_allocator, right_split);
-        return SYS_ERR_OK;
-    }
-    return SYS_ERR_OK;
-}
 
 errval_t mm_free(struct mm *mm, struct capref cap)
 {
