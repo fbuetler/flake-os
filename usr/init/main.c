@@ -45,6 +45,31 @@ __attribute__((unused)) static void test_alternate_allocs_and_frees(size_t n, si
     mm_debug_print(&aos_mm);
 }
 
+__attribute__((unused)) static void test_merge_memory(size_t n, size_t size,
+                                                      size_t alignment)
+{
+    errval_t err;
+    struct capref caps[n];
+    for (int i = 0; i < n; i++) {
+        printf("Iteration %d\n", i);
+        err = ram_alloc_aligned(&caps[i], size, alignment);
+        assert(err_is_ok(err));
+    }
+    mm_debug_print(&aos_mm);
+    for (int i = 0; i < n; i += 2) {
+        printf("Iteration %d\n", i);
+        err = aos_ram_free(caps[i]);
+        assert(err_is_ok(err));
+    }
+    mm_debug_print(&aos_mm);
+    for (int i = 1; i < n; i += 2) {
+        printf("Iteration %d\n", i);
+        err = aos_ram_free(caps[i]);
+        assert(err_is_ok(err));
+    }
+    mm_debug_print(&aos_mm);
+}
+
 __attribute__((unused)) static void
 test_consecutive_allocs_then_frees(size_t n, size_t size, size_t alignment)
 {
@@ -174,6 +199,34 @@ __attribute__((unused)) static void test_slot_allocator_refill(void)
     printf("Post refill free slot count: %d\n", slot_freecount(slot_allocator));
 }
 
+__attribute__((unused)) static void tests(void)
+{
+    // small tests with no alignment
+    test_alternate_allocs_and_frees(8, 1 << 12, 1);
+    test_merge_memory(8, 1 << 12, 1);
+    test_consecutive_allocs_then_frees(8, 1 << 12, 1);
+
+    // small tests with 4KB alignment
+    test_alternate_allocs_and_frees(8, 1 << 12, 1 << 12);
+    test_merge_memory(8, 1 << 12, 1 << 12);
+    test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
+
+    // test frame mapping
+    test_map_single_frame();
+
+    // test refills
+    test_slab_allocator_refill();
+    test_slot_allocator_refill();
+
+    // big tests with no alignment
+    test_alternate_allocs_and_frees(1 << 9, 1 << 12, 1);
+    test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
+
+    // exotic tests
+    test_expontential_allocs_then_frees(31);
+    // test_next_fit_alloc();
+}
+
 static int bsp_main(int argc, char *argv[])
 {
     errval_t err;
@@ -193,21 +246,7 @@ static int bsp_main(int argc, char *argv[])
     debug_printf("Initial free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
     debug_printf("Initial free slot count: %d\n", slot_freecount(aos_mm.slot_allocator));
 
-    test_alternate_allocs_and_frees(8, 1 << 12, 1);
-    test_alternate_allocs_and_frees(8, 1 << 12, 1 << 12);
-    test_consecutive_allocs_then_frees(8, 1 << 12, 1);
-    test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
-
-    test_map_single_frame();
-    test_slab_allocator_refill();
-    test_slot_allocator_refill();
-
-    test_alternate_allocs_and_frees(1 << 9, 1 << 12, 1);
-    test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
-    // test_next_fit_alloc();
-    // test_expontential_allocs_then_frees(31);
-
-    // TODO write test to exhaust slab and slot allocators to test page mappings
+    tests();
 
     // TODO: initialize mem allocator, vspace management here
 
