@@ -330,6 +330,10 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     for (int i = 0; i < bytes / BASE_PAGE_SIZE; i++) {
         assert(l3_index + i < PTABLE_ENTRIES);
 
+        if (!capcmp(*l3_pt->mappings[l3_index + 1], NULL_CAP)) {
+            return LIB_ERR_PMAP_EXISTING_MAPPING;
+        }
+
         struct capref frame_mapping_cap;
         err = st->slot_allocator->alloc(st->slot_allocator, &frame_mapping_cap);
         if (err_is_fail(err)) {
