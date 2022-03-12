@@ -36,11 +36,18 @@
 typedef int paging_flags_t;
 
 
-
+// struct to store a page table
+struct page_table {
+    struct capref cap;
+    struct page_table *entries[PTABLE_ENTRIES];
+    struct capref *mappings[PTABLE_ENTRIES];
+};
 
 // struct to store the paging status of a process
 struct paging_state {
-    struct slot_allocator *slot_alloc;
+    struct slot_allocator *slot_allocator;
+    struct slab_allocator slab_allocator;
+    struct page_table root_page_table;
 };
 
 

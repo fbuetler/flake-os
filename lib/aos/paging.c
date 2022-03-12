@@ -31,7 +31,7 @@ static struct paging_state current;
 static errval_t pt_alloc(struct paging_state *st, enum objtype type, struct capref *ret)
 {
     errval_t err;
-    err = st->slot_alloc->alloc(st->slot_alloc, ret);
+    err = st->slot_allocator->alloc(st->slot_allocator, ret);
     if (err_is_fail(err)) {
         debug_printf("slot_alloc failed: %s\n", err_getstring(err));
         return err;
@@ -125,6 +125,15 @@ errval_t paging_init(void)
     // TIP: it might be a good idea to call paging_init_state() from here to
     // avoid code duplication.
     set_current_paging_state(&current);
+
+    // store root page table L0
+    current.root_page_table.cap = cap_vroot;
+
+    // init slab allocator
+    slab_init(&current.slab_allocator, sizeof(struct page_table), NULL);
+    static uint8_t pt_buf[SLAB_STATIC_SIZE(64, sizeof(struct page_table))];
+    slab_grow(&current.slab_allocator, pt_buf, sizeof(pt_buf));
+
     return SYS_ERR_OK;
 }
 
@@ -197,6 +206,55 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
 }
 
 
+static errval_t paging_get_or_create_pt(struct paging_state *st,
+                                        struct page_table *parent_pt,
+                                        size_t parent_pt_index, enum objtype pt_type,
+                                        struct page_table *pt)
+{
+    errval_t err;
+    pt = (parent_pt->entries)[parent_pt_index];
+    if (pt != NULL) {
+        return SYS_ERR_OK;
+    }
+
+    // allocate page table
+    struct capref pt_cap;
+    // no need to allocate a slot as this is done in pt_alloc
+    err = pt_alloc(st, pt_type, &pt_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate page table");
+        return err;
+    }
+
+    // map page table into parent page table
+    struct capref pt_mapping_cap;
+    // allocate slot for capability
+    err = st->slot_allocator->alloc(st->slot_allocator, &pt_mapping_cap);
+    if (err_is_fail(err)) {
+        debug_printf("slot_alloc failed: %s\n", err_getstring(err));
+        return err;
+    }
+
+    err = vnode_map(parent_pt->cap, pt_cap, parent_pt_index, VREGION_FLAGS_READ, 0, 1,
+                    pt_mapping_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map page table");
+        return err;
+    }
+
+    // reflect mapping in datastructure
+    pt = slab_alloc(&st->slab_allocator);
+    if (pt == NULL) {
+        return LIB_ERR_SLAB_ALLOC_FAIL;
+    }
+    pt->cap = pt_cap;
+    parent_pt->entries[parent_pt_index] = pt;
+    parent_pt->mappings[parent_pt_index] = &pt_mapping_cap;
+
+    return SYS_ERR_OK;
+}
+
+
 /**
  * @brief mapps the provided frame at the supplied address in the paging state
  *
@@ -210,7 +268,7 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
  * @return SYS_ERR_OK on success.
  */
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
-                               struct capref frame, size_t bytes, int flags)
+                               struct capref frame_cap, size_t bytes, int flags)
 {
     /*
      * TODO(M1):
@@ -222,7 +280,59 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
      *
      * Hint:
      *  - think about what mapping configurations are actually possible
+     *
+     * use the current variable
      */
+
+    // ASK: different of 'current' and 'st'?
+
+    // based on assumptions:
+    // * the frame you are trying to map always fits inside a single L3 page-table
+    // * the virtual address is chosen such that it does not overlap
+
+    errval_t err;
+
+    size_t page_offset = 12;
+    uint last_bits = (1 << 9) - 1;
+    size_t l0_index = vaddr >> (0 * PTABLE_ENTRIES + page_offset) & last_bits;
+    size_t l1_index = vaddr >> (0 * PTABLE_ENTRIES + page_offset) & last_bits;
+    size_t l2_index = vaddr >> (0 * PTABLE_ENTRIES + page_offset) & last_bits;
+    size_t l3_index = vaddr >> (0 * PTABLE_ENTRIES + page_offset) & last_bits;
+
+    struct page_table *l0_pt = &st->root_page_table;
+    struct page_table *l1_pt = NULL;
+    paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1, l1_pt);
+    struct page_table *l2_pt = NULL;
+    paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2, l2_pt);
+    struct page_table *l3_pt = NULL;
+    paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3, l3_pt);
+
+    for (int i = 0; i < bytes / BASE_PAGE_SIZE; i++) {
+        struct capref frame_mapping_cap;
+        err = st->slot_allocator->alloc(st->slot_allocator, &frame_mapping_cap);
+        if (err_is_fail(err)) {
+            debug_printf("slot_alloc failed: %s\n", err_getstring(err));
+            return err;
+        }
+
+        err = vnode_map(l3_pt->cap, frame_cap, l3_index + i, VREGION_FLAGS_READ_WRITE,
+                        i * BASE_PAGE_SIZE, 1, frame_mapping_cap);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to map page table");
+            return err;
+        }
+
+        l3_pt->mappings[l3_index + i] = &frame_mapping_cap;
+    }
+    // need to store where in the CSpace the capabilities representing the page tables
+    // reside, and how they are mapped
+
+    // store capabilities for each mapping and the mapping itself
+
+    char buf[256];
+    debug_print_cap_at_capref(buf, 256, cap_vroot);
+    debug_printf("root pagetable: %.*s\n", 256, buf);
+
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
@@ -241,5 +351,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
  */
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {
+    // TODO -> optional
     return LIB_ERR_NOT_IMPLEMENTED;
 }
