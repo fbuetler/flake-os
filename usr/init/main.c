@@ -30,18 +30,32 @@ struct bootinfo *bi;
 
 coreid_t my_core_id;
 
-static void test_many_alloc(size_t n)
+// static void test_many_allocs_and_frees(size_t n)
+// {
+//     errval_t err;
+//     for (int i = 0; i < n; i++) {
+//         printf("Iteration %d\n", i);
+//         struct capref cap;
+//         err = ram_alloc_aligned(&cap, 1 << 12, 1);
+//         assert(err_is_ok(err));
+//         err = aos_ram_free(cap);
+//         assert(err_is_ok(err));
+//     }
+//     mm_debug_print(&aos_mm);
+// }
+
+static void test_consecutive_allocs_then_frees(size_t n)
 {
     errval_t err;
+    struct capref caps[n];
     for (int i = 0; i < n; i++) {
-        printf("Iteration %d\n", i);
-        struct capref cap;
-        err = ram_alloc(&cap, 1 << 12);
-        assert(err_is_ok(err));
-        err = aos_ram_free(cap);
+        err = ram_alloc_aligned(&caps[i], 1 << 12, 1);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    for (int i = 0; i < n; i++) {
+        err = aos_ram_free(caps[i]);
+        assert(err_is_ok(err));
+    }
 }
 
 // static void test_next_fit_alloc(void)
@@ -101,8 +115,10 @@ static int bsp_main(int argc, char *argv[])
     }
 
     // TODO: initialize mem allocator, vspace management here
-    test_many_alloc(1);
-    // test_many_alloc(1 << 10);
+
+    // test_many_allocs_and_frees(1);
+    test_consecutive_allocs_then_frees(16);
+    // test_many_allocs_and_frees(1 << 10);
     // test_next_fit_alloc();
 
     // setup CSpace: L1CNode, L2CNode
