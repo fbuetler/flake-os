@@ -184,7 +184,27 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
     // Hint: you can't just use malloc here...
     // Hint: For M1, just use the fixed mapping funcionality, however you may want to replace
     //       the fixed mapping later to avoid conflicts.
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+
+    struct capref frame_cap;
+    size_t allocated_bytes;
+    err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated frame");
+        return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+
+    struct paging_state *st = get_current_paging_state();
+    lvaddr_t vaddr = VADDR_OFFSET;  // M1: use a manually chosen VA offset
+    err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to do page mapping");
+        return err_push(err, LIB_ERR_PMAP_MAP);
+    }
+
+    slab_grow(slabs, (void *)vaddr, allocated_bytes);
+
+    return SYS_ERR_OK;
 }
 
 
