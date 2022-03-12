@@ -31,15 +31,15 @@ errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret);
 errval_t slot_alloc_dynamic(void *inst, uint64_t nslots, struct capref *ret);
 errval_t slot_refill_dynamic(void *inst);
 
-struct mm; // forward declaration
+struct mm;  // forward declaration
 
 /// Instance data for pre-allocating slot allocator for 2 level cspace
 struct slot_prealloc {
     /// Metadata for next place from which to allocate slots
     struct {
-        struct capref cap;        ///< Next cap to allocate
-        uint64_t free;              ///< Number of free slots including cap
-    } meta[2] __attribute__ ((aligned(4)));
+        struct capref cap;  ///< Next cap to allocate
+        uint64_t free;      ///< Number of free slots including cap
+    } meta[2] __attribute__((aligned(4)));
 
     /// Which entry in meta array we are currently allocating from
     uint8_t current;
@@ -49,8 +49,7 @@ struct slot_prealloc {
 };
 
 /// Initialiser for the pre-allocating implementation
-errval_t slot_prealloc_init(struct slot_prealloc *slot_alloc,
-                            struct capref initial_cnode,
+errval_t slot_prealloc_init(struct slot_prealloc *slot_alloc, struct capref initial_cnode,
                             uint64_t initial_space, struct mm *ram_mm);
 
 /// Refill function for the pre-allocating implementation
@@ -58,8 +57,8 @@ errval_t slot_prealloc_refill(void *inst);
 
 /// Instance data for simple base-cnode allocator
 struct slot_alloc_basecn {
-    struct capref cap;          ///< Next cap to allocate
-    uint64_t free;              ///< Number of free slots including cap
+    struct capref cap;  ///< Next cap to allocate
+    uint64_t free;      ///< Number of free slots including cap
 };
 
 /// Initialiser for the single-cnode implementation
@@ -67,4 +66,4 @@ errval_t slot_alloc_basecn_init(struct slot_alloc_basecn *slot_alloc);
 
 __END_DECLS
 
-#endif // MM_SLOT_ALLOC_H
+#endif  // MM_SLOT_ALLOC_H
