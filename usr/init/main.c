@@ -138,6 +138,14 @@ __attribute__((unused)) static void test_map_single_frame(void)
     assert(err_is_ok(err));
 }
 
+__attribute__((unused)) static void test_slab_allocator_refill(void)
+{
+    printf("Pre refill free slab count: %d\n", slab_freecount(&aos_mm.slabs));
+    errval_t err = slab_default_refill(&aos_mm.slabs);
+    assert(err_is_ok(err));
+    printf("Post refill free slab count: %d\n", slab_freecount(&aos_mm.slabs));
+}
+
 static int bsp_main(int argc, char *argv[])
 {
     errval_t err;
@@ -154,20 +162,20 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
     mm_debug_print(&aos_mm);
+    debug_printf("Initial free slab count: %d\n", slab_freecount(&aos_mm.slabs));
 
     test_alternate_allocs_and_frees(8, 1 << 12, 1);
     test_alternate_allocs_and_frees(8, 1 << 12, 1 << 12);
     test_consecutive_allocs_then_frees(8, 1 << 12, 1);
     test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
-    // test_alternate_allocs_and_frees(1 << 10);
-    // test_consecutive_allocs_then_frees(1 << 10);
-    // test_next_fit_alloc();
-    // test_expontential_allocs_then_frees(20);
 
     test_map_single_frame();
+    test_slab_allocator_refill();
 
-    // err = slab_default_refill(&aos_mm.slabs);
-    // assert(err_is_ok(err));
+    test_alternate_allocs_and_frees(1 << 10, 1 << 12, 1);
+    // test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
+    // test_next_fit_alloc();
+    // test_expontential_allocs_then_frees(20);
 
     // TODO write test to exhaust slab and slot allocators to test page mappings
 
