@@ -59,7 +59,7 @@ static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
     return SYS_ERR_OK;
 }
 
-static errval_t mm_merge(struct mm *mm, mmnode_t *left_split)
+static errval_t node_merge(struct mm *mm, mmnode_t *left_split)
 {
     if (left_split == NULL) {
         return LIB_ERR_RAM_ALLOC;
@@ -327,8 +327,8 @@ errval_t mm_free(struct mm *mm, struct capref cap)
             return err;
         }
         curr->type = NodeType_Free;
-        mm_merge(mm, curr);
-        mm_merge(mm, curr->prev);
+        node_merge(mm, curr);
+        node_merge(mm, curr->prev);
 
         debug_printf("Memory freed: (%lu, %lu)\n", memory_base,
                      memory_base + memory_size - 1);
