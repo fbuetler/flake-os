@@ -146,6 +146,23 @@ __attribute__((unused)) static void test_slab_allocator_refill(void)
     printf("Post refill free slab count: %d\n", slab_freecount(&aos_mm.slabs));
 }
 
+__attribute__((unused)) static void test_slot_allocator_refill(void)
+{
+    errval_t err;
+    struct slot_prealloc *slot_allocator = aos_mm.slot_alloc_inst;
+    printf("Pre refill free slot count: %d\n", slot_freecount(slot_allocator));
+
+    err = slot_prealloc_refill(slot_allocator);
+    assert(err_is_ok(err));
+
+    slot_allocator->current = !slot_allocator->current;  // refill both
+
+    err = slot_prealloc_refill(slot_allocator);
+    assert(err_is_ok(err));
+
+    printf("Post refill free slot count: %d\n", slot_freecount(slot_allocator));
+}
+
 static int bsp_main(int argc, char *argv[])
 {
     errval_t err;
@@ -163,14 +180,14 @@ static int bsp_main(int argc, char *argv[])
     }
     mm_debug_print(&aos_mm);
     debug_printf("Initial free slab count: %d\n", slab_freecount(&aos_mm.slabs));
+    debug_printf("Initial free slot count: %d\n", slot_freecount(aos_mm.slot_alloc_inst));
 
     test_alternate_allocs_and_frees(8, 1 << 12, 1);
     test_alternate_allocs_and_frees(8, 1 << 12, 1 << 12);
     test_consecutive_allocs_then_frees(8, 1 << 12, 1);
     test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
 
-    test_map_single_frame();
-    test_slab_allocator_refill();
+    test_slot_allocator_refill();
 
     test_alternate_allocs_and_frees(1 << 10, 1 << 12, 1);
     // test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
