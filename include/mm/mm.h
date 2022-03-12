@@ -68,18 +68,18 @@ typedef struct mmnode_t {
  * them to allocate its memory, we declare it in the public header.
  */
 struct mm {
-    struct slab_allocator slabs;  ///< Slab allocator used for allocating nodes
-    slot_alloc_t slot_alloc;      ///< Slot allocator for allocating cspace
-    slot_refill_t slot_refill;    ///< Slot allocator refill function
-    void *slot_alloc_inst;        ///< Opaque instance pointer for slot allocator
-    enum objtype objtype;         ///< Type of capabilities stored
+    struct slab_allocator slab_allocator;  ///< Slab allocator used for allocating nodes
+    slot_alloc_t slot_alloc;               ///< Slot allocator for allocating cspace
+    slot_refill_t slot_refill;             ///< Slot allocator refill function
+    void *slot_allocator;                  ///< Opaque instance pointer for slot allocator
+    enum objtype objtype;                  ///< Type of capabilities stored
 
     mmnode_t *head;  // points to a circular buffer that holds all memory regions
 };
 
 errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,
                  slot_alloc_t slot_alloc_func, slot_refill_t slot_refill_func,
-                 void *slot_alloc_inst);
+                 void *slot_allocator);
 errval_t mm_add(struct mm *mm, struct capref cap);
 errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
                           struct capref *retcap);

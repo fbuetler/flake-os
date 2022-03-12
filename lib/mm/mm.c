@@ -20,17 +20,17 @@
 
 errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,
                  slot_alloc_t slot_alloc_func, slot_refill_t slot_refill_func,
-                 void *slot_alloc_inst)
+                 void *slot_allocator)
 {
     mm->objtype = objtype;
 
     // init slab allocator
-    slab_init(&mm->slabs, sizeof(mmnode_t), slab_refill_func);
+    slab_init(&mm->slab_allocator, sizeof(mmnode_t), slab_refill_func);
 
     // init slot allocator
     mm->slot_alloc = slot_alloc_func;
     mm->slot_refill = slot_refill_func;
-    mm->slot_alloc_inst = slot_alloc_inst;
+    mm->slot_allocator = slot_allocator;
 
     // init datastructure
     mm->head = NULL;
@@ -72,7 +72,7 @@ static void node_insert(struct mm *mm, mmnode_t *node)
 static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
                            mmnode_t **left_split, mmnode_t **right_split)
 {
-    mmnode_t *new_node = slab_alloc(&mm->slabs);
+    mmnode_t *new_node = slab_alloc(&mm->slab_allocator);
     if (new_node == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
@@ -136,7 +136,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     size_t memory_base = c.u.ram.base;
     size_t memory_size = c.u.ram.bytes;
 
-    mmnode_t *new_node = slab_alloc(&mm->slabs);
+    mmnode_t *new_node = slab_alloc(&mm->slab_allocator);
     new_node->type = NodeType_Free;
     new_node->base = memory_base;
     new_node->size = memory_size;
@@ -153,29 +153,6 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     return SYS_ERR_OK;
 }
 
-static errval_t mm_allocate_slot(struct mm *mm, struct capref *cap)
-{
-    errval_t err;
-    err = mm->slot_alloc(mm->slot_alloc_inst, 1, cap);
-    if (err_is_fail(err)) {
-        if (mm->slot_refill == NULL) {
-            return err_push(err, MM_ERR_SLOT_NOSLOTS);
-        }
-
-        err = mm->slot_refill(mm->slot_alloc_inst);
-        if (err_is_fail(err)) {
-            return err_push(err, MM_ERR_SLOT_NOSLOTS);
-        }
-
-        err = mm->slot_alloc(mm->slot_alloc_inst, 1, cap);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Allocating slot");
-            return err_push(err, MM_ERR_SLOT_NOSLOTS);
-        }
-    }
-
-    return err;
-}
 
 /*
  * make sure the requested_size size is aligned to 4KB
@@ -205,10 +182,10 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         return LIB_ERR_RAM_ALLOC;
     }
 
-    err = mm_allocate_slot(mm, retcap);
+    err = mm->slot_alloc(mm->slot_allocator, 1, retcap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not allocate slot for retcap\n");
-        return err;
+        return err_push(err, MM_ERR_SLOT_NOSLOTS);
     }
 
     mmnode_t *curr = mm->head;
@@ -309,7 +286,7 @@ static errval_t mm_merge(struct mm *mm, mmnode_t *left_split)
         left_split->next = right_split->next;
         right_split->next->prev = left_split;
 
-        slab_free(&mm->slabs, right_split);
+        slab_free(&mm->slab_allocator, right_split);
         return SYS_ERR_OK;
     }
     return LIB_ERR_RAM_ALLOC;

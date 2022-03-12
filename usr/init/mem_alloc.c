@@ -49,7 +49,7 @@ static inline errval_t initialize_ram_allocator(void)
 
     // Give aos_mm a bit of memory for the initialization
     static uint8_t node_buf[SLAB_STATIC_SIZE(64, sizeof(mmnode_t))];
-    slab_grow(&aos_mm.slabs, node_buf, sizeof(node_buf));
+    slab_grow(&aos_mm.slab_allocator, node_buf, sizeof(node_buf));
 
     return SYS_ERR_OK;
 }
