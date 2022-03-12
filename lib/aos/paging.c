@@ -330,7 +330,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     for (int i = 0; i < bytes / BASE_PAGE_SIZE; i++) {
         assert(l3_index + i < PTABLE_ENTRIES);
 
-        if (!capcmp(*l3_pt->mappings[l3_index + 1], NULL_CAP)) {
+        if (l3_pt->mappings[l3_index + i] != NULL) {
             return LIB_ERR_PMAP_EXISTING_MAPPING;
         }
 
