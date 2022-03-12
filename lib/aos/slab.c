@@ -185,12 +185,18 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
     // Hint: For M1, just use the fixed mapping funcionality, however you may want to replace
     //       the fixed mapping later to avoid conflicts.
     errval_t err;
+    static bool is_refilling = false;
+    if (is_refilling) {
+        return SYS_ERR_OK;
+    }
+    is_refilling = true;
 
     struct capref frame_cap;
     size_t allocated_bytes;
     err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated frame");
+        is_refilling = false;
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
 
@@ -199,11 +205,13 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
     err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to do page mapping");
+        is_refilling = false;
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
 
     slab_grow(slabs, (void *)vaddr, allocated_bytes);
 
+    is_refilling = false;
     return SYS_ERR_OK;
 }
 
