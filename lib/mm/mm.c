@@ -261,7 +261,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
                 DEBUG_ERR(err, "failed to split mmnodes");
                 return err;
             }
-            left_split->type = NodeType_Allocated;
             right_split->type = NodeType_Free;
 
             curr = left_split;
@@ -269,6 +268,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
             // refill slabs as we use slabs in node_split
             mm_refill_slabs(mm);
         }
+        curr->type = NodeType_Allocated;
 
         mm->head = curr;
         debug_printf("Memory allocated: (%lu, %lu)\n", curr->base,
