@@ -158,10 +158,15 @@ __attribute__((unused)) static void test_next_fit_alloc(void)
     printf("base: %lu\n", c3.u.ram.base);
 }
 
-__attribute__((unused)) static void test_map_single_frame(void)
+__attribute__((unused)) static void test_map_single_frame(size_t n)
 {
     errval_t err;
-    size_t bytes = BASE_PAGE_SIZE;
+    if (n <= 0) {
+        n = 1;
+    }
+    size_t bytes = n * BASE_PAGE_SIZE;
+    // dont interfere with the hardcoded addr in slab refill
+    static lvaddr_t vaddr = VADDR_OFFSET + (1 << 20);
 
     struct capref frame_cap;
     size_t allocated_bytes;
@@ -169,9 +174,11 @@ __attribute__((unused)) static void test_map_single_frame(void)
     assert(err_is_ok(err));
 
     struct paging_state *st = get_current_paging_state();
-    lvaddr_t vaddr = VADDR_OFFSET + 0xaaaaa000;  // M1: use a manually chosen VA offset
     err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
     assert(err_is_ok(err));
+
+    // increment l3 index by 1 per base page to avoid mapping conflicts
+    vaddr += (1 << 13) * (allocated_bytes / (1 << 12));
 }
 
 __attribute__((unused)) static void test_slab_allocator_refill(void)
@@ -212,7 +219,9 @@ __attribute__((unused)) static void tests(void)
     test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
 
     // test frame mapping
-    test_map_single_frame();
+    test_map_single_frame(1);
+    test_map_single_frame(4);
+    test_map_single_frame(32);
 
     // test refills
     test_slab_allocator_refill();
