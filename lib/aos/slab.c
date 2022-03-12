@@ -185,7 +185,11 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
     // Hint: For M1, just use the fixed mapping funcionality, however you may want to replace
     //       the fixed mapping later to avoid conflicts.
     errval_t err;
+
+    // static variables:
     static bool is_refilling = false;
+    static lvaddr_t vaddr = VADDR_OFFSET;  // M1: use a manually chosen VA offset
+
     if (is_refilling) {
         return SYS_ERR_OK;
     }
@@ -201,7 +205,6 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
     }
 
     struct paging_state *st = get_current_paging_state();
-    lvaddr_t vaddr = VADDR_OFFSET;  // M1: use a manually chosen VA offset
     err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to do page mapping");
@@ -211,6 +214,7 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
 
     slab_grow(slabs, (void *)vaddr, allocated_bytes);
 
+    vaddr += 1 << 13;  // increment l3 index by 1 to avoid mapping conflicts
     is_refilling = false;
     return SYS_ERR_OK;
 }
