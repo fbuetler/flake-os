@@ -100,6 +100,7 @@ static errval_t mm_refill_slabs(struct mm *mm)
 {
     size_t free = slab_freecount(&mm->slabs);
     if (free < 8) {
+        // TODO maybe set this function as slabs->refill_func
         return slab_default_refill(&mm->slabs);
     }
     return SYS_ERR_OK;
@@ -157,7 +158,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     node_insert(mm, new_node);
 
     debug_printf("Memory added: (%lu,%lu)\n", memory_base, memory_base + memory_size - 1);
-    mm_debug_print(mm);
+    // mm_debug_print(mm);
 
     return SYS_ERR_OK;
 }
@@ -187,6 +188,8 @@ static errval_t mm_allocate_slot(struct mm *mm, struct capref *cap)
 }
 
 /*
+ * make sure the requested_size size is aligned to 4KB
+ *
  * there are cases where a memory region needs to be aligned to a certain boundary i.e.
  * has to START at a memory address that is a multiple of the alignment
  */
@@ -270,7 +273,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         mm->head = curr;
         debug_printf("Memory allocated: (%lu, %lu)\n", curr->base,
                      curr->base + curr->size - 1);
-        mm_debug_print(mm);
+        // mm_debug_print(mm);
         return SYS_ERR_OK;
     } while (curr != mm->head);
 
@@ -360,8 +363,9 @@ errval_t mm_free(struct mm *mm, struct capref cap)
         mm_merge(mm, curr);
         mm_merge(mm, curr->prev);
 
-        printf("Memory freed: (%lu, %lu)\n", memory_base, memory_base + memory_size - 1);
-        mm_debug_print(mm);
+        debug_printf("Memory freed: (%lu, %lu)\n", memory_base,
+                     memory_base + memory_size - 1);
+        // mm_debug_print(mm);
 
         return SYS_ERR_OK;
     } while (curr != mm->head);
