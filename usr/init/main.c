@@ -62,6 +62,9 @@ test_consecutive_allocs_then_frees(size_t n, size_t size, size_t alignment)
         assert(err_is_ok(err));
     }
     mm_debug_print(&aos_mm);
+    if (size > 1 << 5) {
+        printf("Note: page tables are still allocated\n");
+    }
 }
 
 __attribute__((unused)) static void test_expontential_allocs_then_frees(size_t limit)
@@ -72,15 +75,19 @@ __attribute__((unused)) static void test_expontential_allocs_then_frees(size_t l
 
     errval_t err;
     struct capref caps[limit];
-    for (int i = 0; i < limit; i++) {
+    int i;
+    for (i = 0; i < limit; i++) {
         printf("Iteration %d\n", i);
         err = ram_alloc_aligned(&caps[i], 1 << (base_page_size_log + i), 1);
-        assert(err_is_ok(err));
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to allocate memory");
+            break;
+        }
     }
     mm_debug_print(&aos_mm);
-    for (int i = 0; i < limit; i++) {
-        printf("Iteration %d\n", i);
-        err = aos_ram_free(caps[i]);
+    for (int j = 0; j < i; j++) {
+        printf("Iteration %d\n", j);
+        err = aos_ram_free(caps[j]);
         assert(err_is_ok(err));
     }
     mm_debug_print(&aos_mm);
@@ -198,7 +205,7 @@ static int bsp_main(int argc, char *argv[])
     test_alternate_allocs_and_frees(1 << 9, 1 << 12, 1);
     test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
     // test_next_fit_alloc();
-    // test_expontential_allocs_then_frees(20);
+    // test_expontential_allocs_then_frees(31);
 
     // TODO write test to exhaust slab and slot allocators to test page mappings
 
