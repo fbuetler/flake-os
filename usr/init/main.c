@@ -125,15 +125,13 @@ static void test_map_single_frame(void)
     errval_t err;
     size_t bytes = BASE_PAGE_SIZE;
 
-    printf("allocate frame\n");
     struct capref frame_cap;
     size_t allocated_bytes;
     err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
     assert(err_is_ok(err));
 
-    printf("map frame into virtual memory\n");
     struct paging_state *st = get_current_paging_state();
-    lvaddr_t vaddr = VADDR_OFFSET;  // M1: use a manually chosen VA offset
+    lvaddr_t vaddr = VADDR_OFFSET + 0xaaaaa000;  // M1: use a manually chosen VA offset
     err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
     assert(err_is_ok(err));
 }

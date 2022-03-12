@@ -129,6 +129,9 @@ errval_t paging_init(void)
     // store root page table L0
     current.root_page_table.cap = cap_vroot;
 
+    // init slot allocator
+    current.slot_allocator = get_default_slot_allocator();
+
     // init slab allocator
     slab_init(&current.slab_allocator, sizeof(struct page_table), NULL);
     static uint8_t pt_buf[SLAB_STATIC_SIZE(64, sizeof(struct page_table))];
@@ -209,11 +212,11 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
 static errval_t paging_get_or_create_pt(struct paging_state *st,
                                         struct page_table *parent_pt,
                                         size_t parent_pt_index, enum objtype pt_type,
-                                        struct page_table *pt)
+                                        struct page_table **pt)
 {
     errval_t err;
-    pt = (parent_pt->entries)[parent_pt_index];
-    if (pt != NULL) {
+    *pt = (parent_pt->entries)[parent_pt_index];
+    if (*pt != NULL) {
         return SYS_ERR_OK;
     }
 
@@ -243,12 +246,12 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
     }
 
     // reflect mapping in datastructure
-    pt = slab_alloc(&st->slab_allocator);
-    if (pt == NULL) {
+    *pt = slab_alloc(&st->slab_allocator);
+    if (*pt == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
-    pt->cap = pt_cap;
-    parent_pt->entries[parent_pt_index] = pt;
+    (*pt)->cap = pt_cap;
+    parent_pt->entries[parent_pt_index] = *pt;
     parent_pt->mappings[parent_pt_index] = &pt_mapping_cap;
 
     return SYS_ERR_OK;
@@ -289,25 +292,44 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     // based on assumptions:
     // * the frame you are trying to map always fits inside a single L3 page-table
     // * the virtual address is chosen such that it does not overlap
+    assert(bytes % 4096 == 0);
 
     errval_t err;
 
     size_t page_offset = 12;
-    uint last_bits = (1 << 9) - 1;
-    size_t l0_index = vaddr >> (0 * PTABLE_ENTRIES + page_offset) & last_bits;
-    size_t l1_index = vaddr >> (0 * PTABLE_ENTRIES + page_offset) & last_bits;
-    size_t l2_index = vaddr >> (0 * PTABLE_ENTRIES + page_offset) & last_bits;
-    size_t l3_index = vaddr >> (0 * PTABLE_ENTRIES + page_offset) & last_bits;
+    uint16_t page_index_size = 9;
+    uint16_t last_bits = (1 << page_index_size) - 1;
+    size_t l0_index = (vaddr >> (3 * page_index_size + page_offset)) & last_bits;
+    size_t l1_index = (vaddr >> (2 * page_index_size + page_offset)) & last_bits;
+    size_t l2_index = (vaddr >> (1 * page_index_size + page_offset)) & last_bits;
+    size_t l3_index = (vaddr >> (0 * page_index_size + page_offset)) & last_bits;
+
 
     struct page_table *l0_pt = &st->root_page_table;
     struct page_table *l1_pt = NULL;
-    paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1, l1_pt);
+    err = paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1, &l1_pt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get/create l1 page table");
+        return err_push(err, LIB_ERR_PMAP_MAP);
+    }
+
     struct page_table *l2_pt = NULL;
-    paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2, l2_pt);
+    err = paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2, &l2_pt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get/create l2 page table");
+        return err_push(err, LIB_ERR_PMAP_MAP);
+    }
+
     struct page_table *l3_pt = NULL;
-    paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3, l3_pt);
+    err = paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3, &l3_pt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get/create l3 page table");
+        return err_push(err, LIB_ERR_PMAP_MAP);
+    }
 
     for (int i = 0; i < bytes / BASE_PAGE_SIZE; i++) {
+        assert(l3_index + i < PTABLE_ENTRIES);
+
         struct capref frame_mapping_cap;
         err = st->slot_allocator->alloc(st->slot_allocator, &frame_mapping_cap);
         if (err_is_fail(err)) {
@@ -324,16 +346,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
         l3_pt->mappings[l3_index + i] = &frame_mapping_cap;
     }
-    // need to store where in the CSpace the capabilities representing the page tables
-    // reside, and how they are mapped
 
-    // store capabilities for each mapping and the mapping itself
-
-    char buf[256];
-    debug_print_cap_at_capref(buf, 256, cap_vroot);
-    debug_printf("root pagetable: %.*s\n", 256, buf);
-
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return SYS_ERR_OK;
 }
 
 
