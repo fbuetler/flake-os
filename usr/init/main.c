@@ -51,11 +51,13 @@ test_consecutive_allocs_then_frees(size_t n, size_t size, size_t alignment)
     errval_t err;
     struct capref caps[n];
     for (int i = 0; i < n; i++) {
+        printf("Iteration %d\n", i);
         err = ram_alloc_aligned(&caps[i], size, alignment);
         assert(err_is_ok(err));
     }
     mm_debug_print(&aos_mm);
     for (int i = 0; i < n; i++) {
+        printf("Iteration %d\n", i);
         err = aos_ram_free(caps[i]);
         assert(err_is_ok(err));
     }
@@ -71,11 +73,13 @@ __attribute__((unused)) static void test_expontential_allocs_then_frees(size_t l
     errval_t err;
     struct capref caps[limit];
     for (int i = 0; i < limit; i++) {
+        printf("Iteration %d\n", i);
         err = ram_alloc_aligned(&caps[i], 1 << (base_page_size_log + i), 1);
         assert(err_is_ok(err));
     }
     mm_debug_print(&aos_mm);
     for (int i = 0; i < limit; i++) {
+        printf("Iteration %d\n", i);
         err = aos_ram_free(caps[i]);
         assert(err_is_ok(err));
     }
@@ -95,7 +99,7 @@ __attribute__((unused)) static void test_next_fit_alloc(void)
     struct capability c0;
     err = cap_direct_identify(cap0, &c0);
     assert(err_is_ok(err));
-    printf("base: %d\n", c0.u.ram.base);
+    printf("base: %lu\n", c0.u.ram.base);
 
     // allocate big 1
     struct capref cap1;
@@ -119,7 +123,7 @@ __attribute__((unused)) static void test_next_fit_alloc(void)
     struct capability c3;
     err = cap_direct_identify(cap3, &c3);
     assert(err_is_ok(err));
-    printf("base: %d\n", c3.u.ram.base);
+    printf("base: %lu\n", c3.u.ram.base);
 }
 
 __attribute__((unused)) static void test_map_single_frame(void)
@@ -187,10 +191,12 @@ static int bsp_main(int argc, char *argv[])
     test_consecutive_allocs_then_frees(8, 1 << 12, 1);
     test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
 
+    test_map_single_frame();
+    test_slab_allocator_refill();
     test_slot_allocator_refill();
 
-    test_alternate_allocs_and_frees(1 << 10, 1 << 12, 1);
-    // test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
+    test_alternate_allocs_and_frees(1 << 9, 1 << 12, 1);
+    test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
     // test_next_fit_alloc();
     // test_expontential_allocs_then_frees(20);
 

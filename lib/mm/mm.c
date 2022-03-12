@@ -113,7 +113,7 @@ void mm_debug_print(struct mm *mm)
         } else if (curr->type == NodeType_Free) {
             printf("Free: (%lu, %lu)\n", curr->base, curr->base + curr->size - 1);
         } else {
-            printf("Type unknowne\n");
+            printf("Type unknown\n");
         }
         curr = curr->next;
     } while (curr != mm->head);
@@ -207,7 +207,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
             mmnode_t *left_split, *right_split;
             err = node_split(mm, curr, offset, &left_split, &right_split);
             if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to split mmnodes");
+                DEBUG_ERR(err, "failed to split mmnodes for alignment");
                 return err;
             }
             curr = right_split;
@@ -217,6 +217,8 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
                          mm->objtype, requested_size, 1);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "could not retype region cap");
+            printf("base address: %lu\n", curr->base);
+            mm_debug_print(mm);
             return err;
         }
 
@@ -263,11 +265,11 @@ static errval_t mm_merge(struct mm *mm, mmnode_t *left_split)
 
     // we migh have a circular buffer but the memory is still linear
     if (left_split->base > right_split->base) {
-        return 1;
+        return SYS_ERR_OK;
     }
 
     if (!capcmp(left_split->capinfo.cap, right_split->capinfo.cap)) {
-        return LIB_ERR_RAM_ALLOC;
+        return SYS_ERR_OK;
     }
 
     if (left_split->type == NodeType_Free && right_split->type == NodeType_Free) {
@@ -289,7 +291,7 @@ static errval_t mm_merge(struct mm *mm, mmnode_t *left_split)
         slab_free(&mm->slab_allocator, right_split);
         return SYS_ERR_OK;
     }
-    return LIB_ERR_RAM_ALLOC;
+    return SYS_ERR_OK;
 }
 
 errval_t mm_free(struct mm *mm, struct capref cap)
