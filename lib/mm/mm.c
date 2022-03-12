@@ -114,7 +114,7 @@ void mm_debug_print(struct mm *mm)
         printf("\n\n");
         return;
     }
-    printf("Head at %d\n", mm->head->base);
+    printf("Head at %lu\n", mm->head->base);
     mmnode_t *curr = mm->head;
     do {
         if (curr->type == NodeType_Allocated) {
@@ -193,13 +193,18 @@ static errval_t mm_allocate_slot(struct mm *mm, struct capref *cap)
 errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment,
                           struct capref *retcap)
 {
-    debug_printf("Memory allocation request of %lu KB aligned to %lu KB\n",
-                 requested_size / 1024, alignment / 1024);
+    debug_printf("Memory allocation request of %lu aligned to %lu\n", requested_size,
+                 alignment);
 
     errval_t err;
     if (requested_size < MIN_ALLOC || MAX_ALLOC < requested_size) {
         debug_printf("Memory allocation denied: Out of bounds");
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
+    }
+
+    if (alignment == 0) {
+        // use sane default
+        alignment = 1;
     }
 
     if (mm->head == NULL) {
@@ -245,33 +250,32 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
             return err;
         }
 
-        // exact fit
-        if (curr->size == requested_size) {
-            curr->type = NodeType_Allocated;
-            break;
+        if (curr->size > requested_size) {
+            // split a node
+            mmnode_t *left_split, *right_split;
+            err = node_split(mm, curr, requested_size, &left_split, &right_split);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to split mmnodes");
+                return err;
+            }
+            left_split->type = NodeType_Allocated;
+            right_split->type = NodeType_Free;
+
+            curr = left_split;
+
+            // refill slabs as we use slabs in node_split
+            mm_refill_slabs(mm);
         }
 
-        // split a node
-        mmnode_t *left_split, *right_split;
-        err = node_split(mm, curr, requested_size, &left_split, &right_split);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to split mmnodes");
-            return err;
-        }
-        left_split->type = NodeType_Allocated;
-        right_split->type = NodeType_Free;
-
-        // refill slabs as we use slabs in node_split
-        mm_refill_slabs(mm);
-        break;
+        mm->head = curr;
+        debug_printf("Memory allocated: (%lu, %lu)\n", curr->base,
+                     curr->base + curr->size - 1);
+        mm_debug_print(mm);
+        return SYS_ERR_OK;
     } while (curr != mm->head);
-    mm->head = curr;
 
-    debug_printf("Memory allocated: (%lu, %lu)\n", curr->base,
-                 curr->base + curr->size - 1);
-    mm_debug_print(mm);
-
-    return SYS_ERR_OK;
+    debug_printf("Memory allocation failed: memory exhausted\n", curr->base);
+    return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
 }
 
 errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
