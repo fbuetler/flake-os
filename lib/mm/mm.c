@@ -50,8 +50,6 @@ static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
 
     node->size = offset;
 
-    new_node->type = NodeType_Free;
-
     // relink nodes
     new_node->next = node->next;
     node->next->prev = new_node;
@@ -254,6 +252,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
                 DEBUG_ERR(err, "failed to split mmnodes for alignment");
                 return err;
             }
+            left_split->type = NodeType_Free;
             curr = right_split;
         }
 
@@ -274,6 +273,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
                 DEBUG_ERR(err, "failed to split mmnodes");
                 return err;
             }
+            right_split->type = NodeType_Free;
             curr = left_split;
         }
         curr->type = NodeType_Allocated;
@@ -305,6 +305,64 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
     return mm_alloc_aligned(mm, size, BASE_PAGE_SIZE, retcap);
 }
 
+static errval_t mm_partial_free(struct mm *mm, mmnode_t **node, size_t memory_base,
+                                size_t memory_size)
+{
+    errval_t err;
+
+    if ((*node)->base == memory_base) {
+        debug_printf("Partial memory free request: left aligned\n");
+        size_t offset = memory_size;
+        mmnode_t *left_split, *right_split;
+        err = node_split(mm, *node, offset, &left_split, &right_split);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to split mmnodes in a left aligned partial "
+                           "free");
+            return err;
+        }
+        left_split->type = NodeType_Free;
+        right_split->type = NodeType_Allocated;
+        *node = left_split;
+    } else if ((*node)->base + (*node)->size - memory_size == memory_base) {
+        debug_printf("Partial memory free request: right aligned\n");
+        size_t offset = memory_base - (*node)->base;
+        mmnode_t *left_split, *right_split;
+        err = node_split(mm, *node, offset, &left_split, &right_split);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to split mmnodes in a right aligned partial "
+                           "free");
+            return err;
+        }
+        left_split->type = NodeType_Allocated;
+        right_split->type = NodeType_Free;
+        *node = right_split;
+    } else {
+        debug_printf("Partial memory free request: middle aligned\n");
+        size_t left_offset = memory_base - (*node)->base;
+        size_t right_offset = memory_base + memory_size - (*node)->base - left_offset;
+        mmnode_t *left_split, *middle_split, *right_split;
+        err = node_split(mm, *node, left_offset, &left_split, &middle_split);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to split mmnodes in a middle aligned partial "
+                           "free");
+            return err;
+        }
+        *node = middle_split;
+        err = node_split(mm, *node, right_offset, &middle_split, &right_split);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to split mmnodes in a middle aligned partial "
+                           "free");
+            return err;
+        }
+
+        left_split->type = NodeType_Allocated;
+        middle_split->type = NodeType_Free;
+        right_split->type = NodeType_Allocated;
+        *node = middle_split;
+    }
+
+    return SYS_ERR_OK;
+}
 
 errval_t mm_free(struct mm *mm, struct capref cap)
 {
@@ -328,9 +386,21 @@ errval_t mm_free(struct mm *mm, struct capref cap)
 
     mmnode_t *curr = mm->head;
     do {
-        if (curr->base != memory_base || curr->size != memory_size) {
+        if (memory_base < curr->base || curr->base + curr->size <= memory_base) {
             curr = curr->next;
             continue;
+        }
+
+        if (curr->size != memory_size) {
+            if (memory_size % BASE_PAGE_SIZE != 0) {
+                debug_printf("Memory partial free not possible: size is not aligned\n");
+                return LIB_ERR_RAM_ALLOC;
+            }
+            err = mm_partial_free(mm, &curr, memory_base, memory_size);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to do partial free");
+                return err;
+            }
         }
 
         err = cap_destroy(cap);
