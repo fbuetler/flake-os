@@ -33,12 +33,12 @@ static errval_t pt_alloc(struct paging_state *st, enum objtype type, struct capr
     errval_t err;
     err = st->slot_allocator->alloc(st->slot_allocator, ret);
     if (err_is_fail(err)) {
-        debug_printf("slot_alloc failed: %s\n", err_getstring(err));
+        DEBUG_ERR(err, "slot_alloc failed");
         return err;
     }
     err = vnode_create(*ret, type);
     if (err_is_fail(err)) {
-        debug_printf("vnode_create failed: %s\n", err_getstring(err));
+        DEBUG_ERR(err, "vnode_create failed");
         return err;
     }
     return SYS_ERR_OK;
@@ -234,7 +234,7 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
     // allocate slot for capability
     err = st->slot_allocator->alloc(st->slot_allocator, &pt_mapping_cap);
     if (err_is_fail(err)) {
-        debug_printf("slot_alloc failed: %s\n", err_getstring(err));
+        DEBUG_ERR(err, "slot_alloc failed");
         return err;
     }
 
@@ -337,7 +337,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         struct capref frame_mapping_cap;
         err = st->slot_allocator->alloc(st->slot_allocator, &frame_mapping_cap);
         if (err_is_fail(err)) {
-            debug_printf("slot_alloc failed: %s\n", err_getstring(err));
+            DEBUG_ERR(err, "slot_alloc failed");
             return err;
         }
 
