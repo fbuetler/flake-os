@@ -313,6 +313,7 @@ errval_t mm_free(struct mm *mm, struct capref cap)
     err = cap_direct_identify(cap, &c);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get the frame info\n");
+        return LIB_ERR_RAM_ALLOC;
     }
 
     size_t memory_base = c.u.ram.base;
