@@ -243,7 +243,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         // memory base address is not aligned
         if (curr->base % alignment != 0) {
             size_t offset = alignment - (curr->base % alignment);
-            if (curr->size - offset < requested_size) {
+            if (0 < curr->size - offset || curr->size - offset < requested_size) {
                 curr = curr->next;
                 continue;
             }
