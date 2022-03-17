@@ -45,6 +45,72 @@ __attribute__((unused)) static void test_alternate_allocs_and_frees(size_t n, si
     mm_debug_print(&aos_mm);
 }
 
+__attribute__((unused)) static void test_partial_free(void)
+{
+    errval_t err;
+
+    struct capref complete;
+    err = ram_alloc(&complete, 5 * BASE_PAGE_SIZE);
+    assert(err_is_ok(err));
+
+    struct capref outer_left_split;
+    err = aos_mm.slot_alloc(aos_mm.slot_allocator, 1, &outer_left_split);
+    assert(err_is_ok(err));
+    err = cap_retype(outer_left_split, complete, 0, aos_mm.objtype, BASE_PAGE_SIZE, 1);
+    assert(err_is_ok(err));
+
+    struct capref inner_left_split;
+    err = aos_mm.slot_alloc(aos_mm.slot_allocator, 1, &inner_left_split);
+    assert(err_is_ok(err));
+    err = cap_retype(inner_left_split, complete, BASE_PAGE_SIZE, aos_mm.objtype,
+                     BASE_PAGE_SIZE, 1);
+    assert(err_is_ok(err));
+
+    struct capref middle_split;
+    err = aos_mm.slot_alloc(aos_mm.slot_allocator, 1, &middle_split);
+    assert(err_is_ok(err));
+    err = cap_retype(middle_split, complete, 2 * BASE_PAGE_SIZE, aos_mm.objtype,
+                     BASE_PAGE_SIZE, 1);
+    assert(err_is_ok(err));
+
+    struct capref inner_right_split;
+    err = aos_mm.slot_alloc(aos_mm.slot_allocator, 1, &inner_right_split);
+    assert(err_is_ok(err));
+    err = cap_retype(inner_right_split, complete, 3 * BASE_PAGE_SIZE, aos_mm.objtype,
+                     BASE_PAGE_SIZE, 1);
+    assert(err_is_ok(err));
+
+    struct capref outer_right_split = complete;
+
+    // memory layout
+    // outer_left / inner_left / middle / inner_right / outer_right
+
+    // middle aligned
+    err = aos_ram_free(inner_right_split);
+    assert(err_is_ok(err));
+    mm_debug_print(&aos_mm);
+
+    // left aligned
+    err = aos_ram_free(outer_left_split);
+    assert(err_is_ok(err));
+    mm_debug_print(&aos_mm);
+
+    // right aligned
+    err = aos_ram_free(middle_split);
+    assert(err_is_ok(err));
+    mm_debug_print(&aos_mm);
+
+    // normal
+    err = aos_ram_free(inner_left_split);
+    assert(err_is_ok(err));
+    mm_debug_print(&aos_mm);
+
+    // normal
+    err = aos_ram_free(outer_right_split);
+    assert(err_is_ok(err));
+    mm_debug_print(&aos_mm);
+}
+
 __attribute__((unused)) static void test_merge_memory(size_t n, size_t size,
                                                       size_t alignment)
 {
@@ -217,6 +283,9 @@ __attribute__((unused)) static void tests(void)
     test_alternate_allocs_and_frees(8, 1 << 12, 1 << 12);
     test_merge_memory(8, 1 << 12, 1 << 12);
     test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
+
+    // test partial free
+    test_partial_free();
 
     // test frame mapping
     test_map_single_frame(1);
