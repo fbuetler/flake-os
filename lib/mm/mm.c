@@ -295,7 +295,8 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         return SYS_ERR_OK;
     } while (curr != mm->head);
 
-    debug_printf("Memory allocation failed: memory exhausted\n", curr->base);
+    debug_printf("Memory allocation failed: memory exhausted\n");
+    mm_debug_print(mm);
     return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
 }
 
