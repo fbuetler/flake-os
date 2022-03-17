@@ -50,6 +50,8 @@ static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
 
     node->size = offset;
 
+    new_node->type = NodeType_Free;
+
     // relink nodes
     new_node->next = node->next;
     node->next->prev = new_node;
@@ -272,8 +274,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
                 DEBUG_ERR(err, "failed to split mmnodes");
                 return err;
             }
-            right_split->type = NodeType_Free;
-
             curr = left_split;
         }
         curr->type = NodeType_Allocated;
