@@ -49,3 +49,18 @@ bin/
 # clang
 .clang_complete
 compile_commands.json
+
+# auxiliary tex files
+*temp.*
+*.aux
+*.ps
+*.log
+*.dvi
+*.tex~
+*.bbl
+*.blg
+*.fls
+*.out
+*.toc
+*.fdb_latexmk
+*.synctex.gz
