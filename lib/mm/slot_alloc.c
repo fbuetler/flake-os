@@ -17,12 +17,25 @@
 #include <mm/slot_alloc.h>
 #include <stdio.h>
 
+/**
+ * @brief allocates a new root CNode
+ *
+ * @param st the memory manager
+ * @param reqsize the size of the allocated memory
+ * @param ret the capability that represents the allocated memory
+ * @return errval_t
+ */
 static errval_t rootcn_alloc(void *st, size_t reqsize, struct capref *ret)
 {
     return mm_alloc(st, reqsize, ret);
 }
 
-/// Allocate a new cnode if needed
+/**
+ * @brief refills the slot allocator and allocates a new cnode if needed
+ *
+ * @param this the slot allocator
+ * @return errval_t
+ */
 errval_t slot_prealloc_refill(void *this)
 {
     struct slot_prealloc *sa = this;
@@ -83,6 +96,14 @@ out:
     return err;
 }
 
+/**
+ * @brief allocates a slot
+ *
+ * @param inst the slot allocator
+ * @param nslots the number of slots to be allocated
+ * @param ret a capability that will represent the allocated slot
+ * @return errval_t
+ */
 errval_t slot_alloc_prealloc(void *inst, uint64_t nslots, struct capref *ret)
 {
     struct slot_prealloc *this = inst;
@@ -129,6 +150,12 @@ errval_t slot_alloc_prealloc(void *inst, uint64_t nslots, struct capref *ret)
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief count the number of free slot in the slot allocator
+ *
+ * @param this the slot allocator
+ * @return the number of free slots
+ */
 size_t slot_freecount(struct slot_prealloc *this)
 {
     return this->meta[0].free + this->meta[1].free;
