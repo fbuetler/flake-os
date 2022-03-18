@@ -132,9 +132,9 @@ void mm_destroy(struct mm *mm)
     while (curr != mm->head) {
         mmnode_t *prev = curr;
         curr = curr->next;
-        free(prev);
+        slab_free(&mm->slab_allocator, prev);
     }
-    free(mm->head);
+    slab_free(&mm->slab_allocator, mm->head);
     mm->head = NULL;
 }
 
