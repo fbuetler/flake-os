@@ -326,7 +326,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         DEBUG_ERR(err, "failed to get/create l3 page table");
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
-
+    
     for (int i = 0; i < bytes / BASE_PAGE_SIZE; i++) {
         assert(l3_index + i < PTABLE_ENTRIES);
 
