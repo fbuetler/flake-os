@@ -81,7 +81,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-static errval_t spawn_load_elf_binary()
+static errval_t spawn_load_elf_binary(void)
 {
     // elf_allocator_fn allocator; // create or find allocator
     // void* elf_state; // create or find struct to store elf state
@@ -92,12 +92,12 @@ static errval_t spawn_load_elf_binary()
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-static errval_t spawn_setup_dispatcher()
+static errval_t spawn_setup_dispatcher(void)
 {
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-static errval_t spawn_setup_env()
+static errval_t spawn_setup_env(void)
 {
     return LIB_ERR_NOT_IMPLEMENTED;
 }
@@ -160,21 +160,21 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // load elf binary
     err = spawn_load_elf_binary();
     if (err_is_fail(err)) {
-        DEBUG(err, "failed to load ELF binary");
+        DEBUG_ERR(err, "failed to load ELF binary");
         return err_push(err, SPAWN_ERR_LOAD);
     }
 
     // setup dispatcher
     err = spawn_setup_dispatcher();
     if (err_is_fail(err)) {
-        DEBUG(err, "failed to setup dispatcher");
+        DEBUG_ERR(err, "failed to setup dispatcher");
         return err_push(err, SPAWN_ERR_DISPATCHER_SETUP);
     }
 
     // setup environment
     err = spawn_setup_env();
     if (err_is_fail(err)) {
-        DEBUG(err, "failed to setup environment");
+        DEBUG_ERR(err, "failed to setup environment");
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }
 
