@@ -205,7 +205,7 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
     //
     // Hint:
     //  - think about what mapping configurations are actually possible
-    *buf = (void *) st->next_free_addr;
+    *buf = (void *)st->next_free_addr;
     return paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, flags);
 }
 
@@ -288,7 +288,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
      * use the current variable
      */
 
-    printf("Mapping size: %zu at addr: %lu  with st next addr: %lu \n", bytes, vaddr, st->next_free_addr);
+    printf("Mapping size: %zu at addr: %lu  with st next addr: %lu \n", bytes, vaddr,
+           st->next_free_addr);
 
     // ASK: different of 'current' and 'st'?
 
@@ -344,8 +345,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             return err;
         }
 
-        err = vnode_map(l3_pt->cap, frame_cap, l3_index + i, flags,
-                        i * BASE_PAGE_SIZE, 1, frame_mapping_cap);
+        err = vnode_map(l3_pt->cap, frame_cap, l3_index + i, flags, i * BASE_PAGE_SIZE, 1,
+                        frame_mapping_cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to map page table");
             return err;
