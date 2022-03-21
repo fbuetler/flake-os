@@ -138,7 +138,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // map multiboot image to virtual memory
     lvaddr_t binary;
     size_t binary_size;
-    err = spawn_map_module(si->mem_region, &binary_size, &binary);
+    err = spawn_map_module(si->module, &binary_size, &binary);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map module");
         return err;
@@ -228,12 +228,12 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
         return SPAWN_ERR_FIND_MODULE;
     }
 
-    si->mem_region = module_location;
+    si->module = module_location;
 
     printf("Successful found multiboot module. Base: %lu size: %lu type: %d mrmod base: "
            "%td mrmod size: %zu\n",
-           si->mem_region->mr_base, si->mem_region->mr_bytes, si->mem_region->mr_type,
-           si->mem_region->mrmod_data, si->mem_region->mrmod_size);
+           si->module->mr_base, si->module->mr_bytes, si->module->mr_type,
+           si->module->mrmod_data, si->module->mrmod_size);
 
     // get argc/argv from multiboot command line
     const char *cmd_opts = multiboot_module_opts(module_location);
