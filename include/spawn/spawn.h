@@ -32,6 +32,12 @@ struct spawninfo {
     //           when spawning a new dispatcher,
     //           e.g. references to the child's
     //           capabilities or paging state
+    struct cnoderef rootcn;
+    struct capref rootcn_cap;
+
+    struct cnoderef taskcn;
+    struct cnoderef basepagecn;
+    struct cnoderef pagecn;
 };
 
 // Start a child process using the multiboot command line. Fills in si.
