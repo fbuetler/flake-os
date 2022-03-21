@@ -205,8 +205,8 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
     //
     // Hint:
     //  - think about what mapping configurations are actually possible
-
-    return paging_map_fixed_attr(st, st->next_free_addr, frame, bytes, flags);
+    *buf = (void *) st->next_free_addr;
+    return paging_map_fixed_attr(st, (lvaddr_t)(*buf), frame, bytes, flags);
 }
 
 
@@ -344,7 +344,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             return err;
         }
 
-        err = vnode_map(l3_pt->cap, frame_cap, l3_index + i, VREGION_FLAGS_READ_WRITE,
+        err = vnode_map(l3_pt->cap, frame_cap, l3_index + i, flags,
                         i * BASE_PAGE_SIZE, 1, frame_mapping_cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to map page table");
@@ -355,6 +355,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
         st->next_free_addr += BASE_PAGE_SIZE;
     }
+
+    printf("Done mapping \n");
 
     return SYS_ERR_OK;
 }

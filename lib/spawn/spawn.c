@@ -173,6 +173,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo * si,
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
 
+
     // - spawn multiboot image
     /*
     err = spawn_load_argv(argc, argv, si, pid);

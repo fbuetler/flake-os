@@ -219,6 +219,15 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         alignment = 1;
     }
 
+    if (slab_freecount(&mm->slab_allocator) < 8) {
+        // TODO maybe set this function as slabs->refill_func
+        err = slab_default_refill(&mm->slab_allocator);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to refill slab allocator");
+            return LIB_ERR_SLAB_REFILL;
+        }
+    }
+
     if (mm->head == NULL) {
         debug_printf("Memory allocation not possible: no memory initialized\n");
         return LIB_ERR_RAM_ALLOC;
@@ -279,15 +288,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         curr->type = NodeType_Allocated;
 
         mm->head = curr;
-
-        if (slab_freecount(&mm->slab_allocator) < 8) {
-            // TODO maybe set this function as slabs->refill_func
-            err = slab_default_refill(&mm->slab_allocator);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to refill slab allocator");
-                return LIB_ERR_SLAB_REFILL;
-            }
-        }
 
         debug_printf("Memory allocated: (%lu, %lu)\n", curr->base,
                      curr->base + curr->size - 1);
