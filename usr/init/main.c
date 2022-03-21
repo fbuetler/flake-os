@@ -42,9 +42,9 @@ __attribute__((unused)) static void test_alternate_allocs_and_frees(size_t n, si
         err = aos_ram_free(cap);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
-
+/*
 __attribute__((unused)) static void test_partial_free(void)
 {
     errval_t err;
@@ -88,28 +88,29 @@ __attribute__((unused)) static void test_partial_free(void)
     // middle aligned
     err = aos_ram_free(inner_right_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 
     // left aligned
     err = aos_ram_free(outer_left_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 
     // right aligned
     err = aos_ram_free(middle_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 
     // normal
     err = aos_ram_free(inner_left_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 
     // normal
     err = aos_ram_free(outer_right_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
+*/
 
 __attribute__((unused)) static void test_merge_memory(size_t n, size_t size,
                                                       size_t alignment)
@@ -121,19 +122,19 @@ __attribute__((unused)) static void test_merge_memory(size_t n, size_t size,
         err = ram_alloc_aligned(&caps[i], size, alignment);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     for (int i = 0; i < n; i += 2) {
         printf("Iteration %d\n", i);
         err = aos_ram_free(caps[i]);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     for (int i = 1; i < n; i += 2) {
         printf("Iteration %d\n", i);
         err = aos_ram_free(caps[i]);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
 
 __attribute__((unused)) static void
@@ -146,13 +147,13 @@ test_consecutive_allocs_then_frees(size_t n, size_t size, size_t alignment)
         err = ram_alloc_aligned(&caps[i], size, alignment);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     for (int i = 0; i < n; i++) {
         printf("Iteration %d\n", i);
         err = aos_ram_free(caps[i]);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     if (size > 1 << 5) {
         printf("Note: page tables are still allocated\n");
     }
@@ -175,13 +176,13 @@ __attribute__((unused)) static void test_expontential_allocs_then_frees(size_t l
             break;
         }
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     for (int j = 0; j < i; j++) {
         printf("Iteration %d\n", j);
         err = aos_ram_free(caps[j]);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
 
 __attribute__((unused)) static void test_next_fit_alloc(void)
@@ -312,7 +313,7 @@ __attribute__((unused)) static void test_vtable_mapping_size(gensize_t bytes)
     }
     test_vtable_vaddr += allocated_bytes;
 
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     printf("test_vtable_mapping_size done\n");
 }
 
@@ -351,7 +352,7 @@ __attribute__((unused)) static void test_alloc_free(int iterations)
         assert(err_is_ok(err));
     }
 
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
 
 __attribute__((unused)) static void test_alignments(int iterations, gensize_t alloc_size)
@@ -393,7 +394,7 @@ __attribute__((unused)) static void test_merge(int iterations, size_t size,
         assert(err_is_ok(err));
     }
 
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
 
 __attribute__((unused)) static void double_free(void)
@@ -492,7 +493,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
 
     // test partial free
-    test_partial_free();
+    //test_partial_free();
 
     // test frame mapping
     test_map_single_frame(1);
@@ -559,7 +560,7 @@ static int bsp_main(int argc, char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     debug_printf("Initial free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
     debug_printf("Initial free slot count: %d\n", slot_freecount(aos_mm.slot_allocator));
 

@@ -21,6 +21,7 @@
 #include <aos/types.h>
 #include <aos/capabilities.h>
 #include <aos/slab.h>
+#include "mm_tracker.h"
 #include "slot_alloc.h"
 
 __BEGIN_DECLS
@@ -43,24 +44,6 @@ __BEGIN_DECLS
  */
 #define BUCKET_COUNT (MAX_ALLOC_LOG2 - MIN_ALLOC_LOG2 + 1)
 
-
-enum nodetype { NodeType_Free, NodeType_Allocated };
-
-struct capinfo {
-    struct capref cap;  ///< Capability reference
-    genpaddr_t base;    ///< Memory base address of the capref
-    size_t size;        ///< Memory size of the capref
-};
-
-typedef struct mmnode_t {
-    enum nodetype type;      ///< Nodetype is either free or allocated
-    struct capinfo capinfo;  ///< Capability information
-    struct mmnode_t *prev;   ///< Pointer to the previous node
-    struct mmnode_t *next;   ///< Pointer to the next node
-    genpaddr_t base;         ///< Memory base address that is represented by this node
-    gensize_t size;          ///< Memory size that is represented by this node
-} mmnode_t;
-
 /**
  * \brief Memory manager instance data
  *
@@ -68,13 +51,13 @@ typedef struct mmnode_t {
  * them to allocate its memory, we declare it in the public header.
  */
 struct mm {
-    struct slab_allocator slab_allocator;  ///< Slab allocator used for allocating nodes
-    slot_alloc_t slot_alloc;               ///< Slot allocator for allocating cspace
-    slot_refill_t slot_refill;             ///< Slot allocator refill function
-    void *slot_allocator;                  ///< Opaque instance pointer for slot allocator
-    enum objtype objtype;                  ///< Type of capabilities stored
+    struct slab_allocator slab_allocator; ///< Slab allocator
+    slot_alloc_t slot_alloc;    ///< Slot allocator for allocating cspace
+    slot_refill_t slot_refill;  ///< Slot allocator refill function
+    void *slot_allocator;       ///< Opaque instance pointer for slot allocator
+    enum objtype objtype;       ///< Type of capabilities stored
 
-    mmnode_t *head;  // points to a circular buffer that holds all memory regions
+    mm_tracker_t mmt;  ///< Memory tracker
 };
 
 errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,
@@ -86,8 +69,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t size, size_t alignment,
 errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap);
 errval_t mm_free(struct mm *mm, struct capref cap);
 void mm_destroy(struct mm *mm);
-void mm_debug_print(struct mm *mm);
 
-__END_DECLS
+    __END_DECLS
 
 #endif /* AOS_MM_H */

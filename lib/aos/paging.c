@@ -137,6 +137,7 @@ errval_t paging_init(void)
     static uint8_t pt_buf[SLAB_STATIC_SIZE(64, sizeof(struct page_table))];
     slab_grow(&current.slab_allocator, pt_buf, sizeof(pt_buf));
 
+
     return SYS_ERR_OK;
 }
 

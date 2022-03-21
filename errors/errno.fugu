@@ -708,8 +708,9 @@ errors libelf ELF_ERR_ {
 
 // errors from memory management library
 errors libmm MM_ERR_ {
-    failure FIND_NODE           "Failure in find_node()",
-    failure CHUNK_NODE          "Failure in chunk_node()",
+    failure ALLOC_NODE          "Failure in mm_tracker_alloc()",
+    failure FIND_NODE           "Failure in mm_tracker_find_next_fit()",
+    failure SPLIT_NODE          "Failure in mm_tracker_split_node()",
     failure SLOT_MM_ALLOC       "Nested failure in slot allocator calling mm_alloc",
     failure SLOT_NOSLOTS        "Slot allocator has run out of slots",
     failure SLOT_ALLOC_INIT     "Failure initialising slot allocator",
