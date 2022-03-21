@@ -83,6 +83,39 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si,
     // - Setup the environment
     // - Make the new dispatcher runnable
 
+
+
+
+    // - initialize spawn_info struct
+    // ??
+
+    // - map multiboot image to virtual memory
+
+    // allocate virtual memory
+    void **buf;
+    size_t size; // need to extract size from elf header
+    struct capref cap;
+    int flag = VREGION_FLAGS_EXECUTE; // This is probably wrong as only part of the binary contains code
+    paging_map_frame_attr(get_current_paging_state(), buf, size, cap, flag);
+    // - setup cspace
+
+    // - setup vspace
+
+    // - load elf binary
+    elf_allocator_fn allocator; // create or find allocator
+    void* elf_state; // create or find struct to store elf state
+    genvaddr_t entry_point; // this is returned from elf_load
+
+    elf_load(EM_AARCH64, allocator, elf_state, buf, size, entry_point);
+
+    // - setup dispatcher
+
+    // - setup environment
+
+    // - run the dispatcher
+    // invoke_dispatcher()
+
+
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
@@ -107,7 +140,46 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo * si,
     // - Fill in argc/argv from the multiboot command line
     // - Call spawn_load_argv
 
-    return LIB_ERR_NOT_IMPLEMENTED;
+    printf("Inside spawn load by name \n");
+
+    // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
+    si->binary_name = binary_name;
+
+    // - get memory region from multiboot image
+
+    errval_t err;
+    struct mem_region * module_location;
+    module_location = multiboot_find_module(bi, binary_name);
+
+    // ToDo: fails because "paging_map_frame_attr()" is not yet implemented
+    if(!module_location) {
+        printf("ERROR MODULE LOCATION NULL \n");
+        return SPAWN_ERR_FIND_MODULE;
+    }
+    printf("Successful find multiboot module \n");
+
+    // - get argc/argv from multiboot command line
+
+    const char * cmd_opts = multiboot_module_opts(module_location);
+    int argc;
+    char* buf; // not sure what the difference between argv and buf is
+    char ** argv = make_argv(cmd_opts, &argc, &buf);
+
+    if(argv == NULL) {
+        printf("ERROR making argv! \n");
+        return SPAWN_ERR_GET_CMDLINE_ARGS;
+    }
+
+    // - spawn multiboot image
+
+    err = spawn_load_argv(argc, argv, si, pid);
+
+    if(!err_is_ok(err)) {
+        printf("Error spawning with argv \n");
+        return err;
+    }
+
+    return SYS_ERR_OK;
 }
 
 

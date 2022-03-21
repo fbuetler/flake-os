@@ -24,6 +24,7 @@
 #include <grading.h>
 
 #include "mem_alloc.h"
+#include <spawn/spawn.h>
 
 
 struct bootinfo *bi;
@@ -320,9 +321,15 @@ static int bsp_main(int argc, char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
+    /*
     mm_debug_print(&aos_mm);
     debug_printf("Initial free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
     debug_printf("Initial free slot count: %d\n", slot_freecount(aos_mm.slot_allocator));
+     */
+    printf("Inside bsp_main \n");
+    struct spawninfo si;
+    domainid_t pid;
+    spawn_load_by_name("hello", &si, &pid);
 
     // tests();
 

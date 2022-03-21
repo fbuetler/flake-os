@@ -64,3 +64,9 @@ compile_commands.json
 *.toc
 *.fdb_latexmk
 *.synctex.gz
+
+# custom
+.DS_Store
+.idea/
+CMakeLists.txt
+cmake-build-debug
