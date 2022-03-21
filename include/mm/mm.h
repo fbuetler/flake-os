@@ -47,18 +47,18 @@ __BEGIN_DECLS
 enum nodetype { NodeType_Free, NodeType_Allocated };
 
 struct capinfo {
-    struct capref cap;
-    genpaddr_t base;
-    size_t size;
+    struct capref cap;  ///< Capability reference
+    genpaddr_t base;    ///< Memory base address of the capref
+    size_t size;        ///< Memory size of the capref
 };
 
 typedef struct mmnode_t {
-    enum nodetype type;
-    struct capinfo capinfo;
-    struct mmnode_t *prev;
-    struct mmnode_t *next;
-    genpaddr_t base;
-    gensize_t size;
+    enum nodetype type;      ///< Nodetype is either free or allocated
+    struct capinfo capinfo;  ///< Capability information
+    struct mmnode_t *prev;   ///< Pointer to the previous node
+    struct mmnode_t *next;   ///< Pointer to the next node
+    genpaddr_t base;         ///< Memory base address that is represented by this node
+    gensize_t size;          ///< Memory size that is represented by this node
 } mmnode_t;
 
 /**
