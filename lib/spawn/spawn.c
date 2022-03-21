@@ -73,11 +73,65 @@ static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
 
 static errval_t spawn_setup_cspace(struct spawninfo *si)
 {
+    errval_t err;
+
+    // create root cnode
+    err = cnode_create_l1(&si->rootcn_cap, &si->rootcn);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create root cnode");
+        return err_push(err, SPAWN_ERR_CREATE_ROOTCN);
+    }
+
+    // create task cnode
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_TASKCN, &si->taskcn);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create task cnode");
+        return err_push(err, SPAWN_ERR_CREATE_TASKCN);
+    }
+
+    // create slot alloc cnodes
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_SLOT_ALLOC0, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create alloc 0 cnode");
+        return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
+    }
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_SLOT_ALLOC1, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create alloc 1 cnode");
+        return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
+    }
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_SLOT_ALLOC2, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create alloc 2 cnode");
+        return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
+    }
+
+    // create base page cnode
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_BASE_PAGE_CN,
+                                  &si->basepagecn);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create base page cnode");
+        return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
+    }
+
+    // TODO setup TASKCN_SLOT*
+    // TODO put ram caps of base page size into each slot of BASE_PAGE_CN
+
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
 static errval_t spawn_setup_vspace(struct spawninfo *si)
 {
+    errval_t err;
+
+    // create page cnode
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_PAGECN, &si->pagecn);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create page cnode");
+        return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
+    }
+    // TODO Slot 0: Contains a capability for the process’ ARMv8-A top-level pagetable.
+
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
