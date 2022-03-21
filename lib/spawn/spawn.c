@@ -41,6 +41,66 @@ armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got_base;
 }
 
+static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
+                                 lvaddr_t *retaddr)
+{
+    errval_t err;
+
+    void *base;
+    size_t module_size = module->mrmod_size;
+    struct capref cap_frame = {
+        .cnode = cnode_module,
+        .slot = module->mrmod_slot,
+    };
+
+    err = paging_map_frame_attr(get_current_paging_state(), (void **)&base, module_size,
+                                cap_frame, VREGION_FLAGS_READ_EXECUTE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map module frame");
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    if (retsize != NULL) {
+        *retsize = module_size;
+    }
+
+    if (retaddr != NULL) {
+        *retaddr = (lvaddr_t)base;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t spawn_setup_cspace(struct spawninfo *si)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+static errval_t spawn_setup_vspace(struct spawninfo *si)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+static errval_t spawn_load_elf_binary(void)
+{
+    // elf_allocator_fn allocator; // create or find allocator
+    // void* elf_state; // create or find struct to store elf state
+    // genvaddr_t entry_point; // this is returned from elf_load
+
+    // elf_load(EM_AARCH64, allocator, elf_state, buf, size, entry_point);
+
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+static errval_t spawn_setup_dispatcher(void)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+static errval_t spawn_setup_env(void)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
 
 /**
  * TODO(M2): Implement this function.
@@ -72,57 +132,63 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // - Setup the environment
     // - Make the new dispatcher runnable
 
+    errval_t err;
 
-    // - initialize spawn_info struct
+    // map multiboot image to virtual memory
+    lvaddr_t binary;
+    size_t binary_size;
+    err = spawn_map_module(si->module, &binary_size, &binary);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map module");
+        return err;
+    }
+    // ELF magic number: 0x7f E L F
+    assert(*(char *)(binary + 0) == 0x7f);
+    assert(*(char *)(binary + 1) == 0x45);
+    assert(*(char *)(binary + 2) == 0x4c);
+    assert(*(char *)(binary + 3) == 0x46);
 
-    // - map multiboot image to virtual memory
+    // setup cspace
+    err = spawn_setup_cspace(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup cspace");
+        return err_push(err, SPAWN_ERR_SETUP_CSPACE);
+    }
 
-    // allocate virtual memory
-    void *buf;
-    size_t size = si->module->mrmod_size;  // mr_bytes is empty so mrmod_size is correct
-    int flag = VREGION_FLAGS_READ; // Not sure which flag is required
+    // setup vspace
+    err = spawn_setup_vspace(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup vspace");
+        return err_push(err, SPAWN_ERR_VSPACE_INIT);
+    }
 
+    // load elf binary
+    err = spawn_load_elf_binary();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to load ELF binary");
+        return err_push(err, SPAWN_ERR_LOAD);
+    }
 
-    // capref from book page 83
-    struct capref child_frame = {
-        .cnode = cnode_module,
-        .slot = si->module->mrmod_slot,
-    };
+    // setup dispatcher
+    err = spawn_setup_dispatcher();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup dispatcher");
+        return err_push(err, SPAWN_ERR_DISPATCHER_SETUP);
+    }
 
-    printf("before paging map frame \n");
+    // setup environment
+    err = spawn_setup_env();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup environment");
+        return err_push(err, SPAWN_ERR_SETUP_ENV);
+    }
 
-    paging_map_frame_attr(get_current_paging_state(), &buf, size, child_frame, flag);
-
-    printf("after paging map frame \n");
-
-    printf("%x %c %c %c \n", *(char *)buf, *(char *)(buf + 1), *(char *)(buf + 2),
-           *(char *)(buf + 3));
-    assert(*(char *)(buf + 1) == 0x45);
-    assert(*(char *)(buf + 2) == 0x4c);
-    assert(*(char *)(buf + 3) == 0x46);
-
-    printf("ELF magic header is correct :) \n");
-
-    // - setup cspace
-
-    // - setup vspace
     /*
-    // - load elf binary
-    elf_allocator_fn allocator; // create or find allocator
-    void* elf_state; // create or find struct to store elf state
-    genvaddr_t entry_point; // this is returned from elf_load
-
-    elf_load(EM_AARCH64, allocator, elf_state, buf, size, entry_point);
-
-    // - setup dispatcher
-
-    // - setup environment
-
-    // - run the dispatcher
-    // invoke_dispatcher()
+     - run the dispatcher
+     Make the new dispatcher runnable
+     invoke_dispatcher()
      */
-    elf_load()
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return SYS_ERR_OK;
 }
 
 
@@ -146,20 +212,17 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // - Fill in argc/argv from the multiboot command line
     // - Call spawn_load_argv
 
+    errval_t err;
     printf("Inside spawn load by name \n");
 
     // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
     si->binary_name = binary_name;
 
-    // - get memory region from multiboot image
-
-    errval_t err;
+    // get memory region from multiboot image
     struct mem_region *module_location;
     module_location = multiboot_find_module(bi, binary_name);
-
-    // ToDo: fails because "paging_map_frame_attr()" is not yet implemented
-    if (!module_location) {
-        printf("ERROR MODULE LOCATION NULL \n");
+    if (module_location == NULL) {
+        debug_printf("Spawn dispatcher: failed to find module location\n");
         return SPAWN_ERR_FIND_MODULE;
     }
 
@@ -170,25 +233,25 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
            si->module->mr_base, si->module->mr_bytes, si->module->mr_type,
            si->module->mrmod_data, si->module->mrmod_size);
 
-    // - get argc/argv from multiboot command line
-
+    // get argc/argv from multiboot command line
     const char *cmd_opts = multiboot_module_opts(module_location);
+    if (cmd_opts == NULL) {
+        debug_printf("Spawn dispatcher: failed to load arguments\n");
+        return SPAWN_ERR_GET_CMDLINE_ARGS;
+    }
     int argc;
-    char *buf;  // not sure what the difference between argv and buf is
-    char **argv = make_argv(cmd_opts, &argc, &buf);
-
+    char *argv_str;  // argv_str stores the raw string of the arguments
+    // argv stores an array of argument
+    char **argv = make_argv(cmd_opts, &argc, &argv_str);
     if (argv == NULL) {
-        printf("ERROR making argv! \n");
+        debug_printf("Spawn dispatcher: failed to make argv\n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
 
-
-    // - spawn multiboot image
-
+    // spawn multiboot image
     err = spawn_load_argv(argc, argv, si, pid);
-
-    if (!err_is_ok(err)) {
-        printf("Error spawning with argv \n");
+    if (err_is_fail(err)) {
+        debug_printf("Spawn dispatcher: failed to spawn a new dispatcher\n");
         return err;
     }
 
