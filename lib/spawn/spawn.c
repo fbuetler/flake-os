@@ -56,7 +56,7 @@ static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
     err = paging_map_frame_attr(get_current_paging_state(), (void **)&base, module_size,
                                 cap_frame, VREGION_FLAGS_READ_EXECUTE);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to map frame");
+        DEBUG_ERR(err, "failed to map module frame");
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }
 
@@ -69,6 +69,37 @@ static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
     }
 
     return SYS_ERR_OK;
+}
+
+static errval_t spawn_setup_cspace(struct spawninfo *si)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+static errval_t spawn_setup_vspace(struct spawninfo *si)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+static errval_t spawn_load_elf_binary()
+{
+    // elf_allocator_fn allocator; // create or find allocator
+    // void* elf_state; // create or find struct to store elf state
+    // genvaddr_t entry_point; // this is returned from elf_load
+
+    // elf_load(EM_AARCH64, allocator, elf_state, buf, size, entry_point);
+
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+static errval_t spawn_setup_dispatcher()
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+static errval_t spawn_setup_env()
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
 }
 
 /**
@@ -112,29 +143,47 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err;
     }
 
+    // setup cspace
+    err = spawn_setup_cspace(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup cspace");
+        return err_push(err, SPAWN_ERR_SETUP_CSPACE);
+    }
 
+    // setup vspace
+    err = spawn_setup_vspace(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup vspace");
+        return err_push(err, SPAWN_ERR_VSPACE_INIT);
+    }
+
+    // load elf binary
+    err = spawn_load_elf_binary();
+    if (err_is_fail(err)) {
+        DEBUG(err, "failed to load ELF binary");
+        return err_push(err, SPAWN_ERR_LOAD);
+    }
+
+    // setup dispatcher
+    err = spawn_setup_dispatcher();
+    if (err_is_fail(err)) {
+        DEBUG(err, "failed to setup dispatcher");
+        return err_push(err, SPAWN_ERR_DISPATCHER_SETUP);
+    }
+
+    // setup environment
+    err = spawn_setup_env();
+    if (err_is_fail(err)) {
+        DEBUG(err, "failed to setup environment");
+        return err_push(err, SPAWN_ERR_SETUP_ENV);
+    }
 
     /*
-    // - setup cspace
-
-    // - setup vspace
-
-    // - load elf binary
-    elf_allocator_fn allocator; // create or find allocator
-    void* elf_state; // create or find struct to store elf state
-    genvaddr_t entry_point; // this is returned from elf_load
-
-    elf_load(EM_AARCH64, allocator, elf_state, buf, size, entry_point);
-
-    // - setup dispatcher
-
-    // - setup environment
-
-    // - run the dispatcher
-    // invoke_dispatcher()
-
+     - run the dispatcher
+     Make the new dispatcher runnable
+     invoke_dispatcher()
      */
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return SYS_ERR_OK;
 }
 
 
