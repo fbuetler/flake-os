@@ -565,12 +565,8 @@ static int bsp_main(int argc, char *argv[])
     debug_printf("Initial free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
     debug_printf("Initial free slot count: %d\n", slot_freecount(aos_mm.slot_allocator));
      */
-    printf("Inside bsp_main \n");
-    struct spawninfo si;
-    domainid_t pid;
-    spawn_load_by_name("hello", &si, &pid);
 
-    run_m1_tests();
+    // run_m1_tests();
 
     // TODO: initialize mem allocator, vspace management here
 
@@ -582,6 +578,10 @@ static int bsp_main(int argc, char *argv[])
     // Grading
     grading_test_early();
 
+    printf("Inside bsp_main \n");
+    struct spawninfo si;
+    domainid_t pid;
+    spawn_load_by_name("hello", &si, &pid);
     // TODO: Spawn system processes, boot second core etc. here
 
     // Grading

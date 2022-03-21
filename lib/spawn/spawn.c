@@ -82,7 +82,8 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     void **buf;
     size_t size = si->mem_region->mrmod_size;
     struct capref cap;
-    int flag = VREGION_FLAGS_EXECUTE; // This is probably wrong as only part of the binary contains code
+    int flag = VREGION_FLAGS_EXECUTE; // This is probably wrong as only part of the binary
+    contains code
     // ToDo: automatically find free vspace
     paging_map_frame_attr(get_current_paging_state(), buf, size, cap, flag);
 
@@ -137,27 +138,30 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // - get memory region from multiboot image
 
     // errval_t err;
-    struct mem_region * module_location;
+    struct mem_region *module_location;
     module_location = multiboot_find_module(bi, binary_name);
 
     // ToDo: fails because "paging_map_frame_attr()" is not yet implemented
-    if(!module_location) {
+    if (!module_location) {
         printf("ERROR MODULE LOCATION NULL \n");
         return SPAWN_ERR_FIND_MODULE;
     }
 
     si->mem_region = module_location;
 
-    printf("Successful found multiboot module. Base: %lu size: %lu type: %d mrmod base: %td mrmod size: %zu\n", si->mem_region->mr_base, si->mem_region->mr_bytes, si->mem_region->mr_type, si->mem_region->mrmod_data, si->mem_region->mrmod_size);
+    printf("Successful found multiboot module. Base: %lu size: %lu type: %d mrmod base: "
+           "%td mrmod size: %zu\n",
+           si->mem_region->mr_base, si->mem_region->mr_bytes, si->mem_region->mr_type,
+           si->mem_region->mrmod_data, si->mem_region->mrmod_size);
 
     // - get argc/argv from multiboot command line
 
-    const char * cmd_opts = multiboot_module_opts(module_location);
+    const char *cmd_opts = multiboot_module_opts(module_location);
     int argc;
-    char* buf; // not sure what the difference between argv and buf is
-    char ** argv = make_argv(cmd_opts, &argc, &buf);
+    char *buf;  // not sure what the difference between argv and buf is
+    char **argv = make_argv(cmd_opts, &argc, &buf);
 
-    if(argv == NULL) {
+    if (argv == NULL) {
         printf("ERROR making argv! \n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
