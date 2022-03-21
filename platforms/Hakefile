@@ -12,8 +12,7 @@
 
 let
     -- Default list of modules to build/install
-    modules_common = [ "/sbin/" ++ f | f <- [ "init", "hello"
-      ] ]
+    modules_common = [ "/sbin/" ++ f | f <- [ "init", "hello" ] ]
   in
   [
     --

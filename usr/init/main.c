@@ -273,7 +273,214 @@ __attribute__((unused)) static void test_slot_allocator_refill(void)
     printf("Post refill free slot count: %d\n", slot_freecount(slot_allocator));
 }
 
-__attribute__((unused)) static void tests(void)
+lvaddr_t test_vtable_vaddr = VADDR_OFFSET + 0x6000000000;
+
+__attribute__((unused)) static void test_vtable_mapping_size(gensize_t bytes)
+{
+    struct capref frame_cap;
+    size_t allocated_bytes;
+
+    errval_t err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame_alloc");
+    }
+    assert(err_is_ok(err));
+
+    assert(allocated_bytes == bytes);
+
+    // map frame
+    struct paging_state *st = get_current_paging_state();
+    err = paging_map_fixed(st, test_vtable_vaddr, frame_cap, allocated_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "paging_map_fixed");
+    }
+    assert(err_is_ok(err));
+
+    printf("allocated: %x\n", allocated_bytes / BASE_PAGE_SIZE);
+    char *addr = (char *)test_vtable_vaddr;
+
+    uint32_t total_pages = allocated_bytes / BASE_PAGE_SIZE - 1;
+
+    void *last_allocated_byte = (void *)test_vtable_vaddr + bytes - 1;
+    char x = 0;
+    for (; addr <= (char *)last_allocated_byte; addr++) {
+        if ((size_t)addr % BASE_PAGE_SIZE) {
+            printf("page: %d/%d\n", (size_t)(addr - test_vtable_vaddr) / BASE_PAGE_SIZE,
+                   total_pages);
+        }
+        *addr = x;
+        assert(*addr == x++);
+    }
+    test_vtable_vaddr += allocated_bytes;
+
+    mm_debug_print(&aos_mm);
+    printf("test_vtable_mapping_size done\n");
+}
+
+__attribute__((unused)) static void test_many_single_pages_allocated(int iterations)
+{
+    lvaddr_t vaddr = VADDR_OFFSET + 0xe0000000;
+    for (int i = 0; i < iterations; i++) {
+        printf("iter: %d\n", i);
+        // allocate a page
+        struct capref frame_cap;
+        errval_t err = frame_alloc(&frame_cap, BASE_PAGE_SIZE, NULL);
+        assert(err_is_ok(err));
+        // map frame
+        struct paging_state *st = get_current_paging_state();
+        err = paging_map_fixed(st, vaddr, frame_cap, BASE_PAGE_SIZE);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "paging_map_fixed");
+        }
+
+        assert(err_is_ok(err));
+
+        vaddr += BASE_PAGE_SIZE;
+    }
+    printf("test_many_single_pages_allocated done\n");
+}
+
+__attribute__((unused)) static void test_alloc_free(int iterations)
+{
+    for (int i = 0; i < iterations; i++) {
+        struct capref cap;
+
+        errval_t err = ram_alloc(&cap, BASE_PAGE_SIZE);
+        assert(err_is_ok(err));
+
+        err = aos_ram_free(cap);
+        assert(err_is_ok(err));
+    }
+
+    mm_debug_print(&aos_mm);
+}
+
+__attribute__((unused)) static void test_alignments(int iterations, gensize_t alloc_size)
+{
+    for (int i = 1; i <= iterations; i++) {
+        gensize_t alignment_bytes = i * BASE_PAGE_SIZE;
+        struct capref ram_cap;
+        errval_t err = ram_alloc_aligned(&ram_cap, alloc_size, alignment_bytes);
+        assert(err_is_ok(err));
+
+        struct capability c;
+        // identiy cap to get RAM information out of it
+        err = cap_direct_identify(ram_cap, &c);
+        assert(err_is_ok(err));
+        printf("%u: %u\n", c.u.ram.base, c.u.ram.base % alignment_bytes);
+        assert(c.u.ram.base % alignment_bytes == 0);
+
+        aos_ram_free(ram_cap);
+    }
+}
+
+__attribute__((unused)) static void test_merge(int iterations, size_t size,
+                                               size_t alignment)
+{
+    struct capref cap;
+    errval_t err;
+
+    for (int i = 0; i < iterations; i++) {
+        err = aos_ram_alloc_aligned(&cap, size, alignment);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "error in alloc");
+        }
+        assert(err_is_ok(err));
+
+        err = aos_ram_free(cap);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "error in free");
+        }
+        assert(err_is_ok(err));
+    }
+
+    mm_debug_print(&aos_mm);
+}
+
+__attribute__((unused)) static void double_free(void)
+{
+    struct capref cap;
+
+    errval_t err = ram_alloc(&cap, BASE_PAGE_SIZE);
+    assert(err_is_ok(err));
+
+    printf("first free\n");
+    err = aos_ram_free(cap);
+    assert(err_is_ok(err));
+
+    printf("2nd free\n");
+    err = aos_ram_free(cap);
+    assert(err_is_fail(err));
+
+    printf("double_free done\n");
+}
+
+__attribute__((unused)) static void random_patterns(int iterations)
+{
+#include <stdlib.h>
+    srand(42);
+    lvaddr_t vaddr = VADDR_OFFSET + 0xb0000000;
+    for (int i = 0; i < iterations; i++) {
+        // currently, assume sizes fit into a single l3 table,
+        // so max number of pages at same time is 512
+        size_t pages = (rand() % 512) + 1;
+        gensize_t alloc_size = BASE_PAGE_SIZE * pages;
+        printf("iter %d: alloc %d pages\n", i, pages);
+
+        struct capref frame_cap;
+        errval_t err = frame_alloc(&frame_cap, alloc_size, NULL);
+        assert(err_is_ok(err));
+        // map frame
+        struct paging_state *st = get_current_paging_state();
+        err = paging_map_fixed(st, vaddr, frame_cap, alloc_size);
+        assert(err_is_ok(err));
+
+        // write something at beginning and end
+        int *addr = (int *)vaddr;
+
+        *addr = 1003;
+        assert(*addr == 1003);
+        // end
+        addr += pages * (BASE_PAGE_SIZE >> 4) - 1;
+        *addr = 1004;
+        assert(*addr == 1004);
+
+        // check beginning again
+        addr = (int *)vaddr;
+        assert(*addr == 1003);
+
+        vaddr += alloc_size;
+
+        // align always to 512 * PAGE_SIZE so that we can be sure that in case we want to
+        // map 512 pages at once, it all falls into the same l3 table
+        vaddr = ROUND_UP(vaddr, (512 * BASE_PAGE_SIZE));
+    }
+
+    printf("random_patterns done\n");
+}
+
+__attribute__((unused)) static void test_slab_refill(void)
+{
+    printf("slabs pre: %d\n", slab_freecount(&aos_mm.slab_allocator));
+    slab_default_refill(&aos_mm.slab_allocator);
+    printf("slabs post: %d\n", slab_freecount(&aos_mm.slab_allocator));
+}
+
+__attribute__((unused)) static void test_slot_refill(void)
+{
+    struct slot_prealloc *slots = aos_mm.slot_allocator;
+
+    struct capref dummy;
+    for (int i = 0; i < 257; i++)
+        aos_mm.slot_alloc(slots, 1, &dummy);
+    printf("slots pre: %d\n",
+           slots->meta[slots->current].free + slots->meta[!slots->current].free);
+    assert(err_is_ok(slot_prealloc_refill(slots)));
+    printf("slots post: %d\n",
+           slots->meta[slots->current].free + slots->meta[!slots->current].free);
+}
+
+__attribute__((unused)) static void run_m1_tests(void)
 {
     // small tests with no alignment
     test_alternate_allocs_and_frees(8, 1 << 12, 1);
@@ -304,6 +511,38 @@ __attribute__((unused)) static void tests(void)
     // exotic tests
     test_expontential_allocs_then_frees(31);
     // test_next_fit_alloc();
+
+    // test refilling
+    test_slab_refill();
+    test_slot_refill();
+
+    // test different alignments
+    test_alignments(10, 2 * BASE_PAGE_SIZE);
+    test_alignments(10, 3 * BASE_PAGE_SIZE);
+    test_alignments(10, 5 * BASE_PAGE_SIZE);
+
+    // test alloc, dealloc -> merge
+    test_merge(10, 2 * BASE_PAGE_SIZE, 10 * BASE_PAGE_SIZE);
+
+    // test random alloc sizes
+    // slab_refill_no_pagefault() -> LIB_ERR_NOT_IMPLEMENTED
+    // random_patterns(100);
+
+    // test freeing the same memory twice
+    double_free();
+
+    // test mapping vtables of different sizes & verify that writable/readable works
+    test_vtable_mapping_size(1 * BASE_PAGE_SIZE);
+    test_vtable_mapping_size(2 * BASE_PAGE_SIZE);
+    test_vtable_mapping_size(8 * BASE_PAGE_SIZE);
+    test_vtable_mapping_size(64 * BASE_PAGE_SIZE);
+
+    // allocate then deallocate, 5000 times
+    test_alloc_free(5000);
+
+    // long test: allocate lots of single pages
+    // slab_refill_no_pagefault() -> LIB_ERR_NOT_IMPLEMENTED
+    // test_many_single_pages_allocated(50000);
 }
 
 static int bsp_main(int argc, char *argv[])
@@ -326,12 +565,8 @@ static int bsp_main(int argc, char *argv[])
     debug_printf("Initial free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
     debug_printf("Initial free slot count: %d\n", slot_freecount(aos_mm.slot_allocator));
      */
-    printf("Inside bsp_main \n");
-    struct spawninfo si;
-    domainid_t pid;
-    spawn_load_by_name("hello", &si, &pid);
 
-    // tests();
+    // run_m1_tests();
 
     // TODO: initialize mem allocator, vspace management here
 
@@ -343,6 +578,10 @@ static int bsp_main(int argc, char *argv[])
     // Grading
     grading_test_early();
 
+    printf("Inside bsp_main \n");
+    struct spawninfo si;
+    domainid_t pid;
+    spawn_load_by_name("hello", &si, &pid);
     // TODO: Spawn system processes, boot second core etc. here
 
     // Grading

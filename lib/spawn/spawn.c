@@ -17,28 +17,24 @@ extern struct bootinfo *bi;
 extern coreid_t my_core_id;
 
 
-
-
-
 /**
  * \brief Set the base address of the .got (Global Offset Table) section of the ELF binary
- * 
+ *
  * \param arch_load_info This must be the base address of the .got section (local to the
  * child's VSpace). Must not be NULL.
  * \param handle The handle for the new dispatcher that is to be spawned. Must not be NULL.
  * \param enabled_area The "resume enabled" register set. Must not be NULL.
  * \param disabled_area The "resume disabled" register set. Must not be NULL.
  */
-__attribute__((__used__))
-static void armv8_set_registers(void *arch_load_info,
-                              dispatcher_handle_t handle,
-                              arch_registers_state_t *enabled_area,
-                              arch_registers_state_t *disabled_area)
+__attribute__((__used__)) static void
+armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
+                    arch_registers_state_t *enabled_area,
+                    arch_registers_state_t *disabled_area)
 {
     assert(arch_load_info != NULL);
-    uintptr_t got_base = (uintptr_t) arch_load_info;
+    uintptr_t got_base = (uintptr_t)arch_load_info;
 
-    struct dispatcher_shared_aarch64 * disp_arm = get_dispatcher_shared_aarch64(handle);
+    struct dispatcher_shared_aarch64 *disp_arm = get_dispatcher_shared_aarch64(handle);
     disp_arm->got_base = got_base;
 
     enabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got_base;
@@ -46,21 +42,14 @@ static void armv8_set_registers(void *arch_load_info,
 }
 
 
-
-
-
-
-
-
-
 /**
  * TODO(M2): Implement this function.
  * \brief Spawn a new dispatcher called 'argv[0]' with 'argc' arguments.
- * 
+ *
  * This function spawns a new dispatcher running the ELF binary called
  * 'argv[0]' with 'argc' - 1 additional arguments. It fills out 'si'
  * and 'pid'.
- * 
+ *
  * \param argc The number of command line arguments. Must be > 0.
  * \param argv An array storing 'argc' command line arguments.
  * \param si A pointer to the spawninfo struct representing
@@ -70,8 +59,8 @@ static void armv8_set_registers(void *arch_load_info,
  * \return Either SYS_ERR_OK if no error occured or an error
  * indicating what went wrong otherwise.
  */
-errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si,
-                domainid_t *pid) {
+errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid)
+{
     // TODO: Implement me
     // - Initialize the spawn_info struct
     // - Get the module from the multiboot image
@@ -93,7 +82,8 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si,
     void **buf;
     size_t size = si->mem_region->mrmod_size;
     struct capref cap;
-    int flag = VREGION_FLAGS_EXECUTE; // This is probably wrong as only part of the binary contains code
+    int flag = VREGION_FLAGS_EXECUTE; // This is probably wrong as only part of the binary
+    contains code
     // ToDo: automatically find free vspace
     paging_map_frame_attr(get_current_paging_state(), buf, size, cap, flag);
 
@@ -123,18 +113,18 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si,
 /**
  * TODO(M2): Implement this function.
  * \brief Spawn a new dispatcher executing 'binary_name'
- * 
+ *
  * \param binary_name The name of the binary.
  * \param si A pointer to a spawninfo struct that will be
  * filled out by spawn_load_by_name. Must not be NULL.
  * \param pid A pointer to a domainid_t that will be
  * filled out by spawn_load_by_name. Must not be NULL.
- * 
+ *
  * \return Either SYS_ERR_OK if no error occured or an error
  * indicating what went wrong otherwise.
  */
-errval_t spawn_load_by_name(char *binary_name, struct spawninfo * si,
-                            domainid_t *pid) {
+errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid)
+{
     // TODO: Implement me
     // - Get the mem_region from the multiboot image
     // - Fill in argc/argv from the multiboot command line
@@ -148,27 +138,30 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo * si,
     // - get memory region from multiboot image
 
     // errval_t err;
-    struct mem_region * module_location;
+    struct mem_region *module_location;
     module_location = multiboot_find_module(bi, binary_name);
 
     // ToDo: fails because "paging_map_frame_attr()" is not yet implemented
-    if(!module_location) {
+    if (!module_location) {
         printf("ERROR MODULE LOCATION NULL \n");
         return SPAWN_ERR_FIND_MODULE;
     }
 
     si->mem_region = module_location;
 
-    printf("Successful found multiboot module. Base: %lu size: %lu type: %d mrmod base: %td mrmod size: %zu\n", si->mem_region->mr_base, si->mem_region->mr_bytes, si->mem_region->mr_type, si->mem_region->mrmod_data, si->mem_region->mrmod_size);
+    printf("Successful found multiboot module. Base: %lu size: %lu type: %d mrmod base: "
+           "%td mrmod size: %zu\n",
+           si->mem_region->mr_base, si->mem_region->mr_bytes, si->mem_region->mr_type,
+           si->mem_region->mrmod_data, si->mem_region->mrmod_size);
 
     // - get argc/argv from multiboot command line
 
-    const char * cmd_opts = multiboot_module_opts(module_location);
+    const char *cmd_opts = multiboot_module_opts(module_location);
     int argc;
-    char* buf; // not sure what the difference between argv and buf is
-    char ** argv = make_argv(cmd_opts, &argc, &buf);
+    char *buf;  // not sure what the difference between argv and buf is
+    char **argv = make_argv(cmd_opts, &argc, &buf);
 
-    if(argv == NULL) {
+    if (argv == NULL) {
         printf("ERROR making argv! \n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
@@ -186,6 +179,3 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo * si,
 
     return SYS_ERR_OK;
 }
-
-
-

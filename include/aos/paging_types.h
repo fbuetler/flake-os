@@ -38,16 +38,17 @@ typedef int paging_flags_t;
 
 // struct to store a page table
 struct page_table {
-    struct capref cap;
-    struct page_table *entries[PTABLE_ENTRIES];
-    struct capref *mappings[PTABLE_ENTRIES];
+    struct capref cap;  ///< cap that represent the memory where this page table is stored
+    struct page_table *entries[PTABLE_ENTRIES];  ///< the entries of the page table
+    struct capref *mappings[PTABLE_ENTRIES];     ///< the mapping of the page table
 };
 
 // struct to store the paging status of a process
 struct paging_state {
-    struct slot_allocator *slot_allocator;
-    struct slab_allocator slab_allocator;
-    struct page_table root_page_table;
+    struct slot_allocator
+        *slot_allocator;  ///< Slab allocator used for allocating page tables
+    struct slab_allocator slab_allocator;  ///< Slot allocator for allocating cspac
+    struct page_table root_page_table;     ///< L0 page table
     lvaddr_t next_free_addr;
 };
 

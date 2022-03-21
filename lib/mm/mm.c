@@ -17,8 +17,12 @@
 #include <aos/debug.h>
 #include <aos/solution.h>
 
-// helper functions start
-
+/**
+ * @brief inserts a node before the current head
+ *
+ * @param mm the memory manager
+ * @param node the node to be inserted
+ */
 static void node_insert(struct mm *mm, mmnode_t *node)
 {
     if (mm->head == NULL) {
@@ -32,6 +36,16 @@ static void node_insert(struct mm *mm, mmnode_t *node)
     mm->head->prev = node;
 }
 
+/**
+ * @brief splits a node into two nodes
+ *
+ * @param mm the memory manager
+ * @param node the node to be split
+ * @param offset the offset at which the node should be split
+ * @param left_split a pointer that will point to the left split
+ * @param right_split pointer that will point to the rigth split
+ * @return errval_t
+ */
 static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
                            mmnode_t **left_split, mmnode_t **right_split)
 {
@@ -46,6 +60,7 @@ static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
     // adjust sizes
     new_node->base = node->base + offset;
     new_node->size = node->size - offset;
+    // capinfo stays the same
     new_node->capinfo = node->capinfo;
 
     node->size = offset;
@@ -59,6 +74,13 @@ static errval_t node_split(struct mm *mm, mmnode_t *node, size_t offset,
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief merges a node with its right neighbour
+ *
+ * @param mm the memory manager
+ * @param left_split the left node that is merged
+ * @return errval_t
+ */
 static errval_t node_merge(struct mm *mm, mmnode_t *left_split)
 {
     if (left_split == NULL) {
@@ -75,10 +97,12 @@ static errval_t node_merge(struct mm *mm, mmnode_t *left_split)
         return SYS_ERR_OK;
     }
 
+    // the underlying capability needs to be the same
     if (!capcmp(left_split->capinfo.cap, right_split->capinfo.cap)) {
         return SYS_ERR_OK;
     }
 
+    // only merge if both are free
     if (left_split->type == NodeType_Free && right_split->type == NodeType_Free) {
         assert(left_split->base + left_split->size == right_split->base);
 
@@ -102,6 +126,17 @@ static errval_t node_merge(struct mm *mm, mmnode_t *left_split)
 }
 
 
+/**
+ * @brief initiales the memory manager
+ *
+ * @param mm the memory manager
+ * @param objtype the object type that this memory manager allocates
+ * @param slab_refill_func the functio to refill the slab allocator
+ * @param slot_alloc_func the function to allocate a slot
+ * @param slot_refill_func the function to refill the slot allocator
+ * @param slot_allocator the slot allocator
+ * @return errval_t
+ */
 errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_refill_func,
                  slot_alloc_t slot_alloc_func, slot_refill_t slot_refill_func,
                  void *slot_allocator)
@@ -122,6 +157,11 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, slab_refill_func_t slab_re
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief cleans up the memory managers datastructure
+ *
+ * @param mm the memory manager
+ */
 void mm_destroy(struct mm *mm)
 {
     if (mm->head == NULL) {
@@ -138,6 +178,11 @@ void mm_destroy(struct mm *mm)
     mm->head = NULL;
 }
 
+/**
+ * @brief prints the current state of the memory allocator
+ *
+ * @param mm the memory manager
+ */
 void mm_debug_print(struct mm *mm)
 {
     printf("===\n");
@@ -162,8 +207,15 @@ void mm_debug_print(struct mm *mm)
     printf("===\n");
 }
 
-// helper functions end
-
+/**
+ * @brief adds the provided capability to the memory allocator datastructure
+ *
+ * @param mm the memory manager
+ * @param cap the capability that represent the added memory region
+ * @return errval_t
+ *
+ * a node is created for each capability
+ */
 errval_t mm_add(struct mm *mm, struct capref cap)
 {
     errval_t err;
@@ -196,7 +248,15 @@ errval_t mm_add(struct mm *mm, struct capref cap)
 }
 
 
-/*
+/**
+ * @brief allocate a memory region
+ *
+ * @param mm the memory manager
+ * @param requested_size size that has to be allocated
+ * @param alignment the allocated memory has to START at a multiple of this alignment
+ * @param retcap the capability that represents the allocated memory region
+ * @return errval_t
+ *
  * make sure the requested_size size is aligned to 4KB
  *
  * there are cases where a memory region needs to be aligned to a certain boundary i.e.
@@ -305,6 +365,16 @@ errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)
     return mm_alloc_aligned(mm, size, BASE_PAGE_SIZE, retcap);
 }
 
+/**
+ * @brief splits the node into multiple nodes, one of them represent the freed memory
+ *
+ * @param node pointer to the node that represent the partially freed memory region and on
+ * return will point to the node that represent the freed memory region
+ * @param memory_base * memory base address of the freed memory region
+ * @param memory_size memory size of the  freed memory region
+ * @return errval_t
+ *
+ */
 static errval_t mm_partial_free(struct mm *mm, mmnode_t **node, size_t memory_base,
                                 size_t memory_size)
 {
@@ -364,6 +434,15 @@ static errval_t mm_partial_free(struct mm *mm, mmnode_t **node, size_t memory_ba
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief frees an allocated memory region
+ *
+ * @param mm the memory manager
+ * @param cap the capability that represent the freed memory region
+ * @return errval_t
+ *
+ * partial free have to respect that the size needs to be aligned to the BASE_PAGE_SIZE
+ */
 errval_t mm_free(struct mm *mm, struct capref cap)
 {
     errval_t err;
@@ -386,11 +465,13 @@ errval_t mm_free(struct mm *mm, struct capref cap)
 
     mmnode_t *curr = mm->head;
     do {
+        // search for node that represent the freed region
         if (memory_base < curr->base || curr->base + curr->size <= memory_base) {
             curr = curr->next;
             continue;
         }
 
+        // check if its a partial free
         if (curr->size != memory_size) {
             if (memory_size % BASE_PAGE_SIZE != 0) {
                 debug_printf("Memory partial free not possible: size is not aligned\n");
