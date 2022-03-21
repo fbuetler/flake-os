@@ -142,6 +142,11 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         DEBUG_ERR(err, "failed to map module");
         return err;
     }
+    // ELF magic number: 0x7f E L F
+    assert(*(char *)(binary + 0) == 0x7f);
+    assert(*(char *)(binary + 1) == 0x45);
+    assert(*(char *)(binary + 2) == 0x4c);
+    assert(*(char *)(binary + 3) == 0x46);
 
     // setup cspace
     err = spawn_setup_cspace(si);
