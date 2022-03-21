@@ -73,24 +73,40 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // - Make the new dispatcher runnable
 
 
-    /*
     // - initialize spawn_info struct
 
     // - map multiboot image to virtual memory
 
     // allocate virtual memory
-    void **buf;
-    size_t size = si->mem_region->mrmod_size;
-    struct capref cap;
-    int flag = VREGION_FLAGS_EXECUTE; // This is probably wrong as only part of the binary
-    contains code
-    // ToDo: automatically find free vspace
-    paging_map_frame_attr(get_current_paging_state(), buf, size, cap, flag);
+    void *buf;
+    size_t size = si->module->mrmod_size;  // mr_bytes is empty so mrmod_size is correct
+    int flag = VREGION_FLAGS_READ; // Not sure which flag is required
+
+
+    // capref from book page 83
+    struct capref child_frame = {
+        .cnode = cnode_module,
+        .slot = si->module->mrmod_slot,
+    };
+
+    printf("before paging map frame \n");
+
+    paging_map_frame_attr(get_current_paging_state(), &buf, size, child_frame, flag);
+
+    printf("after paging map frame \n");
+
+    printf("%x %c %c %c \n", *(char *)buf, *(char *)(buf + 1), *(char *)(buf + 2),
+           *(char *)(buf + 3));
+    assert(*(char *)(buf + 1) == 0x45);
+    assert(*(char *)(buf + 2) == 0x4c);
+    assert(*(char *)(buf + 3) == 0x46);
+
+    printf("ELF magic header is correct :) \n");
 
     // - setup cspace
 
     // - setup vspace
-
+    /*
     // - load elf binary
     elf_allocator_fn allocator; // create or find allocator
     void* elf_state; // create or find struct to store elf state
@@ -104,8 +120,8 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
 
     // - run the dispatcher
     // invoke_dispatcher()
-
      */
+    elf_load()
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
@@ -137,7 +153,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
 
     // - get memory region from multiboot image
 
-    // errval_t err;
+    errval_t err;
     struct mem_region *module_location;
     module_location = multiboot_find_module(bi, binary_name);
 
@@ -147,12 +163,12 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
         return SPAWN_ERR_FIND_MODULE;
     }
 
-    si->mem_region = module_location;
+    si->module = module_location;
 
     printf("Successful found multiboot module. Base: %lu size: %lu type: %d mrmod base: "
            "%td mrmod size: %zu\n",
-           si->mem_region->mr_base, si->mem_region->mr_bytes, si->mem_region->mr_type,
-           si->mem_region->mrmod_data, si->mem_region->mrmod_size);
+           si->module->mr_base, si->module->mr_bytes, si->module->mr_type,
+           si->module->mrmod_data, si->module->mrmod_size);
 
     // - get argc/argv from multiboot command line
 
@@ -168,14 +184,13 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
 
 
     // - spawn multiboot image
-    /*
+
     err = spawn_load_argv(argc, argv, si, pid);
 
-    if(!err_is_ok(err)) {
+    if (!err_is_ok(err)) {
         printf("Error spawning with argv \n");
         return err;
     }
-     */
 
     return SYS_ERR_OK;
 }

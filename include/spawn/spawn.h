@@ -27,7 +27,7 @@ struct spawninfo {
     // Information about the binary
     char * binary_name;     // Name of the binary
 
-    struct mem_region *mem_region;
+    struct mem_region *module; // same name as in the book
 
     // TODO(M2): Add fields you need to store state
     //           when spawning a new dispatcher,

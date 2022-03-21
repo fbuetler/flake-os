@@ -296,7 +296,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     // based on assumptions:
     // * the frame you are trying to map always fits inside a single L3 page-table
     // * the virtual address is chosen such that it does not overlap
-    assert(bytes % 4096 == 0);
+    bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
 
     errval_t err;
 
