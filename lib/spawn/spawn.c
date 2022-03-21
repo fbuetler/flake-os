@@ -81,19 +81,34 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
-                                      size_t binary_size, genvaddr_t entry)
+static errval_t spawn_load_elf_binary(struct spawninfo *si, struct allocation_state *as,
+                                      lvaddr_t binary, size_t binary_size,
+                                      genvaddr_t *entry,
+                                      struct Elf64_Shdr *got_section_addr)
 {
-    // elf_allocator_fn allocator; // create or find allocator
-    // void* elf_state; // create or find struct to store elf state
-    // genvaddr_t entry_point; // this is returned from elf_load
+    errval_t err;
 
-    // elf_load(EM_AARCH64, allocator, elf_state, buf, size, entry_point);
+    err = elf_load(EM_AARCH64, allocator_fn, &as, binary, binary_size, entry);
+    assert(err_is_ok(err));
+    printf("after loading elf");
 
-    return LIB_ERR_NOT_IMPLEMENTED;
+    if (err_is_fail(err)) {
+        printf("Failed to load elf \n");
+        return err;
+    }
+
+    got_section_addr = elf64_find_section_header_name((genvaddr_t)si->module, binary_size,
+                                                      ".got");
+    if (!got_section_addr) {
+        printf("Error trying to fetch .got address from elf \n");
+        return ELF_ERR_ALLOCATE;
+    }
+
+    return SYS_ERR_OK;
 }
 
-static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry)
+static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
+                                       struct Elf64_Shdr *got_section_addr)
 {
     return LIB_ERR_NOT_IMPLEMENTED;
 }
@@ -116,6 +131,8 @@ errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
                       void **ret)
 {
     printf("allocator_fn called \n");
+
+    struct allocation_state *as = (struct allocation_state *)state;
 
     errval_t err;
 
@@ -156,8 +173,8 @@ errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
         child_flags |= VREGION_FLAGS_READ;
     }
 
-    err = paging_map_frame_attr(get_current_paging_state(), ((void *)base), size,
-                                segment_frame, child_flags);
+    err = paging_map_frame_attr(as->paging_state, ((void *)base), size, segment_frame,
+                                child_flags);
     if (err_is_fail(err)) {
         printf("Could not map frame for segment into child vspace \n");
         return err;
@@ -212,15 +229,6 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     assert(*(char *)(binary + 2) == 0x4c);
     assert(*(char *)(binary + 3) == 0x46);
 
-    /*
-    elf_allocator_fn allocator;
-    void* state;
-    genvaddr_t entry_addr;
-
-    err = elf_load(EM_AARCH64, &allocator_fn, state, binary, si->module->mrmod_size,
-    &entry_addr); assert(err_is_ok(err)); printf("after loading elf");
-    */
-
     // setup cspace
     err = spawn_setup_cspace(si);
     if (err_is_fail(err)) {
@@ -235,16 +243,21 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_VSPACE_INIT);
     }
 
-    // load elf binary
+
+    struct allocation_state as;
+    // as.paging_state = ; // ToDo: How to get a new paging state for the child process?
+
     genvaddr_t entry;
-    err = spawn_load_elf_binary(si, binary, binary_size, &entry);
+    struct Elf64_Shdr got_section_addr;  // value later required by dispatcher
+
+    err = spawn_load_elf_binary(si, &as, binary, binary_size, &entry, &got_section_addr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to load ELF binary");
         return err_push(err, SPAWN_ERR_LOAD);
     }
 
     // setup dispatcher
-    err = spawn_setup_dispatcher(si, entry);
+    err = spawn_setup_dispatcher(si, entry, &got_section_addr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup dispatcher");
         return err_push(err, SPAWN_ERR_DISPATCHER_SETUP);

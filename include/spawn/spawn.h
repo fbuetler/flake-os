@@ -45,6 +45,10 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si,
                          domainid_t *pid);
 errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags, void **ret);
 
+struct allocation_state {
+    struct paging_state *paging_state;
+};
+
 
 
 #endif /* _INIT_SPAWN_H_ */
