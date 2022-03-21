@@ -125,25 +125,17 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
  */
 errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid)
 {
-    // TODO: Implement me
-    // - Get the mem_region from the multiboot image
-    // - Fill in argc/argv from the multiboot command line
-    // - Call spawn_load_argv
-
+    errval_t err;
     printf("Inside spawn load by name \n");
 
     // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
     si->binary_name = binary_name;
 
-    // - get memory region from multiboot image
-
-    // errval_t err;
+    // get memory region from multiboot image
     struct mem_region *module_location;
     module_location = multiboot_find_module(bi, binary_name);
-
-    // ToDo: fails because "paging_map_frame_attr()" is not yet implemented
-    if (!module_location) {
-        printf("ERROR MODULE LOCATION NULL \n");
+    if (module_location == NULL) {
+        debug_printf("Spawn dispatcher: failed to find module location\n");
         return SPAWN_ERR_FIND_MODULE;
     }
 
@@ -154,28 +146,27 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
            si->mem_region->mr_base, si->mem_region->mr_bytes, si->mem_region->mr_type,
            si->mem_region->mrmod_data, si->mem_region->mrmod_size);
 
-    // - get argc/argv from multiboot command line
-
+    // get argc/argv from multiboot command line
     const char *cmd_opts = multiboot_module_opts(module_location);
+    if (cmd_opts == NULL) {
+        debug_printf("Spawn dispatcher: failed to load arguments\n");
+        return SPAWN_ERR_GET_CMDLINE_ARGS;
+    }
     int argc;
-    char *buf;  // not sure what the difference between argv and buf is
-    char **argv = make_argv(cmd_opts, &argc, &buf);
-
+    char *argv_str;  // argv_str stores the raw string of the arguments
+    // argv stores an array of argument
+    char **argv = make_argv(cmd_opts, &argc, &argv_str);
     if (argv == NULL) {
-        printf("ERROR making argv! \n");
+        debug_printf("Spawn dispatcher: failed to make argv\n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
 
-
-    // - spawn multiboot image
-    /*
+    // spawn multiboot image
     err = spawn_load_argv(argc, argv, si, pid);
-
-    if(!err_is_ok(err)) {
-        printf("Error spawning with argv \n");
+    if (err_is_fail(err)) {
+        debug_printf("Spawn dispatcher: failed to spawn a new dispatcher\n");
         return err;
     }
-     */
 
     return SYS_ERR_OK;
 }
