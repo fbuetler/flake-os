@@ -41,6 +41,35 @@ armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got_base;
 }
 
+static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
+                                 lvaddr_t *retaddr)
+{
+    errval_t err;
+
+    void *base;
+    size_t module_size = module->mrmod_size;
+    struct capref cap_frame = {
+        .cnode = cnode_module,
+        .slot = module->mrmod_slot,
+    };
+
+    err = paging_map_frame_attr(get_current_paging_state(), (void **)&base, module_size,
+                                cap_frame, VREGION_FLAGS_READ_EXECUTE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map frame");
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    if (retsize != NULL) {
+        *retsize = module_size;
+    }
+
+    if (retaddr != NULL) {
+        *retaddr = (lvaddr_t)base;
+    }
+
+    return SYS_ERR_OK;
+}
 
 /**
  * TODO(M2): Implement this function.
@@ -72,21 +101,20 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // - Setup the environment
     // - Make the new dispatcher runnable
 
+    errval_t err;
+
+    // map multiboot image to virtual memory
+    lvaddr_t binary;
+    size_t binary_size;
+    err = spawn_map_module(si->mem_region, &binary_size, &binary);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map module");
+        return err;
+    }
+
+
 
     /*
-    // - initialize spawn_info struct
-
-    // - map multiboot image to virtual memory
-
-    // allocate virtual memory
-    void **buf;
-    size_t size = si->mem_region->mrmod_size;
-    struct capref cap;
-    int flag = VREGION_FLAGS_EXECUTE; // This is probably wrong as only part of the binary
-    contains code
-    // ToDo: automatically find free vspace
-    paging_map_frame_attr(get_current_paging_state(), buf, size, cap, flag);
-
     // - setup cspace
 
     // - setup vspace
@@ -125,6 +153,11 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
  */
 errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid)
 {
+    // TODO: Implement me
+    // - Get the mem_region from the multiboot image
+    // - Fill in argc/argv from the multiboot command line
+    // - Call spawn_load_argv
+
     errval_t err;
     printf("Inside spawn load by name \n");
 
