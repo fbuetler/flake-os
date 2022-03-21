@@ -84,19 +84,19 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si,
     // - Make the new dispatcher runnable
 
 
-
-
+    /*
     // - initialize spawn_info struct
-    // ??
 
     // - map multiboot image to virtual memory
 
     // allocate virtual memory
     void **buf;
-    size_t size; // need to extract size from elf header
+    size_t size = si->mem_region->mrmod_size;
     struct capref cap;
     int flag = VREGION_FLAGS_EXECUTE; // This is probably wrong as only part of the binary contains code
+    // ToDo: automatically find free vspace
     paging_map_frame_attr(get_current_paging_state(), buf, size, cap, flag);
+
     // - setup cspace
 
     // - setup vspace
@@ -115,7 +115,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si,
     // - run the dispatcher
     // invoke_dispatcher()
 
-
+     */
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
@@ -147,7 +147,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo * si,
 
     // - get memory region from multiboot image
 
-    errval_t err;
+    // errval_t err;
     struct mem_region * module_location;
     module_location = multiboot_find_module(bi, binary_name);
 
@@ -156,7 +156,10 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo * si,
         printf("ERROR MODULE LOCATION NULL \n");
         return SPAWN_ERR_FIND_MODULE;
     }
-    printf("Successful find multiboot module \n");
+
+    si->mem_region = module_location;
+
+    printf("Successful found multiboot module. Base: %lu size: %lu type: %d mrmod base: %td mrmod size: %zu\n", si->mem_region->mr_base, si->mem_region->mr_bytes, si->mem_region->mr_type, si->mem_region->mrmod_data, si->mem_region->mrmod_size);
 
     // - get argc/argv from multiboot command line
 
@@ -171,13 +174,14 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo * si,
     }
 
     // - spawn multiboot image
-
+    /*
     err = spawn_load_argv(argc, argv, si, pid);
 
     if(!err_is_ok(err)) {
         printf("Error spawning with argv \n");
         return err;
     }
+     */
 
     return SYS_ERR_OK;
 }

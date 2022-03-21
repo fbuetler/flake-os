@@ -48,6 +48,7 @@ struct paging_state {
     struct slot_allocator *slot_allocator;
     struct slab_allocator slab_allocator;
     struct page_table root_page_table;
+    lvaddr_t next_free_addr;
 };
 
 

@@ -131,6 +131,7 @@ errval_t paging_init(void)
 
     // init slot allocator
     current.slot_allocator = get_default_slot_allocator();
+    current.next_free_addr = VADDR_OFFSET;
 
     // init slab allocator
     slab_init(&current.slab_allocator, sizeof(struct page_table), NULL);
@@ -205,7 +206,7 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
     // Hint:
     //  - think about what mapping configurations are actually possible
 
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return paging_map_fixed_attr(st, st->next_free_addr, frame, bytes, flags);
 }
 
 
@@ -287,6 +288,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
      * use the current variable
      */
 
+    printf("Mapping size: %zu at addr: %lu  with st next addr: %lu \n", bytes, vaddr, st->next_free_addr);
+
     // ASK: different of 'current' and 'st'?
 
     // based on assumptions:
@@ -349,6 +352,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         }
 
         l3_pt->mappings[l3_index + i] = &frame_mapping_cap;
+
+        st->next_free_addr += BASE_PAGE_SIZE;
     }
 
     return SYS_ERR_OK;
