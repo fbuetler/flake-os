@@ -103,6 +103,69 @@ static errval_t spawn_setup_env(void)
 }
 
 /**
+ *
+ * @param state
+ * @param base
+ * @param size
+ * @param flags
+ * @param ret Pointer to allocated vspace in current process
+ * @return
+ */
+errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
+                      void **ret)
+{
+    printf("allocator_fn called \n");
+
+    errval_t err;
+
+    struct capref segment_frame;
+    size_t ret_size;
+
+    err = frame_alloc(&segment_frame, size, &ret_size);
+
+    if (err_is_fail(err)) {
+        printf("Could not allocate new frame for segment \n");
+        return err;
+    }
+
+    printf("Mapping into current vspace \n");
+    // map memory into current vspace
+    err = paging_map_frame_attr(get_current_paging_state(), ret, size, segment_frame,
+                                VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        printf("Could not map frame for segment into current vspace \n");
+        return err;
+    }
+
+    // map memory in child vspace
+
+    printf("Mapping into child vspace \n");
+    // flags in elf.h have different values than flags in paging_types.h. PF_X (execute)
+    // is 0x01 but VREGION_FLAGS_EXECUTE is 0x04
+    int child_flags = 0;
+    if (flags & PF_X) {
+        child_flags |= VREGION_FLAGS_EXECUTE;
+    }
+
+    if (flags & PF_W) {
+        child_flags |= VREGION_FLAGS_WRITE;
+    }
+
+    if (flags & PF_R) {
+        child_flags |= VREGION_FLAGS_READ;
+    }
+
+    err = paging_map_frame_attr(get_current_paging_state(), ((void *)base), size,
+                                segment_frame, child_flags);
+    if (err_is_fail(err)) {
+        printf("Could not map frame for segment into child vspace \n");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
  * TODO(M2): Implement this function.
  * \brief Spawn a new dispatcher called 'argv[0]' with 'argc' arguments.
  *
@@ -147,6 +210,15 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     assert(*(char *)(binary + 1) == 0x45);
     assert(*(char *)(binary + 2) == 0x4c);
     assert(*(char *)(binary + 3) == 0x46);
+
+    /*
+    elf_allocator_fn allocator;
+    void* state;
+    genvaddr_t entry_addr;
+
+    err = elf_load(EM_AARCH64, &allocator_fn, state, binary, si->module->mrmod_size,
+    &entry_addr); assert(err_is_ok(err)); printf("after loading elf");
+    */
 
     // setup cspace
     err = spawn_setup_cspace(si);
