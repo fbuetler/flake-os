@@ -82,7 +82,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
 }
 
 static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
-                                      size_t binary_size, genvaddr_t entry)
+                                      size_t binary_size, genvaddr_t *entry)
 {
     // elf_allocator_fn allocator; // create or find allocator
     // void* elf_state; // create or find struct to store elf state
