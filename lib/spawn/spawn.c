@@ -174,11 +174,11 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     errval_t err;
 
     // create new top level page table
-    struct capref child_l0_pt = {
+    si->rootvn_cap = (struct capref) {
         .cnode = si->pagecn,
         .slot = 0,
     };
-    err = vnode_create(child_l0_pt, ObjType_VNode_AARCH64_l0);
+    err = vnode_create(si->rootvn_cap, ObjType_VNode_AARCH64_l0);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create vnode l0");
         return err_push(err, LIB_ERR_VNODE_CREATE);
@@ -191,7 +191,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
         DEBUG_ERR(err, "failed to allocate slot for parent l0 page table");
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
-    err = cap_copy(parent_l0_pt, child_l0_pt);
+    err = cap_copy(parent_l0_pt, si->rootvn_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to copy child l0 page table");
         return err_push(err, LIB_ERR_CAP_COPY);
@@ -471,6 +471,19 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     return SYS_ERR_OK;
 }
 
+static errval_t spawn_invoke_dispatcher(struct spawninfo *si)
+{
+    errval_t err;
+
+    err = invoke_dispatcher(si->dispatcher_cap, cap_dispatcher, si->rootcn_cap,
+                            si->rootvn_cap, si->dispatcher_frame_cap, true);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to invoke dispatcher");
+        return err_push(err, SPAWN_ERR_DISPATCHER_SETUP);
+    }
+
+    return SYS_ERR_OK;
+}
 /**
  * TODO(M2): Implement this function.
  * \brief Spawn a new dispatcher called 'argv[0]' with 'argc' arguments.
@@ -556,11 +569,13 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }
 
-    /*
-     - run the dispatcher
-     Make the new dispatcher runnable
-     invoke_dispatcher()
-     */
+    // invoke the dispatcher
+    err = spawn_invoke_dispatcher(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to invoke the dispatcher");
+        err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
+    }
+
     return SYS_ERR_OK;
 }
 
