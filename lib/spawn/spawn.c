@@ -41,6 +41,14 @@ armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got_base;
 }
 
+/**
+ * @brief maps the given module to the parents vspace
+ *
+ * @param module the module to be mapped
+ * @param retsize the size of the frame holding the module
+ * @param retaddr the base address of the frame holding the module
+ * @return errval_t
+ */
 static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
                                  lvaddr_t *retaddr)
 {
@@ -71,6 +79,12 @@ static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief sets up the C space including creating the root L1 cnode and all required L2 cnodes
+ *
+ * @param si
+ * @return errval_t
+ */
 static errval_t spawn_setup_cspace(struct spawninfo *si)
 {
     errval_t err;
@@ -169,6 +183,13 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief sets up the V space including the base page cnode capability (holding initial
+ * free memory) and page cnode capability (holding the page tables)
+ *
+ * @param si
+ * @return errval_t
+ */
 static errval_t spawn_setup_vspace(struct spawninfo *si)
 {
     errval_t err;
@@ -205,7 +226,6 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
         return err_push(err, SPAWN_ERR_VSPACE_INIT);
     }
 
-
     // allocate RAM cap of BASE_PAGE_SIZE for each slot of BASE_PAGE_CN
     for (int i = 0; i < L2_CNODE_SLOTS; i++) {
         // allocate ram cap into slot 0
@@ -228,11 +248,11 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
         }
     }
 
-
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
 /**
+ * @brief callback function to load the ELF binary segments into memory
  *
  * @param state
  * @param base region base address of the child process
@@ -325,6 +345,15 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief sets up the dispatcher frame capability that is used to communicate between a
+ * process and the CPU driver
+ *
+ * @param si
+ * @param entry the entry point of the binary
+ * @param got_section_base_addr the address of the global offset table (GOT)
+ * @return errval_t
+ */
 static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
                                        void *got_section_base_addr)
 {
@@ -398,6 +427,14 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief sets up the arguments capability with the provided CLI arguments list
+ *
+ * @param si
+ * @param argc size of list of arguments
+ * @param argv list of arguments
+ * @return errval_t
+ */
 static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
 {
     errval_t err;
@@ -471,6 +508,12 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief invokes the dispatcher represented by spawninfo
+ *
+ * @param si spawninfo
+ * @return errval_t
+ */
 static errval_t spawn_invoke_dispatcher(struct spawninfo *si)
 {
     errval_t err;
