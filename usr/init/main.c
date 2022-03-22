@@ -241,7 +241,10 @@ __attribute__((unused)) static void test_map_single_frame(size_t n)
     assert(err_is_ok(err));
 
     struct paging_state *st = get_current_paging_state();
+    printf("fixing: %u", allocated_bytes);
     err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
+    if(err_is_fail(err))
+        DEBUG_ERR(err, "oh my");
     assert(err_is_ok(err));
 
     // increment l3 index by 1 per base page to avoid mapping conflicts
@@ -251,7 +254,10 @@ __attribute__((unused)) static void test_map_single_frame(size_t n)
 __attribute__((unused)) static void test_slab_allocator_refill(void)
 {
     printf("Pre refill free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
+    //mm_tracker_debug_print(&get_current_paging_state()->vspace_tracker);
     errval_t err = slab_default_refill(&aos_mm.slab_allocator);
+    if(err_is_fail(err))
+        DEBUG_ERR(err, "oh my");
     assert(err_is_ok(err));
     printf("Post refill free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
 }
@@ -482,7 +488,8 @@ __attribute__((unused)) static void test_slot_refill(void)
 
 __attribute__((unused)) static void run_m1_tests(void)
 {
-    // small tests with no alignment
+    
+     // small tests with no alignment
     test_alternate_allocs_and_frees(8, 1 << 12, 1);
     test_merge_memory(8, 1 << 12, 1);
     test_consecutive_allocs_then_frees(8, 1 << 12, 1);
@@ -499,7 +506,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_map_single_frame(1);
     test_map_single_frame(4);
     test_map_single_frame(32);
-
+   
     // test refills
     test_slab_allocator_refill();
     test_slot_allocator_refill();
@@ -507,6 +514,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     // big tests with no alignment
     test_alternate_allocs_and_frees(1 << 9, 1 << 12, 1);
     test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
+
 
     // exotic tests
     test_expontential_allocs_then_frees(31);
@@ -543,6 +551,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     // long test: allocate lots of single pages
     // slab_refill_no_pagefault() -> LIB_ERR_NOT_IMPLEMENTED
     // test_many_single_pages_allocated(50000);
+    
 }
 
 static int bsp_main(int argc, char *argv[])
@@ -622,7 +631,6 @@ int main(int argc, char *argv[])
     }
     printf("\n");
     fflush(stdout);
-
 
     if (my_core_id == 0)
         return bsp_main(argc, argv);

@@ -377,3 +377,33 @@ errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t me
     printf("Invalid memory free request: (%p %lu)\n", memory_base, memory_size);
     return MM_ERR_NOT_FOUND;
 }
+
+/**
+ * @brief Alloc a memory range
+ * @param mmt Memory Tracker
+ * @param base Base address of memory range to allocate
+ * @param size Size of memory to allocate
+ * @param retnode Node that has been allocated; if NULL, nothing will be written to it
+ */
+errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size, mmnode_t **retnode){
+    mmnode_t *node;
+    errval_t err = mm_tracker_get_node_at(mmt, base, size, &node);
+
+    if(err_is_fail(err)){
+        return err_push(err, MM_ERR_MMT_GET_NODE_AT);
+    }
+
+    // slice it
+    mmnode_t *offset_node, *allocated_node, *leftover_node;
+    err = mm_tracker_alloc_slice(mmt, node, size, base - node->base, &offset_node, &allocated_node, &leftover_node);
+
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to slice the nodes");
+        return err_push(err, MM_ERR_MMT_ALLOC_SLICE);
+    }
+
+    if(retnode){
+        *retnode = allocated_node;
+    }
+    return SYS_ERR_OK;
+}

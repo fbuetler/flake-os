@@ -63,5 +63,6 @@ errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node,
                             mmnode_t **retleft, mmnode_t **allocated_node, mmnode_t **retright);
 
 errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size, mmnode_t **retnode);
+errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size, mmnode_t **retnode);
 
 #endif

@@ -719,6 +719,7 @@ errors libmm MM_ERR_ {
     failure SLOT_ALLOC_INIT     "Failure initialising slot allocator",
     failure MMT_GET_NODE_AT     "Failure in mm_tracker_get_node_at()",
     failure MMT_ALLOC_SLICE     "Failure in mm_tracker_alloc_slice()",
+    failure MMT_ALLOC_RANGE     "Failure in mm_tracker_alloc_range()",
     failure MM_INIT             "Failure in mm_init()",
     failure MM_ADD              "Failure in mm_add()",
     failure MM_ADD_MULTI        "Failure in mm_add_multi()",

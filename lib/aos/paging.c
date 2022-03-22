@@ -325,19 +325,13 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     errval_t err;
 
     mm_tracker_refill(&st->vspace_tracker);
-    mmnode_t *node;
-    err = mm_tracker_get_node_at(&st->vspace_tracker, vaddr, bytes, &node);
-
-    if(err_is_fail(err)){
-        return err_push(err, MM_ERR_MMT_GET_NODE_AT);
-    }
-
-    mmnode_t *offset_node, *allocated_node, *leftover_node;
-    err = mm_tracker_alloc_slice(&st->vspace_tracker, node, bytes, vaddr - node->base, &offset_node, &allocated_node, &leftover_node);
-
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "failed to slice the nodes");
-        return err_push(err, MM_ERR_MMT_ALLOC_SLICE);
+   
+    mmnode_t *allocated_node;
+    err = mm_tracker_alloc_range(&st->vspace_tracker, vaddr, bytes, &allocated_node);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "mm_tracker_alloc_range failed");
+        err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
+        return err;
     }
 
 
