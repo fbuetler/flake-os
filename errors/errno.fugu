@@ -440,6 +440,9 @@ errors libaos LIB_ERR_ {
 
     // Process management client library
     failure PROC_MGMT_CLIENT_ACCEPT "Error in proc_mgmt_client_lmp_accept()",
+
+    // Paging
+    failure PAGING_MAP              "Error in paging_map_fixed_attr",
 };
 
 // errors in Flounder-generated bindings
@@ -714,6 +717,8 @@ errors libmm MM_ERR_ {
     failure SLOT_MM_ALLOC       "Nested failure in slot allocator calling mm_alloc",
     failure SLOT_NOSLOTS        "Slot allocator has run out of slots",
     failure SLOT_ALLOC_INIT     "Failure initialising slot allocator",
+    failure MMT_GET_NODE_AT     "Failure in mm_tracker_get_node_at()",
+    failure MMT_ALLOC_SLICE     "Failure in mm_tracker_alloc_slice()",
     failure MM_INIT             "Failure in mm_init()",
     failure MM_ADD              "Failure in mm_add()",
     failure MM_ADD_MULTI        "Failure in mm_add_multi()",
