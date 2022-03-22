@@ -38,10 +38,11 @@ struct spawninfo {
     struct cnoderef pagecn;
 
     struct capref rootcn_cap;
-    struct capref pagecn_cap;
     struct capref dispatcher_cap;
     struct capref dispatcher_frame_cap;
     struct capref args_page_cap;
+
+    struct paging_state paging_state;
 };
 
 // Start a child process using the multiboot command line. Fills in si.
@@ -51,10 +52,6 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
 errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid);
 errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
                       void **ret);
-
-struct allocation_state {
-    struct paging_state *paging_state;
-};
 
 
 #endif /* _INIT_SPAWN_H_ */

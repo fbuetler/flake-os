@@ -205,14 +205,14 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-static errval_t spawn_load_elf_binary(struct spawninfo *si, struct allocation_state *as,
-                                      lvaddr_t binary, size_t binary_size,
-                                      genvaddr_t *entry,
+static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
+                                      size_t binary_size, genvaddr_t *entry,
                                       struct Elf64_Shdr *got_section_addr)
 {
     errval_t err;
 
-    err = elf_load(EM_AARCH64, allocator_fn, &as, binary, binary_size, entry);
+    err = elf_load(EM_AARCH64, allocator_fn, &si->paging_state, binary, binary_size,
+                   entry);
     assert(err_is_ok(err));
     printf("after loading elf");
 
@@ -282,7 +282,7 @@ errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
 {
     printf("allocator_fn called \n");
 
-    struct allocation_state *as = (struct allocation_state *)state;
+    struct paging_state *paging_state = (struct paging_state *)state;
 
     errval_t err;
 
@@ -323,7 +323,7 @@ errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
         child_flags |= VREGION_FLAGS_READ;
     }
 
-    err = paging_map_frame_attr(as->paging_state, ((void *)base), size, segment_frame,
+    err = paging_map_frame_attr(paging_state, ((void *)base), size, segment_frame,
                                 child_flags);
     if (err_is_fail(err)) {
         printf("Could not map frame for segment into child vspace \n");
@@ -394,13 +394,11 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     }
 
 
-    struct allocation_state as;
     // as.paging_state = ; // ToDo: How to get a new paging state for the child process?
 
     genvaddr_t entry;
     struct Elf64_Shdr got_section_addr;  // value later required by dispatcher
-
-    err = spawn_load_elf_binary(si, &as, binary, binary_size, &entry, &got_section_addr);
+    err = spawn_load_elf_binary(si, binary, binary_size, &entry, &got_section_addr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to load ELF binary");
         return err_push(err, SPAWN_ERR_LOAD);
