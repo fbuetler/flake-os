@@ -341,7 +341,57 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
         return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
     }
 
-    return LIB_ERR_NOT_IMPLEMENTED;
+    // map dispatcher frame into parent process
+    void *dispatcher_frame_addr_parent;
+    err = paging_map_frame_attr(get_current_paging_state(), &dispatcher_frame_addr_parent,
+                                DISPATCHER_FRAME_SIZE, si->dispatcher_frame_cap,
+                                VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map dispatcher frame into parents vspace");
+        return err_push(err, SPAWN_ERR_MAP_ARGSPG_TO_SELF);
+    }
+
+    // map dispatcher frame into child process
+    // TODO or use paging_map_fixed_attr() with fixed address
+    void *dispatcher_frame_addr_child;
+    err = paging_map_frame_attr(&si->paging_state, &dispatcher_frame_addr_child,
+                                DISPATCHER_FRAME_SIZE, si->dispatcher_frame_cap,
+                                VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map dispatcher frame into childs vspace");
+        return err_push(err, SPAWN_ERR_MAP_ARGSPG_TO_NEW);
+    }
+
+    // access the dispatcher fields
+    dispatcher_handle_t handle = (dispatcher_handle_t)dispatcher_frame_addr_parent;
+    struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
+    struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
+    arch_registers_state_t *enabled_area = dispatcher_get_enabled_save_area(handle);
+    arch_registers_state_t *disbaled_area = dispatcher_get_disabled_save_area(handle);
+
+    // put initial information in the dispatcher frame
+
+    // core id of the child process
+    disp_gen->core_id = disp_get_core_id();
+    // virtual addres of the dispatcher frame in the childs vspace
+    disp->udisp = (dispatcher_handle_t)dispatcher_frame_addr_child;
+    // start child process in disabled mode
+    disp->disabled = 1;
+    // process name for debugging purposes
+    strncpy(disp->name, si->binary_name, DISP_NAME_LEN);
+    // set program counter
+    disbaled_area->named.pc = entry;
+
+    // initialize offset register
+    armv8_set_registers(got_section_base_addr, handle, enabled_area, disbaled_area);
+
+    // dont use error handling frames
+    disp_gen->eh_frame = 0;
+    disp_gen->eh_frame_hdr_size = 0;
+    disp_gen->eh_frame_hdr = 0;
+    disp_gen->eh_frame_hdr_size = 0;
+
+    return SYS_ERR_OK;
 }
 
 static errval_t spawn_setup_env(struct spawninfo *si, char *argv[])
@@ -424,9 +474,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_VSPACE_INIT);
     }
 
-
-    // as.paging_state = ; // ToDo: How to get a new paging state for the child process?
-
+    // load elf binary
     genvaddr_t entry;
     void *got_section_base_addr;
     err = spawn_load_elf_binary(si, binary, binary_size, &entry, &got_section_base_addr);
