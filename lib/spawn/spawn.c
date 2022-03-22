@@ -267,10 +267,16 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
 static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t flags,
                              void **ret)
 {
-    DEBUG_TRACEF("allocator_fn called \n");
+    DEBUG_TRACEF("elf allocate called\n");
     errval_t err;
 
     struct paging_state *paging_state = (struct paging_state *)state;
+
+    // ASK: what kind of trickery is this?
+    size_t base_offset = BASE_PAGE_OFFSET(base);
+    base -= base_offset;
+    size += base_offset;
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
 
     struct capref segment_frame;
     size_t allocated_frame_size;
@@ -288,6 +294,7 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t
         DEBUG_ERR(err, "failed to map segment frame into parent vspace");
         return err_push(err, ELF_ERR_ALLOCATE);
     }
+    *ret += base_offset;
 
     // map memory in child vspace
     DEBUG_TRACEF("Mapping into child vspace \n");
@@ -303,8 +310,8 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t
     if (flags & PF_R) {
         child_flags |= VREGION_FLAGS_READ;
     }
-    err = paging_map_frame_attr(paging_state, ((void *)base), allocated_frame_size,
-                                segment_frame, child_flags);
+    err = paging_map_fixed_attr(paging_state, base, segment_frame, allocated_frame_size,
+                                child_flags);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map segment frame into child vspace");
         return err_push(err, ELF_ERR_ALLOCATE);
