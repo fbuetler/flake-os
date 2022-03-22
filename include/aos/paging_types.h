@@ -16,6 +16,7 @@
 #define PAGING_TYPES_H_ 1
 
 #include <aos/solution.h>
+#include <mm/mm_tracker.h>
 
 #define VADDR_OFFSET ((lvaddr_t)512UL * 1024 * 1024 * 1024)  // 1GB
 #define VREGION_FLAGS_READ 0x01                              // Reading allowed
@@ -35,7 +36,6 @@
 
 typedef int paging_flags_t;
 
-
 // struct to store a page table
 struct page_table {
     struct capref cap;  ///< cap that represent the memory where this page table is stored
@@ -49,8 +49,9 @@ struct paging_state {
         *slot_allocator;  ///< Slab allocator used for allocating page tables
     struct slab_allocator slab_allocator;  ///< Slot allocator for allocating cspac
     struct page_table root_page_table;     ///< L0 page table
-    lvaddr_t next_free_addr;
-};
 
+    mm_tracker_t vspace_tracker;                  ///< mm tracker for vspace
+    struct slab_allocator vspace_slab_allocator;  ///< Slab allocator for allocating vspace
+};
 
 #endif  /// PAGING_TYPES_H_

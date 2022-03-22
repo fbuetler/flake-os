@@ -43,9 +43,9 @@ __attribute__((unused)) static void test_alternate_allocs_and_frees(size_t n, si
         err = aos_ram_free(cap);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
-
+/*
 __attribute__((unused)) static void test_partial_free(void)
 {
     errval_t err;
@@ -89,28 +89,29 @@ __attribute__((unused)) static void test_partial_free(void)
     // middle aligned
     err = aos_ram_free(inner_right_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 
     // left aligned
     err = aos_ram_free(outer_left_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 
     // right aligned
     err = aos_ram_free(middle_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 
     // normal
     err = aos_ram_free(inner_left_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 
     // normal
     err = aos_ram_free(outer_right_split);
     assert(err_is_ok(err));
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
+*/
 
 __attribute__((unused)) static void test_merge_memory(size_t n, size_t size,
                                                       size_t alignment)
@@ -122,19 +123,19 @@ __attribute__((unused)) static void test_merge_memory(size_t n, size_t size,
         err = ram_alloc_aligned(&caps[i], size, alignment);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     for (int i = 0; i < n; i += 2) {
         printf("Iteration %d\n", i);
         err = aos_ram_free(caps[i]);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     for (int i = 1; i < n; i += 2) {
         printf("Iteration %d\n", i);
         err = aos_ram_free(caps[i]);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
 
 __attribute__((unused)) static void
@@ -147,13 +148,13 @@ test_consecutive_allocs_then_frees(size_t n, size_t size, size_t alignment)
         err = ram_alloc_aligned(&caps[i], size, alignment);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     for (int i = 0; i < n; i++) {
         printf("Iteration %d\n", i);
         err = aos_ram_free(caps[i]);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     if (size > 1 << 5) {
         printf("Note: page tables are still allocated\n");
     }
@@ -176,13 +177,13 @@ __attribute__((unused)) static void test_expontential_allocs_then_frees(size_t l
             break;
         }
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     for (int j = 0; j < i; j++) {
         printf("Iteration %d\n", j);
         err = aos_ram_free(caps[j]);
         assert(err_is_ok(err));
     }
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
 
 __attribute__((unused)) static void test_next_fit_alloc(void)
@@ -232,26 +233,31 @@ __attribute__((unused)) static void test_map_single_frame(size_t n)
         n = 1;
     }
     size_t bytes = n * BASE_PAGE_SIZE;
-    // dont interfere with the hardcoded addr in slab refill
-    static lvaddr_t vaddr = VADDR_OFFSET + (1 << 20);
 
     struct capref frame_cap;
     size_t allocated_bytes;
     err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate frame");
+    }
     assert(err_is_ok(err));
 
     struct paging_state *st = get_current_paging_state();
-    err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
-    assert(err_is_ok(err));
 
-    // increment l3 index by 1 per base page to avoid mapping conflicts
-    vaddr += (1 << 13) * (allocated_bytes / (1 << 12));
+    err = paging_map_frame(st, NULL, allocated_bytes, frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to single map frame");
+    }
+    assert(err_is_ok(err));
 }
 
 __attribute__((unused)) static void test_slab_allocator_refill(void)
 {
     printf("Pre refill free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
+    // mm_tracker_debug_print(&get_current_paging_state()->vspace_tracker);
     errval_t err = slab_default_refill(&aos_mm.slab_allocator);
+    if (err_is_fail(err))
+        DEBUG_ERR(err, "oh my");
     assert(err_is_ok(err));
     printf("Post refill free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
 }
@@ -273,10 +279,11 @@ __attribute__((unused)) static void test_slot_allocator_refill(void)
     printf("Post refill free slot count: %d\n", slot_freecount(slot_allocator));
 }
 
-lvaddr_t test_vtable_vaddr = VADDR_OFFSET + 0x6000000000;
 
 __attribute__((unused)) static void test_vtable_mapping_size(gensize_t bytes)
 {
+    assert(bytes % BASE_PAGE_SIZE == 0);
+
     struct capref frame_cap;
     size_t allocated_bytes;
 
@@ -290,36 +297,35 @@ __attribute__((unused)) static void test_vtable_mapping_size(gensize_t bytes)
 
     // map frame
     struct paging_state *st = get_current_paging_state();
-    err = paging_map_fixed(st, test_vtable_vaddr, frame_cap, allocated_bytes);
+
+    char *addr;
+
+    err = paging_map_frame(st, (void **)&addr, allocated_bytes, frame_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "paging_map_fixed");
+        DEBUG_ERR(err, "paging_map_frame");
     }
     assert(err_is_ok(err));
 
-    printf("allocated: %x\n", allocated_bytes / BASE_PAGE_SIZE);
-    char *addr = (char *)test_vtable_vaddr;
-
     uint32_t total_pages = allocated_bytes / BASE_PAGE_SIZE - 1;
 
-    void *last_allocated_byte = (void *)test_vtable_vaddr + bytes - 1;
+    char *last_allocated_byte = addr + allocated_bytes - 1;
+    char *base_addr = addr;
     char x = 0;
     for (; addr <= (char *)last_allocated_byte; addr++) {
-        if ((size_t)addr % BASE_PAGE_SIZE) {
-            printf("page: %d/%d\n", (size_t)(addr - test_vtable_vaddr) / BASE_PAGE_SIZE,
+        if ((size_t)addr % BASE_PAGE_SIZE == 0) {
+            printf("page: %d/%d\n", (size_t)(addr - base_addr) / BASE_PAGE_SIZE,
                    total_pages);
         }
         *addr = x;
         assert(*addr == x++);
     }
-    test_vtable_vaddr += allocated_bytes;
 
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     printf("test_vtable_mapping_size done\n");
 }
 
 __attribute__((unused)) static void test_many_single_pages_allocated(int iterations)
 {
-    lvaddr_t vaddr = VADDR_OFFSET + 0xe0000000;
     for (int i = 0; i < iterations; i++) {
         printf("iter: %d\n", i);
         // allocate a page
@@ -328,14 +334,12 @@ __attribute__((unused)) static void test_many_single_pages_allocated(int iterati
         assert(err_is_ok(err));
         // map frame
         struct paging_state *st = get_current_paging_state();
-        err = paging_map_fixed(st, vaddr, frame_cap, BASE_PAGE_SIZE);
+        err = paging_map_frame(st, NULL, BASE_PAGE_SIZE, frame_cap);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "paging_map_fixed");
+            DEBUG_ERR(err, "paging_map_frame");
         }
 
         assert(err_is_ok(err));
-
-        vaddr += BASE_PAGE_SIZE;
     }
     printf("test_many_single_pages_allocated done\n");
 }
@@ -352,7 +356,7 @@ __attribute__((unused)) static void test_alloc_free(int iterations)
         assert(err_is_ok(err));
     }
 
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
 
 __attribute__((unused)) static void test_alignments(int iterations, gensize_t alloc_size)
@@ -394,7 +398,7 @@ __attribute__((unused)) static void test_merge(int iterations, size_t size,
         assert(err_is_ok(err));
     }
 
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
 }
 
 __attribute__((unused)) static void double_free(void)
@@ -419,7 +423,6 @@ __attribute__((unused)) static void random_patterns(int iterations)
 {
 #include <stdlib.h>
     srand(42);
-    lvaddr_t vaddr = VADDR_OFFSET + 0xb0000000;
     for (int i = 0; i < iterations; i++) {
         // currently, assume sizes fit into a single l3 table,
         // so max number of pages at same time is 512
@@ -432,7 +435,9 @@ __attribute__((unused)) static void random_patterns(int iterations)
         assert(err_is_ok(err));
         // map frame
         struct paging_state *st = get_current_paging_state();
-        err = paging_map_fixed(st, vaddr, frame_cap, alloc_size);
+
+        void *vaddr;
+        err = paging_map_frame(st, &vaddr, alloc_size, frame_cap);
         assert(err_is_ok(err));
 
         // write something at beginning and end
@@ -448,12 +453,6 @@ __attribute__((unused)) static void random_patterns(int iterations)
         // check beginning again
         addr = (int *)vaddr;
         assert(*addr == 1003);
-
-        vaddr += alloc_size;
-
-        // align always to 512 * PAGE_SIZE so that we can be sure that in case we want to
-        // map 512 pages at once, it all falls into the same l3 table
-        vaddr = ROUND_UP(vaddr, (512 * BASE_PAGE_SIZE));
     }
 
     printf("random_patterns done\n");
@@ -493,12 +492,15 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
 
     // test partial free
-    test_partial_free();
+    // test_partial_free();
 
     // test frame mapping
     test_map_single_frame(1);
     test_map_single_frame(4);
     test_map_single_frame(32);
+
+    // map across multiple l3 tables
+    test_map_single_frame(4096);
 
     // test refills
     test_slab_allocator_refill();
@@ -507,6 +509,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     // big tests with no alignment
     test_alternate_allocs_and_frees(1 << 9, 1 << 12, 1);
     test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
+
 
     // exotic tests
     test_expontential_allocs_then_frees(31);
@@ -535,6 +538,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_vtable_mapping_size(1 * BASE_PAGE_SIZE);
     test_vtable_mapping_size(2 * BASE_PAGE_SIZE);
     test_vtable_mapping_size(8 * BASE_PAGE_SIZE);
+    mm_tracker_debug_print(&get_current_paging_state()->vspace_tracker);
     test_vtable_mapping_size(64 * BASE_PAGE_SIZE);
 
     // allocate then deallocate, 5000 times
@@ -561,7 +565,7 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
     /*
-    mm_debug_print(&aos_mm);
+    mm_tracker_debug_print(&aos_mm.mmt);
     debug_printf("Initial free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
     debug_printf("Initial free slot count: %d\n", slot_freecount(aos_mm.slot_allocator));
      */
@@ -628,7 +632,6 @@ int main(int argc, char *argv[])
     }
     printf("\n");
     fflush(stdout);
-
 
     if (my_core_id == 0)
         return bsp_main(argc, argv);

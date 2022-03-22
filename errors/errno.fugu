@@ -440,6 +440,11 @@ errors libaos LIB_ERR_ {
 
     // Process management client library
     failure PROC_MGMT_CLIENT_ACCEPT "Error in proc_mgmt_client_lmp_accept()",
+
+    // Paging
+    failure PAGING_MAP              "Error in paging_map_frame_attr()",
+    failure PAGING_MAP_FIXED        "Error in paging_map_fixed_attr()",
+    failure PAGING_STATE_INIT       "Error in paging_state_init()",
 };
 
 // errors in Flounder-generated bindings
@@ -708,11 +713,15 @@ errors libelf ELF_ERR_ {
 
 // errors from memory management library
 errors libmm MM_ERR_ {
-    failure FIND_NODE           "Failure in find_node()",
-    failure CHUNK_NODE          "Failure in chunk_node()",
+    failure ALLOC_NODE          "Failure in mm_tracker_alloc()",
+    failure FIND_NODE           "Failure in mm_tracker_find_next_fit()",
+    failure SPLIT_NODE          "Failure in mm_tracker_split_node()",
     failure SLOT_MM_ALLOC       "Nested failure in slot allocator calling mm_alloc",
     failure SLOT_NOSLOTS        "Slot allocator has run out of slots",
     failure SLOT_ALLOC_INIT     "Failure initialising slot allocator",
+    failure MMT_GET_NODE_AT     "Failure in mm_tracker_get_node_at()",
+    failure MMT_ALLOC_SLICE     "Failure in mm_tracker_alloc_slice()",
+    failure MMT_ALLOC_RANGE     "Failure in mm_tracker_alloc_range()",
     failure MM_INIT             "Failure in mm_init()",
     failure MM_ADD              "Failure in mm_add()",
     failure MM_ADD_MULTI        "Failure in mm_add_multi()",
