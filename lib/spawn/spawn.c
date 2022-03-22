@@ -232,6 +232,16 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
+/**
+ * @brief parses the ELF binary and loads the segements into memory
+ *
+ * @param si
+ * @param binary the binary to be loaded
+ * @param binary_size the size of the binary
+ * @param entry will be filled with the entry point of the child process
+ * @param got_section_addr
+ * @return errval_t
+ */
 static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
                                       size_t binary_size, genvaddr_t *entry,
                                       struct Elf64_Shdr *got_section_addr)
@@ -240,18 +250,15 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
 
     err = elf_load(EM_AARCH64, allocator_fn, &si->paging_state, binary, binary_size,
                    entry);
-    assert(err_is_ok(err));
-    printf("after loading elf");
-
     if (err_is_fail(err)) {
-        printf("Failed to load elf \n");
-        return err;
+        DEBUG_ERR(err, "failed to load elf");
+        return err_push(err, SPAWN_ERR_ELF_MAP);
     }
 
     got_section_addr = elf64_find_section_header_name((genvaddr_t)si->module, binary_size,
                                                       ".got");
     if (!got_section_addr) {
-        printf("Error trying to fetch .got address from elf \n");
+        DEBUG_PRINTF("Error trying to fetch .got address from elf \n");
         return ELF_ERR_ALLOCATE;
     }
 
@@ -298,62 +305,55 @@ static errval_t spawn_setup_env(struct spawninfo *si, char *argv[])
 /**
  *
  * @param state
- * @param base
- * @param size
- * @param flags
- * @param ret Pointer to allocated vspace in current process
+ * @param base region base address of the child process
+ * @param size region size of the child process
+ * @param flags region flags (bitmask describing the rights) of the child process
+ * @param ret pointer to allocated vspace in child process
  * @return
  */
 errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
                       void **ret)
 {
     printf("allocator_fn called \n");
+    errval_t err;
 
     struct paging_state *paging_state = (struct paging_state *)state;
 
-    errval_t err;
-
     struct capref segment_frame;
-    size_t ret_size;
-
-    err = frame_alloc(&segment_frame, size, &ret_size);
-
+    size_t allocated_frame_size;
+    err = frame_alloc(&segment_frame, size, &allocated_frame_size);
     if (err_is_fail(err)) {
-        printf("Could not allocate new frame for segment \n");
+        DEBUG_ERR(err, "failed to allocate new segemtn frame");
         return err;
     }
 
-    printf("Mapping into current vspace \n");
-    // map memory into current vspace
-    err = paging_map_frame_attr(get_current_paging_state(), ret, size, segment_frame,
-                                VREGION_FLAGS_READ_WRITE);
+    printf("Mapping into parent vspace \n");
+    // map memory into parent vspace
+    err = paging_map_frame_attr(get_current_paging_state(), ret, allocated_frame_size,
+                                segment_frame, VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
-        printf("Could not map frame for segment into current vspace \n");
+        DEBUG_ERR(err, "failed to map segment frame into parent vspace");
         return err;
     }
 
     // map memory in child vspace
-
     printf("Mapping into child vspace \n");
-    // flags in elf.h have different values than flags in paging_types.h. PF_X (execute)
-    // is 0x01 but VREGION_FLAGS_EXECUTE is 0x04
+    // flags in elf.h have different values than flags in paging_types.h.
+    // e.g.: PF_X (execute) is 0x01 but VREGION_FLAGS_EXECUTE is 0x04
     int child_flags = 0;
     if (flags & PF_X) {
         child_flags |= VREGION_FLAGS_EXECUTE;
     }
-
     if (flags & PF_W) {
         child_flags |= VREGION_FLAGS_WRITE;
     }
-
     if (flags & PF_R) {
         child_flags |= VREGION_FLAGS_READ;
     }
-
-    err = paging_map_frame_attr(paging_state, ((void *)base), size, segment_frame,
-                                child_flags);
+    err = paging_map_frame_attr(paging_state, ((void *)base), allocated_frame_size,
+                                segment_frame, child_flags);
     if (err_is_fail(err)) {
-        printf("Could not map frame for segment into child vspace \n");
+        DEBUG_ERR(err, "failed to map segment frame into child vspace");
         return err;
     }
 
