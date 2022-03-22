@@ -251,7 +251,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
         }
     }
 
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return SYS_ERR_OK;
 }
 
 /**
