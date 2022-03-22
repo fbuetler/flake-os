@@ -438,13 +438,29 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
 
     /*
         arguments page layout:
-        * struct spawn_domain_params
+        * struct spawn_domain_params (contains array with pointers to the following args)
         * command line args
-        * env vars
         * NULL pointer to signify the end of the list
     */
     // put args into arguments frame
-    // put envs into arguments frame
+    struct spawn_domain_params *params = args_frame_addr_parent;
+    char *argv_addr = (char *)(params + 1);  // start after params
+    size_t remaining_argv_space = ARGS_SIZE - (argv_addr - (char *)args_frame_addr_parent);
+
+    params->argc = argc;
+    for (int i = 0; i < argc; i++) {
+        size_t len = strlen(argv[i]);
+        if (len > remaining_argv_space) {
+            DEBUG_PRINTF("failed to store arguments in args frame: no space left");
+            return SPAWN_ERR_ARGSPG_OVERFLOW;
+        }
+        strcpy(argv_addr, argv[i]);
+        params->argv[i] = argv_addr - (char *)args_frame_addr_parent
+                          + (char *)(lvaddr_t)args_frame_addr_child;
+        argv_addr += len;
+        remaining_argv_space -= len;
+    }
+    params->argv[argc] = NULL;
 
     // register for the first argument in the enabled save area contains a pointer
     // to the struct spawn_domain_params
@@ -452,7 +468,7 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
         si->dispatcher_handle);
     registers_set_param(enabled_area, (uint64_t)args_frame_addr_child);
 
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return SYS_ERR_OK;
 }
 
 /**
