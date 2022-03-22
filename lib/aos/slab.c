@@ -200,7 +200,6 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
     err = paging_map_frame(st, &vaddr, allocated_bytes, frame_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to do page mapping");
-
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
 

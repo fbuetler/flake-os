@@ -217,27 +217,31 @@ errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t s
     } while (current != mmt->head);
 
     return MM_ERR_NOT_FOUND;
-} 
+}
 
 /**
- * @brief Returns first UNALLOCATED node which includes address range [addr, addr + size - 1] and stores it in retnode
- * 
+ * @brief Returns first UNALLOCATED node which includes address range [addr, addr + size -
+ * 1] and stores it in retnode
+ *
  * @param mmt Memory Tracker
  * @param addr Base address of search area
  * @param size Length of search area in bytes
  * @param retnode Node to store search result node in
- * 
+ *
  * @returns error state
- * 
+ *
  */
-errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size, mmnode_t **retnode) {
+errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
+                                mmnode_t **retnode)
+{
     assert(mmt != NULL);
     assert(retnode != NULL);
     assert(mmt->head);
 
     mmnode_t *curr = mmt->head;
     do {
-        if (addr >= curr->base && addr + size <= curr->base + curr->size && curr->type == NodeType_Free) {
+        if (addr >= curr->base && addr + size <= curr->base + curr->size
+            && curr->type == NodeType_Free) {
             // found it
             *retnode = curr;
             return SYS_ERR_OK;
@@ -251,12 +255,12 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
 }
 
 /**
- * @brief Allocate a slice at a given node; slice in upto three parts: 
- *              [node->base, node->base + offset] (if offset > 0), 
+ * @brief Allocate a slice at a given node; slice in upto three parts:
+ *              [node->base, node->base + offset] (if offset > 0),
  *              [node->base + offset, node->base + offset + size],
  *              remainder (if remainder > 0);
- *         
- * 
+ *
+ *
  * @param mmt Memory Tracker
  * @param node Node to slilce
  * @param offset Offset to cut from left side
@@ -264,20 +268,20 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
  * @param retleft Resulting left slice; NULL if offset == 0
  * @param allocated_node Node that has been allocated
  * @param retright Leftover node on right side, if necessary; else NULL
- * 
+ *
  */
-errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node, 
-                            size_t size, size_t offset, 
-                            mmnode_t **retleft, mmnode_t **allocated_node, mmnode_t **retright){
-
-
+errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node, size_t size,
+                                size_t offset, mmnode_t **retleft,
+                                mmnode_t **allocated_node, mmnode_t **retright)
+{
     mmnode_t *offset_split_left, *offset_split_right;
     mmnode_t *leftover_split_left, *leftover_split_right;
 
     errval_t err = SYS_ERR_OK;
 
     if (offset > 0) {
-        err = mm_tracker_node_split(mmt, node, offset, &offset_split_left, &offset_split_right);
+        err = mm_tracker_node_split(mmt, node, offset, &offset_split_left,
+                                    &offset_split_right);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to split mmnodes for alignment");
             return err_push(err, MM_ERR_SPLIT_NODE);
@@ -287,32 +291,31 @@ errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node,
 
         *retleft = offset_split_left;
         node = offset_split_right;
-    }else{
+    } else {
         *retleft = NULL;
     }
 
     if (node->size > size) {
         // split a node
-        err = mm_tracker_node_split(mmt, node, size,
-                                    &leftover_split_left, &leftover_split_right);
+        err = mm_tracker_node_split(mmt, node, size, &leftover_split_left,
+                                    &leftover_split_right);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to split mmnodes");
             err = err_push(err, MM_ERR_SPLIT_NODE);
             goto unwind_first_split;
         }
         leftover_split_right->type = NodeType_Free;
-        
+
         node = leftover_split_left;
         *retright = leftover_split_right;
-    }else{
+    } else {
         *retright = NULL;
     }
 
     node->type = NodeType_Allocated;
 
     mmt->head = node;
-    debug_printf("Memory allocated: (%p, %lx)\n", node->base,
-                 node->size);
+    debug_printf("Memory allocated: (%p, %lx)\n", node->base, node->size);
     // mm_tracker_debug_print(&mm->mmt);
 
     *allocated_node = node;
@@ -382,24 +385,27 @@ errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t me
  * @param size Size of memory to allocate
  * @param retnode Node that has been allocated; if NULL, nothing will be written to it
  */
-errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size, mmnode_t **retnode){
+errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size,
+                                mmnode_t **retnode)
+{
     mmnode_t *node;
     errval_t err = mm_tracker_get_node_at(mmt, base, size, &node);
 
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MMT_GET_NODE_AT);
     }
 
     // slice it
     mmnode_t *offset_node, *allocated_node, *leftover_node;
-    err = mm_tracker_alloc_slice(mmt, node, size, base - node->base, &offset_node, &allocated_node, &leftover_node);
+    err = mm_tracker_alloc_slice(mmt, node, size, base - node->base, &offset_node,
+                                 &allocated_node, &leftover_node);
 
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to slice the nodes");
         return err_push(err, MM_ERR_MMT_ALLOC_SLICE);
     }
 
-    if(retnode){
+    if (retnode) {
         *retnode = allocated_node;
     }
     return SYS_ERR_OK;
