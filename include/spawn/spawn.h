@@ -40,9 +40,11 @@ struct spawninfo {
     struct capref rootcn_cap;
     struct capref dispatcher_cap;
     struct capref dispatcher_frame_cap;
-    struct capref args_page_cap;
+    struct capref args_frame_cap;
 
     struct paging_state paging_state;
+
+    dispatcher_handle_t dispatcher_handle;
 };
 
 // Start a child process using the multiboot command line. Fills in si.
