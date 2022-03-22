@@ -26,29 +26,27 @@
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <stdio.h>
 
-#define DISP_MEMORY_SIZE            1024 // size of memory dump in bytes
+#define DISP_MEMORY_SIZE 1024  // size of memory dump in bytes
 
 /**
  * \brief Print a message and abort.
  *
  * Something irrecoverably bad happened. Print a panic message, then abort.
  */
-void user_panic_fn(const char *file, const char *func, int line,
-                   const char *msg, ...)
+void user_panic_fn(const char *file, const char *func, int line, const char *msg, ...)
 {
     va_list ap;
     char msg_str[128];
-    //int msg_str_cc;
+    // int msg_str_cc;
     va_start(ap, msg);
-    //msg_str_cc =
-        vsnprintf(msg_str, sizeof(msg_str), msg, ap);
+    // msg_str_cc =
+    vsnprintf(msg_str, sizeof(msg_str), msg, ap);
     va_end(ap);
 
     char str[256];
-    //int strcc =
-        snprintf(str, sizeof(str), "%.*s.%u in %s() %s:%d\n%s\n",
-                     DISP_NAME_LEN, disp_name(), disp_get_current_core_id(),
-                     func, file, line, msg_str);
+    // int strcc =
+    snprintf(str, sizeof(str), "%.*s.%u in %s() %s:%d\n%s\n", DISP_NAME_LEN, disp_name(),
+             disp_get_current_core_id(), func, file, line, msg_str);
     sys_print(str, sizeof(str));
 
     abort();
@@ -58,11 +56,10 @@ void user_panic_fn(const char *file, const char *func, int line,
  * Have this invocation here to make debug_cap_identify work for domains that
  * have no monitor connection but hold Kernel cap (e.g. init)
  */
-static inline errval_t
-invoke_kernel_identify_cap(capaddr_t cap, int level, struct capability *out)
+static inline errval_t invoke_kernel_identify_cap(capaddr_t cap, int level,
+                                                  struct capability *out)
 {
-    return cap_invoke4(cap_kernel, KernelCmd_Identify_cap, cap, level,
-                       (uintptr_t)out).error;
+    return cap_invoke4(cap_kernel, KernelCmd_Identify_cap, cap, level, (uintptr_t)out).error;
 }
 
 errval_t debug_cap_identify(struct capref cap, struct capability *ret)
@@ -79,7 +76,7 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
         return SYS_ERR_OK;
     }
 
-    // TODO: For a generic implementation, query the monitor. See libbarrelfish.   
+    // TODO: For a generic implementation, query the monitor. See libbarrelfish.
     return err;
 }
 
@@ -93,9 +90,9 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
 errval_t debug_cap_trace_ctrl(uintptr_t types, genpaddr_t start_addr, gensize_t size)
 {
     if (types) {
-        printf("enabling pmem tracing: 0x%"PRIxGENPADDR"--0x%"PRIxGENPADDR
-               " for types 0x%"PRIxPTR"\n",
-               start_addr, start_addr+size, types);
+        printf("enabling pmem tracing: 0x%" PRIxGENPADDR "--0x%" PRIxGENPADDR
+               " for types 0x%" PRIxPTR "\n",
+               start_addr, start_addr + size, types);
     }
     return sys_debug_cap_trace_ctrl(types, start_addr, size);
 }
@@ -103,7 +100,7 @@ errval_t debug_cap_trace_ctrl(uintptr_t types, genpaddr_t start_addr, gensize_t 
 /**
  * \brief Dump own hw page tables
  */
-errval_t debug_dump_hw_ptables(void* vaddr)
+errval_t debug_dump_hw_ptables(void *vaddr)
 {
     return invoke_dispatcher_dump_ptables(cap_dispatcher, (lvaddr_t)vaddr);
 }
@@ -117,10 +114,10 @@ void debug_printf(const char *fmt, ...)
     size_t len;
 
     if (me) {
-        snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
+        snprintf(id, sizeof(id), "%" PRIuPTR, thread_get_id(me));
     }
-    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ",
-                   DISP_NAME_LEN, disp_name(), disp_get_current_core_id(), id);
+    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ", DISP_NAME_LEN,
+                   disp_name(), disp_get_current_core_id(), id);
     if (len < sizeof(str)) {
         va_start(argptr, fmt);
         vsnprintf(str + len, sizeof(str) - len, fmt, argptr);
@@ -133,39 +130,42 @@ void debug_printf(const char *fmt, ...)
  * \brief Function to do the actual printing based on the type of capability
  */
 // TODO Fix this for all new cap types
-//STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+// STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
     switch (cap->type) {
     case ObjType_PhysAddr:
-        return snprintf(buf, len,
-                        "physical address range cap (0x%" PRIxGENPADDR ":%" PRIuGENSIZE ")",
-                        cap->u.physaddr.base, cap->u.physaddr.bytes);
+        return snprintf(
+            buf, len, "physical address range cap (0x%" PRIxGENPADDR ":%" PRIuGENSIZE ")",
+            cap->u.physaddr.base, cap->u.physaddr.bytes);
 
     case ObjType_RAM:
         return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":%" PRIuGENSIZE ")",
                         cap->u.ram.base, cap->u.ram.bytes);
 
     case ObjType_L1CNode: {
-        int ret = snprintf(buf, len, "L1 CNode cap "
-                           "(allocated bytes %#"PRIxGENSIZE
-                           ", rights mask %#"PRIxCAPRIGHTS")",
+        int ret = snprintf(buf, len,
+                           "L1 CNode cap "
+                           "(allocated bytes %#" PRIxGENSIZE ", rights mask "
+                           "%#" PRIxCAPRIGHTS ")",
                            cap->u.l1cnode.allocated_bytes, cap->u.l1cnode.rightsmask);
         return ret;
     }
 
     case ObjType_L2CNode: {
-        return snprintf(buf, len, "L2 CNode cap "
-                           "(cnode=%"PRIxLPADDR")"
-                           "(rights mask %#"PRIxCAPRIGHTS")",
-                           cap->u.l2cnode.cnode,
-                           cap->u.l2cnode.rightsmask);
+        return snprintf(buf, len,
+                        "L2 CNode cap "
+                        "(cnode=%" PRIxLPADDR ")"
+                        "(rights mask %#" PRIxCAPRIGHTS ")",
+                        cap->u.l2cnode.cnode, cap->u.l2cnode.rightsmask);
     }
 
     case ObjType_EndPointUMP:
-        return snprintf(buf, len, "EndPoint UMP cap (0x%" PRIxGENPADDR ":%"
-                                   PRIuGENSIZE "), if=%" PRIu32,
+        return snprintf(buf, len,
+                        "EndPoint UMP cap (0x%" PRIxGENPADDR ":%" PRIuGENSIZE "), "
+                        "if="
+                        "%" PRIu32,
                         cap->u.endpointump.base, cap->u.endpointump.bytes,
                         cap->u.endpointump.iftype);
 
@@ -177,7 +177,8 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
                         cap->u.frame.base, cap->u.frame.bytes);
 
     case ObjType_DevFrame:
-        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":%" PRIuGENSIZE ")",
+        return snprintf(buf, len,
+                        "Device Frame cap (0x%" PRIxGENPADDR ":%" PRIuGENSIZE ")",
                         cap->u.frame.base, cap->u.devframe.bytes);
 
     case ObjType_VNode_ARM_l1:
@@ -281,35 +282,33 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_VNode_AARCH64_l3_Mapping:
         mappingtype = "AARCH64 l3";
         goto ObjType_Mapping;
-    
+
     case ObjType_EndPointLMP:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",
                         cap->u.endpointlmp.listener, cap->u.endpointlmp.epoffset);
 
 
-ObjType_Mapping:
-        return snprintf(buf, len, "%s Mapping (%s cap @%p, "
-                                  "ptable cap @0x%p, entry=%hu, pte_count=%hu)",
-                                  mappingtype, mappingtype,
-                                  cap->u.frame_mapping.cap,
-                                  cap->u.frame_mapping.ptable,
-                                  cap->u.frame_mapping.entry,
-                                  cap->u.frame_mapping.pte_count);
+    ObjType_Mapping:
+        return snprintf(buf, len,
+                        "%s Mapping (%s cap @%p, "
+                        "ptable cap @0x%p, entry=%hu, pte_count=%hu)",
+                        mappingtype, mappingtype, cap->u.frame_mapping.cap,
+                        cap->u.frame_mapping.ptable, cap->u.frame_mapping.entry,
+                        cap->u.frame_mapping.pte_count);
 
     case ObjType_IRQTable:
         return snprintf(buf, len, "IRQTable cap");
 
     case ObjType_IRQSrc:
-        return snprintf(buf, len, "IRQSrc cap (vec: %"PRIu64"-%"PRIu64")",
-                cap->u.irqsrc.vec_start, cap->u.irqsrc.vec_end);
+        return snprintf(buf, len, "IRQSrc cap (vec: %" PRIu64 "-%" PRIu64 ")",
+                        cap->u.irqsrc.vec_start, cap->u.irqsrc.vec_end);
 
     case ObjType_IRQDest:
-        return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", cpu: %"PRIu64")",
-                cap->u.irqdest.vector, cap->u.irqdest.cpu);
+        return snprintf(buf, len, "IRQDest cap (vec: %" PRIu64 ", cpu: %" PRIu64 ")",
+                        cap->u.irqdest.vector, cap->u.irqdest.cpu);
 
     case ObjType_IO:
-        return snprintf(buf, len, "IO cap (0x%hx-0x%hx)",
-                        cap->u.io.start, cap->u.io.end);
+        return snprintf(buf, len, "IO cap (0x%hx-0x%hx)", cap->u.io.start, cap->u.io.end);
 
     case ObjType_Kernel:
         return snprintf(buf, len, "Kernel cap");
@@ -318,17 +317,19 @@ ObjType_Mapping:
         return snprintf(buf, len, "Kernel control block cap");
 
     case ObjType_ID:
-        return snprintf(buf, len, "ID capability (coreid 0x%" PRIxCOREID
-                        " core_local_id 0x%" PRIx32 ")", cap->u.id.coreid,
-                        cap->u.id.core_local_id);
+        return snprintf(buf, len,
+                        "ID capability (coreid 0x%" PRIxCOREID " core_local_id 0x%" PRIx32
+                        ")",
+                        cap->u.id.coreid, cap->u.id.core_local_id);
 
     case ObjType_ProcessManager:
         return snprintf(buf, len, "Process manager capability");
 
     case ObjType_Domain:
-        return snprintf(buf, len, "Domain capability (coreid 0x%" PRIxCOREID
-                        " core_local_id 0x%" PRIx32 ")", cap->u.domain.coreid,
-                        cap->u.domain.core_local_id);
+        return snprintf(buf, len,
+                        "Domain capability (coreid 0x%" PRIxCOREID " core_local_id "
+                        "0x%" PRIx32 ")",
+                        cap->u.domain.coreid, cap->u.domain.core_local_id);
 
     case ObjType_PerfMon:
         return snprintf(buf, len, "PerfMon cap");
@@ -361,23 +362,21 @@ int debug_print_cap_at_capref(char *buf, size_t len, struct capref cap)
 /**
  * \brief Walk and debug print a L2 CNode
  */
-static void walk_cspace_l2(struct capref l2cnode){
+static void walk_cspace_l2(struct capref l2cnode)
+{
     errval_t err;
     struct capability cap;
     struct cnoderef cnode = build_cnoderef(l2cnode, 1);
 
     debug_printf("  Printing L2 CNode at L1 slot=%d\n", l2cnode.slot);
 
-    for(int i=0; i<L2_CNODE_SLOTS; i++){
-        struct capref pos = {
-            .cnode = cnode, .slot = i 
-        };
+    for (int i = 0; i < L2_CNODE_SLOTS; i++) {
+        struct capref pos = { .cnode = cnode, .slot = i };
 
         // Get cap data
         err = invoke_cap_identify(pos, &cap);
-        if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
-            err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
-            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
+        if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP || err_no(err) == SYS_ERR_CAP_NOT_FOUND
+            || err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
             continue;
         } else if (err_is_fail(err)) {
             DEBUG_ERR(err, "debug_cap_identify failed");
@@ -388,8 +387,8 @@ static void walk_cspace_l2(struct capref l2cnode){
         size_t prpos = 0;
 
         prpos += snprintf(buf, sizeof(buf),
-                          "slot %" PRIuCADDR " caddr 0x%" PRIxCADDR " is a ",
-                          pos.slot, get_cap_addr(pos));
+                          "slot %" PRIuCADDR " caddr 0x%" PRIxCADDR " is a ", pos.slot,
+                          get_cap_addr(pos));
         assert(prpos < sizeof(buf));
         prpos += debug_print_cap(&buf[prpos], sizeof(buf) - prpos, &cap);
         assert(prpos < sizeof(buf));
@@ -399,10 +398,10 @@ static void walk_cspace_l2(struct capref l2cnode){
 
 /**
  * \brief Dump an arbitrary cspace, given the root
- * 
- * \bug Works correct only for own cspace. (to fix this cap_identify must 
+ *
+ * \bug Works correct only for own cspace. (to fix this cap_identify must
  * be made to work with all caps)
- * 
+ *
  */
 void debug_cspace(struct capref root)
 {
@@ -418,20 +417,16 @@ void debug_cspace(struct capref root)
     err = invoke_cnode_get_size(root, &c1size);
     assert(err_is_ok(err));
 
-    int l1slots = c1size/sizeof(struct capability);
+    int l1slots = c1size / sizeof(struct capability);
     debug_printf("Printing L1 CNode (slots=%u)\n", l1slots);
-    for(int slot=0; slot < l1slots; slot++){
-
+    for (int slot = 0; slot < l1slots; slot++) {
         struct cnoderef cnode = build_cnoderef(root, 0);
-        struct capref pos = {
-            .cnode = cnode, .slot = slot
-        };
+        struct capref pos = { .cnode = cnode, .slot = slot };
         err = invoke_cap_identify(pos, &l2_cap);
 
         // If cap type was Null, kernel returns error
-        if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
-            err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
-            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
+        if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP || err_no(err) == SYS_ERR_CAP_NOT_FOUND
+            || err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
             continue;
         } else if (err_is_fail(err)) {
             DEBUG_ERR(err, "debug_cap_identify failed");
@@ -448,24 +443,26 @@ void debug_my_cspace(void)
 
 int debug_print_capref(char *buf, size_t len, struct capref cap)
 {
-    return snprintf(buf, len, "CSpace root addr 0x%08" PRIxCADDR", "
-                              "CNode addr 0x%08" PRIxCADDR
-                              ", level = %d, slot %" PRIuCADDR ", level = %d",
-                    get_croot_addr(cap), get_cnode_addr(cap),
-                    get_cnode_level(cap), cap.slot, get_cap_level(cap));
+    return snprintf(buf, len,
+                    "CSpace root addr 0x%08" PRIxCADDR ", "
+                    "CNode addr 0x%08" PRIxCADDR ", level = %d, slot %" PRIuCADDR ", "
+                    "level "
+                    "= %d",
+                    get_croot_addr(cap), get_cnode_addr(cap), get_cnode_level(cap),
+                    cap.slot, get_cap_level(cap));
 }
 
 int debug_print_cnoderef(char *buf, size_t len, struct cnoderef cnode)
 {
-    return snprintf(buf, len, "CSpace root addr 0x%08"PRIxCADDR", "
-                              "CNode addr 0x%08"PRIxCADDR", level = %d",
-                              cnode.croot, cnode.cnode, cnode.level);
+    return snprintf(buf, len,
+                    "CSpace root addr 0x%08" PRIxCADDR ", "
+                    "CNode addr 0x%08" PRIxCADDR ", level = %d",
+                    cnode.croot, cnode.cnode, cnode.level);
 }
 
 void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr, lvaddr_t point)
 {
-    debug_printf("Dumping memory in range 0x%" PRIxLVADDR
-                 " to 0x%" PRIxLVADDR ":\n",
+    debug_printf("Dumping memory in range 0x%" PRIxLVADDR " to 0x%" PRIxLVADDR ":\n",
                  start_addr, end_addr);
 
     for (uintptr_t *p = (void *)start_addr; (uintptr_t)p < end_addr; p++) {
@@ -485,7 +482,7 @@ void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr, lvaddr_t point)
 void debug_dump_mem_around_addr(lvaddr_t addr)
 {
     /* lvaddr_t page_aligned_addr = ROUND_DOWN(addr, BASE_PAGE_SIZE); */
-    lvaddr_t start_addr = ROUND_DOWN(addr - DISP_MEMORY_SIZE/2, sizeof(uintptr_t));
+    lvaddr_t start_addr = ROUND_DOWN(addr - DISP_MEMORY_SIZE / 2, sizeof(uintptr_t));
     lvaddr_t end_addr = ROUND_UP(addr + 2 * DISP_MEMORY_SIZE, sizeof(uintptr_t));
 
     /* if (start_addr < page_aligned_addr) { */
@@ -505,16 +502,15 @@ void debug_err(const char *file, const char *func, int line, errval_t err,
 
     char str[256];
     char *leader = (err == 0) ? "SUCCESS" : "ERROR";
-    //int strcc =
-        snprintf(str, sizeof(str), "%s: %.*s.%u in %s() %s:%d\n%s: ",
-                     leader, DISP_NAME_LEN, disp_name(), disp_get_current_core_id(),
-                     func, file, line, leader);
+    // int strcc =
+    snprintf(str, sizeof(str), "%s: %.*s.%u in %s() %s:%d\n%s: ", leader, DISP_NAME_LEN,
+             disp_name(), disp_get_current_core_id(), func, file, line, leader);
     sys_print(str, sizeof(str));
 
     if (msg != NULL) {
         va_start(ap, msg);
-        //int strcc2 =
-            vsnprintf(str, sizeof(str), msg, ap);
+        // int strcc2 =
+        vsnprintf(str, sizeof(str), msg, ap);
         va_end(ap);
         sys_print(str, sizeof(str));
     }

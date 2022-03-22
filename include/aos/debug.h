@@ -45,39 +45,38 @@ void debug_return_addresses(void);
 void debug_dump_mem_around_addr(lvaddr_t addr);
 void debug_dump_mem(lvaddr_t base, lvaddr_t limit, lvaddr_t point);
 
-void debug_err(const char *file, const char *func, int line,
-               errval_t err, const char *msg, ...);
-void user_panic_fn(const char *file, const char *func, int line,
-                   const char *msg, ...)
+void debug_err(const char *file, const char *func, int line, errval_t err,
+               const char *msg, ...);
+void user_panic_fn(const char *file, const char *func, int line, const char *msg, ...)
     __attribute__((noreturn));
 
 #ifdef NDEBUG
-# define DEBUG_PRINTF(fmt...) ((void)0)
-# define DEBUG_ERR(err, msg...) ((void)0)
-# define HERE ((void)0)
+#    define DEBUG_PRINTF(fmt...) ((void)0)
+#    define DEBUG_ERR(err, msg...) ((void)0)
+#    define HERE ((void)0)
 #else
-# define DEBUG_PRINTF(fmt...) debug_printf(fmt);
-# define DEBUG_ERR(err, msg...) debug_err(__FILE__, __func__, __LINE__, err, msg)
-# include <aos/dispatch.h>
-# define HERE fprintf(stderr, "Disp %.*s.%u: %s, %s, %u\n", \
-                        DISP_NAME_LEN, disp_name(), disp_get_core_id(), \
-                      __FILE__, __func__, __LINE__)
+#    define DEBUG_PRINTF(fmt...) debug_printf(fmt);
+#    define DEBUG_ERR(err, msg...) debug_err(__FILE__, __func__, __LINE__, err, msg)
+#    include <aos/dispatch.h>
+#    define HERE                                                                         \
+        fprintf(stderr, "Disp %.*s.%u: %s, %s, %u\n", DISP_NAME_LEN, disp_name(),        \
+                disp_get_core_id(), __FILE__, __func__, __LINE__)
 #endif
 
 /**
  * \brief Prints out a string, errval and then aborts the domain
  */
-#define USER_PANIC_ERR(err, msg...) do {               \
-    debug_err(__FILE__, __func__, __LINE__, err, msg); \
-    abort();                                           \
-} while (0)
+#define USER_PANIC_ERR(err, msg...)                                                      \
+    do {                                                                                 \
+        debug_err(__FILE__, __func__, __LINE__, err, msg);                               \
+        abort();                                                                         \
+    } while (0)
 
 /**
  * \brief Prints out a string and abort the domain
  */
-#define USER_PANIC(msg...)                                 \
-    user_panic_fn(__FILE__, __func__, __LINE__, msg);      \
+#define USER_PANIC(msg...) user_panic_fn(__FILE__, __func__, __LINE__, msg);
 
 __END_DECLS
 
-#endif //BARRELFISH_DEBUG_H
+#endif  // BARRELFISH_DEBUG_H
