@@ -232,23 +232,23 @@ __attribute__((unused)) static void test_map_single_frame(size_t n)
         n = 1;
     }
     size_t bytes = n * BASE_PAGE_SIZE;
-    // dont interfere with the hardcoded addr in slab refill
-    static lvaddr_t vaddr = VADDR_OFFSET + (1 << 20);
 
     struct capref frame_cap;
     size_t allocated_bytes;
     err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate frame");
+    }
     assert(err_is_ok(err));
 
     struct paging_state *st = get_current_paging_state();
-    printf("fixing: %u", allocated_bytes);
-    err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
-    if(err_is_fail(err))
-        DEBUG_ERR(err, "oh my");
+
+    err = paging_map_frame(st, NULL, allocated_bytes, frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to single map frame");
+    }
     assert(err_is_ok(err));
 
-    // increment l3 index by 1 per base page to avoid mapping conflicts
-    vaddr += (1 << 13) * (allocated_bytes / (1 << 12));
 }
 
 __attribute__((unused)) static void test_slab_allocator_refill(void)
@@ -279,10 +279,11 @@ __attribute__((unused)) static void test_slot_allocator_refill(void)
     printf("Post refill free slot count: %d\n", slot_freecount(slot_allocator));
 }
 
-lvaddr_t test_vtable_vaddr = VADDR_OFFSET + 0x6000000000;
 
 __attribute__((unused)) static void test_vtable_mapping_size(gensize_t bytes)
 {
+    assert(bytes % BASE_PAGE_SIZE == 0);
+
     struct capref frame_cap;
     size_t allocated_bytes;
 
@@ -296,28 +297,28 @@ __attribute__((unused)) static void test_vtable_mapping_size(gensize_t bytes)
 
     // map frame
     struct paging_state *st = get_current_paging_state();
-    err = paging_map_fixed(st, test_vtable_vaddr, frame_cap, allocated_bytes);
+
+    char *addr;
+
+    err = paging_map_frame(st, (void**)&addr, allocated_bytes, frame_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "paging_map_fixed");
+        DEBUG_ERR(err, "paging_map_frame");
     }
     assert(err_is_ok(err));
 
-    printf("allocated: %x\n", allocated_bytes / BASE_PAGE_SIZE);
-    char *addr = (char *)test_vtable_vaddr;
-
     uint32_t total_pages = allocated_bytes / BASE_PAGE_SIZE - 1;
 
-    void *last_allocated_byte = (void *)test_vtable_vaddr + bytes - 1;
+    char *last_allocated_byte = addr + allocated_bytes - 1;
+    char *base_addr = addr;
     char x = 0;
     for (; addr <= (char *)last_allocated_byte; addr++) {
-        if ((size_t)addr % BASE_PAGE_SIZE) {
-            printf("page: %d/%d\n", (size_t)(addr - test_vtable_vaddr) / BASE_PAGE_SIZE,
+        if ((size_t)addr % BASE_PAGE_SIZE == 0) {
+            printf("page: %d/%d\n", (size_t)(addr - base_addr) / BASE_PAGE_SIZE,
                    total_pages);
         }
         *addr = x;
         assert(*addr == x++);
     }
-    test_vtable_vaddr += allocated_bytes;
 
     mm_tracker_debug_print(&aos_mm.mmt);
     printf("test_vtable_mapping_size done\n");
@@ -325,7 +326,6 @@ __attribute__((unused)) static void test_vtable_mapping_size(gensize_t bytes)
 
 __attribute__((unused)) static void test_many_single_pages_allocated(int iterations)
 {
-    lvaddr_t vaddr = VADDR_OFFSET + 0xe0000000;
     for (int i = 0; i < iterations; i++) {
         printf("iter: %d\n", i);
         // allocate a page
@@ -334,14 +334,12 @@ __attribute__((unused)) static void test_many_single_pages_allocated(int iterati
         assert(err_is_ok(err));
         // map frame
         struct paging_state *st = get_current_paging_state();
-        err = paging_map_fixed(st, vaddr, frame_cap, BASE_PAGE_SIZE);
+        err = paging_map_frame(st, NULL, BASE_PAGE_SIZE, frame_cap);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "paging_map_fixed");
+            DEBUG_ERR(err, "paging_map_frame");
         }
 
         assert(err_is_ok(err));
-
-        vaddr += BASE_PAGE_SIZE;
     }
     printf("test_many_single_pages_allocated done\n");
 }
@@ -425,7 +423,6 @@ __attribute__((unused)) static void random_patterns(int iterations)
 {
 #include <stdlib.h>
     srand(42);
-    lvaddr_t vaddr = VADDR_OFFSET + 0xb0000000;
     for (int i = 0; i < iterations; i++) {
         // currently, assume sizes fit into a single l3 table,
         // so max number of pages at same time is 512
@@ -438,7 +435,9 @@ __attribute__((unused)) static void random_patterns(int iterations)
         assert(err_is_ok(err));
         // map frame
         struct paging_state *st = get_current_paging_state();
-        err = paging_map_fixed(st, vaddr, frame_cap, alloc_size);
+
+        void *vaddr;
+        err = paging_map_frame(st, &vaddr, alloc_size, frame_cap);
         assert(err_is_ok(err));
 
         // write something at beginning and end
@@ -454,12 +453,6 @@ __attribute__((unused)) static void random_patterns(int iterations)
         // check beginning again
         addr = (int *)vaddr;
         assert(*addr == 1003);
-
-        vaddr += alloc_size;
-
-        // align always to 512 * PAGE_SIZE so that we can be sure that in case we want to
-        // map 512 pages at once, it all falls into the same l3 table
-        vaddr = ROUND_UP(vaddr, (512 * BASE_PAGE_SIZE));
     }
 
     printf("random_patterns done\n");
@@ -488,7 +481,6 @@ __attribute__((unused)) static void test_slot_refill(void)
 
 __attribute__((unused)) static void run_m1_tests(void)
 {
-    
      // small tests with no alignment
     test_alternate_allocs_and_frees(8, 1 << 12, 1);
     test_merge_memory(8, 1 << 12, 1);
@@ -507,6 +499,9 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_map_single_frame(4);
     test_map_single_frame(32);
    
+    // map across multiple l3 tables
+    test_map_single_frame(4096);
+
     // test refills
     test_slab_allocator_refill();
     test_slot_allocator_refill();
@@ -543,6 +538,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_vtable_mapping_size(1 * BASE_PAGE_SIZE);
     test_vtable_mapping_size(2 * BASE_PAGE_SIZE);
     test_vtable_mapping_size(8 * BASE_PAGE_SIZE);
+    mm_tracker_debug_print(&get_current_paging_state()->vspace_tracker);
     test_vtable_mapping_size(64 * BASE_PAGE_SIZE);
 
     // allocate then deallocate, 5000 times

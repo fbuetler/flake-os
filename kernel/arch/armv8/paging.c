@@ -525,9 +525,9 @@ caps_map_l3(struct capability* dest,
 {
     assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
 
-    if (slot + pte_count >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
-        return SYS_ERR_VNODE_SLOT_INVALID;
-    }
+    //if (slot + pte_count >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
+    //    return SYS_ERR_VNODE_SLOT_INVALID;
+    //}
 
     if (src->type != ObjType_Frame && src->type != ObjType_DevFrame) {
         return SYS_ERR_WRONG_MAPPING;

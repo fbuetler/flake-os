@@ -188,14 +188,6 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
 
     struct paging_state *st = get_current_paging_state();
 
-    mmnode_t *allocated_node;
-    err = mm_tracker_get_next_fit(&st->vspace_tracker, &allocated_node, bytes, 512 * BASE_PAGE_SIZE);
-    if(err_is_fail(err)) {
-        return err;
-    }
-
-    lvaddr_t vaddr = allocated_node->base;  // M1: use a manually chosen VA offset
-
     struct capref frame_cap;
     size_t allocated_bytes;
     err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
@@ -204,13 +196,15 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
 
-    err = paging_map_fixed(st, vaddr, frame_cap, allocated_bytes);
+    void *vaddr;
+    err = paging_map_frame(st, &vaddr, allocated_bytes, frame_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to do page mapping");
+        
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
 
-    slab_grow(slabs, (void *)vaddr, allocated_bytes);
+    slab_grow(slabs, vaddr, allocated_bytes);
 
     return SYS_ERR_OK;
 }

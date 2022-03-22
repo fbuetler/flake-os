@@ -235,8 +235,6 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
     assert(retnode != NULL);
     assert(mmt->head);
 
-    printf("befoooore\n");
-
     mmnode_t *curr = mmt->head;
     do {
         if (addr >= curr->base && addr + size <= curr->base + curr->size && curr->type == NodeType_Free) {
@@ -248,7 +246,6 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
         curr = curr->next;
     } while (curr != mmt->head);
 
-    printf("getnodeat: %lx %x \n", addr, size);
     assert(addr != 0);
     return MM_ERR_NOT_FOUND;
 }
