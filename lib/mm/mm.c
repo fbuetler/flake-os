@@ -136,50 +136,31 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         return err_push(err, MM_ERR_FIND_NODE);
     }
 
-    // create an aligned node
-    size_t offset = (next_fit_node->base % alignment) > 0
-                        ? alignment - (next_fit_node->base % alignment)
-                        : 0;
-    mmnode_t *offset_split_left, *offset_split_right;
-    mmnode_t *leftover_split_left, *leftover_split_right;
+    mmnode_t *alignment_node;
+    mmnode_t *leftover_node;
 
-    if (offset > 0) {
-        err = mm_tracker_node_split(&mm->mmt, next_fit_node, offset, &offset_split_left,
-                                    &offset_split_right);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to split mmnodes for alignment");
-            return err_push(err, MM_ERR_SPLIT_NODE);
-        }
+    size_t offset = (next_fit_node->base % alignment) ? alignment - (next_fit_node->base % alignment) : 0;
+    err = mm_tracker_alloc_slice(&mm->mmt, next_fit_node, requested_size, 
+                            offset, &alignment_node, &next_fit_node, &leftover_node);
 
-        offset_split_left->type = NodeType_Free;
-
-        next_fit_node = offset_split_right;
+    if(err_is_fail(err)){
+        // TODO push error
+        return err;
     }
-
-    if (next_fit_node->size > requested_size) {
-        // split a node
-        err = mm_tracker_node_split(&mm->mmt, next_fit_node, requested_size,
-                                    &leftover_split_left, &leftover_split_right);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to split mmnodes");
-            err = err_push(err, MM_ERR_SPLIT_NODE);
-            goto unwind_first_split;
-        }
-        leftover_split_right->type = NodeType_Free;
-        next_fit_node = leftover_split_left;
-    }
-
-    next_fit_node->type = NodeType_Allocated;
 
     err = cap_retype(*retcap, next_fit_node->capinfo.cap,
                      next_fit_node->base - next_fit_node->capinfo.base, mm->objtype,
                      requested_size, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not retype region cap");
-        printf("base address: %p\n", next_fit_node->base);
+
         mm_tracker_debug_print(&mm->mmt);
         err = err_push(err, LIB_ERR_CAP_RETYPE);
-        goto unwind_second_split;
+
+        // merge again
+        mm_tracker_node_merge(&mm->mmt, next_fit_node);
+        if(alignment_node)
+            mm_tracker_node_merge(&mm->mmt, alignment_node);
     }
 
     mm->mmt.head = next_fit_node;
@@ -187,12 +168,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
                  next_fit_node->base + next_fit_node->size - 1);
     // mm_tracker_debug_print(&mm->mmt);
     return SYS_ERR_OK;
-
-unwind_second_split:
-    mm_tracker_node_merge(&mm->mmt, offset_split_left);
-unwind_first_split:
-    mm_tracker_node_merge(&mm->mmt, leftover_split_left);
-    return err;
 }
 
 errval_t mm_alloc(struct mm *mm, size_t size, struct capref *retcap)

@@ -5,6 +5,20 @@
 #include <sys/cdefs.h>
 #include <errors/errno.h>
 #include <aos/types.h>
+
+// forward declarations
+struct slab_allocator;
+// forward declaration
+typedef struct mmnode_t mmnode_t;
+
+
+typedef struct mm_tracker {
+    struct slab_allocator *slabs;
+    struct mmnode_t *head;
+    bool refill_lock;
+} mm_tracker_t;
+
+
 #include <aos/capabilities.h>
 #include <aos/slab.h>
 #include "slot_alloc.h"
@@ -27,11 +41,6 @@ typedef struct mmnode_t {
     gensize_t size;          ///< Memory size that is represented by this node
 } mmnode_t;
 
-typedef struct mm_tracker {
-    struct slab_allocator *slabs;
-    mmnode_t *head;
-    bool refill_lock;
-} mm_tracker_t;
 
 void mm_tracker_init(mm_tracker_t *mmt, struct slab_allocator *slabs);
 errval_t mm_tracker_refill(mm_tracker_t *mmt);
@@ -48,5 +57,11 @@ errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t s
 void mm_tracker_destroy(mm_tracker_t *mmt);
 
 errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t memory_size);
+
+errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node, 
+                            size_t size, size_t offset, 
+                            mmnode_t **retleft, mmnode_t **allocated_node, mmnode_t **retright);
+
+errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size, mmnode_t **retnode);
 
 #endif

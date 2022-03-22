@@ -83,7 +83,43 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     // TODO (M2): Implement state struct initialization
     // TODO (M4): Implement page fault handler that installs frames when a page fault
     // occurs and keeps track of the virtual address space.
-    return LIB_ERR_NOT_IMPLEMENTED;
+
+    errval_t err = SYS_ERR_OK;
+
+    // store root page table L0
+    st->root_page_table.cap = pdir;
+
+    st->slot_allocator = ca;
+    
+    // init slab allocator for page tables
+    slab_init(&current.slab_allocator, sizeof(struct page_table), NULL);
+    static uint8_t pt_buf[SLAB_STATIC_SIZE(64, sizeof(struct page_table))];
+    slab_grow(&current.slab_allocator, pt_buf, sizeof(pt_buf));   
+    
+    // setup virtual memory space
+    mm_tracker_init(&st->vspace_tracker, &st->vspace_slab_allocator);
+    static uint8_t vspace_buf[SLAB_STATIC_SIZE(64, sizeof(mmnode_t))];
+    slab_grow(&st->vspace_slab_allocator, vspace_buf, sizeof(vspace_buf));   
+
+    // add one node to mmt for whole vspace
+    mmnode_t *node;
+    err = mm_tracker_alloc(&st->vspace_tracker, &node);
+
+    if(err_is_fail(err)){
+        DEBUG_PRINTF("Failed to allocate the ROOT node in the VSpace. You are about to have a bad time");
+        return err_push(err, MM_ERR_ALLOC_NODE);
+    }
+
+    size_t initial_size = BIT(50);
+    node->type = NodeType_Free;
+    node->capinfo = (struct capinfo) {.cap = NULL_CAP, .base = start_vaddr, .size=initial_size};
+    node->base = start_vaddr;
+    node->size = initial_size;
+    node->next = NULL;
+    node->prev = NULL;
+    mm_tracker_node_insert(&st->vspace_tracker, node);
+
+    return SYS_ERR_OK;
 }
 
 /**
@@ -126,21 +162,11 @@ errval_t paging_init(void)
     // avoid code duplication.
     set_current_paging_state(&current);
 
-    // store root page table L0
-    current.root_page_table.cap = cap_vroot;
-
-    // init slot allocator
-    current.slot_allocator = get_default_slot_allocator();
-
-    // init slab allocator
-    slab_init(&current.slab_allocator, sizeof(struct page_table), NULL);
-    static uint8_t pt_buf[SLAB_STATIC_SIZE(64, sizeof(struct page_table))];
-    slab_grow(&current.slab_allocator, pt_buf, sizeof(pt_buf));
-
+    paging_init_state(&current, VADDR_OFFSET, cap_vroot, get_default_slot_allocator()); 
+    mm_tracker_debug_print(&current.vspace_tracker);
 
     return SYS_ERR_OK;
 }
-
 
 /**
  * @brief Initializes the paging functionality for the calling thread
@@ -293,10 +319,29 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     // based on assumptions:
     // * the frame you are trying to map always fits inside a single L3 page-table
     // * the virtual address is chosen such that it does not overlap
-    assert(bytes % 4096 == 0);
+    assert(bytes % BASE_PAGE_SIZE == 0);
+    assert(vaddr % BASE_PAGE_SIZE == 0);
 
     errval_t err;
 
+    mm_tracker_refill(&st->vspace_tracker);
+    mmnode_t *node;
+    err = mm_tracker_get_node_at(&st->vspace_tracker, vaddr, bytes, &node);
+
+    if(err_is_fail(err)){
+        return err_push(err, MM_ERR_MMT_GET_NODE_AT);
+    }
+
+    mmnode_t *offset_node, *allocated_node, *leftover_node;
+    err = mm_tracker_alloc_slice(&st->vspace_tracker, node, bytes, vaddr - node->base, &offset_node, &allocated_node, &leftover_node);
+
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to slice the nodes");
+        return err_push(err, MM_ERR_MMT_ALLOC_SLICE);
+    }
+
+
+    // TODO cleanup if creation of vtables fails! => free vmem
     size_t page_offset = 12;
     uint16_t page_index_size = 9;
     uint16_t last_bits = (1 << page_index_size) - 1;
@@ -311,34 +356,40 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     err = paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1, &l1_pt);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get/create l1 page table");
-        return err_push(err, LIB_ERR_PMAP_MAP);
+        err = err_push(err, LIB_ERR_PMAP_MAP);
+        goto unwind_allocated_vnode;
     }
 
     struct page_table *l2_pt = NULL;
     err = paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2, &l2_pt);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get/create l2 page table");
-        return err_push(err, LIB_ERR_PMAP_MAP);
+        err = err_push(err, LIB_ERR_PMAP_MAP);
+        goto unwind_allocated_vnode;
     }
 
     struct page_table *l3_pt = NULL;
     err = paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3, &l3_pt);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get/create l3 page table");
-        return err_push(err, LIB_ERR_PMAP_MAP);
+        err = err_push(err, LIB_ERR_PMAP_MAP);
+        goto unwind_allocated_vnode;
     }
     
     for (int i = 0; i < bytes / BASE_PAGE_SIZE; i++) {
         assert(l3_index + i < PTABLE_ENTRIES);
 
         if (l3_pt->mappings[l3_index + i] != NULL) {
-            return LIB_ERR_PMAP_EXISTING_MAPPING;
+            err = LIB_ERR_PMAP_EXISTING_MAPPING;
+            goto unwind_allocated_vnode;
         }
 
         struct capref frame_mapping_cap;
         err = st->slot_allocator->alloc(st->slot_allocator, &frame_mapping_cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "slot_alloc failed");
+            err = err_push(err, LIB_ERR_SLOT_ALLOC);
+            goto unwind_allocated_vnode;
             return err;
         }
 
@@ -346,6 +397,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
                         i * BASE_PAGE_SIZE, 1, frame_mapping_cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to map page table");
+            err = err_push(err, LIB_ERR_VNODE_MAP);
+            goto unwind_allocated_vnode;
             return err;
         }
 
@@ -353,6 +406,17 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     }
 
     return SYS_ERR_OK;
+
+unwind_allocated_vnode: ;
+
+    errval_t free_err = mm_tracker_free(&st->vspace_tracker, allocated_node->base, allocated_node->size);
+    if(err_is_fail(free_err)){
+        DEBUG_ERR(free_err, "failed to free allocated node");
+        err = err_push(err, free_err);
+    }
+
+    return err;
+
 }
 
 

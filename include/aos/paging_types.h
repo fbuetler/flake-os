@@ -36,9 +36,6 @@
 
 typedef int paging_flags_t;
 
-// forward declaration
-typedef struct mmnode_t mmnode_t;
-
 // struct to store a page table
 struct page_table {
     struct capref cap;  ///< cap that represent the memory where this page table is stored
@@ -49,22 +46,12 @@ struct page_table {
 // struct to store the paging status of a process
 struct paging_state {
     struct slot_allocator
-        *slot_allocator;  ///< Slab allocator used for allocating page tables
-    struct slab_allocator slab_allocator;  ///< Slot allocator for allocating cspac
-    struct page_table root_page_table;     ///< L0 page table
-    mmnode_t *vspace_head;                 ///< Head of the vspace  
+        *slot_allocator;                            ///< Slab allocator used for allocating page tables
+    struct slab_allocator slab_allocator;           ///< Slot allocator for allocating cspac
+    struct page_table root_page_table;              ///< L0 page table
+
+    mm_tracker_t vspace_tracker;                    ///< mm tracker for vspace
+    struct slab_allocator vspace_slab_allocator;    ///< Slab allocator for allocating vspace
 };
-
-/**
-
- mmnode_init
- mmnode_refill
- mmnode_alloc
- mmnode_free
- mmnode_split
- mmnode_merge
-
-*/
-
 
 #endif  /// PAGING_TYPES_H_
