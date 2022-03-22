@@ -53,6 +53,7 @@ errval_t slot_prealloc_refill(void *this)
 
     is_refilling = true;
 
+    DEBUG_TRACEF("Slot refill: alloc ram\n");
     // Allocate a ram cap
     struct capref ram_cap;
     err = mm_alloc(sa->mm, OBJSIZE_L2CNODE, &ram_cap);
@@ -62,6 +63,7 @@ errval_t slot_prealloc_refill(void *this)
         goto out;
     }
 
+    DEBUG_TRACEF("Slot refill: alloc cnode\n");
     // Retype to and build the next cnode
     struct capref cnode_cap;
     err = slot_alloc_root(&cnode_cap);
@@ -80,6 +82,7 @@ errval_t slot_prealloc_refill(void *this)
         goto out;
     }
 
+    DEBUG_TRACEF("Slot refill: create cnode\n");
     err = cnode_create_from_mem(cnode_cap, ram_cap, ObjType_L2CNode,
                                 &sa->meta[refill].cap.cnode, L2_CNODE_SLOTS);
     if (err_is_fail(err)) {

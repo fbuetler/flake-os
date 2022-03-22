@@ -304,6 +304,7 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
     bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
     errval_t err;
 
+    DEBUG_TRACEF("Map frame to free addr: get next fit\n");
     mmnode_t *frame_region;
     err = mm_tracker_get_next_fit(&st->vspace_tracker, &frame_region, bytes,
                                   BASE_PAGE_SIZE);
@@ -312,10 +313,12 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
         return err_push(err, MM_ERR_FIND_NODE);
     }
 
+    DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", frame_region->base);
     if (buf != NULL) {
         *buf = (void *)frame_region->base;
     }
 
+    DEBUG_TRACEF("Map frame to free addr: map frame\n");
     err = paging_map_fixed_attr(st, frame_region->base, frame, bytes, flags);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PAGING_MAP_FIXED);
@@ -418,8 +421,10 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     errval_t err;
 
+    DEBUG_TRACEF("Map frame to fixed addr: Refill slabs\n");
     mm_tracker_refill(&st->vspace_tracker);
 
+    DEBUG_TRACEF("Map frame to fixed addr: Allocating range\n");
     mmnode_t *allocated_node;
     err = mm_tracker_alloc_range(&st->vspace_tracker, vaddr, bytes, &allocated_node);
     if (err_is_fail(err)) {
@@ -427,6 +432,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
         return err;
     }
+    DEBUG_TRACEF("Map frame to fixed addr: Allocated range\n");
 
     size_t page_offset = 12;
     uint16_t page_index_size = 9;
@@ -440,7 +446,9 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     struct page_table *l2_pt;
     struct page_table *l3_pt;
 
+    DEBUG_TRACEF("Map frame to fixed addr: Update page tables\n");
     while (allocated_bytes < bytes) {
+        DEBUG_TRACEF("Map frame to fixed addr: Virtual address 0x%lx\n", vaddr);
         size_t l1_index = (vaddr >> (2 * page_index_size + page_offset)) & last_bits;
         size_t l2_index = (vaddr >> (1 * page_index_size + page_offset)) & last_bits;
         size_t l3_index = (vaddr >> (0 * page_index_size + page_offset)) & last_bits;
@@ -450,6 +458,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         assert(l3_index < 512);
 
         // TODO: make efficient
+        DEBUG_TRACEF("Map frame to fixed addr: Get/create L1 page table\n");
         l1_pt = NULL;
         err = paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1,
                                       &l1_pt);
@@ -459,6 +468,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             goto unwind_allocated_vnode;
         }
 
+        DEBUG_TRACEF("Map frame to fixed addr: Get/create L2 page table\n");
         l2_pt = NULL;
         err = paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2,
                                       &l2_pt);
@@ -468,6 +478,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             goto unwind_allocated_vnode;
         }
 
+        DEBUG_TRACEF("Map frame to fixed addr: Get/create L3 page table\n");
         l3_pt = NULL;
         err = paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3,
                                       &l3_pt);
@@ -477,6 +488,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             goto unwind_allocated_vnode;
         }
 
+        DEBUG_TRACEF("Map frame to fixed addr: Map frame in L3 page table at %d\n",
+                     l3_index);
         assert(l3_index < PTABLE_ENTRIES);
 
         if (capcmp(l3_pt->mappings[l3_index], NULL_CAP) == 0) {
@@ -506,6 +519,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         allocated_bytes += BASE_PAGE_SIZE;
     }
 
+    mm_tracker_debug_print(&st->vspace_tracker);
+    DEBUG_TRACEF("Map frame to fixed addr: Mapped frame\n");
     return SYS_ERR_OK;
 
 unwind_allocated_vnode:;

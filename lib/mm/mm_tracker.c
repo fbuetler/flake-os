@@ -177,6 +177,7 @@ void mm_tracker_debug_print(mm_tracker_t *mmt)
 {
     printf("===\n");
     printf("Current state:\n");
+    printf("Tracker pointer: %p\n", mmt);
     if (mmt->head == NULL) {
         printf("none");
         printf("\n\n");
@@ -274,12 +275,15 @@ errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node, size_t size,
                                 size_t offset, mmnode_t **retleft,
                                 mmnode_t **allocated_node, mmnode_t **retright)
 {
+    DEBUG_TRACEF("Memory slice allocation request of 0x%lx\n", size);
+
     mmnode_t *offset_split_left, *offset_split_right;
     mmnode_t *leftover_split_left, *leftover_split_right;
 
     errval_t err = SYS_ERR_OK;
 
     if (offset > 0) {
+        DEBUG_TRACEF("Memory slice allocation: split for alignment");
         err = mm_tracker_node_split(mmt, node, offset, &offset_split_left,
                                     &offset_split_right);
         if (err_is_fail(err)) {
@@ -296,6 +300,7 @@ errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node, size_t size,
     }
 
     if (node->size > size) {
+        DEBUG_TRACEF("Memory slice allocation: split to fit size\n");
         // split a node
         err = mm_tracker_node_split(mmt, node, size, &leftover_split_left,
                                     &leftover_split_right);
@@ -315,7 +320,7 @@ errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node, size_t size,
     node->type = NodeType_Allocated;
 
     mmt->head = node;
-    debug_printf("Memory allocated: (%p, %lx)\n", node->base, node->size);
+    DEBUG_TRACEF("Memory slice allocated: (%p, 0x%lx)\n", node->base, node->size);
     // mm_tracker_debug_print(&mm->mmt);
 
     *allocated_node = node;
@@ -356,6 +361,7 @@ void mm_tracker_destroy(mm_tracker_t *mmt)
 errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t memory_size)
 {
     assert(mmt->head);
+    DEBUG_TRACEF("Memory free request (0x%lx, 0x%lx)\n", memory_base, memory_size);
 
     mmnode_t *curr = mmt->head;
     do {
@@ -369,12 +375,14 @@ errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t me
         mm_tracker_node_merge(mmt, curr);
         mm_tracker_node_merge(mmt, curr->prev);
 
+        DEBUG_TRACEF("Memory freed: (0x%lx, 0x%lx)\n", memory_base, memory_size);
+
         return SYS_ERR_OK;
     } while (curr != mmt->head);
     mmt->head = curr;
 
     // Invalid reference, as this was never allocated
-    printf("Invalid memory free request: (%p %lu)\n", memory_base, memory_size);
+    DEBUG_TRACEF("Invalid memory free request: (%p 0x%lx)\n", memory_base, memory_size);
     return MM_ERR_NOT_FOUND;
 }
 
@@ -388,6 +396,7 @@ errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t me
 errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size,
                                 mmnode_t **retnode)
 {
+    DEBUG_TRACEF("Memory range allocation request of 0x%lx\n", size);
     mmnode_t *node;
     errval_t err = mm_tracker_get_node_at(mmt, base, size, &node);
 
@@ -405,6 +414,8 @@ errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t si
         return err_push(err, MM_ERR_MMT_ALLOC_SLICE);
     }
 
+    DEBUG_TRACEF("Memory range allocated: (%p, 0x%lx)\n", allocated_node->base,
+                 allocated_node->size);
     if (retnode) {
         *retnode = allocated_node;
     }

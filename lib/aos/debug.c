@@ -126,6 +126,14 @@ void debug_printf(const char *fmt, ...)
     sys_print(str, sizeof(str));
 }
 
+void debug_tracef(const char *fmt, ...)
+{
+    if (false) {  // guard to enable/disable tracing
+        return;
+    }
+    debug_printf(fmt);
+}
+
 /**
  * \brief Function to do the actual printing based on the type of capability
  */

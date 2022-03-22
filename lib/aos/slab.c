@@ -188,6 +188,7 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
 
     struct paging_state *st = get_current_paging_state();
 
+    DEBUG_TRACEF("Slab refill: alloc frame\n");
     struct capref frame_cap;
     size_t allocated_bytes;
     err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
@@ -196,6 +197,7 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
 
+    DEBUG_TRACEF("Slab refill: map frame\n");
     void *vaddr;
     err = paging_map_frame(st, &vaddr, allocated_bytes, frame_cap);
     if (err_is_fail(err)) {
@@ -203,6 +205,7 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
 
+    DEBUG_TRACEF("Slab refill: grow slab allocator\n");
     slab_grow(slabs, vaddr, allocated_bytes);
 
     return SYS_ERR_OK;

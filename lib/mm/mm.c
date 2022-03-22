@@ -86,7 +86,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     };
     mm_tracker_node_insert(&mm->mmt, new_node);
 
-    debug_printf("Memory added: (%lu,%lu)\n", memory_base, memory_base + memory_size - 1);
+    DEBUG_TRACEF("Physical memory added: (0x%lx,0x%lx)\n", memory_base, memory_size);
 
     return SYS_ERR_OK;
 }
@@ -109,13 +109,15 @@ errval_t mm_add(struct mm *mm, struct capref cap)
 errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment,
                           struct capref *retcap)
 {
-    debug_printf("Memory allocation request of %lu aligned to %lu\n", requested_size,
-                 alignment);
+    DEBUG_TRACEF("Physical memory aligned allocation request of 0x%lx aligned to 0x%lx\n",
+                 requested_size, alignment);
 
     errval_t err = SYS_ERR_OK;
 
     assert(mm->mmt.head);
 
+    DEBUG_TRACEF("Physical memory aligned allocation: Refilling tracker slot "
+                 "allocator\n");
     mm->slot_refill(mm->slot_allocator);
     err = mm_tracker_refill(&mm->mmt);
     if (err_is_fail(err)) {
@@ -128,28 +130,29 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
         return err_push(err, MM_ERR_SLOT_NOSLOTS);
     }
 
+    DEBUG_TRACEF("Physical memory aligned allocation: Get next fit\n");
     mmnode_t *next_fit_node;
     err = mm_tracker_get_next_fit(&mm->mmt, &next_fit_node, requested_size, alignment);
     if (err_is_fail(err)) {
-        debug_printf("Memory allocation failed: memory exhausted\n");
+        DEBUG_TRACEF("Physical memory allocation failed: memory exhausted\n");
         mm_tracker_debug_print(&mm->mmt);
         return err_push(err, MM_ERR_FIND_NODE);
     }
 
+    DEBUG_TRACEF("Physical memory aligned allocation: Allocate slice\n");
     mmnode_t *alignment_node;
     mmnode_t *leftover_node;
-
     size_t offset = (next_fit_node->base % alignment)
                         ? alignment - (next_fit_node->base % alignment)
                         : 0;
     err = mm_tracker_alloc_slice(&mm->mmt, next_fit_node, requested_size, offset,
                                  &alignment_node, &next_fit_node, &leftover_node);
-
     if (err_is_fail(err)) {
         // TODO push error
         return err;
     }
 
+    DEBUG_TRACEF("Physical memory aligned allocation: Retype cap\n");
     err = cap_retype(*retcap, next_fit_node->capinfo.cap,
                      next_fit_node->base - next_fit_node->capinfo.base, mm->objtype,
                      requested_size, 1);
@@ -166,7 +169,7 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
     }
 
     mm->mmt.head = next_fit_node;
-    debug_printf("Memory allocated: (%p, %lu)\n", next_fit_node->base,
+    DEBUG_TRACEF("Physical memory aligned allocated: (%p, 0x%lx)\n", next_fit_node->base,
                  next_fit_node->base + next_fit_node->size - 1);
     // mm_tracker_debug_print(&mm->mmt);
     return SYS_ERR_OK;
@@ -259,6 +262,7 @@ static errval_t mm_partial_free(struct mm *mm, mmnode_t **node, size_t memory_ba
  */
 errval_t mm_free(struct mm *mm, struct capref cap)
 {
+    DEBUG_TRACEF("Physical memory free request\n");
     errval_t err;
 
     struct capability c;
@@ -281,7 +285,7 @@ errval_t mm_free(struct mm *mm, struct capref cap)
         return err_push(err, MM_ERR_MM_FREE);
     }
 
-    debug_printf("Memory freed: (%lu, %lu)\n", memory_base, memory_base + memory_size - 1);
+    DEBUG_TRACEF("Physical memory freed: (0x%lx, 0x%lx)\n", memory_base, memory_size);
 
     return SYS_ERR_OK;
 }

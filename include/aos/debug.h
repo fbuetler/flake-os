@@ -32,6 +32,7 @@ errval_t debug_cap_trace_ctrl(uintptr_t types, genpaddr_t start_addr, gensize_t 
 void debug_cspace(struct capref root);
 void debug_my_cspace(void);
 void debug_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+void debug_tracef(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 int debug_print_cap(char *buf, size_t len, struct capability *cap);
 int debug_print_cap_at_capref(char *buf, size_t len, struct capref cap);
 int debug_print_capref(char *buf, size_t len, struct capref cap);
@@ -56,6 +57,7 @@ void user_panic_fn(const char *file, const char *func, int line, const char *msg
 #    define HERE ((void)0)
 #else
 #    define DEBUG_PRINTF(fmt...) debug_printf(fmt);
+#    define DEBUG_TRACEF(fmt...) debug_tracef(fmt);
 #    define DEBUG_ERR(err, msg...) debug_err(__FILE__, __func__, __LINE__, err, msg)
 #    include <aos/dispatch.h>
 #    define HERE                                                                         \
