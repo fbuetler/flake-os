@@ -40,7 +40,7 @@ typedef int paging_flags_t;
 struct page_table {
     struct capref cap;  ///< cap that represent the memory where this page table is stored
     struct page_table *entries[PTABLE_ENTRIES];  ///< the entries of the page table
-    struct capref *mappings[PTABLE_ENTRIES];     ///< the mapping of the page table
+    struct capref mappings[PTABLE_ENTRIES];     ///< the mapping of the page table
 };
 
 // struct to store the paging status of a process

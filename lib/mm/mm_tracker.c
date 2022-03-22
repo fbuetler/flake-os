@@ -132,7 +132,7 @@ void mm_tracker_node_merge(struct mm_tracker *mmt, mmnode_t *left_split)
 
     mmnode_t *right_split = left_split->next;
 
-    if (right_split == NULL) {
+    if (right_split == NULL || right_split == right_split->next) {
         return;
     }
 
@@ -150,7 +150,7 @@ void mm_tracker_node_merge(struct mm_tracker *mmt, mmnode_t *left_split)
     if (left_split->type == NodeType_Free && right_split->type == NodeType_Free) {
         assert(left_split->base + left_split->size == right_split->base);
 
-        debug_printf("Coalescing blocks at: %lu and %lu\n", left_split->base,
+        debug_printf("Coalescing blocks at: %lx and %lx\n", left_split->base,
                      right_split->base);
 
         // resize left split
@@ -320,7 +320,7 @@ errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node,
     return SYS_ERR_OK;
 
 unwind_first_split:
-    mm_tracker_node_merge(mmt, leftover_split_left);
+    mm_tracker_node_merge(mmt, offset_split_left);
     return err;
 }
 

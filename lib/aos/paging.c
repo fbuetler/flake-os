@@ -179,9 +179,6 @@ errval_t paging_init(void)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PAGING_STATE_INIT);
     }
-
-    mm_tracker_debug_print(&current.vspace_tracker);
-
     return SYS_ERR_OK;
 }
 
@@ -321,8 +318,13 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
     (*pt)->cap = pt_cap;
+    for(int i = 0; i < 512; i++){
+        (*pt)->mappings[i] = NULL_CAP; ;
+    }
+
+
     parent_pt->entries[parent_pt_index] = *pt;
-    parent_pt->mappings[parent_pt_index] = &pt_mapping_cap;
+    parent_pt->mappings[parent_pt_index] = pt_mapping_cap;
 
     return SYS_ERR_OK;
 }
@@ -380,7 +382,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     uint16_t last_bits = (1 << page_index_size) - 1;
     size_t l0_index = (vaddr >> (3 * page_index_size + page_offset)) & last_bits;
 
-
     size_t allocated_bytes = 0;
 
 
@@ -408,7 +409,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             goto unwind_allocated_vnode;
         }
 
-
         l2_pt = NULL;
         err = paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2,
                                       &l2_pt);
@@ -429,7 +429,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
         assert(l3_index < PTABLE_ENTRIES);
 
-        if (l3_pt->mappings[l3_index] != NULL) {
+        if (capcmp(l3_pt->mappings[l3_index], NULL_CAP) == 0) {
             err = LIB_ERR_PMAP_EXISTING_MAPPING;
             goto unwind_allocated_vnode;
         }
@@ -450,7 +450,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             goto unwind_allocated_vnode;
         }
 
-        l3_pt->mappings[l3_index] = &frame_mapping_cap;
+        l3_pt->mappings[l3_index] = frame_mapping_cap;
 
         vaddr += BASE_PAGE_SIZE;
         allocated_bytes += BASE_PAGE_SIZE;
