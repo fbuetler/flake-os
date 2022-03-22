@@ -558,6 +558,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // - Make the new dispatcher runnable
 
     errval_t err;
+    printf("Create process for binary\n");
 
     // map multiboot image to virtual memory
     lvaddr_t binary;
@@ -575,6 +576,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     assert(*(char *)(binary + 2) == 0x4c);
     assert(*(char *)(binary + 3) == 0x46);
 
+    printf("Setup C space\n");
     // setup cspace
     err = spawn_setup_cspace(si);
     if (err_is_fail(err)) {
@@ -582,6 +584,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_SETUP_CSPACE);
     }
 
+    printf("Setup V space\n");
     // setup vspace
     err = spawn_setup_vspace(si);
     if (err_is_fail(err)) {
@@ -589,6 +592,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_VSPACE_INIT);
     }
 
+    printf("Load binary into memory\n");
     // load elf binary
     genvaddr_t entry;
     void *got_section_base_addr;
@@ -598,6 +602,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_LOAD);
     }
 
+    printf("Setup dispatcher\n");
     // setup dispatcher
     err = spawn_setup_dispatcher(si, entry, got_section_base_addr);
     if (err_is_fail(err)) {
@@ -605,6 +610,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_DISPATCHER_SETUP);
     }
 
+    printf("Setup binary arguments\n");
     // setup environment
     err = spawn_setup_env(si, argc, argv);
     if (err_is_fail(err)) {
@@ -612,6 +618,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }
 
+    printf("Invoke dispatcher\n");
     // invoke the dispatcher
     err = spawn_invoke_dispatcher(si);
     if (err_is_fail(err)) {
@@ -644,7 +651,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // - Call spawn_load_argv
 
     errval_t err;
-    printf("Inside spawn load by name \n");
+    printf("Load binary from multiboot module\n");
 
     // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
     si->binary_name = binary_name;
@@ -659,10 +666,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
 
     si->module = module_location;
 
-    printf("Successful found multiboot module. Base: %lu size: %lu type: %d mrmod base: "
-           "%td mrmod size: %zu\n",
-           si->module->mr_base, si->module->mr_bytes, si->module->mr_type,
-           si->module->mrmod_data, si->module->mrmod_size);
+    printf("Successful found binary in multiboot module\n");
 
     // get argc/argv from multiboot command line
     const char *cmd_opts = multiboot_module_opts(module_location);
@@ -678,6 +682,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
         debug_printf("Spawn dispatcher: failed to make argv\n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
+    printf("Parsed binary arguments from multiboot module\n");
 
     // spawn multiboot image
     err = spawn_load_argv(argc, argv, si, pid);

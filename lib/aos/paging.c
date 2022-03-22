@@ -456,8 +456,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         allocated_bytes += BASE_PAGE_SIZE;
     }
 
-    printf("Done mapping \n");
-
     return SYS_ERR_OK;
 
 unwind_allocated_vnode:;

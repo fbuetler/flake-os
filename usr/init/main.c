@@ -582,7 +582,6 @@ static int bsp_main(int argc, char *argv[])
     // Grading
     grading_test_early();
 
-    printf("Inside bsp_main \n");
     struct spawninfo si;
     domainid_t pid;
     spawn_load_by_name("hello", &si, &pid);
