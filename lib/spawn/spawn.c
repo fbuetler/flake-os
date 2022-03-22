@@ -239,12 +239,13 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
  * @param binary the binary to be loaded
  * @param binary_size the size of the binary
  * @param entry will be filled with the entry point of the child process
- * @param got_section_addr
+ * @param got_section_base_addr address of the global offset table base address in the
+ * child process
  * @return errval_t
  */
 static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
                                       size_t binary_size, genvaddr_t *entry,
-                                      struct Elf64_Shdr *got_section_addr)
+                                      void **got_section_base_addr)
 {
     errval_t err;
 
@@ -252,21 +253,22 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
                    entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to load elf");
-        return err_push(err, SPAWN_ERR_ELF_MAP);
+        return err_push(err, SPAWN_ERR_LOAD);
     }
 
-    got_section_addr = elf64_find_section_header_name((genvaddr_t)si->module, binary_size,
-                                                      ".got");
-    if (!got_section_addr) {
-        DEBUG_PRINTF("Error trying to fetch .got address from elf \n");
-        return ELF_ERR_ALLOCATE;
+    struct Elf64_Shdr *got_section_header = elf64_find_section_header_name(
+        (genvaddr_t)si->module, binary_size, ".got");
+    if (!got_section_header) {
+        DEBUG_PRINTF("Error trying to fetch global offset table header from elf\n");
+        return SPAWN_ERR_LOAD;
     }
+    *got_section_base_addr = (void *)got_section_header->sh_addr;
 
     return SYS_ERR_OK;
 }
 
 static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
-                                       struct Elf64_Shdr *got_section_addr)
+                                       void *got_section_base_addr)
 {
     errval_t err;
 
@@ -324,7 +326,7 @@ errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
     err = frame_alloc(&segment_frame, size, &allocated_frame_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate new segemtn frame");
-        return err;
+        return err_push(err, ELF_ERR_ALLOCATE);
     }
 
     printf("Mapping into parent vspace \n");
@@ -333,7 +335,7 @@ errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
                                 segment_frame, VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map segment frame into parent vspace");
-        return err;
+        return err_push(err, ELF_ERR_ALLOCATE);
     }
 
     // map memory in child vspace
@@ -354,7 +356,7 @@ errval_t allocator_fn(void *state, genvaddr_t base, size_t size, uint32_t flags,
                                 segment_frame, child_flags);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map segment frame into child vspace");
-        return err;
+        return err_push(err, ELF_ERR_ALLOCATE);
     }
 
     return SYS_ERR_OK;
@@ -426,15 +428,15 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // as.paging_state = ; // ToDo: How to get a new paging state for the child process?
 
     genvaddr_t entry;
-    struct Elf64_Shdr got_section_addr;  // value later required by dispatcher
-    err = spawn_load_elf_binary(si, binary, binary_size, &entry, &got_section_addr);
+    void *got_section_base_addr;
+    err = spawn_load_elf_binary(si, binary, binary_size, &entry, &got_section_base_addr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to load ELF binary");
         return err_push(err, SPAWN_ERR_LOAD);
     }
 
     // setup dispatcher
-    err = spawn_setup_dispatcher(si, entry, &got_section_addr);
+    err = spawn_setup_dispatcher(si, entry, got_section_base_addr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup dispatcher");
         return err_push(err, SPAWN_ERR_DISPATCHER_SETUP);
