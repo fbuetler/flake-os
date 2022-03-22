@@ -173,11 +173,38 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
 {
     errval_t err;
 
-    // TODO Slot 0: Contains a capability for the process’ ARMv8-A top-level pagetable.
-    si->pagecn_cap = (struct capref) {
-        .cnode = si->rootcn,
-        .slot = ROOTCN_SLOT_PACN,
+    // create new top level page table
+    struct capref child_l0_pt = {
+        .cnode = si->pagecn,
+        .slot = 0,
     };
+    err = vnode_create(child_l0_pt, ObjType_VNode_AARCH64_l0);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create vnode l0");
+        return err_push(err, LIB_ERR_VNODE_CREATE);
+    }
+
+    // copy top level page table from child c space to parent c space to invoke it
+    struct capref parent_l0_pt;
+    err = slot_alloc(&parent_l0_pt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate slot for parent l0 page table");
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+    err = cap_copy(parent_l0_pt, child_l0_pt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to copy child l0 page table");
+        return err_push(err, LIB_ERR_CAP_COPY);
+    }
+
+    // init paging state
+    err = paging_init_state_foreign(&si->paging_state, VADDR_OFFSET, parent_l0_pt,
+                                    get_default_slot_allocator());
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to init foreign paging state");
+        return err_push(err, SPAWN_ERR_VSPACE_INIT);
+    }
+
 
     // allocate RAM cap of BASE_PAGE_SIZE for each slot of BASE_PAGE_CN
     for (int i = 0; i < L2_CNODE_SLOTS; i++) {
