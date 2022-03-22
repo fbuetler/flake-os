@@ -38,8 +38,6 @@ struct spawninfo {
     struct cnoderef pagecn;
 
     struct capref rootcn_cap;
-    struct capref taskcn_cap;
-    struct capref base_pagecn_cap;
     struct capref pagecn_cap;
     struct capref dispatcher_cap;
     struct capref dispatcher_frame_cap;

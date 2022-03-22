@@ -122,14 +122,26 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     }
 
     // create a dispatcher capability AKA process control block
+    err = slot_alloc(&si->dispatcher_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate slot in dispatcher cap");
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+    err = dispatcher_create(si->dispatcher_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create dispatcher capability");
+        return err_push(err, SPAWN_ERR_CREATE_DISPATCHER);
+    }
+
+    // copy dispatcher to task cn slot
     struct capref dispatcher = {
         .cnode = si->taskcn,
         .slot = TASKCN_SLOT_DISPATCHER,
     };
-    err = dispatcher_create(dispatcher);
+    err = cap_copy(dispatcher, si->dispatcher_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create dispatcher capability");
-        return err_push(err, SPAWN_ERR_CREATE_DISPATCHER);
+        DEBUG_ERR(err, "failed to copy dispatcher");
+        return err_push(err, LIB_ERR_CAP_COPY);
     }
 
     // setup endpoint to itself
@@ -154,28 +166,6 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         return err_push(err, LIB_ERR_CAP_COPY);
     }
 
-    // setup dispatcher frame
-    struct capref dispatcher_frame = {
-        .cnode = si->taskcn,
-        .slot = TASKCN_SLOT_DISPFRAME,
-    };
-    err = frame_create(dispatcher_frame, DISPATCHER_FRAME_SIZE, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create dispatcher frame");
-        return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
-    }
-
-    // setup command line arguments
-    struct capref cli_args = {
-        .cnode = si->taskcn,
-        .slot = TASKCN_SLOT_ARGSPAGE,
-    };
-    err = frame_create(cli_args, ARGS_SIZE, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create cli arguments frame");
-        return err_push(err, SPAWN_ERR_CREATE_ARGSPG);
-    }
-
     return SYS_ERR_OK;
 }
 
@@ -183,13 +173,34 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
 {
     errval_t err;
 
-    // create page cnode
-    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_PAGECN, &si->pagecn);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create page cnode");
-        return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
-    }
     // TODO Slot 0: Contains a capability for the process’ ARMv8-A top-level pagetable.
+    si->pagecn_cap = (struct capref) {
+        .cnode = si->rootcn,
+        .slot = ROOTCN_SLOT_PACN,
+    };
+
+    // allocate RAM cap of BASE_PAGE_SIZE for each slot of BASE_PAGE_CN
+    for (int i = 0; i < L2_CNODE_SLOTS; i++) {
+        // allocate ram cap into slot 0
+        struct capref tmp_ram_cap;
+        err = ram_alloc(&tmp_ram_cap, BASE_PAGE_SIZE);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to allocate ram cap");
+            return err_push(err, LIB_ERR_RAM_ALLOC);
+        }
+
+        // copy ram cap to right slot
+        struct capref ram_cap = (struct capref) {
+            .cnode = si->base_pagecn,
+            .slot = i,
+        };
+        err = cap_copy(ram_cap, tmp_ram_cap);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to copy ram cap");
+            return err_push(err, LIB_ERR_CAP_COPY);
+        }
+    }
+
 
     return LIB_ERR_NOT_IMPLEMENTED;
 }
@@ -223,11 +234,37 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, struct allocation_st
 static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
                                        struct Elf64_Shdr *got_section_addr)
 {
+    errval_t err;
+
+    // setup dispatcher frame
+    si->dispatcher_frame_cap = (struct capref) {
+        .cnode = si->taskcn,
+        .slot = TASKCN_SLOT_DISPFRAME,
+    };
+    err = frame_create(si->dispatcher_frame_cap, DISPATCHER_FRAME_SIZE, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create dispatcher frame");
+        return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
+    }
+
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
 static errval_t spawn_setup_env(struct spawninfo *si, char *argv[])
 {
+    errval_t err;
+
+    // setup command line arguments
+    struct capref cli_args = {
+        .cnode = si->taskcn,
+        .slot = TASKCN_SLOT_ARGSPAGE,
+    };
+    err = frame_create(cli_args, ARGS_SIZE, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create cli arguments frame");
+        return err_push(err, SPAWN_ERR_CREATE_ARGSPG);
+    }
+
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
