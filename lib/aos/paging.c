@@ -84,30 +84,18 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     // TODO (M4): Implement page fault handler that installs frames when a page fault
     // occurs and keeps track of the virtual address space.
 
-    errval_t err = SYS_ERR_OK;
+    errval_t err;
 
     // store root page table L0
     st->root_page_table.cap = pdir;
-
+    // store slot allocator
     st->slot_allocator = ca;
-
-    // init slab allocator for page tables
-    slab_init(&current.slab_allocator, sizeof(struct page_table), NULL);
-    static uint8_t pt_buf[SLAB_STATIC_SIZE(64, sizeof(struct page_table))];
-    slab_grow(&current.slab_allocator, pt_buf, sizeof(pt_buf));
-
-    // setup virtual memory space
-    mm_tracker_init(&st->vspace_tracker, &st->vspace_slab_allocator);
-    static uint8_t vspace_buf[SLAB_STATIC_SIZE(64, sizeof(mmnode_t))];
-    slab_grow(&st->vspace_slab_allocator, vspace_buf, sizeof(vspace_buf));
 
     // add one node to mmt for whole vspace
     mmnode_t *node;
     err = mm_tracker_alloc(&st->vspace_tracker, &node);
-
     if (err_is_fail(err)) {
-        DEBUG_PRINTF("Failed to allocate the ROOT node in the VSpace. You are about to "
-                     "have a bad time");
+        DEBUG_ERR(err, "Failed to allocate the ROOT node in the VSpace");
         return err_push(err, MM_ERR_ALLOC_NODE);
     }
 
@@ -147,6 +135,57 @@ errval_t paging_init_state_foreign(struct paging_state *st, lvaddr_t start_vaddr
     assert(st != NULL);
 
     errval_t err;
+
+    // allocate frame for paging slab allocator
+    struct capref paging_slab_frame;
+    size_t paging_slab_frame_allocated_size;
+    err = frame_alloc(&paging_slab_frame, SLAB_STATIC_SIZE(64, sizeof(struct page_table)),
+                      &paging_slab_frame_allocated_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated frame");
+        return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+
+    // map frame for paging slab allocator
+    void *paging_slab_frame_addr;
+    err = paging_map_frame_attr(get_current_paging_state(), &paging_slab_frame_addr,
+                                paging_slab_frame_allocated_size, paging_slab_frame,
+                                VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map frame");
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    // give frame to paging slab allocator
+    slab_init(&st->slab_allocator, sizeof(struct page_table), NULL);
+    slab_grow(&st->slab_allocator, paging_slab_frame_addr,
+              paging_slab_frame_allocated_size);
+
+    // allocate frame for virtual memory allocator
+    struct capref vmm_slab_frame;
+    size_t vmm_slab_frame_allocated_size;
+    err = frame_alloc(&vmm_slab_frame, SLAB_STATIC_SIZE(64, sizeof(mmnode_t)),
+                      &vmm_slab_frame_allocated_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated frame");
+        return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+
+    // map frame for virtual memory slab allocator
+    void *vmm_slab_frame_addr;
+    err = paging_map_frame_attr(get_current_paging_state(), &vmm_slab_frame_addr,
+                                vmm_slab_frame_allocated_size, vmm_slab_frame,
+                                VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map frame");
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    // give virtual memory slab allocator some memory
+    mm_tracker_init(&st->vspace_tracker, &st->vspace_slab_allocator);
+    slab_grow(&st->vspace_slab_allocator, vmm_slab_frame_addr,
+              vmm_slab_frame_allocated_size);
+
     err = paging_init_state(st, start_vaddr, pdir, ca);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PAGING_STATE_INIT);
@@ -173,12 +212,24 @@ errval_t paging_init(void)
     errval_t err;
 
     set_current_paging_state(&current);
+    struct paging_state *st = &current;
 
-    err = paging_init_state(&current, VADDR_OFFSET, cap_vroot,
-                            get_default_slot_allocator());
+    // give paging slab allocator some memory
+    slab_init(&st->slab_allocator, sizeof(struct page_table), NULL);
+    static uint8_t pt_buf[SLAB_STATIC_SIZE(64, sizeof(struct page_table))];
+    slab_grow(&st->slab_allocator, pt_buf, sizeof(pt_buf));
+
+    // give virtual memory slab allocator some memory
+    mm_tracker_init(&st->vspace_tracker, &st->vspace_slab_allocator);
+    static uint8_t vspace_buf[SLAB_STATIC_SIZE(64, sizeof(mmnode_t))];
+    slab_grow(&st->vspace_slab_allocator, vspace_buf, sizeof(vspace_buf));
+
+    // init paging state
+    err = paging_init_state(st, VADDR_OFFSET, cap_vroot, get_default_slot_allocator());
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PAGING_STATE_INIT);
     }
+
     return SYS_ERR_OK;
 }
 
@@ -383,7 +434,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     size_t l0_index = (vaddr >> (3 * page_index_size + page_offset)) & last_bits;
 
     size_t allocated_bytes = 0;
-
 
     struct page_table *l0_pt = &st->root_page_table;
     struct page_table *l1_pt;
