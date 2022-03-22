@@ -318,8 +318,8 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
     (*pt)->cap = pt_cap;
-    for(int i = 0; i < 512; i++){
-        (*pt)->mappings[i] = NULL_CAP; ;
+    for (int i = 0; i < 512; i++) {
+        (*pt)->mappings[i] = NULL_CAP;
     }
 
 
