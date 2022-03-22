@@ -175,27 +175,27 @@ void mm_tracker_node_merge(struct mm_tracker *mmt, mmnode_t *left_split)
  */
 void mm_tracker_debug_print(mm_tracker_t *mmt)
 {
-    printf("===\n");
-    printf("Current state:\n");
-    printf("Tracker pointer: %p\n", mmt);
+    DEBUG_TRACEF("===\n");
+    DEBUG_TRACEF("Current state:\n");
+    DEBUG_TRACEF("Tracker pointer: %p\n", mmt);
     if (mmt->head == NULL) {
-        printf("none");
-        printf("\n\n");
+        DEBUG_TRACEF("none");
+        DEBUG_TRACEF("\n\n");
         return;
     }
-    printf("Head at %p\n", mmt->head->base);
+    DEBUG_TRACEF("Head at %p\n", mmt->head->base);
     mmnode_t *curr = mmt->head;
     do {
         if (curr->type == NodeType_Allocated) {
-            printf("Allocated: (%p, %lx)\n", curr->base, curr->size);
+            DEBUG_TRACEF("Allocated: (%p, %lx)\n", curr->base, curr->size);
         } else if (curr->type == NodeType_Free) {
-            printf("Free: (%p, %lx)\n", curr->base, curr->size);
+            DEBUG_TRACEF("Free: (%p, %lx)\n", curr->base, curr->size);
         } else {
-            printf("Type unknown\n");
+            DEBUG_TRACEF("Type unknown\n");
         }
         curr = curr->next;
     } while (curr != mmt->head);
-    printf("===\n");
+    DEBUG_TRACEF("===\n");
 }
 
 errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t size,
