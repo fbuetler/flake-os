@@ -238,6 +238,7 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
     assert(mmt != NULL);
     assert(retnode != NULL);
     assert(mmt->head);
+    mm_tracker_debug_print(mmt);
 
     mmnode_t *curr = mmt->head;
     do {
@@ -283,7 +284,7 @@ errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node, size_t size,
     errval_t err = SYS_ERR_OK;
 
     if (offset > 0) {
-        DEBUG_TRACEF("Memory slice allocation: split for alignment");
+        DEBUG_TRACEF("Memory slice allocation: split for alignment\n");
         err = mm_tracker_node_split(mmt, node, offset, &offset_split_left,
                                     &offset_split_right);
         if (err_is_fail(err)) {
@@ -396,7 +397,7 @@ errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t me
 errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size,
                                 mmnode_t **retnode)
 {
-    DEBUG_TRACEF("Memory range allocation request of 0x%lx\n", size);
+    DEBUG_TRACEF("Memory range allocation request of (0x%lx, 0x%lx)\n", base, size);
     mmnode_t *node;
     errval_t err = mm_tracker_get_node_at(mmt, base, size, &node);
 

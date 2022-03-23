@@ -258,16 +258,16 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
  * @brief callback function to load the ELF binary segments into memory
  *
  * @param state
- * @param base region base address of the child process
- * @param size region size of the child process
- * @param flags region flags (bitmask describing the rights) of the child process
- * @param ret pointer to allocated vspace in child process
+ * @param base base address of the semgent
+ * @param size size of the semgent
+ * @param flags flags (bitmask describing the rights) of the semgent
+ * @param ret pointer to allocated vspace
  * @return
  */
 static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t flags,
                              void **ret)
 {
-    DEBUG_TRACEF("elf allocate called\n");
+    DEBUG_TRACEF("ELF allocate (0x%lx, 0x%lx, 0x%lx)\n", base, size, flags);
     errval_t err;
 
     struct paging_state *paging_state = (struct paging_state *)state;
@@ -286,7 +286,7 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t
         return err_push(err, ELF_ERR_ALLOCATE);
     }
 
-    DEBUG_TRACEF("Mapping into parent vspace \n");
+    DEBUG_TRACEF("Mapping into parent vspace\n");
     // map memory into parent vspace
     err = paging_map_frame_attr(get_current_paging_state(), ret, allocated_frame_size,
                                 segment_frame, VREGION_FLAGS_READ_WRITE);
@@ -295,6 +295,7 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t
         return err_push(err, ELF_ERR_ALLOCATE);
     }
     *ret += base_offset;
+    DEBUG_TRACEF("ELF allocate callback addr: 0x%lx\n", *ret);
 
     // map memory in child vspace
     DEBUG_TRACEF("Mapping into child vspace \n");
@@ -337,6 +338,7 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
 {
     errval_t err;
 
+    DEBUG_TRACEF("load ELF binary\n");
     err = elf_load(EM_AARCH64, elf_allocate, &si->paging_state, binary, binary_size,
                    entry);
     if (err_is_fail(err)) {
@@ -344,6 +346,7 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
         return err_push(err, SPAWN_ERR_LOAD);
     }
 
+    DEBUG_TRACEF("search for GOT section in ELF binary\n");
     struct Elf64_Shdr *got_section_header = elf64_find_section_header_name(
         (genvaddr_t)si->module, binary_size, ".got");
     if (!got_section_header) {
