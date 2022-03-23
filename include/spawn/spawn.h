@@ -43,15 +43,31 @@ struct spawninfo {
     struct capref dispatcher_frame_cap;
     struct capref args_frame_cap;
 
+    domainid_t pid;
+
     struct paging_state paging_state;
 
     dispatcher_handle_t dispatcher_handle;
 };
+
+domainid_t global_pid_counter;
+struct spawninfo init_spawninfo;
 
 // Start a child process using the multiboot command line. Fills in si.
 errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid);
 
 // Start a child with an explicit command line. Fills in si.
 errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid);
+
+errval_t spawn_get_process_by_pid(domainid_t pid, struct spawninfo **retinfo);
+
+errval_t spawn_get_free_pid(domainid_t *retpid);
+
+void spawn_add_process(struct spawninfo *new_process);
+
+void spawn_print_processes(void);
+
+errval_t spawn_kill_process(domainid_t pid);
+
 
 #endif /* _INIT_SPAWN_H_ */

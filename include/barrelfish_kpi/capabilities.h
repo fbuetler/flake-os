@@ -528,6 +528,7 @@ enum dispatcher_cmd {
     DispatcherCmd_Vmwrite,          ///< Execute vmwrite on the current and active VMCS
     DispatcherCmd_Vmptrld,          ///< Make VMCS clear and inactive
     DispatcherCmd_Vmclear,          ///< Make VMCS current and active
+    DispatcherCmd_Stop,             ///< Kill process
 };
 
 /**

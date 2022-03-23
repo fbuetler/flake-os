@@ -376,6 +376,11 @@ static inline errval_t invoke_dispatcher_dump_capabilities(struct capref dispcap
     return cap_invoke1(dispcap, DispatcherCmd_DumpCapabilities).error;
 }
 
+static inline errval_t invoke_dispatcher_stop(struct capref dispcap)
+{
+    return cap_invoke1(dispcap, DispatcherCmd_Stop).error;
+}
+
 /**
  * IRQ manipulations
  */

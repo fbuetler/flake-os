@@ -683,6 +683,8 @@ errors spawn SPAWN_ERR_ {
 
     failure FIND_SPAWNDS       "Unable to find spawn daemons",
     failure MALFORMED_SPAWND_RECORD "Spawn record without ID found?",
+
+    failure PID_NOT_FOUND      "PID does not exist",
 };
 
 // errors related to the process manager

@@ -16,6 +16,7 @@
 #include <stdlib.h>
 
 #include <aos/aos.h>
+#include <aos/capabilities.h>
 #include <aos/morecore.h>
 #include <aos/paging.h>
 #include <aos/waitset.h>
@@ -544,7 +545,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_alloc_free(5000);
 */
     // long test: allocate lots of single pages
-    //test_many_single_pages_allocated(40000);
+    // test_many_single_pages_allocated(40000);
 }
 
 __attribute__((unused)) static void test_spawn_single_process(void)
@@ -556,37 +557,71 @@ __attribute__((unused)) static void test_spawn_single_process(void)
 
 __attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
 {
+    errval_t err;
     struct spawninfo *sis = malloc(n * sizeof(struct spawninfo));
     domainid_t *pids = malloc(n * sizeof(struct spawninfo));
     for (int i = 0; i < n; i++) {
         printf("Spawn iteration %d\n", i);
-        errval_t err = spawn_load_by_name("hello", &sis[i], &pids[i]);
+        err = spawn_load_by_name("hello", &sis[i], &pids[i]);
 
-        if(err_is_fail(err)){
+        if (err_is_fail(err)) {
             DEBUG_ERR(err, "spawn error");
         }
         assert(err_is_ok(err));
+
+        spawn_print_processes();
     }
 
     free(sis);
     free(pids);
 }
 
-__attribute__((unused)) static void test_spawn_and_kill_single_process(void) { }
 
-__attribute__((unused)) static void test_spawn_and_kill_multiple_process(size_t n) { }
+__attribute__((unused)) static void test_spawn_and_kill_single_process(void) {
+
+    errval_t err;
+    
+    struct spawninfo *sis = malloc(1 * sizeof(struct spawninfo));
+    domainid_t *pids = malloc(1 * sizeof(struct spawninfo));
+
+    err = spawn_load_by_name("infinite_print", sis, pids);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "spawn error");
+    }
+    assert(err_is_ok(err));
+
+    spawn_print_processes();
+
+    double x = 0;
+    for(int i = 0; i < 1 << 24; i++){
+        x += i * x * 10;
+    }
+
+    printf("%f\n", x);
+    spawn_kill_process(*pids);
+    printf("process killed\n");
+    spawn_print_processes();
+
+    free(sis);
+    free(pids);
+ }
+
+__attribute__((unused)) static void test_spawn_and_kill_multiple_process(size_t n) {
+    
+ }
 
 __attribute__((unused)) static void run_m2_tests(void)
 {
     // spawn processes
-    //test_spawn_single_process();
-    //test_spawn_multiple_processes(2);
-    //test_spawn_multiple_processes(4);
+    // test_spawn_single_process();
+    // test_spawn_multiple_processes(2);
+    // test_spawn_multiple_processes(4);
     // test_spawn_multiple_processes(5);
-    test_spawn_multiple_processes(20);
+    //test_spawn_multiple_processes(20);
 
     // spawn and kill a process
-    // test_spawn_and_kill_single_process();
+    test_spawn_and_kill_single_process();
     // test_spawn_and_kill_multiple_process(2);
     // test_spawn_and_kill_multiple_process(10);
 }
@@ -608,13 +643,30 @@ static int bsp_main(int argc, char *argv[])
     }
 
     // run own tests
-    //run_m1_tests();
-    run_m2_tests();
+    // run_m1_tests();
 
     // TODO: initialize mem allocator, vspace management here
 
     // Grading
     grading_test_early();
+    global_pid_counter = 0;
+    init_spawninfo = (struct spawninfo) { 
+                               .next = NULL,
+                               .binary_name = "init",
+                               .rootcn = cnode_root,
+                               .taskcn = cnode_task,
+                               .base_pagecn = cnode_task,
+                               .rootcn_cap = cap_root,
+                               .rootvn_cap = cap_vroot,
+                               .dispatcher_cap = cap_dispatcher,
+                               .dispatcher_frame_cap = cap_dispframe,
+                               .args_frame_cap = cap_argcn,
+                               .pid = 0,
+                               .paging_state = *get_current_paging_state(),
+                               .dispatcher_handle = 0 };
+
+
+    run_m2_tests();
 
     // TODO: Spawn system processes, boot second core etc. here
 
@@ -644,7 +696,6 @@ static int app_main(int argc, char *argv[])
     // - grading_test_late();
     return LIB_ERR_NOT_IMPLEMENTED;
 }
-
 
 int main(int argc, char *argv[])
 {

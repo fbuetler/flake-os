@@ -856,6 +856,13 @@ static struct sysret dispatcher_dump_ptables(
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret handle_dispatcher_stop(struct capability *cap, 
+        arch_registers_state_t* context, int argc){
+    assert(cap->type == ObjType_Dispatcher);
+
+    return sys_dispatcher_stop(cap);
+}
+
 static struct sysret dispatcher_dump_capabilities(struct capability *cap,
         arch_registers_state_t* context, int argc)
 {
@@ -943,7 +950,8 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_Properties]  = handle_dispatcher_properties,
         [DispatcherCmd_PerfMon]     = handle_dispatcher_perfmon,
         [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
-        [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities
+        [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities,
+        [DispatcherCmd_Stop] = handle_dispatcher_stop,
     },
     [ObjType_KernelControlBlock] = {
         [KCBCmd_Identify] = handle_kcb_identify

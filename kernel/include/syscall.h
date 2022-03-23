@@ -135,4 +135,8 @@ struct sysret sys_monitor_clear_step(capaddr_t ret_cn_addr,
 struct sysret sys_monitor_reclaim_ram(capaddr_t retcn_addr,
                                       uint8_t retcn_level,
                                       cslot_t ret_slot);
+
+struct sysret
+sys_dispatcher_stop(struct capability *to_stop);
+
 #endif

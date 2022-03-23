@@ -218,6 +218,16 @@ sys_dispatcher_properties(struct capability *to,
     return SYSRET(SYS_ERR_OK);
 }
 
+struct sysret
+sys_dispatcher_stop(struct capability *to_stop) {
+    struct dcb *dcb = to_stop->u.dispatcher.dcb;
+
+    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_REMOVE, 420);
+    scheduler_remove(dcb);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 /**
  * \param root                  Source CSpace root cnode to invoke
  * \param source_croot          Source capability cspace root

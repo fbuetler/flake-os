@@ -240,7 +240,6 @@ static void paging_refill(struct paging_state *st){
         paging_lock = 1;
         if(slab_freecount(&st->slab_allocator) < 10){
             assert(err_is_ok(st->slab_allocator.refill_func(&st->slab_allocator)));
-            printf("done with refilling, new capacity: %d\n", slab_freecount(&st->slab_allocator));
         }
         paging_lock = 0;
     }

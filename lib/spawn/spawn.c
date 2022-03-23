@@ -647,6 +647,15 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
     }
 
+    err = spawn_get_free_pid(pid);
+
+    // TODO UNHANDLED
+    // maybe kill a process?
+    assert(err_is_ok(err));
+
+    si->pid = *pid;
+    spawn_add_process(si);
+
     return SYS_ERR_OK;
 }
 
@@ -709,6 +718,125 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     if (err_is_fail(err)) {
         debug_printf("Spawn dispatcher: failed to spawn a new dispatcher\n");
         return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * @brief Add a process to the list of processes
+ *
+ * @param new_process New process to add
+ *
+ */
+void spawn_add_process(struct spawninfo *new_process)
+{
+    assert(new_process);
+    struct spawninfo *current = &init_spawninfo;
+
+    DEBUG_PRINTF("&init_spawninfo: %p\n", &init_spawninfo);
+    while (current->next) {
+        current = current->next;
+    }
+    current->next = new_process;
+    new_process->next = NULL;
+}
+
+/**
+ * @brief Find and return the process info named by PID
+ *
+ * @param pid PID belonging to process to find
+ * @param retinfo Store process info into this
+ *
+ * */
+errval_t spawn_get_process_by_pid(domainid_t pid, struct spawninfo **retinfo)
+{
+    struct spawninfo *current = &init_spawninfo;
+
+    while (current) {
+        if (current->pid == pid) {
+            *retinfo = current;
+            return SYS_ERR_OK;
+        }
+        current = current->next;
+    }
+    return SPAWN_ERR_PID_NOT_FOUND;
+}
+
+/**
+ * @brief Find a free PID by incrementing the global PID counter.
+ *
+ * @param retpid Returns the free PID in a pointer.
+ *
+ * @returns An error value (SYS_ERR_OK on success)
+ *
+ * @note Tries 2^32 times. If none are free, returns SPAWN_ERR_OUT_OF_PIDS
+ */
+
+errval_t spawn_get_free_pid(domainid_t *retpid)
+{
+    struct spawninfo *retnode;
+
+    domainid_t global_pid_counter_start = global_pid_counter;
+    do {
+        global_pid_counter++;
+        errval_t err = spawn_get_process_by_pid(global_pid_counter, &retnode);
+        if (err_is_fail(err)) {
+            *retpid = global_pid_counter;
+            return SYS_ERR_OK;
+        }
+    } while (global_pid_counter != global_pid_counter_start);
+
+    return SPAWN_ERR_OUT_OF_PIDS;
+}
+/**
+ * Prints processes + pids
+ */
+void spawn_print_processes(void)
+{
+    struct spawninfo *current = &init_spawninfo;
+
+    printf("PID\tCMD\n");
+    while (current) {
+        printf("%d\t%s\n", current->pid, current->binary_name);
+        current = current->next;
+    }
+}
+
+errval_t spawn_kill_process(domainid_t pid)
+{
+    errval_t err;
+    struct spawninfo *process = NULL;
+    struct spawninfo *prec = NULL;
+
+    struct spawninfo *current = &init_spawninfo;
+
+    while (current) {
+        if (current->pid == pid) {
+            process = current;
+            break;
+        }
+        prec = current;
+        current = current->next;
+    }
+    if (process == NULL) {
+        return SPAWN_ERR_PID_NOT_FOUND;
+    } 
+
+    err = spawn_get_process_by_pid(pid, &process);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = invoke_dispatcher_stop(process->dispatcher_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, PROC_MGMT_ERR_KILL);
+    }
+
+    if(prec) {
+        prec->next = process->next;
+    }else{
+        // killed init process. What now?
+        // TODO 
     }
 
     return SYS_ERR_OK;
