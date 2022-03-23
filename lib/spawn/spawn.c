@@ -506,7 +506,7 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
 
     params->argc = argc;
     for (int i = 0; i < argc; i++) {
-        size_t len = strlen(argv[i]);
+        size_t len = strlen(argv[i]) + 1;
         if (len > remaining_argv_space) {
             DEBUG_PRINTF("failed to store arguments in args frame: no space left");
             return SPAWN_ERR_ARGSPG_OVERFLOW;
