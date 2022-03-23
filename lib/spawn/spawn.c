@@ -455,6 +455,7 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
 {
     errval_t err;
 
+    DEBUG_TRACEF("Allocate arguments frame\n");
     // setup command line arguments
     si->args_frame_cap = (struct capref) {
         .cnode = si->taskcn,
@@ -466,6 +467,7 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
         return err_push(err, SPAWN_ERR_CREATE_ARGSPG);
     }
 
+    DEBUG_TRACEF("Map arguments frame in parents vspace\n");
     // map args frame into parents vspace
     void *args_frame_addr_parent;
     err = paging_map_frame_attr(get_current_paging_state(), &args_frame_addr_parent,
@@ -479,6 +481,7 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     // have to be filled in by init to be zeroed
     memset(args_frame_addr_parent, 0, ARGS_SIZE);
 
+    DEBUG_TRACEF("Map arguments frame in childs vspace\n");
     // map args frame into childs vspace
     // TODO or use paging_map_fixed_attr() with fixed address
     void *args_frame_addr_child;
@@ -495,6 +498,7 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
         * command line args
         * NULL pointer to signify the end of the list
     */
+    DEBUG_TRACEF("Load arguments into arguments frame\n");
     // put args into arguments frame
     struct spawn_domain_params *params = args_frame_addr_parent;
     char *argv_addr = (char *)(params + 1);  // start after params
@@ -515,6 +519,7 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     }
     params->argv[argc] = NULL;
 
+    DEBUG_TRACEF("Setup registers to point to the arguments frame\n");
     // register for the first argument in the enabled save area contains a pointer
     // to the struct spawn_domain_params
     arch_registers_state_t *enabled_area = dispatcher_get_enabled_save_area(
@@ -667,11 +672,11 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // - Call spawn_load_argv
 
     errval_t err;
-    DEBUG_TRACEF("Load binary from multiboot module\n");
 
     // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
     si->binary_name = binary_name;
 
+    DEBUG_TRACEF("Load binary from multiboot module\n");
     // get memory region from multiboot image
     struct mem_region *module_location;
     module_location = multiboot_find_module(bi, binary_name);
@@ -682,8 +687,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
 
     si->module = module_location;
 
-    DEBUG_TRACEF("Successful found binary in multiboot module\n");
-
+    DEBUG_TRACEF("Parse binary arguments from multiboot module\n");
     // get argc/argv from multiboot command line
     const char *cmd_opts = multiboot_module_opts(module_location);
     if (cmd_opts == NULL) {
@@ -698,8 +702,8 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
         debug_printf("Spawn dispatcher: failed to make argv\n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
-    DEBUG_TRACEF("Parsed binary arguments from multiboot module\n");
 
+    DEBUG_TRACEF("Run binary from multiboot module\n");
     // spawn multiboot image
     err = spawn_load_argv(argc, argv, si, pid);
     if (err_is_fail(err)) {
