@@ -348,7 +348,7 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
 
     DEBUG_TRACEF("search for GOT section in ELF binary\n");
     struct Elf64_Shdr *got_section_header = elf64_find_section_header_name(
-        (genvaddr_t)si->module, binary_size, ".got");
+        binary, binary_size, ".got");
     if (!got_section_header) {
         DEBUG_PRINTF("Error trying to fetch global offset table header from elf\n");
         return SPAWN_ERR_LOAD;
