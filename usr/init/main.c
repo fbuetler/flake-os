@@ -555,12 +555,15 @@ __attribute__((unused)) static void test_spawn_single_process(void)
 
 __attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
 {
-    struct spawninfo sis[n];
-    domainid_t pids[n];
+    struct spawninfo *sis = malloc(n * sizeof(struct spawninfo));
+    domainid_t *pids = malloc(n * sizeof(struct spawninfo));
     for (int i = 0; i < n; i++) {
         printf("Spawn iteration %d\n", i);
         spawn_load_by_name("hello", &sis[i], &pids[i]);
     }
+
+    free(sis);
+    free(pids);
 }
 
 __attribute__((unused)) static void test_spawn_and_kill_single_process(void) { }
@@ -570,9 +573,9 @@ __attribute__((unused)) static void test_spawn_and_kill_multiple_process(size_t 
 __attribute__((unused)) static void run_m2_tests(void)
 {
     // spawn processes
-    test_spawn_single_process();
-    // test_spawn_multiple_processes(2);
-    // test_spawn_multiple_processes(4);
+    //test_spawn_single_process();
+    //test_spawn_multiple_processes(2);
+     test_spawn_multiple_processes(4);
     // test_spawn_multiple_processes(5);
     // test_spawn_multiple_processes(10);
 
