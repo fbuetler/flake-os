@@ -518,8 +518,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             goto unwind_allocated_vnode;
         }
 
-        err = vnode_map(l3_pt->cap, frame_cap, l3_index, VREGION_FLAGS_READ_WRITE,
-                        allocated_bytes, 1, frame_mapping_cap);
+        err = vnode_map(l3_pt->cap, frame_cap, l3_index, flags, allocated_bytes, 1,
+                        frame_mapping_cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to map page table");
             err = err_push(err, LIB_ERR_VNODE_MAP);
