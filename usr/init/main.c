@@ -575,6 +575,9 @@ __attribute__((unused)) static void test_spawn_and_kill_multiple_process(size_t 
 __attribute__((unused)) static void run_m2_tests(void)
 {
     // spawn processes
+    // a spawninfo struct is 12kb
+    // the stack is 64Kb hence only ~4 processes can be created
+    // the heap is 16Mb hence only ~1365 process can be created
     // test_spawn_single_process();
     // test_spawn_multiple_processes(2);
     test_spawn_multiple_processes(20);
