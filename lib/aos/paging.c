@@ -318,6 +318,9 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
 
     assert(st != NULL);
 
+    DEBUG_TRACEF("Map frame to free addr: Refill slabs\n");
+    mm_tracker_refill(&st->vspace_tracker);
+
     bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
 
     DEBUG_TRACEF("Map frame to free addr: allocate virtual memory\n");
