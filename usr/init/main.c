@@ -553,10 +553,21 @@ __attribute__((unused)) static void test_spawn_single_process(void)
     spawn_load_by_name("hello", &si, &pid);
 }
 
+__attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
+{
+    for (int i = 0; i < n; i++) {
+        struct spawninfo si;
+        domainid_t pid;
+        spawn_load_by_name("hello", &si, &pid);
+    }
+}
+
 __attribute__((unused)) static void run_m2_tests(void)
 {
     // spawn processes
     test_spawn_single_process();
+    // test_spawn_multiple_processes(2);
+    // test_spawn_multiple_processes(10);
 }
 
 static int bsp_main(int argc, char *argv[])
