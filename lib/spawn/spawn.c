@@ -220,7 +220,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     }
 
     // init paging state
-    err = paging_init_state_foreign(&si->paging_state, VADDR_OFFSET, parent_l0_pt,
+    err = paging_init_state_foreign(&si->paging_state, 0, parent_l0_pt,
                                     get_default_slot_allocator());
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init foreign paging state");
