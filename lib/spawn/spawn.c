@@ -372,6 +372,7 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
 {
     errval_t err;
 
+    DEBUG_TRACEF("creating dispatcher frame\n");
     // setup dispatcher frame
     si->dispatcher_frame_cap = (struct capref) {
         .cnode = si->taskcn,
@@ -383,6 +384,7 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
         return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
     }
 
+    DEBUG_TRACEF("mapping dispatcher frame into parent vspace\n");
     // map dispatcher frame into parent process
     void *dispatcher_frame_addr_parent;
     err = paging_map_frame_attr(get_current_paging_state(), &dispatcher_frame_addr_parent,
@@ -393,6 +395,7 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_SELF);
     }
 
+    DEBUG_TRACEF("mapping dispatcher frame into child vspace\n");
     // map dispatcher frame into child process
     // TODO or use paging_map_fixed_attr() with fixed address
     void *dispatcher_frame_addr_child;

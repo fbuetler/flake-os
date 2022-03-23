@@ -238,6 +238,7 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
     assert(mmt != NULL);
     assert(retnode != NULL);
     assert(mmt->head);
+    DEBUG_TRACEF("get node (0x%lx, 0x%lx)\n", addr, size);
     mm_tracker_debug_print(mmt);
 
     mmnode_t *curr = mmt->head;
