@@ -510,7 +510,6 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_alternate_allocs_and_frees(1 << 9, 1 << 12, 1);
     test_consecutive_allocs_then_frees(1 << 10, 1 << 12, 1);
 
-
     // exotic tests
     test_expontential_allocs_then_frees(31);
     // test_next_fit_alloc();
@@ -528,8 +527,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_merge(10, 2 * BASE_PAGE_SIZE, 10 * BASE_PAGE_SIZE);
 
     // test random alloc sizes
-    // slab_refill_no_pagefault() -> LIB_ERR_NOT_IMPLEMENTED
-    // random_patterns(100);
+    random_patterns(100);
 
     // test freeing the same memory twice
     double_free();
@@ -545,8 +543,20 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_alloc_free(5000);
 
     // long test: allocate lots of single pages
-    // slab_refill_no_pagefault() -> LIB_ERR_NOT_IMPLEMENTED
-    // test_many_single_pages_allocated(50000);
+    test_many_single_pages_allocated(50000);
+}
+
+__attribute__((unused)) static void test_spawn_single_process(void)
+{
+    struct spawninfo si;
+    domainid_t pid;
+    spawn_load_by_name("hello", &si, &pid);
+}
+
+__attribute__((unused)) static void run_m2_tests(void)
+{
+    // spawn processes
+    test_spawn_single_process();
 }
 
 static int bsp_main(int argc, char *argv[])
@@ -564,27 +574,16 @@ static int bsp_main(int argc, char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
-    /*
-    mm_tracker_debug_print(&aos_mm.mmt);
-    debug_printf("Initial free slab count: %d\n", slab_freecount(&aos_mm.slab_allocator));
-    debug_printf("Initial free slot count: %d\n", slot_freecount(aos_mm.slot_allocator));
-     */
 
+    // run own tests
     // run_m1_tests();
+    run_m2_tests();
 
     // TODO: initialize mem allocator, vspace management here
-
-    // setup CSpace: L1CNode, L2CNode
-    // L1CNode (cnode_create_l1): initially 256 slots with L2CNodes,
-    // but can be extended with 'root_cnode_resize()'
-    // L1Code (cnode_create_l2): fixed size of 256 slots
 
     // Grading
     grading_test_early();
 
-    struct spawninfo si;
-    domainid_t pid;
-    spawn_load_by_name("hello", &si, &pid);
     // TODO: Spawn system processes, boot second core etc. here
 
     // Grading
