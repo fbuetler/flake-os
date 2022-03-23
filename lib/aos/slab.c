@@ -171,6 +171,7 @@ size_t slab_freecount(struct slab_allocator *slabs)
     return ret;
 }
 
+
 /**
  * \brief General-purpose slab refill
  *
@@ -242,4 +243,10 @@ errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref fr
 errval_t slab_default_refill(struct slab_allocator *slabs)
 {
     return slab_refill_pages(slabs, BASE_PAGE_SIZE);
+}
+
+
+errval_t pt_slab_default_refill(struct slab_allocator *slabs)
+{
+    return slab_refill_pages(slabs, 32*BASE_PAGE_SIZE);
 }

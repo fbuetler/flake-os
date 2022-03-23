@@ -169,8 +169,9 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
     }
 
     mm->mmt.head = next_fit_node;
-    DEBUG_TRACEF("Physical memory aligned allocated: (%p, 0x%lx)\n", next_fit_node->base,
-                 next_fit_node->base + next_fit_node->size - 1);
+    //DEBUG_TRACEF("Physical memory aligned allocated: (%p, 0x%lx)\n", next_fit_node->base,
+    //             next_fit_node->base + next_fit_node->size - 1);
+    
     // mm_tracker_debug_print(&mm->mmt);
     return SYS_ERR_OK;
 }

@@ -334,7 +334,8 @@ __attribute__((unused)) static void test_many_single_pages_allocated(int iterati
         assert(err_is_ok(err));
         // map frame
         struct paging_state *st = get_current_paging_state();
-        err = paging_map_frame(st, NULL, BASE_PAGE_SIZE, frame_cap);
+        void *buf;
+        err = paging_map_frame(st, &buf, BASE_PAGE_SIZE, frame_cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "paging_map_frame");
         }
@@ -481,7 +482,7 @@ __attribute__((unused)) static void test_slot_refill(void)
 
 __attribute__((unused)) static void run_m1_tests(void)
 {
-    // small tests with no alignment
+    /*// small tests with no alignment
     test_alternate_allocs_and_frees(8, 1 << 12, 1);
     test_merge_memory(8, 1 << 12, 1);
     test_consecutive_allocs_then_frees(8, 1 << 12, 1);
@@ -541,9 +542,9 @@ __attribute__((unused)) static void run_m1_tests(void)
 
     // allocate then deallocate, 5000 times
     test_alloc_free(5000);
-
+*/
     // long test: allocate lots of single pages
-    test_many_single_pages_allocated(50000);
+    //test_many_single_pages_allocated(40000);
 }
 
 __attribute__((unused)) static void test_spawn_single_process(void)
@@ -559,7 +560,12 @@ __attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
     domainid_t *pids = malloc(n * sizeof(struct spawninfo));
     for (int i = 0; i < n; i++) {
         printf("Spawn iteration %d\n", i);
-        spawn_load_by_name("hello", &sis[i], &pids[i]);
+        errval_t err = spawn_load_by_name("hello", &sis[i], &pids[i]);
+
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "spawn error");
+        }
+        assert(err_is_ok(err));
     }
 
     free(sis);
@@ -575,9 +581,9 @@ __attribute__((unused)) static void run_m2_tests(void)
     // spawn processes
     //test_spawn_single_process();
     //test_spawn_multiple_processes(2);
-     test_spawn_multiple_processes(4);
+    //test_spawn_multiple_processes(4);
     // test_spawn_multiple_processes(5);
-    // test_spawn_multiple_processes(10);
+    test_spawn_multiple_processes(20);
 
     // spawn and kill a process
     // test_spawn_and_kill_single_process();
@@ -602,7 +608,7 @@ static int bsp_main(int argc, char *argv[])
     }
 
     // run own tests
-    // run_m1_tests();
+    //run_m1_tests();
     run_m2_tests();
 
     // TODO: initialize mem allocator, vspace management here
