@@ -267,9 +267,25 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
      *   - Find a region of free virtual address space that is large enough to
      *     accomodate a buffer of size `bytes`.
      */
-    *buf = NULL;
 
-    return LIB_ERR_NOT_IMPLEMENTED;
+    bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
+    errval_t err;
+
+    DEBUG_TRACEF("Map frame to free addr: get next fit\n");
+    mmnode_t *frame_region;
+    err = mm_tracker_get_next_fit(&st->vspace_tracker, &frame_region, bytes,
+                                  BASE_PAGE_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to get next fit in paging_map_frame_attr");
+        return err_push(err, MM_ERR_FIND_NODE);
+    }
+
+    DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", frame_region->base);
+    if (buf != NULL) {
+        *buf = (void *)frame_region->base;
+    }
+
+    return SYS_ERR_OK;
 }
 
 
@@ -298,29 +314,23 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
     //
     // Hint:
     //  - think about what mapping configurations are actually possible
+    errval_t err;
 
     assert(st != NULL);
 
     bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
-    errval_t err;
 
-    DEBUG_TRACEF("Map frame to free addr: get next fit\n");
-    mmnode_t *frame_region;
-    err = mm_tracker_get_next_fit(&st->vspace_tracker, &frame_region, bytes,
-                                  BASE_PAGE_SIZE);
+    DEBUG_TRACEF("Map frame to free addr: allocate virtual memory\n");
+    err = paging_alloc(st, buf, bytes, 1);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to get next fit in paging_map_frame_attr");
-        return err_push(err, MM_ERR_FIND_NODE);
-    }
-
-    DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", frame_region->base);
-    if (buf != NULL) {
-        *buf = (void *)frame_region->base;
+        DEBUG_ERR(err, "failed to allocate a virtual memory");
+        return err_push(err, LIB_ERR_PAGING_MAP_FIXED);
     }
 
     DEBUG_TRACEF("Map frame to free addr: map frame\n");
-    err = paging_map_fixed_attr(st, frame_region->base, frame, bytes, flags);
+    err = paging_map_fixed_attr(st, (lvaddr_t)*buf, frame, bytes, flags);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map frame");
         return err_push(err, LIB_ERR_PAGING_MAP_FIXED);
     }
 
