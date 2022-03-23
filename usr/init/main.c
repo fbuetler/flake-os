@@ -555,10 +555,10 @@ __attribute__((unused)) static void test_spawn_single_process(void)
 
 __attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
 {
+    struct spawninfo sis[n];
+    domainid_t pids[n];
     for (int i = 0; i < n; i++) {
-        struct spawninfo si;
-        domainid_t pid;
-        spawn_load_by_name("hello", &si, &pid);
+        spawn_load_by_name("hello", &sis[i], &pids[i]);
     }
 }
 
