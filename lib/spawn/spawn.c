@@ -466,10 +466,6 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
         return err_push(err, SPAWN_ERR_CREATE_ARGSPG);
     }
 
-    // childs startup code expects everything that does not explicitly
-    // have to be filled in by init to be zeroed
-    memset(&si->args_frame_cap, 0, sizeof(si->args_frame_cap));
-
     // map args frame into parents vspace
     void *args_frame_addr_parent;
     err = paging_map_frame_attr(get_current_paging_state(), &args_frame_addr_parent,
@@ -478,6 +474,10 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
         DEBUG_ERR(err, "failed to map args frame into parents vspace");
         return err_push(err, SPAWN_ERR_MAP_ARGSPG_TO_SELF);
     }
+
+    // childs startup code expects everything that does not explicitly
+    // have to be filled in by init to be zeroed
+    memset(args_frame_addr_parent, 0, ARGS_SIZE);
 
     // map args frame into childs vspace
     // TODO or use paging_map_fixed_attr() with fixed address
