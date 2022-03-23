@@ -562,12 +562,21 @@ __attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
     }
 }
 
+__attribute__((unused)) static void test_spawn_and_kill_single_process(void) { }
+
+__attribute__((unused)) static void test_spawn_and_kill_multiple_process(size_t n) { }
+
 __attribute__((unused)) static void run_m2_tests(void)
 {
     // spawn processes
     test_spawn_single_process();
     // test_spawn_multiple_processes(2);
     // test_spawn_multiple_processes(10);
+
+    // spawn and kill a process
+    // test_spawn_and_kill_single_process();
+    // test_spawn_and_kill_multiple_process(2);
+    // test_spawn_and_kill_multiple_process(10);
 }
 
 static int bsp_main(int argc, char *argv[])
