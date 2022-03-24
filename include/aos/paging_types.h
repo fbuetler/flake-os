@@ -34,13 +34,30 @@
 #define VREGION_FLAGS_READ_WRITE_MPB                                                     \
     (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE | VREGION_FLAGS_MPB)
 
+#define L0_IDX_OFFSET 39
+#define L1_IDX_OFFSET 30
+#define L2_IDX_OFFSET 21
+#define L3_IDX_OFFSET 12
+
+#define L0_IDX_MASK (MASK(9) << L0_IDX_OFFSET)
+#define L1_IDX_MASK (MASK(9) << L1_IDX_OFFSET)
+#define L2_IDX_MASK (MASK(9) << L2_IDX_OFFSET)
+#define L3_IDX_MASK (MASK(9) << L3_IDX_OFFSET)
+
+#define L0_IDX(addr) ((uint16_t)((addr & L0_IDX_MASK) >> L0_IDX_OFFSET))
+#define L1_IDX(addr) ((uint16_t)((addr & L1_IDX_MASK) >> L1_IDX_OFFSET))
+#define L2_IDX(addr) ((uint16_t)((addr & L2_IDX_MASK) >> L2_IDX_OFFSET))
+#define L3_IDX(addr) ((uint16_t)((addr & L3_IDX_MASK) >> L3_IDX_OFFSET))
+
+
 typedef int paging_flags_t;
 
 // struct to store a page table
 struct page_table {
     struct capref cap;  ///< cap that represent the memory where this page table is stored
     struct page_table *entries[PTABLE_ENTRIES];  ///< the entries of the page table
-    struct capref mappings[PTABLE_ENTRIES];     ///< the mapping of the page table
+    struct capref mappings[PTABLE_ENTRIES];      ///< the mapping of the page table
+    uint16_t filled_slots;                       ///< nr of filled slots in this table
 };
 
 // struct to store the paging status of a process

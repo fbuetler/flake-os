@@ -20,9 +20,12 @@
 
 int main(int argc, char *argv[])
 {
-    int i = 0;
     while(1){
-        printf("infinite_print: %d!\n", i++);
+        double d = 0;
+        for(int i = 0; i < BIT(19); i++){
+            d += i * d + 10;
+        }
+        printf("%finite_print!\n", d);
     }
     /*for (int i = 0; i < argc; i++) {
         printf("arg %d: %s\n", i, argv[i]);

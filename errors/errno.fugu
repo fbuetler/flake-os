@@ -445,6 +445,8 @@ errors libaos LIB_ERR_ {
     failure PAGING_MAP              "Error in paging_map_frame_attr()",
     failure PAGING_MAP_FIXED        "Error in paging_map_fixed_attr()",
     failure PAGING_STATE_INIT       "Error in paging_state_init()",
+    failure PAGING_UNMAP            "Error in paging_unmap()",
+    failure PAGING_PT_UNMAP_SLOT    "Error in paging_pt_unmap_slot()",
 };
 
 // errors in Flounder-generated bindings
@@ -724,6 +726,7 @@ errors libmm MM_ERR_ {
     failure MMT_GET_NODE_AT     "Failure in mm_tracker_get_node_at()",
     failure MMT_ALLOC_SLICE     "Failure in mm_tracker_alloc_slice()",
     failure MMT_ALLOC_RANGE     "Failure in mm_tracker_alloc_range()",
+    failure MMT_FIND_ALLOCATED_NODE "Failure in mm_tracker_find_allocated_node()",
     failure MM_INIT             "Failure in mm_init()",
     failure MM_ADD              "Failure in mm_add()",
     failure MM_ADD_MULTI        "Failure in mm_add_multi()",
@@ -731,6 +734,7 @@ errors libmm MM_ERR_ {
     failure NEW_NODE            "Failed allocating new node from slot allocator",
     failure OUT_OF_BOUNDS       "Given memory base address / size exceeds bounds of allocator",
     failure ALREADY_PRESENT     "Node already present in add_node()",
+    failure ALREADY_FREE        "Node is already free",
     failure ALREADY_ALLOCATED   "Requested node already allocated in find_node()",
     failure NOT_FOUND           "No matching node found",
     failure MISSING_CAPS        "Region exists in allocator, but intermediate caps are missing",

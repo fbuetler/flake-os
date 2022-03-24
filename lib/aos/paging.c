@@ -21,6 +21,9 @@
 #include <stdio.h>
 #include <string.h>
 
+// uncomment for demo
+#define PRINT_PT_CREATION
+
 static struct paging_state current;
 
 
@@ -235,15 +238,15 @@ errval_t paging_init(void)
 }
 
 int paging_lock = 0;
-static void paging_refill(struct paging_state *st){
-    if(!paging_lock){
+static void paging_refill(struct paging_state *st)
+{
+    if (!paging_lock) {
         paging_lock = 1;
-        if(slab_freecount(&st->slab_allocator) < 10){
+        if (slab_freecount(&st->slab_allocator) < 10) {
             assert(err_is_ok(st->slab_allocator.refill_func(&st->slab_allocator)));
         }
         paging_lock = 0;
     }
-
 }
 
 /**
@@ -284,7 +287,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
     bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
     errval_t err;
 
-    //DEBUG_TRACEF("Map frame to free addr: get next fit\n");
+    // DEBUG_TRACEF("Map frame to free addr: get next fit\n");
     mmnode_t *frame_region;
     err = mm_tracker_get_next_fit(&st->vspace_tracker, &frame_region, bytes,
                                   BASE_PAGE_SIZE);
@@ -293,7 +296,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
         return err_push(err, MM_ERR_FIND_NODE);
     }
 
-    //DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", frame_region->base);
+    // DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", frame_region->base);
     if (buf != NULL) {
         *buf = (void *)frame_region->base;
     }
@@ -344,7 +347,7 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
         return err_push(err, LIB_ERR_PAGING_MAP_FIXED);
     }
 
-    DEBUG_PRINTF("Map frame to free addr: map frame at %lx\n", *buf);
+    // DEBUG_PRINTF("Map frame to free addr: map frame at %lx\n", *buf);
 
     err = paging_map_fixed_attr(st, (lvaddr_t)*buf, frame, bytes, flags);
 
@@ -362,13 +365,12 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
                                         size_t parent_pt_index, enum objtype pt_type,
                                         struct page_table **pt)
 {
-
     errval_t err;
     *pt = (parent_pt->entries)[parent_pt_index];
     if (*pt != NULL) {
         return SYS_ERR_OK;
     }
-    
+
     // allocate page table
     struct capref pt_cap;
     // no need to allocate a slot as this is done in pt_alloc
@@ -393,11 +395,11 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
     err = vnode_map(parent_pt->cap, pt_cap, parent_pt_index, VREGION_FLAGS_READ, 0, 1,
                     pt_mapping_cap);
     if (err_is_fail(err)) {
-        if(parent_pt->entries[parent_pt_index]){
+        if (parent_pt->entries[parent_pt_index]) {
             // TODO make this cleaner!
             *pt = parent_pt->entries[parent_pt_index];
             err = cap_destroy(pt_cap);
-            if(err_is_fail(err)){
+            if (err_is_fail(err)) {
                 DEBUG_ERR(err, "couldn't destroy cap");
                 return err;
             }
@@ -408,12 +410,28 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
         return err;
     }
 
+#if DEMO_M2
+    int lvl;
+    if(pt_type == ObjType_VNode_AARCH64_l0){
+        lvl = 0;
+    }else if(pt_type == ObjType_VNode_AARCH64_l1){
+        lvl = 1;
+    }else if(pt_type == ObjType_VNode_AARCH64_l2){
+        lvl = 2;
+    }else{
+        lvl = 3;
+    }
+
+    printf("created L%d page table in %p slot %d\n", lvl, parent_pt, parent_pt_index);
+#endif
+
     // reflect mapping in datastructure
     *pt = slab_alloc(&st->slab_allocator);
     if (*pt == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
     (*pt)->cap = pt_cap;
+    (*pt)->filled_slots = 0;
     for (int i = 0; i < 512; i++) {
         (*pt)->mappings[i] = NULL_CAP;
         (*pt)->entries[i] = NULL;
@@ -421,6 +439,7 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
 
     parent_pt->entries[parent_pt_index] = *pt;
     parent_pt->mappings[parent_pt_index] = pt_mapping_cap;
+    parent_pt->filled_slots++;
 
     return SYS_ERR_OK;
 }
@@ -464,7 +483,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     errval_t err;
 
-    //DEBUG_TRACEF("Map frame to fixed addr: Allocating range\n");
+    // DEBUG_TRACEF("Map frame to fixed addr: Allocating range\n");
     mmnode_t *allocated_node;
     err = mm_tracker_alloc_range(&st->vspace_tracker, vaddr, bytes, &allocated_node);
     if (err_is_fail(err)) {
@@ -472,11 +491,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
         return err;
     }
-    //DEBUG_TRACEF("Map frame to fixed addr: Allocated range\n");
-
-    size_t page_offset = 12;
-    uint16_t page_index_size = 9;
-    uint16_t last_bits = (1 << page_index_size) - 1;
+    // DEBUG_TRACEF("Map frame to fixed addr: Allocated range\n");
 
     size_t allocated_bytes = 0;
 
@@ -486,13 +501,13 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     struct page_table *l3_pt;
     bool do_recompute = true;
 
-    //DEBUG_TRACEF("Map frame to fixed addr: Update page tables\n");
+    // DEBUG_TRACEF("Map frame to fixed addr: Update page tables\n");
     while (allocated_bytes < bytes) {
-        //DEBUG_TRACEF("Map frame to fixed addr: Virtual address 0x%lx\n", vaddr);
-        size_t l0_index = (vaddr >> (3 * page_index_size + page_offset)) & last_bits;
-        size_t l1_index = (vaddr >> (2 * page_index_size + page_offset)) & last_bits;
-        size_t l2_index = (vaddr >> (1 * page_index_size + page_offset)) & last_bits;
-        size_t l3_index = (vaddr >> (0 * page_index_size + page_offset)) & last_bits;
+        // DEBUG_TRACEF("Map frame to fixed addr: Virtual address 0x%lx\n", vaddr);
+        size_t l0_index = L0_IDX(vaddr);
+        size_t l1_index = L1_IDX(vaddr);
+        size_t l2_index = L2_IDX(vaddr);
+        size_t l3_index = L3_IDX(vaddr);
 
         assert(l0_index < 512);
         assert(l1_index < 512);
@@ -500,32 +515,33 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         assert(l3_index < 512);
 
 
-        if(do_recompute){
+        if (do_recompute) {
             // TODO: make efficient
-            //DEBUG_TRACEF("Map frame to fixed addr: Get/create L1 page table\n");
+
+            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L1 page table\n");
             l1_pt = NULL;
             err = paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1,
-                                        &l1_pt);
+                                          &l1_pt);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to get/create l1 page table");
                 err = err_push(err, LIB_ERR_PMAP_MAP);
                 goto unwind_allocated_vnode;
             }
 
-            //DEBUG_TRACEF("Map frame to fixed addr: Get/create L2 page table\n");
+            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L2 page table\n");
             l2_pt = NULL;
             err = paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2,
-                                        &l2_pt);
+                                          &l2_pt);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to get/create l2 page table");
                 err = err_push(err, LIB_ERR_PMAP_MAP);
                 goto unwind_allocated_vnode;
             }
 
-            //DEBUG_TRACEF("Map frame to fixed addr: Get/create L3 page table\n");
+            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L3 page table\n");
             l3_pt = NULL;
             err = paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3,
-                                        &l3_pt);
+                                          &l3_pt);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to get/create l3 page table");
                 err = err_push(err, LIB_ERR_PMAP_MAP);
@@ -533,7 +549,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
             }
         }
 
-        //DEBUG_TRACEF("Map frame to fixed addr: Map frame in L3 page table at %d\n",
+        // DEBUG_TRACEF("Map frame to fixed addr: Map frame in L3 page table at %d\n",
         //             l3_index);
 
         if (capcmp(l3_pt->mappings[l3_index], NULL_CAP) == 0) {
@@ -558,25 +574,24 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         }
 
         l3_pt->mappings[l3_index] = frame_mapping_cap;
+        l3_pt->filled_slots++;
 
         vaddr += BASE_PAGE_SIZE;
         allocated_bytes += BASE_PAGE_SIZE;
 
-        if(l1_index == 511 || l2_index == 511 || l3_index == 511){
+        if (l1_index == 511 || l2_index == 511 || l3_index == 511) {
             do_recompute = true;
-        }else{
+        } else {
             do_recompute = false;
         }
-        
-
     }
 
-    //DEBUG_TRACEF("Map frame to fixed addr: Refill slabs\n");
+    // DEBUG_TRACEF("Map frame to fixed addr: Refill slabs\n");
     mm_tracker_refill(&st->vspace_tracker);
 
 
-    //mm_tracker_debug_print(&st->vspace_tracker);
-    //DEBUG_TRACEF("Map frame to fixed addr: Mapped frame\n");
+    // mm_tracker_debug_print(&st->vspace_tracker);
+    // DEBUG_TRACEF("Map frame to fixed addr: Mapped frame\n");
 
     return SYS_ERR_OK;
 
@@ -593,6 +608,31 @@ unwind_allocated_vnode:;
 }
 
 
+static errval_t paging_pt_unmap_slot(struct paging_state *st, struct page_table *pt,
+                              uint16_t slot_index)
+{
+    errval_t err;
+    err = cap_destroy(pt->mappings[slot_index]);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DELETE);
+    }
+
+    struct page_table *child_pt = pt->entries[slot_index];
+
+    pt->mappings[slot_index] = NULL_CAP;
+    pt->entries[slot_index] = NULL;
+    pt->filled_slots--;
+
+    err = cap_destroy(child_pt->cap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DELETE);
+    }
+
+    slab_free(&st->slab_allocator, child_pt);
+
+    return SYS_ERR_OK;
+}
+
 /**
  * @brief Unmaps the region starting at the supplied pointer.
  *
@@ -608,5 +648,130 @@ unwind_allocated_vnode:;
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {
     // TODO -> optional
-    return LIB_ERR_NOT_IMPLEMENTED;
+
+    /*
+        1. find node belonging to region
+        2. iterate by BASE_PAGE_SIZE steps
+            2.1. free l3 slot
+                => if l3 empty: delete l3
+                    => if l2 empty: delete l2
+                        => if l1 empty: delete l1
+    */
+    errval_t err;
+
+    // 1. find node belonging to region
+    mmnode_t *allocated_node;
+    err = mm_tracker_find_allocated_node(&st->vspace_tracker, (genpaddr_t)region,
+                                         &allocated_node);
+
+    if (err_is_fail(err)) {
+        return err_push(err, MM_ERR_MMT_FIND_ALLOCATED_NODE);
+    }
+
+    genpaddr_t current_vaddr = (genpaddr_t)region;
+    genpaddr_t end_vaddr = current_vaddr + allocated_node->size;
+
+
+    struct page_table *l0_pt = &st->root_page_table;
+    struct page_table *l1_pt;
+    struct page_table *l2_pt;
+    struct page_table *l3_pt;
+
+    bool do_recompute = true;
+
+    while (current_vaddr != end_vaddr) {
+        size_t l0_index = L0_IDX(current_vaddr);
+        size_t l1_index = L1_IDX(current_vaddr);
+        size_t l2_index = L2_IDX(current_vaddr);
+        size_t l3_index = L3_IDX(current_vaddr);
+
+        assert(l0_index < 512);
+        assert(l1_index < 512);
+        assert(l2_index < 512);
+        assert(l3_index < 512);
+
+        // get l1, l2, l3 levels
+
+        if(do_recompute){
+
+            l1_pt = NULL;
+            err = paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1,
+                                        &l1_pt);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to get l1 page table");
+                err = err_push(err, LIB_ERR_PMAP_MAP);
+                return err;
+            }
+
+            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L2 page table\n");
+            l2_pt = NULL;
+            err = paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2,
+                                        &l2_pt);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to get l2 page table");
+                err = err_push(err, LIB_ERR_PMAP_MAP);
+                return err;
+            }
+
+            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L3 page table\n");
+            l3_pt = NULL;
+            err = paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3,
+                                        &l3_pt);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to get l3 page table");
+                err = err_push(err, LIB_ERR_PMAP_MAP);
+                return err;
+            }
+        }
+
+        if(l3_index == 511 ||  l2_index == 511 || l1_index == 511){
+            do_recompute = true;
+        }else{
+            do_recompute = false;
+        }
+
+        // free the frame slot manually
+        err = cap_destroy(l3_pt->mappings[l3_index]);
+        if(err_is_fail(err)){
+            return err_push(err, LIB_ERR_CAP_DESTROY);
+        }
+
+        l3_pt->mappings[l3_index] = NULL_CAP;
+        l3_pt->filled_slots--;
+
+        if (l3_pt->filled_slots == 0) {
+            err = paging_pt_unmap_slot(st, l2_pt, l2_index);
+            if (err_is_fail(err)) {
+                DEBUG_PRINTF("Failed to unmap l3 page table at l2 index %x\n", l2_index);
+                return err_push(err, LIB_ERR_PAGING_PT_UNMAP_SLOT);
+            }
+            if (l2_pt->filled_slots == 0) {
+                err = paging_pt_unmap_slot(st, l1_pt, l1_index);
+                if (err_is_fail(err)) {
+                    DEBUG_PRINTF("Failed to unmap l2 page table at l1 index %x\n",
+                                 l1_index);
+                    return err_push(err, LIB_ERR_PAGING_PT_UNMAP_SLOT);
+                }
+
+                if (l1_pt->filled_slots == 0) {
+                    err = paging_pt_unmap_slot(st, l0_pt, l0_index);
+                    if (err_is_fail(err)) {
+                        DEBUG_PRINTF("Failed to unmap l1 page table at l0 index %x\n",
+                                     l0_index);
+                        return err_push(err, LIB_ERR_PAGING_PT_UNMAP_SLOT);
+                    }
+                }
+            }
+        }
+        current_vaddr += BASE_PAGE_SIZE;
+    }
+
+    err = mm_tracker_free(&st->vspace_tracker, (genpaddr_t) region, allocated_node->size);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to free virtual memory region");
+        err = err_push(err, MM_ERR_MM_FREE);
+        return err;
+    }
+
+    return SYS_ERR_OK;
 }

@@ -239,7 +239,7 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
     assert(mmt != NULL);
     assert(retnode != NULL);
     assert(mmt->head);
-    //DEBUG_TRACEF("get node (0x%lx, 0x%lx)\n", addr, size);
+    // DEBUG_TRACEF("get node (0x%lx, 0x%lx)\n", addr, size);
 
     mmnode_t *curr = mmt->head;
     do {
@@ -325,7 +325,7 @@ errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node, size_t size,
     node->type = NodeType_Allocated;
 
     mmt->head = node;
-    //DEBUG_TRACEF("Memory slice allocated: (%p, 0x%lx)\n", node->base, node->size);
+    // DEBUG_TRACEF("Memory slice allocated: (%p, 0x%lx)\n", node->base, node->size);
     // mm_tracker_debug_print(&mm->mmt);
 
     *allocated_node = node;
@@ -366,29 +366,24 @@ void mm_tracker_destroy(mm_tracker_t *mmt)
 errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t memory_size)
 {
     assert(mmt->head);
-    //DEBUG_TRACEF("Memory free request (0x%lx, 0x%lx)\n", memory_base, memory_size);
+    // DEBUG_TRACEF("Memory free request (0x%lx, 0x%lx)\n", memory_base, memory_size);
 
-    mmnode_t *curr = mmt->head;
-    do {
-        // search for node that represent the freed region
-        if (memory_base != curr->base || curr->size != memory_size) {
-            curr = curr->next;
-            continue;
-        }
+    errval_t err;
 
-        curr->type = NodeType_Free;
-        mm_tracker_node_merge(mmt, curr);
-        mm_tracker_node_merge(mmt, curr->prev);
+    mmnode_t *to_free;
+    err = mm_tracker_find_allocated_node(mmt, memory_base, &to_free);
+    if (err_is_fail(err)) {
+        // DEBUG_TRACEF("Invalid memory free request: (%p 0x%lx)\n", memory_base, memory_size);
+        return err_push(err, MM_ERR_MMT_FIND_ALLOCATED_NODE);
+    }
 
-        //DEBUG_TRACEF("Memory freed: (0x%lx, 0x%lx)\n", memory_base, memory_size);
+    to_free->type = NodeType_Free;
+    mm_tracker_node_merge(mmt, to_free);
+    mm_tracker_node_merge(mmt, to_free->prev);
 
-        return SYS_ERR_OK;
-    } while (curr != mmt->head);
-    mmt->head = curr;
+    // DEBUG_TRACEF("Memory freed: (0x%lx, 0x%lx)\n", memory_base, memory_size);
 
-    // Invalid reference, as this was never allocated
-    //DEBUG_TRACEF("Invalid memory free request: (%p 0x%lx)\n", memory_base, memory_size);
-    return MM_ERR_NOT_FOUND;
+    return SYS_ERR_OK;
 }
 
 /**
@@ -401,9 +396,7 @@ errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t me
 errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size,
                                 mmnode_t **retnode)
 {
-
-
-    //DEBUG_TRACEF("Memory range allocation request of (0x%lx, 0x%lx)\n", base, size);
+    // DEBUG_TRACEF("Memory range allocation request of (0x%lx, 0x%lx)\n", base, size);
     mmnode_t *node;
     errval_t err = mm_tracker_get_node_at(mmt, base, size, &node);
 
@@ -421,10 +414,43 @@ errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t si
         return err_push(err, MM_ERR_MMT_ALLOC_SLICE);
     }
 
-    //DEBUG_TRACEF("Memory range allocated: (%p, 0x%lx)\n", allocated_node->base,
+    // DEBUG_TRACEF("Memory range allocated: (%p, 0x%lx)\n", allocated_node->base,
     //             allocated_node->size);
     if (retnode) {
         *retnode = allocated_node;
     }
     return SYS_ERR_OK;
+}
+
+
+errval_t mm_tracker_find_allocated_node(mm_tracker_t *mmt, genpaddr_t memory_base,
+                                        mmnode_t **retnode)
+{
+    assert(mmt->head);
+    // DEBUG_TRACEF("Memory free request (0x%lx, 0x%lx)\n", memory_base, memory_size);
+
+    mmnode_t *curr = mmt->head;
+    do {
+        // search for node that represent the freed region
+        if (memory_base != curr->base) {
+            // Try another
+            curr = curr->next;
+            continue;
+        }
+
+        // Found it!
+
+        if (curr->type == NodeType_Free) {
+            return MM_ERR_ALREADY_FREE;
+        }
+
+        *retnode = curr;
+        return SYS_ERR_OK;
+
+    } while (curr != mmt->head);
+    mmt->head = curr;
+
+    // Invalid reference, as this was never allocated
+    // DEBUG_TRACEF("Invalid memory free request: (%p 0x%lx)\n", memory_base, memory_size);
+    return MM_ERR_NOT_FOUND;
 }
