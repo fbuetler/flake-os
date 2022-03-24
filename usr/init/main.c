@@ -244,10 +244,12 @@ __attribute__((unused)) static void test_map_single_frame(size_t n)
 
     struct paging_state *st = get_current_paging_state();
 
-    err = paging_map_frame(st, NULL, allocated_bytes, frame_cap);
+    void *buf;
+    err = paging_map_frame(st, &buf, allocated_bytes, frame_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to single map frame");
     }
+
     assert(err_is_ok(err));
 }
 
@@ -481,6 +483,7 @@ __attribute__((unused)) static void test_slot_refill(void)
 
 __attribute__((unused)) static void run_m1_tests(void)
 {
+    
     // small tests with no alignment
     test_alternate_allocs_and_frees(8, 1 << 12, 1);
     test_merge_memory(8, 1 << 12, 1);
@@ -490,7 +493,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_alternate_allocs_and_frees(8, 1 << 12, 1 << 12);
     test_merge_memory(8, 1 << 12, 1 << 12);
     test_consecutive_allocs_then_frees(8, 1 << 12, 1 << 12);
-
+    
     // test partial free
     // test_partial_free();
 
@@ -543,7 +546,7 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_alloc_free(5000);
 
     // long test: allocate lots of single pages
-    // test_many_single_pages_allocated(40000);
+    //test_many_single_pages_allocated(40000);
 }
 
 __attribute__((unused)) static void test_spawn_single_process(void)
@@ -605,7 +608,30 @@ __attribute__((unused)) static void test_spawn_and_kill_single_process(void) {
  }
 
 __attribute__((unused)) static void test_spawn_and_kill_multiple_process(size_t n) {
+    errval_t err;
     
+    struct spawninfo *sis = calloc(n, sizeof(struct spawninfo));
+    domainid_t *pids = calloc(n, sizeof(struct spawninfo));
+
+    for(int j = 0; j < n; j++){
+        err = spawn_load_by_name("infinite_print", sis+j, pids+j);
+
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "spawn error");
+        }
+        assert(err_is_ok(err));
+
+        spawn_print_processes();
+
+        double x = 0;
+        for(int i = 0; i < 1 << 22; i++){
+            x += i * x * 10;
+        }
+        printf("%f\n", x);
+        spawn_kill_process(*(pids + j));
+        printf("process killed\n");
+        spawn_print_processes();
+    }
  }
 
 __attribute__((unused)) static void run_m2_tests(void)
@@ -618,9 +644,9 @@ __attribute__((unused)) static void run_m2_tests(void)
     //test_spawn_multiple_processes(20);
 
     // spawn and kill a process
-    test_spawn_and_kill_single_process();
+    //test_spawn_and_kill_single_process();
     // test_spawn_and_kill_multiple_process(2);
-    // test_spawn_and_kill_multiple_process(10);
+    test_spawn_and_kill_multiple_process(50);
 }
 
 static int bsp_main(int argc, char *argv[])
@@ -640,7 +666,7 @@ static int bsp_main(int argc, char *argv[])
     }
 
     // run own tests
-    // run_m1_tests();
+    //run_m1_tests();
 
     // TODO: initialize mem allocator, vspace management here
 
