@@ -602,16 +602,16 @@ __attribute__((unused)) static void test_spawn_and_kill_process(size_t n)
 __attribute__((unused)) static void run_m2_tests(void)
 {
     // spawn processes
-    // test_spawn_processes(1);
-    // test_spawn_processes(2);
+    test_spawn_processes(1);
+    test_spawn_processes(2);
     test_spawn_processes(10);
-    // test_spawn_processes(50);
+    test_spawn_processes(50);
 
     // spawn and kill a process
-    // test_spawn_and_kill_process(1);
-    // test_spawn_and_kill_process(2);
-    // test_spawn_and_kill_process(10);
-    // test_spawn_and_kill_multiple_process(50);
+    test_spawn_and_kill_process(1);
+    test_spawn_and_kill_process(2);
+    test_spawn_and_kill_process(10);
+    test_spawn_and_kill_multiple_process(50);
 }
 
 static int bsp_main(int argc, char *argv[])
@@ -630,7 +630,6 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
 
-    // run own tests
     // run_m1_tests();
 
     // TODO: initialize mem allocator, vspace management here
@@ -654,7 +653,7 @@ static int bsp_main(int argc, char *argv[])
                                           .dispatcher_handle = 0 };
 
 
-    run_m2_tests();
+    // run_m2_tests();
 
     // TODO: Spawn system processes, boot second core etc. here
 
