@@ -135,7 +135,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
     err = mm_tracker_get_next_fit(&mm->mmt, &next_fit_node, requested_size, alignment);
     if (err_is_fail(err)) {
         DEBUG_TRACEF("Physical memory allocation failed: memory exhausted\n");
-        mm_tracker_debug_print(&mm->mmt);
         return err_push(err, MM_ERR_FIND_NODE);
     }
 
@@ -159,7 +158,6 @@ errval_t mm_alloc_aligned(struct mm *mm, size_t requested_size, size_t alignment
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not retype region cap");
 
-        mm_tracker_debug_print(&mm->mmt);
         err = err_push(err, LIB_ERR_CAP_RETYPE);
 
         // merge again

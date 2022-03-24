@@ -226,7 +226,7 @@ errval_t paging_init(void)
     slab_grow(&st->vspace_slab_allocator, vspace_buf, sizeof(vspace_buf));
 
     // init paging state
-    err = paging_init_state(st, VADDR_OFFSET + (1 << 30), cap_vroot, get_default_slot_allocator());
+    err = paging_init_state(st, VADDR_OFFSET, cap_vroot, get_default_slot_allocator());
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PAGING_STATE_INIT);
     }
@@ -344,8 +344,10 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
         return err_push(err, LIB_ERR_PAGING_MAP_FIXED);
     }
 
-    DEBUG_TRACEF("Map frame to free addr: map frame\n");
+    DEBUG_PRINTF("Map frame to free addr: map frame at %lx\n", *buf);
+
     err = paging_map_fixed_attr(st, (lvaddr_t)*buf, frame, bytes, flags);
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map frame");
         return err_push(err, LIB_ERR_PAGING_MAP_FIXED);
@@ -459,10 +461,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     assert(bytes % BASE_PAGE_SIZE == 0);
     assert(vaddr % BASE_PAGE_SIZE == 0);
 
-    errval_t err;
 
-    //DEBUG_TRACEF("Map frame to fixed addr: Refill slabs\n");
-    mm_tracker_refill(&st->vspace_tracker);
+    errval_t err;
 
     //DEBUG_TRACEF("Map frame to fixed addr: Allocating range\n");
     mmnode_t *allocated_node;
@@ -571,8 +571,13 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     }
 
+    //DEBUG_TRACEF("Map frame to fixed addr: Refill slabs\n");
+    mm_tracker_refill(&st->vspace_tracker);
+
+
     //mm_tracker_debug_print(&st->vspace_tracker);
     //DEBUG_TRACEF("Map frame to fixed addr: Mapped frame\n");
+
     return SYS_ERR_OK;
 
 unwind_allocated_vnode:;

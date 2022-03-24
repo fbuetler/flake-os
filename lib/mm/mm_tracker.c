@@ -254,6 +254,9 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
     } while (curr != mmt->head);
 
     assert(addr != 0);
+
+    DEBUG_PRINTF("couldnt find %lx %lx\n", addr, size);
+
     return MM_ERR_NOT_FOUND;
 }
 
@@ -398,6 +401,8 @@ errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t me
 errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size,
                                 mmnode_t **retnode)
 {
+
+
     //DEBUG_TRACEF("Memory range allocation request of (0x%lx, 0x%lx)\n", base, size);
     mmnode_t *node;
     errval_t err = mm_tracker_get_node_at(mmt, base, size, &node);
