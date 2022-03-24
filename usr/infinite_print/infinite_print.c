@@ -20,13 +20,12 @@
 
 int main(int argc, char *argv[])
 {
-    int i = 0;
-    while(1){
-        printf("infinite_print: %d!\n", i++);
+    size_t i = 0;
+    while (1) {
+        if (i % 1000 == 0) {
+            printf("infinite_print: %lu\n", i++);
+        }
     }
-    /*for (int i = 0; i < argc; i++) {
-        printf("arg %d: %s\n", i, argv[i]);
-    }*/
 
     return EXIT_SUCCESS;
 }

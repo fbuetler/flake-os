@@ -732,7 +732,7 @@ void spawn_add_process(struct spawninfo *new_process)
     assert(new_process);
     struct spawninfo *current = &init_spawninfo;
 
-    DEBUG_PRINTF("&init_spawninfo: %p\n", &init_spawninfo);
+    DEBUG_TRACEF("&init_spawninfo: %p\n", &init_spawninfo);
     while (current->next) {
         current = current->next;
     }

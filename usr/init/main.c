@@ -548,25 +548,15 @@ __attribute__((unused)) static void run_m1_tests(void)
     // test_many_single_pages_allocated(40000);
 }
 
-__attribute__((unused)) static void test_spawn_single_process(void)
-{
-    struct spawninfo si;
-    domainid_t pid;
-    spawn_load_by_name("hello", &si, &pid);
-}
-
-__attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
+__attribute__((unused)) static void test_spawn_processes(size_t n)
 {
     errval_t err;
+
     struct spawninfo *sis = malloc(n * sizeof(struct spawninfo));
     domainid_t *pids = malloc(n * sizeof(domainid_t));
     for (int i = 0; i < n; i++) {
-        printf("Spawn iteration %d\n", i);
+        printf("Spawn process %d\n", i);
         err = spawn_load_by_name("hello", &sis[i], &pids[i]);
-
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "spawn error");
-        }
         assert(err_is_ok(err));
 
         spawn_print_processes();
@@ -575,78 +565,53 @@ __attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
     free(pids);
 }
 
-
-__attribute__((unused)) static void test_spawn_and_kill_single_process(void)
-{
-    errval_t err;
-
-    struct spawninfo *sis = malloc(1 * sizeof(struct spawninfo));
-    domainid_t *pids = malloc(1 * sizeof(struct spawninfo));
-
-    err = spawn_load_by_name("infinite_print", sis, pids);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "spawn error");
-    }
-    assert(err_is_ok(err));
-
-    spawn_print_processes();
-
-    double x = 0;
-    for (int i = 0; i < 1 << 24; i++) {
-        x += i * x * 10;
-    }
-
-    printf("%f\n", x);
-    spawn_kill_process(*pids);
-    printf("process killed\n");
-    spawn_print_processes();
-
-    free(sis);
-    free(pids);
-}
-
-__attribute__((unused)) static void test_spawn_and_kill_multiple_process(size_t n)
+__attribute__((unused)) static void test_spawn_and_kill_process(size_t n)
 {
     errval_t err;
 
     struct spawninfo *sis = calloc(n, sizeof(struct spawninfo));
     domainid_t *pids = calloc(n, sizeof(struct spawninfo));
-
-    for (int j = 0; j < n; j++) {
-        err = spawn_load_by_name("infinite_print", sis + j, pids + j);
-
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "spawn error");
-        }
+    for (int i = 0; i < n; i++) {
+        printf("Spawn process %d\n", i);
+        err = spawn_load_by_name("infinite_print", &sis[i], &pids[i]);
         assert(err_is_ok(err));
 
         spawn_print_processes();
 
-        double x = 0;
-        for (int i = 0; i < 1 << 22; i++) {
-            x += i * x * 10;
+        printf("Sleep\n");
+        double sum = 0;
+        for (int j = 0; j < 1 << 24; j++) {
+            sum += j * sum * 10;
         }
-        printf("%f\n", x);
-        spawn_kill_process(*(pids + j));
-        printf("process killed\n");
+        printf("Slept %lf\n", sum);
+
+        printf("Kill process\n");
+        err = spawn_kill_process(pids[i]);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "kill failed");
+        }
+        assert(err_is_ok(err));
+        printf("Killed process\n");
+
         spawn_print_processes();
     }
+    free(sis);
+    free(pids);
 }
 
 __attribute__((unused)) static void run_m2_tests(void)
 {
     // spawn processes
-    // test_spawn_single_process();
-    // test_spawn_multiple_processes(2);
-    // test_spawn_multiple_processes(4);
-    // test_spawn_multiple_processes(5);
-    // test_spawn_multiple_processes(20);
+    // test_spawn_processes(1);
+    // test_spawn_processes(2);
+    test_spawn_processes(10);
+    // test_spawn_processes(50);
 
     // spawn and kill a process
-    // test_spawn_and_kill_single_process();
-    // test_spawn_and_kill_multiple_process(2);
-    test_spawn_and_kill_multiple_process(50);
+    // test_spawn_and_kill_process(1);
+    // test_spawn_and_kill_process(2);
+    // test_spawn_and_kill_process(10);
+    // test_spawn_and_kill_multiple_process(50);
 }
 
 static int bsp_main(int argc, char *argv[])
@@ -672,6 +637,7 @@ static int bsp_main(int argc, char *argv[])
 
     // Grading
     grading_test_early();
+
     global_pid_counter = 0;
     init_spawninfo = (struct spawninfo) { .next = NULL,
                                           .binary_name = "init",
