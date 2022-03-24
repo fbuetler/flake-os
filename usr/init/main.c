@@ -611,7 +611,7 @@ __attribute__((unused)) static void run_m2_tests(void)
     test_spawn_and_kill_process(1);
     test_spawn_and_kill_process(2);
     test_spawn_and_kill_process(10);
-    test_spawn_and_kill_multiple_process(50);
+    test_spawn_and_kill_process(50);
 }
 
 static int bsp_main(int argc, char *argv[])
