@@ -838,6 +838,35 @@ errval_t spawn_kill_process(domainid_t pid)
     }else{
         // killed init process. What now?
         // TODO 
+
+errval_t spawn_free(struct spawninfo *si)
+{
+    // NOTE: we always return SYS_ERR_OK and only log a failure
+    errval_t err;
+
+    err = cap_destroy(si->rootcn_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy root cnode cap");
+    }
+
+    err = cap_destroy(si->rootvn_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy root vnode cap");
+    }
+
+    err = cap_destroy(si->dispatcher_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy dispatcher cap");
+    }
+
+    err = cap_destroy(si->dispatcher_frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy dispatcher frame cap");
+    }
+
+    err = cap_destroy(si->args_frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy argumentes frame cap");
     }
 
     return SYS_ERR_OK;

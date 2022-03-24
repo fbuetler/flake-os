@@ -69,5 +69,6 @@ void spawn_print_processes(void);
 
 errval_t spawn_kill_process(domainid_t pid);
 
+errval_t spawn_free(struct spawninfo *si);
 
 #endif /* _INIT_SPAWN_H_ */
