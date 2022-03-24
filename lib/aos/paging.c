@@ -517,7 +517,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
         if (do_recompute) {
             // TODO: make efficient
-
             // DEBUG_TRACEF("Map frame to fixed addr: Get/create L1 page table\n");
             l1_pt = NULL;
             err = paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1,

@@ -28,7 +28,7 @@ struct spawninfo {
 
     struct mem_region *module;  // same name as in the book
 
-    // TODO(M2): Add fields you need to store state
+    // (M2): Add fields you need to store state
     //           when spawning a new dispatcher,
     //           e.g. references to the child's
     //           capabilities or paging state
@@ -69,5 +69,6 @@ void spawn_print_processes(void);
 
 errval_t spawn_kill_process(domainid_t pid);
 
+errval_t spawn_free(struct spawninfo *si);
 
 #endif /* _INIT_SPAWN_H_ */

@@ -398,7 +398,6 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
 
     DEBUG_TRACEF("mapping dispatcher frame into child vspace\n");
     // map dispatcher frame into child process
-    // TODO or use paging_map_fixed_attr() with fixed address
     void *dispatcher_frame_addr_child;
     err = paging_map_frame_attr(&si->paging_state, &dispatcher_frame_addr_child,
                                 DISPATCHER_FRAME_SIZE, si->dispatcher_frame_cap,
@@ -484,7 +483,6 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
 
     DEBUG_TRACEF("Map arguments frame in childs vspace\n");
     // map args frame into childs vspace
-    // TODO or use paging_map_fixed_attr() with fixed address
     void *args_frame_addr_child;
     err = paging_map_frame_attr(&si->paging_state, &args_frame_addr_child, ARGS_SIZE,
                                 si->args_frame_cap, VREGION_FLAGS_READ_WRITE);
@@ -550,7 +548,7 @@ static errval_t spawn_invoke_dispatcher(struct spawninfo *si)
     return SYS_ERR_OK;
 }
 /**
- * TODO(M2): Implement this function.
+ * (M2): Implement this function.
  * \brief Spawn a new dispatcher called 'argv[0]' with 'argc' arguments.
  *
  * This function spawns a new dispatcher running the ELF binary called
@@ -568,7 +566,6 @@ static errval_t spawn_invoke_dispatcher(struct spawninfo *si)
  */
 errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid)
 {
-    // TODO: Implement me
     // - Initialize the spawn_info struct
     // - Get the module from the multiboot image
     //   and map it (take a look at multiboot.c)
@@ -650,10 +647,11 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     }
 
     err = spawn_get_free_pid(pid);
-
-    // TODO UNHANDLED
-    // maybe kill a process?
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        // TODO out of PIDs, maybe kill a process?
+        DEBUG_ERR(err, "failed to find free PID");
+        return LIB_ERR_SHOULD_NOT_GET_HERE;
+    }
 
     si->pid = *pid;
     spawn_add_process(si);
@@ -663,7 +661,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
 
 
 /**
- * TODO(M2): Implement this function.
+ * (M2): Implement this function.
  * \brief Spawn a new dispatcher executing 'binary_name'
  *
  * \param binary_name The name of the binary.
@@ -677,7 +675,6 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
  */
 errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid)
 {
-    // TODO: Implement me
     // - Get the mem_region from the multiboot image
     // - Fill in argc/argv from the multiboot command line
     // - Call spawn_load_argv
@@ -736,7 +733,7 @@ void spawn_add_process(struct spawninfo *new_process)
     assert(new_process);
     struct spawninfo *current = &init_spawninfo;
 
-    DEBUG_PRINTF("&init_spawninfo: %p\n", &init_spawninfo);
+    DEBUG_TRACEF("&init_spawninfo: %p\n", &init_spawninfo);
     while (current->next) {
         current = current->next;
     }
@@ -823,7 +820,7 @@ errval_t spawn_kill_process(domainid_t pid)
     }
     if (process == NULL) {
         return SPAWN_ERR_PID_NOT_FOUND;
-    } 
+    }
 
     err = spawn_get_process_by_pid(pid, &process);
     if (err_is_fail(err)) {
@@ -834,11 +831,45 @@ errval_t spawn_kill_process(domainid_t pid)
         return err_push(err, PROC_MGMT_ERR_KILL);
     }
 
-    if(prec) {
+    if (prec) {
         prec->next = process->next;
-    }else{
-        // killed init process. What now?
-        // TODO 
+    } else {
+        // TODO killed init process. What now?
+        DEBUG_PRINTF("init process was killed\n");
+        return LIB_ERR_SHOULD_NOT_GET_HERE;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t spawn_free(struct spawninfo *si)
+{
+    // NOTE: we always return SYS_ERR_OK and only log a failure
+    errval_t err;
+
+    err = cap_destroy(si->rootcn_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy root cnode cap");
+    }
+
+    err = cap_destroy(si->rootvn_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy root vnode cap");
+    }
+
+    err = cap_destroy(si->dispatcher_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy dispatcher cap");
+    }
+
+    err = cap_destroy(si->dispatcher_frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy dispatcher frame cap");
+    }
+
+    err = cap_destroy(si->args_frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy argumentes frame cap");
     }
 
     return SYS_ERR_OK;

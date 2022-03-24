@@ -548,25 +548,15 @@ __attribute__((unused)) static void run_m1_tests(void)
     test_many_single_pages_allocated(40000);
 }
 
-__attribute__((unused)) static void test_spawn_single_process(void)
-{
-    struct spawninfo si;
-    domainid_t pid;
-    spawn_load_by_name("hello", &si, &pid);
-}
-
-__attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
+__attribute__((unused)) static void test_spawn_processes(size_t n)
 {
     errval_t err;
+
     struct spawninfo *sis = malloc(n * sizeof(struct spawninfo));
     domainid_t *pids = malloc(n * sizeof(domainid_t));
     for (int i = 0; i < n; i++) {
-        printf("Spawn iteration %d\n", i);
+        printf("Spawn process %d\n", i);
         err = spawn_load_by_name("hello", &sis[i], &pids[i]);
-
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "spawn error");
-        }
         assert(err_is_ok(err));
 
         spawn_print_processes();
@@ -749,6 +739,7 @@ static int bsp_main(int argc, char *argv[])
 
     // Grading
     grading_test_early();
+
     global_pid_counter = 0;
     init_spawninfo = (struct spawninfo) { .next = NULL,
                                           .binary_name = "init",
@@ -764,14 +755,11 @@ static int bsp_main(int argc, char *argv[])
                                           .paging_state = *get_current_paging_state(),
                                           .dispatcher_handle = 0 };
 
-
     //run_m1_tests();
     //run_m2_tests();
     // run_demo_m2();
+    // run_m2_tests();
 
-    // TODO: Spawn system processes, boot second core etc. here
-
-    // Grading
     grading_test_late();
 
     debug_printf("Message handler loop\n");
