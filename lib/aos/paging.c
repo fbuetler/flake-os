@@ -410,7 +410,7 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
         return err;
     }
 
-#if DEMO_M2
+#ifdef DEMO_M2
     int lvl;
     if(pt_type == ObjType_VNode_AARCH64_l0){
         lvl = 0;
