@@ -728,6 +728,7 @@ __attribute__((unused)) static void run_m2_tests(void)
     test_spawn_and_kill_multiple_process(20);
 }
 
+
 static int bsp_main(int argc, char *argv[])
 {
     errval_t err;
@@ -750,6 +751,7 @@ static int bsp_main(int argc, char *argv[])
     // Grading
     grading_test_early();
     global_pid_counter = 0;
+    printf("before spawn info \n");
     init_spawninfo = (struct spawninfo) { .next = NULL,
                                           .binary_name = "init",
                                           .rootcn = cnode_root,
@@ -764,6 +766,39 @@ static int bsp_main(int argc, char *argv[])
                                           .paging_state = *get_current_paging_state(),
                                           .dispatcher_handle = 0 };
 
+    err = cap_retype(cap_selfep, cap_dispatcher, 0, ObjType_EndPointLMP, 0, 1);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to retype self endpoint of init");
+        return err_push(err, SPAWN_ERR_CREATE_SELFEP);
+    }
+
+    err = lmp_endpoint_create_in_slot(6, cap_init_endpoint, &init_spawninfo.endpoint);
+
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Can't create endpoint in init process");
+        abort();
+    }
+
+    printf("spawning memeater \n");
+    struct spawninfo si;
+    domainid_t pid;
+    spawn_load_by_name("memeater", &si, &pid);
+
+    while(1){
+        struct lmp_recv_msg recv_msg;
+        recv_msg.buf.buflen = LMP_MSG_LENGTH;
+        err = lmp_endpoint_recv(init_spawninfo.endpoint, &recv_msg.buf, NULL);
+        if(err_is_fail(err)){
+            //DEBUG_ERR(err, "err");
+            //assert(0);
+        }else{
+            printf("worked :) \n");
+            //assert(0);
+        }
+        
+    }
+    //lmp_chan_recv( ,recv_msg ,NULL);
 
     //run_m1_tests();
     //run_m2_tests();
@@ -820,3 +855,4 @@ int main(int argc, char *argv[])
     else
         return app_main(argc, argv);
 }
+

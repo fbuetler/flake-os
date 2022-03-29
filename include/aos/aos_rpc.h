@@ -21,6 +21,7 @@
 /* An RPC binding, which may be transported over LMP or UMP. */
 struct aos_rpc {
     // TODO(M3): Add state
+    struct lmp_chan chan;
 };
 
 /**
@@ -111,5 +112,7 @@ struct aos_rpc *aos_rpc_get_process_channel(void);
  * \brief Returns the channel to the serial console
  */
 struct aos_rpc *aos_rpc_get_serial_channel(void);
+
+void recv_closure (void *arg);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

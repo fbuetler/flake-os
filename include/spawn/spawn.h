@@ -48,6 +48,8 @@ struct spawninfo {
     struct paging_state paging_state;
 
     dispatcher_handle_t dispatcher_handle;
+
+    struct lmp_endpoint *endpoint;
 };
 
 domainid_t global_pid_counter;

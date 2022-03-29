@@ -15,15 +15,19 @@
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
 
-
-
-
-
-
 errval_t
 aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num) {
     // TODO: implement functionality to send a number over the channel
     // given channel and wait until the ack gets returned.
+
+    printf("Inside RPC_SEND_NUMBER \n");
+    
+    errval_t err = lmp_chan_send(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, 1,0,0,0,0);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not send number\n");
+        return AOS_ERR_LMP_SEND_FAILURE;
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -81,16 +85,47 @@ aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
     return SYS_ERR_OK;
 }
 
-
+void recv_closure (void *arg) {
+    printf("RECV CLOSURE CALLED!!!\n");
+    struct lmp_chan *lc = arg;
+    lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(recv_closure, arg));
+}
 
 /**
  * \brief Returns the RPC channel to init.
  */
 struct aos_rpc *aos_rpc_get_init_channel(void)
 {
-    //TODO: Return channel to talk to init process
-    debug_printf("aos_rpc_get_init_channel NYI\n");
-    return NULL;
+    debug_printf("inside aos_rpc_get_init_channel\n");
+    
+    struct aos_rpc *aos_rpc = (struct aos_rpc * )malloc(sizeof(struct aos_rpc));
+    if(!aos_rpc){
+        printf("Could not malloc aos_rpc struct in rpc_get_init_channel \n");
+        return NULL;
+    }
+    lmp_chan_init(&aos_rpc->chan);
+
+    errval_t err = endpoint_create(8, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
+
+    struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
+    assert(ep);
+
+    if(err_is_fail(err)){
+        printf("Could not create endpoint in child\n");
+        return NULL;
+    }
+
+    aos_rpc->chan.remote_cap = cap_init_endpoint;
+
+
+    printf("chan initialized\n");
+    bool a = false; 
+
+    lmp_chan_register_recv(&aos_rpc->chan, get_default_waitset(), MKCLOSURE(recv_closure, &a));
+
+    printf("returning from get_init_channel\n");
+
+    return aos_rpc;
 }
 
 /**

@@ -88,7 +88,6 @@ static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
 static errval_t spawn_setup_cspace(struct spawninfo *si)
 {
     errval_t err;
-
     // create root cnode
     err = cnode_create_l1(&si->rootcn_cap, &si->rootcn);
     if (err_is_fail(err)) {
@@ -167,6 +166,20 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to retype self endpoint");
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);
+    }
+
+
+    // copy init's endpoint into known location in child
+    struct capref child_cap_init_endpoint = {
+        .cnode = si->taskcn,
+        .slot = cap_init_endpoint.slot
+    };
+
+    err = cap_copy(child_cap_init_endpoint, cap_init_endpoint);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to copy init endpoint to cap location in child");
+        return err_push(err, SPAWN_ERR_CREATE_SELFEP); // ToDo: chose better error
     }
 
     // map root L1 cnode

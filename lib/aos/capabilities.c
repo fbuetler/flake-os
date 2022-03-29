@@ -145,6 +145,12 @@ struct capref cap_initep = {
     .slot  = TASKCN_SLOT_INITEP
 };
 
+/// Capability for endpoint to init channel
+struct capref cap_init_endpoint = {
+    .cnode = TASK_CNODE_INIT,
+    .slot  = TASKCN_SLOT_INIT_ENDPOINT
+};
+
 /// Capability to the URPC frame
 struct capref cap_urpc = {
     .cnode = TASK_CNODE_INIT,

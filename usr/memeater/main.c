@@ -149,10 +149,20 @@ int main(int argc, char *argv[])
 
     debug_printf("memeater started....\n");
 
+    //endpoint_create(32, init_rpc);
     init_rpc = aos_rpc_get_init_channel();
     if (!init_rpc) {
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
+
+    err = aos_rpc_send_number(init_rpc, 1);
+    
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not send number! \n");
+    }
+
+    debug_printf("after aos_rpc_get_init_channel() \n");
+
 
     mem_rpc = aos_rpc_get_memory_channel();
     if (!mem_rpc) {
