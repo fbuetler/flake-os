@@ -168,7 +168,6 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);
     }
 
-
     // copy init's endpoint into known location in child
     struct capref child_cap_init_endpoint = {
         .cnode = si->taskcn,

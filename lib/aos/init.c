@@ -146,6 +146,14 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     lmp_endpoint_init();
 
     // HINT: Use init_domain to check if we are the init domain.
+    if (init_domain) {
+        err = cap_retype(cap_selfep, cap_dispatcher, 0, ObjType_EndPointLMP, 0, 1);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to retype self endpoint of init");
+            return err_push(err, SPAWN_ERR_CREATE_SELFEP);
+        }
+        return SYS_ERR_OK;
+    }
 
     // TODO MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
@@ -162,6 +170,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
     // right now we don't have the nameservice & don't need the terminal
     // and domain spanning, so we return here
+
     return SYS_ERR_OK;
 }
 

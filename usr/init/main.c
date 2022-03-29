@@ -693,8 +693,7 @@ __attribute__((unused)) static void test_paging_unmap(size_t size)
 }
 
 
-__attribute__((unused)) 
-static void run_demo_m2(void)
+__attribute__((unused)) static void run_demo_m2(void)
 {
     // Show your implementation of paging_map_frame_attr is correct by
     // mapping a large frame.
@@ -709,8 +708,8 @@ static void run_demo_m2(void)
     // test_spawn_multiple_processes(200);
 
     // demo 4: start and kill in a loop
-    //test_spawn_multiple_processes(2);
-    //test_spawn_and_kill_multiple_process(200);
+    // test_spawn_multiple_processes(2);
+    // test_spawn_and_kill_multiple_process(200);
 }
 
 __attribute__((unused)) static void run_m2_tests(void)
@@ -729,6 +728,55 @@ __attribute__((unused)) static void run_m2_tests(void)
 }
 
 
+//static void init_recv_handler(void *arg)
+//{
+//    struct lmp_chan *lc = arg;
+//    struct lmp_recv_msg msg = LMP_RECV_MSG_INIT;
+//    struct capref cap;
+//    errval_t err;
+//
+//    printf("oh no 1\n");
+//    err = lmp_chan_recv(lc, &msg, &cap);
+//    printf("oh no 2\n");
+//
+//    if (err_is_fail(err)) {
+//        if (lmp_err_is_transient(err)) {
+//            // re-register
+//            struct event_closure recv_handler = {
+//                .handler = init_recv_handler,
+//                .arg = arg,
+//            };
+//            struct waitset *ws = get_default_waitset();
+//            err = lmp_chan_register_recv(lc, ws, recv_handler);
+//            if (err_is_fail(err)) {
+//                DEBUG_ERR(err, "in lmp_chan_register_recv");
+//                abort();
+//            }
+//        } else {
+//            DEBUG_ERR(err, "in lmp_chan_recv");
+//            abort();
+//        }
+//    }
+//
+//    assert(!capref_is_null(cap));
+//
+//    // store cap
+//    lc->remote_cap = cap;
+//
+//    printf("oh no 3\n");
+//
+//    err = lmp_chan_send0(lc, LMP_SEND_FLAGS_DEFAULT, lc->remote_cap);
+//    if (err_is_fail(err)) {
+//        DEBUG_ERR(err, "COULD NOT SEND FROM INIT TO CHILD \n");
+//        abort();
+//    }
+//
+//    printf("oh no 4\n");
+//}
+
+//static struct lmp_chan memeater_chan;
+
+
 static int bsp_main(int argc, char *argv[])
 {
     errval_t err;
@@ -744,7 +792,6 @@ static int bsp_main(int argc, char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialize_ram_alloc");
     }
-
 
     // TODO: initialize mem allocator, vspace management here
 
@@ -766,43 +813,84 @@ static int bsp_main(int argc, char *argv[])
                                           .paging_state = *get_current_paging_state(),
                                           .dispatcher_handle = 0 };
 
-    err = cap_retype(cap_selfep, cap_dispatcher, 0, ObjType_EndPointLMP, 0, 1);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retype self endpoint of init");
-        return err_push(err, SPAWN_ERR_CREATE_SELFEP);
-    }
 
     err = lmp_endpoint_create_in_slot(6, cap_init_endpoint, &init_spawninfo.endpoint);
-
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "Can't create endpoint in init process");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed create endpoint in init process");
         abort();
     }
 
     printf("spawning memeater \n");
     struct spawninfo si;
     domainid_t pid;
-    spawn_load_by_name("memeater", &si, &pid);
-
-    while(1){
-        struct lmp_recv_msg recv_msg;
-        recv_msg.buf.buflen = LMP_MSG_LENGTH;
-        err = lmp_endpoint_recv(init_spawninfo.endpoint, &recv_msg.buf, NULL);
-        if(err_is_fail(err)){
-            //DEBUG_ERR(err, "err");
-            //assert(0);
-        }else{
-            printf("worked :) \n");
-            //assert(0);
-        }
-        
+    err = spawn_load_by_name("memeater", &si, &pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn memeater");
     }
-    //lmp_chan_recv( ,recv_msg ,NULL);
 
-    //run_m1_tests();
-    //run_m2_tests();
-    //run_demo_m2();
+    struct capref memeater_endpoint_cap;
+    err = slot_alloc(&memeater_endpoint_cap);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("Failed to allocate slot for memeater endpoint\n");
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    //err = lmp_chan_accept(&memeater_chan, DEFAULT_LMP_BUF_WORDS, NULL_CAP);
+    //if (err_is_fail(err)) {
+    //    return err_push(err, INIT_ERR_SETUP_MONITOR_CHAN);
+    //}
+
+    //err = lmp_chan_alloc_recv_slot(&memeater_chan);
+    //if (err_is_fail(err)) {
+    //    return err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+    //}
+    ////lmp_chan_set_recv_slot(&memeater_chan, memeater_endpoint_cap);
+
+    //// Register receive handlers for these channels
+    //struct waitset *ws = get_default_waitset();
+
+    //struct event_closure recv_handler = {
+    //    .handler = init_recv_handler,
+    //    .arg = &memeater_chan,
+    //};
+    //err = lmp_chan_register_recv(&memeater_chan, ws, recv_handler);
+    //if (err_is_fail(err)) {
+    //    return err_push(err, LIB_ERR_CHAN_REGISTER_RECV);
+    //}
+
+     while (1) {
+        struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
+
+        lmp_endpoint_set_recv_slot(init_spawninfo.endpoint, memeater_endpoint_cap);
+        err = lmp_endpoint_recv(init_spawninfo.endpoint, &recv_msg.buf,
+                                &memeater_endpoint_cap);
+        if (err_is_fail(err)){
+            if(err == LIB_ERR_NO_LMP_MSG || lmp_err_is_transient(err)) {
+                //DEBUG_ERR(err, "no lmp msg, or is transiend: continue! \n");
+                continue;
+            } else {
+                DEBUG_ERR(err, "loop in main, !err_is_transient \n");
+                assert(0);
+            }
+        } else {
+            printf("worked :) \n");
+            // TODO caution: si is on stack & memeater_endpoint_cap is on stack
+            //si.endpoint = &memeater_endpoint_cap;
+            break;
+        }
+    }
+
+     struct aos_rpc *aos_rpc = (struct aos_rpc * )malloc(sizeof(struct aos_rpc));
+     lmp_chan_init(&aos_rpc->chan);
+
+     aos_rpc->chan.remote_cap = memeater_endpoint_cap;
+
+
+    // lmp_chan_recv( ,recv_msg ,NULL);
+
+    // run_m1_tests();
+    // run_m2_tests();
+    // run_demo_m2();
 
     // TODO: Spawn system processes, boot second core etc. here
 
@@ -813,7 +901,7 @@ static int bsp_main(int argc, char *argv[])
     // Hang around
     struct waitset *default_ws = get_default_waitset();
     while (true) {
-        err = event_dispatch(default_ws);
+        err = event_dispatch_debug(default_ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();
@@ -855,4 +943,3 @@ int main(int argc, char *argv[])
     else
         return app_main(argc, argv);
 }
-

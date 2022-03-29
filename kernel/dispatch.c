@@ -167,11 +167,14 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
     err = caps_lookup_cap(&recv->cspace.cap, recv_ep->recv_cspc, 2,
                           &recv_cspace_cap, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err) || recv_cspace_cap->type != ObjType_L1CNode) {
+        printk(LOG_NOTE, "failed a\n");
+        printk(LOG_NOTE, "type %d\n", recv_cspace_cap->type);
         return SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID;
     }
     // Check index into L1 cnode
     capaddr_t l1index = recv_ep->recv_cptr >> L2_CNODE_BITS;
     if (l1index >= cnode_get_slots(recv_cspace_cap)) {
+        printk(LOG_NOTE, "failed b\n");
         return SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID;
     }
     // Get the cnode
@@ -180,6 +183,7 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
     struct capability *recv_cnode_cap = &recv_cnode_cte->cap;
     // Check for cnode type
     if (recv_cnode_cap->type != ObjType_L2CNode) {
+        printk(LOG_NOTE, "failed c\n");
         return SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID;
     }
     // The slot within the cnode

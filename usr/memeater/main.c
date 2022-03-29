@@ -146,23 +146,33 @@ static errval_t test_basic_rpc(void)
 int main(int argc, char *argv[])
 {
     errval_t err = SYS_ERR_OK;
-
     debug_printf("memeater started....\n");
 
-    //endpoint_create(32, init_rpc);
     init_rpc = aos_rpc_get_init_channel();
+    // init_rpc = get_init_rpc();
     if (!init_rpc) {
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
 
-    err = aos_rpc_send_number(init_rpc, 1);
+    err = lmp_chan_send0(&init_rpc->chan, LMP_SEND_FLAGS_DEFAULT, init_rpc->chan.local_cap);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not send memeater endpoint cap\n");
+        abort();
+    }
+
+    err = event_dispatch_debug(get_default_waitset());
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            abort();
+        }
+
+    //err = aos_rpc_send_number(init_rpc, 1);
     
     if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Could not send number! \n");
+        USER_PANIC_ERR(err, "Could not send numberino! \n");
     }
 
     debug_printf("after aos_rpc_get_init_channel() \n");
-
 
     mem_rpc = aos_rpc_get_memory_channel();
     if (!mem_rpc) {

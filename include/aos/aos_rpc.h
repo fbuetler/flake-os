@@ -24,6 +24,18 @@ struct aos_rpc {
     struct lmp_chan chan;
 };
 
+enum aos_rpc_msg_type {
+    SendNumber,
+    SendString
+};
+
+struct aos_rpc_msg {
+    int header_size;
+    int payload_size;
+    int message_type;
+    char payload[0];
+};
+
 /**
  * \brief Initialize an aos_rpc struct.
  */
@@ -114,5 +126,6 @@ struct aos_rpc *aos_rpc_get_process_channel(void);
 struct aos_rpc *aos_rpc_get_serial_channel(void);
 
 void recv_closure (void *arg);
+void recv_closure_normal (void *arg);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H
