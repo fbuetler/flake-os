@@ -149,29 +149,7 @@ int main(int argc, char *argv[])
     debug_printf("memeater started....\n");
 
     init_rpc = get_init_rpc();
-    if (!init_rpc) {
-        USER_PANIC_ERR(err, "init RPC channel NULL?\n");
-    }
-
-    err = lmp_chan_send0(&init_rpc->chan, LMP_SEND_FLAGS_DEFAULT, init_rpc->chan.local_cap);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not send memeater endpoint cap\n");
-        abort();
-    }
-
-    err = event_dispatch_debug(get_default_waitset());
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            abort();
-        }
-
-    //err = aos_rpc_send_number(init_rpc, 1);
-    
-    if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Could not send numberino! \n");
-    }
-
-    debug_printf("after aos_rpc_get_init_channel() \n");
+    err = aos_rpc_init(init_rpc);
 
     mem_rpc = aos_rpc_get_memory_channel();
     if (!mem_rpc) {

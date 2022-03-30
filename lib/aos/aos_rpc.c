@@ -76,7 +76,27 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 }
 
 errval_t aos_rpc_init(struct aos_rpc *child_rpc){
+	errval_t err;
 	// TODO(M3): Add state
+    
+    struct aos_rpc *init_rpc = get_init_rpc();
+    if (!init_rpc) {
+		DEBUG_PRINTF("failed to get init rpc");
+		return SYS_ERR_LMP_NO_INIT_RPC;
+    }
+
+    err = lmp_chan_send0(&init_rpc->chan, LMP_SEND_FLAGS_DEFAULT, init_rpc->chan.local_cap);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not send memeater endpoint cap\n");
+		return err;
+    }
+
+    err = event_dispatch_debug(get_default_waitset());
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "in event_dispatch");
+		return err;
+    }
+
 	return SYS_ERR_OK;
 }
 
