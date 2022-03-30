@@ -124,31 +124,19 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_m
         size_t remaining_size = total_size - recv_size;
         err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap);
 
-<<<<<<< HEAD
         if(lmp_err_is_transient(err) || err == LIB_ERR_NO_LMP_MSG) {
             // todo: retry fixed amount before returning
             //DEBUG_PRINTF("inside aos_rpc_recv_msg, looping \n");
-=======
-        if(lmp_err_is_transient(err)) {
->>>>>>> d38e1290e6ee1896594d1952db2a0916c96536dc
             continue;
         }
 
         if (err_is_fail(err)) {
-<<<<<<< HEAD
             DEBUG_ERR(err, "recieve message has an error \n");
-=======
-            DEBUG_ERR(err, "recieve message has an error. Ignore it and continue \n");
->>>>>>> d38e1290e6ee1896594d1952db2a0916c96536dc
             return err;
         }
 
         size_t copy_size = MIN(remaining_size, full_lmp_msg_size);
-<<<<<<< HEAD
         memcpy((*ret_msg) + recv_size, recv_buffer.words, copy_size);
-=======
-        memcpy(ret_msg + recv_size, recv_buffer.words, copy_size);
->>>>>>> d38e1290e6ee1896594d1952db2a0916c96536dc
         recv_size += copy_size;
     }
 
@@ -204,13 +192,6 @@ errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret)
         return err_push(err, LIB_ERR_RPC_RECV);
     }
 
-<<<<<<< HEAD
-=======
-    if (!msg) {
-        DEBUG_PRINTF("Something went wrong \n");  // ToDo: improve error
-        return LIB_ERR_SHOULD_NOT_GET_HERE;
-    }
->>>>>>> d38e1290e6ee1896594d1952db2a0916c96536dc
 
     assert(msg->message_type == SendNumber);
 
