@@ -46,7 +46,6 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 				assert(0);
 			}
 		} else {
-			printf("worked :) \n");
 			// TODO caution: si is on stack & memeater_endpoint_cap is on stack
 			//si.endpoint = &memeater_endpoint_cap;
 			break;
@@ -106,7 +105,7 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc){
 
     /* set receive handler */
     err = lmp_chan_register_recv(&aos_rpc->chan, get_default_waitset(),
-                                 MKCLOSURE(handshake_recv_closure, &aos_rpc->chan));
+                                 MKCLOSURE(aos_handshake_recv_closure, &aos_rpc->chan));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not register recv handler in child \n");
         return err;
@@ -256,35 +255,8 @@ aos_rpc_process_get_all_pids(struct aos_rpc *child_rpc, domainid_t **pids,
 	// TODO (M5): implement process id discovery
 	return SYS_ERR_OK;
 }
-void recv_closure_normal(void *arg) {
-	printf("Inside normal resv closure\n");
 
-}
-
-void recv_closure (void *arg) {
-	errval_t err;
-
-	printf("Inside recv closure\n");
-
-	struct lmp_chan *lc = arg;
-	struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
-	struct capref cap;
-
-	err = lmp_chan_recv(lc, &recv_msg, &cap);
-	if (err_is_fail(err) && lmp_err_is_transient(err)) {
-		DEBUG_ERR(err, "lmp transient error received");
-		lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(recv_closure, lc));
-		return;
-	} else if (err_is_fail(err)) {
-		DEBUG_ERR(err, "failed to receive message");
-		return;
-	}
-	debug_printf("msg length: %d\n", recv_msg.buf.msglen);
-
-	lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(recv_closure, lc));
-}
-
-void handshake_recv_closure (void *arg) {
+void aos_handshake_recv_closure (void *arg) {
 	errval_t err;
 
 	printf("Inside handshake recv closure\n");
@@ -296,7 +268,7 @@ void handshake_recv_closure (void *arg) {
 	err = lmp_chan_recv(lc, &recv_msg, &cap);
 	if (err_is_fail(err) && lmp_err_is_transient(err)) {
 		DEBUG_ERR(err, "lmp transient error received");
-		lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(handshake_recv_closure, lc));
+		lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(aos_handshake_recv_closure, lc));
 		return;
 	} else if (err_is_fail(err)) {
 		DEBUG_ERR(err, "failed to receive message");
@@ -306,7 +278,7 @@ void handshake_recv_closure (void *arg) {
 	}
 	debug_printf("msg length: %d\n", recv_msg.buf.msglen);
 
-	lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(handshake_recv_closure, lc));
+	lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(aos_handshake_recv_closure, lc));
 }
 
 /**
@@ -314,48 +286,7 @@ void handshake_recv_closure (void *arg) {
  */
 struct aos_rpc *aos_rpc_get_init_channel(void)
 {
-	debug_printf("inside aos_rpc_get_init_channel\n");
-	
-	struct aos_rpc *aos_rpc = (struct aos_rpc * )malloc(sizeof(struct aos_rpc));
-	if(!aos_rpc){
-		printf("Could not malloc aos_rpc struct in rpc_get_init_channel \n");
-		return NULL;
-	}
-
-	lmp_chan_init(&aos_rpc->chan);
-
-	struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
-	assert(ep);
-
-	aos_rpc->chan.endpoint = ep;
-	errval_t err = endpoint_create(8, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
-
-	if(err_is_fail(err)){
-		DEBUG_ERR(err, "Could not create endpoint in child \n");
-		return NULL;
-	}
-
-	err = lmp_chan_alloc_recv_slot(&aos_rpc->chan);
-
-	if(err_is_fail(err)){
-		DEBUG_ERR(err, "Could not set endpoint recv slot\n");
-		return NULL;
-	}
-
-	aos_rpc->chan.remote_cap = cap_initep;
-
-	printf("chan initialized\n");
-	
-	err = lmp_chan_register_recv(&aos_rpc->chan, get_default_waitset(), MKCLOSURE(recv_closure, &aos_rpc->chan));
-
-	if(err_is_fail(err)){
-		DEBUG_ERR(err, "Could not register channel recieve function\n");
-		return NULL;
-	}
-
-	printf("returning from get_init_channel\n");
-
-	return aos_rpc;
+	return get_init_rpc();	
 }
 
 /**
