@@ -25,12 +25,12 @@
 static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 {
     errval_t err;
-    size_t total_size = msg->header_bytes + msg->payload_bytes;
+    size_t total_bytes = msg->header_bytes + msg->payload_bytes;
 
     uint64_t *buf = (uint64_t *)msg;
 
     size_t transferred_size = 0;
-    while (total_size - transferred_size >= 4 * sizeof(uint64_t)) {
+    while (total_bytes - transferred_size >= 4 * sizeof(uint64_t)) {
         struct capref send_cap;
         if (transferred_size == 0 && !capcmp(msg->cap, NULL_CAP)) {
             send_cap = msg->cap;
@@ -38,20 +38,25 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
             send_cap = NULL_CAP;
         }
 
+        //size_t remaining = total_bytes - transferred_size;
+        //if (remaining < LMP_MSG_LENGTH_BYTES) {
+        //    memset(buf + remaining, 0, (LMP_MSG_LENGTH_BYTES - remaining));
+        //}
+
         do {
             err = lmp_chan_send(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, send_cap, 4, buf[0],
                                 buf[1], buf[2], buf[3]);
         } while (lmp_err_is_transient(err));
-
         if (err_is_fail(err)) {
             DEBUG_PRINTF("chan_send in loop\n");
             return err_push(err, LIB_ERR_LMP_CHAN_SEND);
         }
+
         buf += 4;
         transferred_size += 4 * sizeof(uint64_t);
     }
 
-    size_t remaining = total_size - transferred_size;
+    size_t remaining = total_bytes - transferred_size;
     do {
         switch (remaining / sizeof(uint64_t)) {
         case 0:
@@ -89,6 +94,61 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     return SYS_ERR_OK;
 }
 
+errval_t aos_rpc_recv_msg_handler(void *args)
+{
+    errval_t err;
+    struct aos_rpc *rpc = (struct aos_rpc *)args;
+
+    // receive first message
+    struct capref cap;
+    struct lmp_recv_msg recv_buf = LMP_RECV_MSG_INIT;
+
+    // TODO allocate receive slot
+    err = lmp_chan_recv(&rpc->chan, &recv_buf, &cap);
+    if (err_is_fail(err) && lmp_err_is_transient(err)) {
+        goto reregister;
+    } else if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_LMP_CHAN_RECV);
+    }
+
+    if (!rpc->is_busy) {
+        // setup rpc state with new message and set to busy
+
+        struct aos_rpc_msg *tmp_msg = (struct aos_rpc_msg *)recv_buf.words;
+        size_t total_bytes = tmp_msg->header_bytes + tmp_msg->payload_bytes;
+
+        size_t recv_bytes = MIN(LMP_MSG_LENGTH_BYTES, total_bytes);
+
+        // allocate space for return message, copy current message already to it
+        rpc->recv_msg = malloc(total_bytes);
+        if (!rpc->recv_msg) {
+            DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg_handler for ret_msg failed \n");
+            return LIB_ERR_MALLOC_FAIL;
+        }
+        memcpy(rpc->recv_msg, tmp_msg, recv_bytes);
+        rpc->recv_bytes = recv_bytes;
+        rpc->is_busy = true;
+    } else {
+        size_t total_bytes = rpc->recv_msg->header_bytes + rpc->recv_msg->payload_bytes;
+        size_t remaining_bytes = total_bytes - rpc->recv_bytes;
+        size_t copy_bytes = MIN(remaining_bytes, LMP_MSG_LENGTH_BYTES);
+        memcpy(((char *)rpc->recv_msg) + rpc->recv_bytes, recv_buf.words, copy_bytes);
+        rpc->recv_bytes += copy_bytes;
+    }
+
+    if (rpc->recv_bytes < rpc->recv_msg->payload_bytes + rpc->recv_msg->header_bytes) {
+        goto reregister;
+    }
+
+    rpc->is_busy = false;
+    rpc->process_msg_func(rpc->recv_msg);
+
+reregister:
+    lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
+                           MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, args));
+    return SYS_ERR_OK;
+}
+
 /**
  * Abstraction to receive a message from possibly multiple chunks and assemble them
  * @param rpc
@@ -96,58 +156,62 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
  * function based on the size of the payload/header
  * @return
  */
-static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_msg)
-{
-    // receive first message
-    struct capref ret_cap;
-    struct lmp_recv_msg recv_buffer;
-    recv_buffer.buf.buflen = 4;  // unknown how large the first message is, therefore
-                                 // always accept all the arguments for the first message
+// static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_msg)
+// {
+//     errval_t err;
+//     // receive first message
+//     struct capref ret_cap;
+//     struct lmp_recv_msg recv_buffer;
+//     recv_buffer.buf.buflen = 4;  // unknown how large the first message is, therefore
+//                                  // always accept all the arguments for the first message
 
-    errval_t err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap);
+//     do {
+//         err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap);
+//     } while (lmp_err_is_transient(err) || err == LIB_ERR_NO_LMP_MSG);
 
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not recieve message \n");
-        return err;
-    }
-    // extract total size of this message from initial message
-    struct aos_rpc_msg *tmp_msg = (struct aos_rpc_msg *)recv_buffer.words;
-    size_t total_size = tmp_msg->header_bytes + tmp_msg->payload_bytes;  // size in bytes
-    size_t full_lmp_msg_size
-        = sizeof(uintptr_t)
-          * 4;  // total size of an lmp message which uses all 4 arguments
-    size_t recv_size = full_lmp_msg_size;  // first message contained up to 4 arguments
+//     if (err_is_fail(err)) {
+//         DEBUG_ERR(err, "Could not recieve message \n");
+//         return err;
+//     }
+//     // extract total size of this message from initial message
+//     struct aos_rpc_msg *tmp_msg = (struct aos_rpc_msg *)recv_buffer.words;
+//     size_t total_bytes = tmp_msg->header_bytes + tmp_msg->payload_bytes;  // size in
+//     bytes size_t full_lmp_msg_size
+//         = sizeof(uintptr_t)
+//           * 4;  // total size of an lmp message which uses all 4 arguments
+//     size_t recv_bytes = full_lmp_msg_size;  // first message contained up to 4
+//     arguments
 
-    // allocate space for return message, copy current message already to it
-    *ret_msg = malloc(total_size);  // todo: check if malloc worked
-    if (!*ret_msg) {
-        DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg for ret_msg failed \n");
-        return LIB_ERR_MALLOC_FAIL;
-    }
-    memcpy(*ret_msg, tmp_msg, MIN(recv_size, total_size));
+//     // allocate space for return message, copy current message already to it
+//     *ret_msg = malloc(total_bytes);  // todo: check if malloc worked
+//     if (!*ret_msg) {
+//         DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg for ret_msg failed \n");
+//         return LIB_ERR_MALLOC_FAIL;
+//     }
+//     memcpy(*ret_msg, tmp_msg, MIN(recv_bytes, total_bytes));
 
-    while (recv_size < total_size) {
-        size_t remaining_size = total_size - recv_size;
-        err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap);
+//     while (recv_bytes < total_bytes) {
+//         err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap);
+//         if (lmp_err_is_transient(err) || err == LIB_ERR_NO_LMP_MSG) {
+//             // todo: retry fixed amount before returning
+//             // DEBUG_PRINTF("inside aos_rpc_recv_msg, looping \n");
+//             continue;
+//         }
 
-        if (lmp_err_is_transient(err) || err == LIB_ERR_NO_LMP_MSG) {
-            // todo: retry fixed amount before returning
-            // DEBUG_PRINTF("inside aos_rpc_recv_msg, looping \n");
-            continue;
-        }
+//         if (err_is_fail(err)) {
+//             DEBUG_ERR(err, "recieve message has an error \n");
+//             return err;
+//         }
 
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "recieve message has an error \n");
-            return err;
-        }
+//         size_t remaining_bytes = total_bytes - recv_bytes;
+//         size_t copy_bytes = MIN(remaining_bytes, full_lmp_msg_size);
+//         memcpy(((char *)(*ret_msg)) + recv_bytes, recv_buffer.words, copy_bytes);
+//         recv_bytes += copy_bytes;
+//     }
 
-        size_t copy_size = MIN(remaining_size, full_lmp_msg_size);
-        memcpy(((char *)(*ret_msg)) + recv_size, recv_buffer.words, copy_size);
-        recv_size += copy_size;
-    }
+//     return SYS_ERR_OK;
+// }
 
-    return SYS_ERR_OK;
-}
 
 errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
 {
@@ -176,6 +240,7 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
     return SYS_ERR_OK;
 }
 
+/**
 errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret)
 {
     errval_t err;
@@ -202,18 +267,20 @@ errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret)
     free(msg);
     return SYS_ERR_OK;
 }
+*/
 
 errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 {
     errval_t err;
 
-    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + strlen(string));
+    size_t len = strlen(string);
+    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + len);
 
     msg->header_bytes = sizeof(struct aos_rpc_msg);
-    msg->payload_bytes = strlen(string);
+    msg->payload_bytes = len;
     msg->message_type = SendString;
     msg->cap = NULL_CAP;
-    strncpy(msg->payload, string, strlen(string));
+    memcpy(msg->payload, string, len);
 
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
@@ -227,6 +294,7 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
     return SYS_ERR_OK;
 }
 
+/*
 errval_t aos_rpc_get_string(struct aos_rpc *rpc, char **ret_string)
 {
     // call rpc_get_msg(), read payload size, malloc ret_string to this size, copy
@@ -247,6 +315,7 @@ errval_t aos_rpc_get_string(struct aos_rpc *rpc, char **ret_string)
     }
 
     assert(msg->message_type == SendString);
+    DEBUG_PRINTF("Receiving string with length %d\n", msg->payload_bytes);
 
     *ret_string = malloc(msg->payload_bytes);
     if (!*ret_string) {
@@ -254,11 +323,12 @@ errval_t aos_rpc_get_string(struct aos_rpc *rpc, char **ret_string)
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    strncpy(*ret_string, msg->payload, msg->payload_bytes);
+    strncpy(*ret_string, msg->payload, msg->payload_bytes + 1);
+    DEBUG_PRINTF("Real string length: %d\n", strlen(*ret_string));
     free(msg);
 
     return SYS_ERR_OK;
-}
+}*/
 
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment,
                              struct capref *ret_cap, size_t *ret_bytes)
@@ -375,6 +445,10 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 {
     errval_t err;
+
+    // initial state
+    aos_rpc->is_busy = false;
+
 
     // TODO MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
@@ -509,4 +583,11 @@ struct aos_rpc *aos_rpc_get_serial_channel(void)
     // implements print/read functionality)
     debug_printf("aos_rpc_get_serial_channel NYI\n");
     return NULL;
+}
+
+void aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func)
+{
+    rpc->process_msg_func = process_msg_func;
+    lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
+                           MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, rpc));
 }

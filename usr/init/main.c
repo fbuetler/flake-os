@@ -764,15 +764,46 @@ __attribute__((unused)) static void test_get_number(void)
         DEBUG_ERR(err, "Error in recieving string in init \n");
         assert(false);
     }
-    printf("Recieved string %s \n", recv_str);
+    printf("Recieved string \"%s\" \n", recv_str);
 
     printf("Small string success! \n");
+
+    printf("Testing recv big string ... \n");
+
+    char *recv_big_str;
+    err = aos_rpc_get_string(&init_spawninfo.rpc, &recv_big_str);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Error in recieving string in init \n");
+        assert(false);
+    }
+    printf("Recieved string \"%s\" \n", recv_big_str);
+
+    printf("Big string success! \n");
 }
+
 
 __attribute__((unused)) static void run_m3_tests(void)
 {
     test_spawn_memeater();
-    test_get_number();
+    //test_get_number();
+}
+
+static errval_t do_stuff(struct aos_rpc_msg *msg)
+{
+    switch (msg->message_type) {
+    case SendNumber:
+        printf("received number: %d\n", *((uint64_t *)msg->payload));
+        break;
+    case SendString:
+        printf("received string: %s\n", msg->payload);
+        break;
+    default:
+        printf("received unknown message type\n");
+        break;
+    }
+
+    return SYS_ERR_OK;
 }
 
 static int bsp_main(int argc, char *argv[])
@@ -817,8 +848,14 @@ static int bsp_main(int argc, char *argv[])
     grading_test_late();
 
     debug_printf("Message handler loop\n");
+
     // Hang around
     struct waitset *default_ws = get_default_waitset();
+    lmp_chan_register_recv(&init_spawninfo.rpc.chan, default_ws, MKCLOSURE((void (*)(void*))aos_rpc_recv_msg_handler, &init_spawninfo.rpc));
+
+    aos_rpc_register_recv(&init_spawninfo.rpc, do_stuff);
+
+
     while (true) {
         err = event_dispatch(default_ws);
         if (err_is_fail(err)) {

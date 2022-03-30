@@ -110,12 +110,12 @@ static errval_t request_and_map_memory(void)
 static errval_t test_basic_rpc(void)
 {
     errval_t err;
-
+    printf("we want to send a string of length %d\n", strlen(str));
     debug_printf("RPC: testing basic RPCs...\n");
     debug_printf("RPC: sending number...\n");
     err = aos_rpc_send_number(init_rpc, 42);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not send a string\n");
+        DEBUG_ERR(err, "could not send a number\n");
         return err;
     }
 
@@ -161,7 +161,6 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
-
 
     /* test printf functionality */
     debug_printf("testing terminal printf function...\n");

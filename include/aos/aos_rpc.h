@@ -18,15 +18,24 @@
 #include <aos/aos.h>
 
 
+// forward declaration
+struct aos_rpc_msg;
+
+typedef errval_t (* process_msg_func_t)(struct aos_rpc_msg*); 
 /* An RPC binding, which may be transported over LMP or UMP. */
 struct aos_rpc {
     // TODO(M3): Add state
     struct lmp_chan chan;
+    bool is_busy;
+
+    struct aos_rpc_msg *recv_msg;
+    size_t recv_bytes;
+    process_msg_func_t process_msg_func;
 };
 
 enum aos_rpc_msg_type {
-    SendNumber,
-    SendString
+    SendNumber = 1,
+    SendString = 2
 };
 
 struct aos_rpc_msg {
@@ -43,6 +52,10 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
  */
 errval_t aos_rpc_init(struct aos_rpc *rpc);
 
+/**
+ * \brief Message receive handler to be used in the 
+ */
+errval_t aos_rpc_recv_msg_handler(void *args);
 
 /**
  * \brief Send a number.
@@ -131,5 +144,7 @@ struct aos_rpc *aos_rpc_get_process_channel(void);
 struct aos_rpc *aos_rpc_get_serial_channel(void);
 
 void aos_handshake_recv_closure (void *arg);
+
+void aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H
