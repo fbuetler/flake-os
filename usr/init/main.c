@@ -736,12 +736,6 @@ __attribute__((unused)) static void test_spawn_memeater(void) {
         DEBUG_ERR(err, "failed to spawn memeater");
     }
     assert(err_is_ok(err));
-
-    err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si.rpc);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup channel to init");
-    }
-    assert(err_is_ok(err));
 }
 
 

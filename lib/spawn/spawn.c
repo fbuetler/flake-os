@@ -685,6 +685,13 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     si->pid = *pid;
     spawn_add_process(si);
 
+    // setup lmp channel via handshake to child
+    err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si->rpc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup channel to child");
+        return err;
+    }
+
     return SYS_ERR_OK;
 }
 
