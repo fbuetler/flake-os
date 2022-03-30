@@ -209,6 +209,12 @@ aos_rpc_send_string(struct aos_rpc *child_rpc, const char *string) {
 	return SYS_ERR_OK;
 }
 
+/**
+ * \brief Receive a number from the given channel.
+ * 
+ * After you obtained a new frame capability, you can use your paging infrastructure from the
+ * previous milestone to map it and access the memory on it.
+ */
 errval_t
 aos_rpc_get_ram_cap(struct aos_rpc *child_rpc, size_t bytes, size_t alignment,
 					struct capref *ret_cap, size_t *ret_bytes) {
@@ -296,8 +302,7 @@ struct aos_rpc *aos_rpc_get_memory_channel(void)
 {
 	//TODO: Return channel to talk to memory server process (or whoever
 	//implements memory server functionality)
-	debug_printf("aos_rpc_get_memory_channel NYI\n");
-	return NULL;
+	return get_init_rpc();	
 }
 
 /**

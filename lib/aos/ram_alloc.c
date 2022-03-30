@@ -20,7 +20,17 @@
 static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignment)
 {
     //TODO(M3): Implement me!
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+
+    struct aos_rpc *init_rpc = get_init_rpc();
+    size_t allocated_size;
+    err = aos_rpc_get_ram_cap(init_rpc, size, alignment, ret, &allocated_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get remote ram cap");
+        return err_push(err, LIB_ERR_RAM_ALLOC_REMOTE);
+    }
+
+    return SYS_ERR_OK;
 }
 
 

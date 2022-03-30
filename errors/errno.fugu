@@ -225,6 +225,7 @@ errors libaos LIB_ERR_ {
     failure CNODE_CREATE_FROM_MEM "Failure in cnode_create_from_mem()",
     failure CNODE_CREATE_FOREIGN_L2 "Failure in cnode_create_foreign_l2()",
     failure RAM_ALLOC           "Failure in ram_alloc()",
+    failure RAM_ALLOC_REMOTE    "Failure in ram_alloc_remote()",
     failure RAM_ALLOC_WRONG_SIZE "Wrong size of memory requested in ram alloc",
     failure RAM_ALLOC_MS_CONSTRAINTS "Ram alloc failed due to constraints to mem_serv",
     failure RAM_ALLOC_FIXED_EXHAUSTED "No more RAM available in early allocator",
