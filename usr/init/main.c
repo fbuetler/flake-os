@@ -813,8 +813,9 @@ static int bsp_main(int argc, char *argv[])
                                           .paging_state = *get_current_paging_state(),
                                           .dispatcher_handle = 0 };
 
+    lmp_chan_init(&init_spawninfo.rpc.chan);
 
-    err = lmp_endpoint_create_in_slot(6, cap_init_endpoint, &init_spawninfo.endpoint);
+    err = lmp_endpoint_create_in_slot(6, cap_initep, &init_spawninfo.rpc.chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed create endpoint in init process");
         abort();
@@ -861,8 +862,8 @@ static int bsp_main(int argc, char *argv[])
      while (1) {
         struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
 
-        lmp_endpoint_set_recv_slot(init_spawninfo.endpoint, memeater_endpoint_cap);
-        err = lmp_endpoint_recv(init_spawninfo.endpoint, &recv_msg.buf,
+        lmp_endpoint_set_recv_slot(init_spawninfo.rpc.chan.endpoint, memeater_endpoint_cap);
+        err = lmp_endpoint_recv(init_spawninfo.rpc.chan.endpoint, &recv_msg.buf,
                                 &memeater_endpoint_cap);
         if (err_is_fail(err)){
             if(err == LIB_ERR_NO_LMP_MSG || lmp_err_is_transient(err)) {
@@ -880,11 +881,8 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
-     struct aos_rpc *aos_rpc = (struct aos_rpc * )malloc(sizeof(struct aos_rpc));
-     lmp_chan_init(&aos_rpc->chan);
-
-     aos_rpc->chan.remote_cap = memeater_endpoint_cap;
-
+    init_spawninfo.rpc.chan.local_cap = cap_initep;
+    init_spawninfo.rpc.chan.remote_cap = memeater_endpoint_cap;
 
     // lmp_chan_recv( ,recv_msg ,NULL);
 

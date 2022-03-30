@@ -17,6 +17,7 @@
 
 #include "aos/slot_alloc.h"
 #include "aos/paging.h"
+#include "aos/aos_rpc.h"
 
 
 struct spawninfo {
@@ -49,7 +50,7 @@ struct spawninfo {
 
     dispatcher_handle_t dispatcher_handle;
 
-    struct lmp_endpoint *endpoint;
+    struct aos_rpc rpc;
 };
 
 domainid_t global_pid_counter;

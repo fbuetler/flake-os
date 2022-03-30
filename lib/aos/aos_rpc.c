@@ -181,7 +181,7 @@ struct aos_rpc *aos_rpc_get_init_channel(void)
         return NULL;
     }
 
-    aos_rpc->chan.remote_cap = cap_init_endpoint;
+    aos_rpc->chan.remote_cap = cap_initep;
 
     printf("chan initialized\n");
     

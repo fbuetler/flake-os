@@ -171,10 +171,10 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     // copy init's endpoint into known location in child
     struct capref child_cap_init_endpoint = {
         .cnode = si->taskcn,
-        .slot = cap_init_endpoint.slot
+        .slot = cap_initep.slot
     };
 
-    err = cap_copy(child_cap_init_endpoint, cap_init_endpoint);
+    err = cap_copy(child_cap_init_endpoint, cap_initep);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to copy init endpoint to cap location in child");
