@@ -30,7 +30,7 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     uint64_t *buf = (uint64_t *)msg;
 
     size_t transferred_size = 0;
-    while(total_size - transferred_size >= 4*sizeof(uint64_t)) {
+    while (total_size - transferred_size >= 4 * sizeof(uint64_t)) {
         struct capref send_cap;
         if (transferred_size == 0 && !capcmp(msg->cap, NULL_CAP)) {
             send_cap = msg->cap;
@@ -48,15 +48,14 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
             return err_push(err, LIB_ERR_LMP_CHAN_SEND);
         }
         buf += 4;
-        transferred_size += 4*sizeof(uint64_t);
+        transferred_size += 4 * sizeof(uint64_t);
     }
 
-    printf("inside aos_rpc_msg_send, total_size: %d transferred_size: %d \n", total_size, transferred_size);
     size_t remaining = total_size - transferred_size;
     do {
         switch (remaining / sizeof(uint64_t)) {
         case 0:
-            if(remaining == 0){
+            if (remaining == 0) {
                 err = SYS_ERR_OK;
                 break;
             }
@@ -99,9 +98,7 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
  */
 static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_msg)
 {
-    DEBUG_PRINTF("Inside aos_rpc_recv_msg \n");
-
-    // recieve first message
+    // receive first message
     struct capref ret_cap;
     struct lmp_recv_msg recv_buffer;
     recv_buffer.buf.buflen = 4;  // unknown how large the first message is, therefore
@@ -128,9 +125,6 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_m
         return LIB_ERR_MALLOC_FAIL;
     }
     memcpy(*ret_msg, tmp_msg, MIN(recv_size, total_size));
-    // free(tmp_msg);
-
-    DEBUG_PRINTF("total_size: %d, recv_size %d\n", total_size, recv_size);
 
     while (recv_size < total_size) {
         size_t remaining_size = total_size - recv_size;
@@ -147,14 +141,8 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_m
             return err;
         }
 
-        printf("recieved message in loop, remaining size before copy %d \n",
-               remaining_size);
-
-        printf("buffer: %c %c \n", *recv_buffer.words, *((char *)(recv_buffer.words) +1 ));
-
         size_t copy_size = MIN(remaining_size, full_lmp_msg_size);
-        printf("copy_size : %d \n", copy_size);
-        memcpy( ((char *)(*ret_msg)) + recv_size, recv_buffer.words, copy_size);
+        memcpy(((char *)(*ret_msg)) + recv_size, recv_buffer.words, copy_size);
         recv_size += copy_size;
     }
 
@@ -163,12 +151,10 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_m
 
 errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
 {
-    printf("Inside RPC_SEND_NUMBER \n");
-
     struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + sizeof(num));
 
     if (!msg) {
-        printf("malloc failed in aos_rpc_send_number \n");
+        DEBUG_PRINTF("Malloc failed in aos_rpc_send_number \n");
         return LIB_ERR_MALLOC_FAIL;
     }
 
@@ -185,9 +171,7 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
         return err_push(err, LIB_ERR_RPC_SEND);
     }
 
-    printf("freeing number \n");
     free(msg);
-    printf("after freeing number \n");
 
     return SYS_ERR_OK;
 }
@@ -221,10 +205,6 @@ errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret)
 
 errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 {
-    // TODO: implement functionality to send a string over the given channel
-    // and wait for a response.
-
-    printf("Inside sending string \n");
     errval_t err;
 
     struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + strlen(string));
@@ -270,7 +250,7 @@ errval_t aos_rpc_get_string(struct aos_rpc *rpc, char **ret_string)
 
     *ret_string = malloc(msg->payload_bytes);
     if (!*ret_string) {
-        printf("Failured to allocate buffer for return string in rpc get string \n");
+        DEBUG_PRINTF("Failed to allocate buffer for return string in rpc get string \n");
         return LIB_ERR_MALLOC_FAIL;
     }
 

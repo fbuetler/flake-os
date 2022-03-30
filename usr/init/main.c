@@ -727,7 +727,8 @@ __attribute__((unused)) static void run_m2_tests(void)
     test_spawn_and_kill_multiple_process(20);
 }
 
-__attribute__((unused)) static void test_spawn_memeater(void) {
+__attribute__((unused)) static void test_spawn_memeater(void)
+{
     printf("spawning memeater \n");
     struct spawninfo si;
     domainid_t pid;
@@ -738,14 +739,14 @@ __attribute__((unused)) static void test_spawn_memeater(void) {
     assert(err_is_ok(err));
 }
 
-__attribute__((unused)) static void test_get_number(void) {
+__attribute__((unused)) static void test_get_number(void)
+{
     errval_t err;
 
-    /*
     uintptr_t num;
     printf("Testing recv number ... \n");
-    err = aos_rpc_get_number(&init_spawninfo.rpc,  &num);
-    if(err_is_fail(err)) {
+    err = aos_rpc_get_number(&init_spawninfo.rpc, &num);
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Error in recieving number in init \n");
         assert(false);
     }
@@ -753,25 +754,23 @@ __attribute__((unused)) static void test_get_number(void) {
     assert(num == 42);
 
     printf("Recv number successful! \n");
-    */
 
     printf("Testing recv small string ... \n");
 
-    char * recv_str;
-    err = aos_rpc_get_string(&init_spawninfo.rpc,  &recv_str);
+    char *recv_str;
+    err = aos_rpc_get_string(&init_spawninfo.rpc, &recv_str);
 
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Error in recieving string in init \n");
         assert(false);
     }
     printf("Recieved string %s \n", recv_str);
-    assert(!strcmp(recv_str, "Hello init"));
 
     printf("Small string success! \n");
-
 }
 
-__attribute__((unused)) static void run_m3_tests(void) {
+__attribute__((unused)) static void run_m3_tests(void)
+{
     test_spawn_memeater();
     test_get_number();
 }

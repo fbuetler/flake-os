@@ -41,7 +41,8 @@ armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got_base;
 }
 
-void spawn_init(void) {
+void spawn_init(void)
+{
     global_pid_counter = 0;
     init_spawninfo = (struct spawninfo) { .next = NULL,
                                           .binary_name = "init",
@@ -186,16 +187,14 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     }
 
     // copy init's endpoint into known location in child
-    struct capref child_cap_init_endpoint = {
-        .cnode = si->taskcn,
-        .slot = TASKCN_SLOT_INITEP
-    };
+    struct capref child_cap_init_endpoint = { .cnode = si->taskcn,
+                                              .slot = TASKCN_SLOT_INITEP };
 
     err = cap_copy(child_cap_init_endpoint, cap_initep);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to copy init endpoint to cap location in child");
-        return err_push(err, SPAWN_ERR_CREATE_SELFEP); // ToDo: chose better error
+        return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error
     }
 
     // map root L1 cnode
@@ -619,7 +618,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // ELF magic number: 0x7f E L F
     // printf("%x %c %c %c \n", *(char *)binary, *(char *)(binary + 1),
     //        *(char *)(binary + 2), *(char *)(binary + 3));
-           
+
     assert(*(char *)(binary + 0) == 0x7f);
     assert(*(char *)(binary + 1) == 0x45);
     assert(*(char *)(binary + 2) == 0x4c);

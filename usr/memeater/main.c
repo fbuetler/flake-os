@@ -44,8 +44,7 @@ static errval_t request_and_map_memory(void)
     debug_printf("obtaining cap of %" PRIu32 " bytes...\n", BASE_PAGE_SIZE);
 
     struct capref cap1;
-    err = aos_rpc_get_ram_cap(mem_rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE,
-                              &cap1, &bytes);
+    err = aos_rpc_get_ram_cap(mem_rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not get BASE_PAGE_SIZE cap\n");
         return err;
@@ -80,7 +79,6 @@ static errval_t request_and_map_memory(void)
     memset(buf1, 0x00, BASE_PAGE_SIZE);
 
 
-
     debug_printf("obtaining cap of %" PRIu32 " bytes using frame alloc...\n",
                  LARGE_PAGE_SIZE);
 
@@ -107,7 +105,6 @@ static errval_t request_and_map_memory(void)
     memset(buf2, 0x00, LARGE_PAGE_SIZE);
 
     return SYS_ERR_OK;
-
 }
 
 static errval_t test_basic_rpc(void)
@@ -115,36 +112,26 @@ static errval_t test_basic_rpc(void)
     errval_t err;
 
     debug_printf("RPC: testing basic RPCs...\n");
-    /*
     debug_printf("RPC: sending number...\n");
-    err =  aos_rpc_send_number(init_rpc, 42);
+    err = aos_rpc_send_number(init_rpc, 42);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
-    */
 
     debug_printf("RPC: sending small string...\n");
-    err =  aos_rpc_send_string(init_rpc, "Hello init");
+    err = aos_rpc_send_string(init_rpc, "Hello init");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
-
-    /*
-    return ec == SYS_ERR_LMP_BUF_OVERFLOW
-           || ec == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_LOOKUP
-           || ec == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID
-           || ec == SYS_ERR_LMP_CAPTRANSFER_DST_SLOT_OCCUPIED
-           || ec == SYS_ERR_LMP_TARGET_DISABLED;}
 
     debug_printf("RPC: sending large string...\n");
-    err =  aos_rpc_send_string(init_rpc, str);
+    err = aos_rpc_send_string(init_rpc, str);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
-    */
     debug_printf("RPC: testing basic RPCs. SUCCESS\n");
 
     return SYS_ERR_OK;
