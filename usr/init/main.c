@@ -860,7 +860,21 @@ static int bsp_main(int argc, char *argv[])
 
     init_spawninfo.rpc.chan.local_cap = cap_initep;
     init_spawninfo.rpc.chan.remote_cap = memeater_endpoint_cap;
+    printf("init local\n");
+    char buf0[256];
+    debug_print_cap_at_capref(buf0, 256, init_spawninfo.rpc.chan.local_cap);
+    debug_printf("%.*s\n", 256, buf0);
 
+    printf("init remote\n");
+    char buf1[256];
+    debug_print_cap_at_capref(buf1, 256, init_spawninfo.rpc.chan.remote_cap);
+    debug_printf("%.*s\n", 256, buf1);
+
+    err = lmp_chan_send0(&init_spawninfo.rpc.chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send acknowledgement");
+        abort();
+    }
     // lmp_chan_recv( ,recv_msg ,NULL);
 
     // run_m1_tests();
@@ -876,7 +890,7 @@ static int bsp_main(int argc, char *argv[])
     // Hang around
     struct waitset *default_ws = get_default_waitset();
     while (true) {
-        err = event_dispatch_debug(default_ws);
+        err = event_dispatch(default_ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();

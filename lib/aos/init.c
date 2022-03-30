@@ -46,27 +46,28 @@ void libc_exit(int status)
     debug_printf("libc exit NYI!\n");
     thread_exit(status);
     // If we're not dead by now, we wait
-    while (1) {}
+    while (1) {
+    }
 }
 
-static void libc_assert(const char *expression, const char *file,
-                        const char *function, int line)
+static void libc_assert(const char *expression, const char *file, const char *function,
+                        int line)
 {
     char buf[512];
     size_t len;
 
     /* Formatting as per suggestion in C99 spec 7.2.1.1 */
-    len = snprintf(buf, sizeof(buf), "Assertion failed on core %d in %.*s: %s,"
+    len = snprintf(buf, sizeof(buf),
+                   "Assertion failed on core %d in %.*s: %s,"
                    " function %s, file %s, line %d.\n",
-                   disp_get_core_id(), DISP_NAME_LEN,
-                   disp_name(), expression, function, file, line);
+                   disp_get_core_id(), DISP_NAME_LEN, disp_name(), expression, function,
+                   file, line);
     sys_print(buf, len < sizeof(buf) ? len : sizeof(buf));
 }
 
-__attribute__((__used__))
-static size_t syscall_terminal_write(const char *buf, size_t len)
+__attribute__((__used__)) static size_t syscall_terminal_write(const char *buf, size_t len)
 {
-    if(len) {
+    if (len) {
         errval_t err = sys_print(buf, len);
         if (err_is_fail(err)) {
             return 0;
@@ -75,8 +76,7 @@ static size_t syscall_terminal_write(const char *buf, size_t len)
     return len;
 }
 
-__attribute__((__used__))
-static size_t dummy_terminal_read(char *buf, size_t len)
+__attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t len)
 {
     debug_printf("Terminal read NYI!\n");
     return 0;
@@ -158,12 +158,12 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
     // TODO MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
-    struct aos_rpc *aos_rpc = (struct aos_rpc * )malloc(sizeof(struct aos_rpc));
-    if(!aos_rpc){
+    struct aos_rpc *aos_rpc = (struct aos_rpc *)malloc(sizeof(struct aos_rpc));
+    if (!aos_rpc) {
         printf("Could not malloc aos_rpc struct in rpc_get_init_channel \n");
         return MM_ERR_NOT_FOUND;
     }
-    
+
     /* create local endpoint */
     lmp_chan_init(&aos_rpc->chan);
 
@@ -172,7 +172,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
     aos_rpc->chan.endpoint = ep;
     err = endpoint_create(8, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not create endpoint in child \n");
         return err;
     }
@@ -182,14 +182,47 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     set_init_rpc(aos_rpc);
 
     /* set receive handler */
+    err = lmp_chan_register_recv(&aos_rpc->chan, get_default_waitset(),
+                                 MKCLOSURE(handshake_recv_closure, &aos_rpc->chan));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not register recv handler in child \n");
+        return err;
+    }
+
     /* send local ep to init */
+    err = lmp_chan_send0(&aos_rpc->chan, LMP_SEND_FLAGS_DEFAULT, aos_rpc->chan.local_cap);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not send child endpoint cap to init\n");
+        return err;
+    }
+
     /* wait for init to acknowledge receiving the endpoint */
+    while(!lmp_chan_can_recv(&aos_rpc->chan)) {
+        err = event_dispatch(default_ws);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            abort();
+        }
+    };
+
+    printf("memeater local\n");
+    char buf0[256];
+    debug_print_cap_at_capref(buf0, 256, aos_rpc->chan.local_cap);
+    debug_printf("%.*s\n", 256, buf0);
+
+    printf("memeater remote\n");
+    char buf1[256];
+    debug_print_cap_at_capref(buf1, 256, aos_rpc->chan.remote_cap);
+    debug_printf("%.*s\n", 256, buf1);
+
     /* initialize init RPC client with lmp channel */
+
     /* set init RPC client in our program state */
 
     /* TODO MILESTONE 3: now we should have a channel with init set up and can
      * use it for the ram allocator */
 
+    assert(!"worked so far");
     // right now we don't have the nameservice & don't need the terminal
     // and domain spanning, so we return here
 

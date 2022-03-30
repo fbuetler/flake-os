@@ -148,6 +148,31 @@ void recv_closure (void *arg) {
     lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(recv_closure, lc));
 }
 
+void handshake_recv_closure (void *arg) {
+    errval_t err;
+
+    printf("Inside handshake recv closure\n");
+
+    struct lmp_chan *lc = arg;
+    struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
+    struct capref cap;
+
+    err = lmp_chan_recv(lc, &recv_msg, &cap);
+    if (err_is_fail(err) && lmp_err_is_transient(err)) {
+        DEBUG_ERR(err, "lmp transient error received");
+        lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(handshake_recv_closure, lc));
+        return;
+    } else if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive message");
+        // TODO this needs to be handled properly for handshake!
+        // e.g.: terminate child process? retry?
+        return;
+    }
+    debug_printf("msg length: %d\n", recv_msg.buf.msglen);
+
+    lmp_chan_register_recv(lc, get_default_waitset(), MKCLOSURE(handshake_recv_closure, lc));
+}
+
 /**
  * \brief Returns the RPC channel to init.
  */
