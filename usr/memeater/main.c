@@ -115,19 +115,23 @@ static errval_t test_basic_rpc(void)
     errval_t err;
 
     debug_printf("RPC: testing basic RPCs...\n");
-
+    /*
     debug_printf("RPC: sending number...\n");
     err =  aos_rpc_send_number(init_rpc, 42);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
-    /*
+    */
+
     debug_printf("RPC: sending small string...\n");
     err =  aos_rpc_send_string(init_rpc, "Hello init");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
+    }
+
+    /*
     return ec == SYS_ERR_LMP_BUF_OVERFLOW
            || ec == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_LOOKUP
            || ec == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID

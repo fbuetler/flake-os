@@ -29,9 +29,8 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 
     uint64_t *buf = (uint64_t *)msg;
 
-    size_t transferred_size;
-    for (transferred_size = 0; transferred_size < total_size;
-         transferred_size += 4 * sizeof(uint64_t)) {
+    size_t transferred_size = 0;
+    while(total_size - transferred_size >= 4*sizeof(uint64_t)) {
         struct capref send_cap;
         if (transferred_size == 0 && !capcmp(msg->cap, NULL_CAP)) {
             send_cap = msg->cap;
@@ -48,28 +47,41 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
             DEBUG_PRINTF("chan_send in loop\n");
             return err_push(err, LIB_ERR_LMP_CHAN_SEND);
         }
+        buf += 4;
+        transferred_size += 4*sizeof(uint64_t);
     }
 
+    printf("inside aos_rpc_msg_send, total_size: %d transferred_size: %d \n", total_size, transferred_size);
     size_t remaining = total_size - transferred_size;
-    switch (remaining / sizeof(uint64_t)) {
-    case 1:
-        err = lmp_chan_send1(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0]);
-        break;
-    case 2:
-        err = lmp_chan_send2(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0], buf[1]);
-        break;
-    case 3:
-        err = lmp_chan_send3(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0], buf[1],
-                             buf[2]);
-        break;
-    default:
-        if (remaining == 0) {
-            err = SYS_ERR_OK;
-        } else {
-            err = LIB_ERR_SHOULD_NOT_GET_HERE;
+    do {
+        switch (remaining / sizeof(uint64_t)) {
+        case 0:
+            if(remaining == 0){
+                err = SYS_ERR_OK;
+                break;
+            }
+            // continue in case 1 for leftover stuff?
+        case 1:
+            err = lmp_chan_send1(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0]);
+            break;
+        case 2:
+            err = lmp_chan_send2(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0],
+                                 buf[1]);
+            break;
+        case 3:
+            err = lmp_chan_send3(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0],
+                                 buf[1], buf[2]);
+            break;
+        default:
+            if (remaining == 0) {
+                err = SYS_ERR_OK;
+            } else {
+                printf("inside msg_send. Should not get here \n");
+                err = LIB_ERR_SHOULD_NOT_GET_HERE;
+            }
+            break;
         }
-        break;
-    }
+    } while (lmp_err_is_transient(err));
     if (err_is_fail(err)) {
         DEBUG_PRINTF("chan_send in remaining buffer fields\n");
         return err_push(err, LIB_ERR_LMP_CHAN_SEND);
@@ -81,8 +93,8 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 /**
  * Abstraction to receive a message from possibly multiple chunks and assemble them
  * @param rpc
- * @param msg Unallocated pointer for a message struct. Will be allocaetd by this function
- * based on the size of the payload/header
+ * @param msg Unallocated pointer for a message struct. Will be allocaetd by this
+ * function based on the size of the payload/header
  * @return
  */
 static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_msg)
@@ -95,7 +107,7 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_m
     recv_buffer.buf.buflen = 4;  // unknown how large the first message is, therefore
                                  // always accept all the arguments for the first message
 
-    errval_t err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap); 
+    errval_t err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not recieve message \n");
@@ -111,12 +123,12 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_m
 
     // allocate space for return message, copy current message already to it
     *ret_msg = malloc(total_size);  // todo: check if malloc worked
-    if(!*ret_msg) {
+    if (!*ret_msg) {
         DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg for ret_msg failed \n");
         return LIB_ERR_MALLOC_FAIL;
     }
     memcpy(*ret_msg, tmp_msg, MIN(recv_size, total_size));
-    //free(tmp_msg);
+    // free(tmp_msg);
 
     DEBUG_PRINTF("total_size: %d, recv_size %d\n", total_size, recv_size);
 
@@ -124,9 +136,9 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_m
         size_t remaining_size = total_size - recv_size;
         err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap);
 
-        if(lmp_err_is_transient(err) || err == LIB_ERR_NO_LMP_MSG) {
+        if (lmp_err_is_transient(err) || err == LIB_ERR_NO_LMP_MSG) {
             // todo: retry fixed amount before returning
-            //DEBUG_PRINTF("inside aos_rpc_recv_msg, looping \n");
+            // DEBUG_PRINTF("inside aos_rpc_recv_msg, looping \n");
             continue;
         }
 
@@ -135,8 +147,14 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_m
             return err;
         }
 
+        printf("recieved message in loop, remaining size before copy %d \n",
+               remaining_size);
+
+        printf("buffer: %c %c \n", *recv_buffer.words, *((char *)(recv_buffer.words) +1 ));
+
         size_t copy_size = MIN(remaining_size, full_lmp_msg_size);
-        memcpy((*ret_msg) + recv_size, recv_buffer.words, copy_size);
+        printf("copy_size : %d \n", copy_size);
+        memcpy( ((char *)(*ret_msg)) + recv_size, recv_buffer.words, copy_size);
         recv_size += copy_size;
     }
 
@@ -149,7 +167,7 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
 
     struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + sizeof(num));
 
-    if(!msg) {
+    if (!msg) {
         printf("malloc failed in aos_rpc_send_number \n");
         return LIB_ERR_MALLOC_FAIL;
     }
@@ -182,7 +200,7 @@ errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret)
     err = aos_rpc_recv_msg(rpc, &msg);
 
     if (!msg) {
-        DEBUG_PRINTF("returned message is null pointer inside aos_rpc_get_number \n"); 
+        DEBUG_PRINTF("returned message is null pointer inside aos_rpc_get_number \n");
         return LIB_ERR_SHOULD_NOT_GET_HERE;
     }
 
@@ -229,10 +247,10 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_get_string(struct aos_rpc *rpc, char *ret_string)
+errval_t aos_rpc_get_string(struct aos_rpc *rpc, char **ret_string)
 {
-    // call rpc_get_msg(), read payload size, malloc ret_string to this size, copy string
-    // to ret_string, all done :)
+    // call rpc_get_msg(), read payload size, malloc ret_string to this size, copy
+    // string to ret_string, all done :)
 
     struct aos_rpc_msg *msg = NULL;
     errval_t err = aos_rpc_recv_msg(rpc, &msg);
@@ -250,13 +268,13 @@ errval_t aos_rpc_get_string(struct aos_rpc *rpc, char *ret_string)
 
     assert(msg->message_type == SendString);
 
-    ret_string = malloc(msg->payload_bytes);
-    if (!ret_string) {
+    *ret_string = malloc(msg->payload_bytes);
+    if (!*ret_string) {
         printf("Failured to allocate buffer for return string in rpc get string \n");
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    strncpy(ret_string, msg->payload, msg->payload_bytes);
+    strncpy(*ret_string, msg->payload, msg->payload_bytes);
     free(msg);
 
     return SYS_ERR_OK;

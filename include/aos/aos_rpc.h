@@ -56,7 +56,7 @@ errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret);
  */
 errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string);
 
-errval_t aos_rpc_get_string(struct aos_rpc *rpc, char *ret_string);
+errval_t aos_rpc_get_string(struct aos_rpc *rpc, char **ret_string);
 
 /**
  * \brief Request a RAM capability with >= request_bits of size over the given
