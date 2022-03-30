@@ -25,6 +25,7 @@
 #include <aos/paging.h>
 #include <aos/systime.h>
 #include <barrelfish_kpi/domain_params.h>
+#include <aos/aos_rpc.h>
 
 #include "threads_priv.h"
 #include "init.h"
@@ -157,8 +158,29 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
     // TODO MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
+    struct aos_rpc *aos_rpc = (struct aos_rpc * )malloc(sizeof(struct aos_rpc));
+    if(!aos_rpc){
+        printf("Could not malloc aos_rpc struct in rpc_get_init_channel \n");
+        return MM_ERR_NOT_FOUND;
+    }
+    
     /* create local endpoint */
+    lmp_chan_init(&aos_rpc->chan);
+
+    struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
+    assert(ep);
+
+    aos_rpc->chan.endpoint = ep;
+    err = endpoint_create(8, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not create endpoint in child \n");
+        return err;
+    }
+
     /* set remote endpoint to init's endpoint */
+    aos_rpc->chan.remote_cap = cap_initep;
+    set_init_rpc(aos_rpc);
+
     /* set receive handler */
     /* send local ep to init */
     /* wait for init to acknowledge receiving the endpoint */

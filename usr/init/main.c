@@ -836,29 +836,6 @@ static int bsp_main(int argc, char *argv[])
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    //err = lmp_chan_accept(&memeater_chan, DEFAULT_LMP_BUF_WORDS, NULL_CAP);
-    //if (err_is_fail(err)) {
-    //    return err_push(err, INIT_ERR_SETUP_MONITOR_CHAN);
-    //}
-
-    //err = lmp_chan_alloc_recv_slot(&memeater_chan);
-    //if (err_is_fail(err)) {
-    //    return err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
-    //}
-    ////lmp_chan_set_recv_slot(&memeater_chan, memeater_endpoint_cap);
-
-    //// Register receive handlers for these channels
-    //struct waitset *ws = get_default_waitset();
-
-    //struct event_closure recv_handler = {
-    //    .handler = init_recv_handler,
-    //    .arg = &memeater_chan,
-    //};
-    //err = lmp_chan_register_recv(&memeater_chan, ws, recv_handler);
-    //if (err_is_fail(err)) {
-    //    return err_push(err, LIB_ERR_CHAN_REGISTER_RECV);
-    //}
-
      while (1) {
         struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
 
