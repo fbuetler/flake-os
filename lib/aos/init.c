@@ -156,75 +156,13 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return SYS_ERR_OK;
     }
 
-    // TODO MILESTONE 3: register ourselves with init
-    /* allocate lmp channel structure */
-    struct aos_rpc *aos_rpc = (struct aos_rpc *)malloc(sizeof(struct aos_rpc));
-    if (!aos_rpc) {
-        printf("Could not malloc aos_rpc struct in rpc_get_init_channel \n");
-        return MM_ERR_NOT_FOUND;
-    }
-
-    /* create local endpoint */
-    lmp_chan_init(&aos_rpc->chan);
-
-    struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
-    assert(ep);
-
-    aos_rpc->chan.endpoint = ep;
-    err = endpoint_create(8, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
+    // TODO this is lost in void right now
+    struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
+    err = aos_rpc_init(rpc);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not create endpoint in child \n");
+        DEBUG_ERR(err, "failed to init rpc");
         return err;
     }
-
-    /* set remote endpoint to init's endpoint */
-    aos_rpc->chan.remote_cap = cap_initep;
-    set_init_rpc(aos_rpc);
-
-    /* set receive handler */
-    err = lmp_chan_register_recv(&aos_rpc->chan, get_default_waitset(),
-                                 MKCLOSURE(handshake_recv_closure, &aos_rpc->chan));
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not register recv handler in child \n");
-        return err;
-    }
-
-    /* send local ep to init */
-    err = lmp_chan_send0(&aos_rpc->chan, LMP_SEND_FLAGS_DEFAULT, aos_rpc->chan.local_cap);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not send child endpoint cap to init\n");
-        return err;
-    }
-
-    /* wait for init to acknowledge receiving the endpoint */
-    while(!lmp_chan_can_recv(&aos_rpc->chan)) {
-        err = event_dispatch(default_ws);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            abort();
-        }
-    };
-
-    printf("memeater local\n");
-    char buf0[256];
-    debug_print_cap_at_capref(buf0, 256, aos_rpc->chan.local_cap);
-    debug_printf("%.*s\n", 256, buf0);
-
-    printf("memeater remote\n");
-    char buf1[256];
-    debug_print_cap_at_capref(buf1, 256, aos_rpc->chan.remote_cap);
-    debug_printf("%.*s\n", 256, buf1);
-
-    /* initialize init RPC client with lmp channel */
-
-    /* set init RPC client in our program state */
-
-    /* TODO MILESTONE 3: now we should have a channel with init set up and can
-     * use it for the ram allocator */
-
-    assert(!"worked so far");
-    // right now we don't have the nameservice & don't need the terminal
-    // and domain spanning, so we return here
 
     return SYS_ERR_OK;
 }
