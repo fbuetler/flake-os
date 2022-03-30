@@ -56,6 +56,8 @@ struct spawninfo {
 domainid_t global_pid_counter;
 struct spawninfo init_spawninfo;
 
+void spawn_init(void);
+
 // Start a child process using the multiboot command line. Fills in si.
 errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid);
 

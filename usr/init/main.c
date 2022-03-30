@@ -797,21 +797,8 @@ static int bsp_main(int argc, char *argv[])
 
     // Grading
     grading_test_early();
-    global_pid_counter = 0;
-    printf("before spawn info \n");
-    init_spawninfo = (struct spawninfo) { .next = NULL,
-                                          .binary_name = "init",
-                                          .rootcn = cnode_root,
-                                          .taskcn = cnode_task,
-                                          .base_pagecn = cnode_task,
-                                          .rootcn_cap = cap_root,
-                                          .rootvn_cap = cap_vroot,
-                                          .dispatcher_cap = cap_dispatcher,
-                                          .dispatcher_frame_cap = cap_dispframe,
-                                          .args_frame_cap = cap_argcn,
-                                          .pid = 0,
-                                          .paging_state = *get_current_paging_state(),
-                                          .dispatcher_handle = 0 };
+
+    spawn_init();
 
     // setup endpoint of init
     lmp_chan_init(&init_spawninfo.rpc.chan);

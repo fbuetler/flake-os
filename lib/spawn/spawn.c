@@ -41,6 +41,23 @@ armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got_base;
 }
 
+void spawn_init(void) {
+    global_pid_counter = 0;
+    init_spawninfo = (struct spawninfo) { .next = NULL,
+                                          .binary_name = "init",
+                                          .rootcn = cnode_root,
+                                          .taskcn = cnode_task,
+                                          .base_pagecn = cnode_task,
+                                          .rootcn_cap = cap_root,
+                                          .rootvn_cap = cap_vroot,
+                                          .dispatcher_cap = cap_dispatcher,
+                                          .dispatcher_frame_cap = cap_dispframe,
+                                          .args_frame_cap = cap_argcn,
+                                          .pid = 0,
+                                          .paging_state = *get_current_paging_state(),
+                                          .dispatcher_handle = 0 };
+}
+
 /**
  * @brief maps the given module to the parents vspace
  *
@@ -171,7 +188,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     // copy init's endpoint into known location in child
     struct capref child_cap_init_endpoint = {
         .cnode = si->taskcn,
-        .slot = cap_initep.slot
+        .slot = TASKCN_SLOT_INITEP
     };
 
     err = cap_copy(child_cap_init_endpoint, cap_initep);
@@ -600,8 +617,8 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err;
     }
     // ELF magic number: 0x7f E L F
-    printf("%x %c %c %c \n", *(char *)binary, *(char *)(binary + 1),
-           *(char *)(binary + 2), *(char *)(binary + 3));
+    // printf("%x %c %c %c \n", *(char *)binary, *(char *)(binary + 1),
+    //        *(char *)(binary + 2), *(char *)(binary + 3));
            
     assert(*(char *)(binary + 0) == 0x7f);
     assert(*(char *)(binary + 1) == 0x45);
