@@ -156,7 +156,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return SYS_ERR_OK;
     }
 
-    // TODO this is lost in void right now
     struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
     err = aos_rpc_init(rpc);
     if (err_is_fail(err)) {

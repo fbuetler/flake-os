@@ -149,7 +149,6 @@ int main(int argc, char *argv[])
     debug_printf("memeater started....\n");
 
     init_rpc = get_init_rpc();
-    err = aos_rpc_init(init_rpc);
 
     mem_rpc = aos_rpc_get_memory_channel();
     if (!mem_rpc) {

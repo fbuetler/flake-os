@@ -92,7 +92,7 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc){
 
     struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
     assert(ep);
-
+ 
     aos_rpc->chan.endpoint = ep;
     err = endpoint_create(8, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
     if (err_is_fail(err)) {
@@ -145,27 +145,8 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc){
     /* TODO MILESTONE 3: now we should have a channel with init set up and can
      * use it for the ram allocator */
 
-    assert(!"worked so far");
     // right now we don't have the nameservice & don't need the terminal
     // and domain spanning, so we return here
-    
-    struct aos_rpc *init_rpc = get_init_rpc();
-    if (!init_rpc) {
-		DEBUG_PRINTF("failed to get init rpc");
-		return SYS_ERR_LMP_NO_INIT_RPC;
-    }
-
-    err = lmp_chan_send0(&init_rpc->chan, LMP_SEND_FLAGS_DEFAULT, init_rpc->chan.local_cap);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not send memeater endpoint cap\n");
-		return err;
-    }
-
-    err = event_dispatch_debug(get_default_waitset());
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "in event_dispatch");
-		return err;
-    }
 
 	return SYS_ERR_OK;
 }
