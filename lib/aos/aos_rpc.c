@@ -100,15 +100,23 @@ errval_t aos_rpc_recv_msg_handler(void *args)
     struct aos_rpc *rpc = (struct aos_rpc *)args;
 
     // receive first message
-    struct capref cap;
+    struct capref msg_cap = NULL_CAP;
     struct lmp_recv_msg recv_buf = LMP_RECV_MSG_INIT;
 
-    // TODO allocate receive slot
-    err = lmp_chan_recv(&rpc->chan, &recv_buf, &cap);
+    err = lmp_chan_recv(&rpc->chan, &recv_buf, &msg_cap);
     if (err_is_fail(err) && lmp_err_is_transient(err)) {
         goto reregister;
     } else if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
+     }
+
+    if (!capref_is_null(msg_cap)) {
+        err = lmp_chan_alloc_recv_slot(&rpc->chan);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to allocated receive slot");
+            err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+            goto reregister;
+        }
     }
 
     if (!rpc->is_busy) {
@@ -585,9 +593,24 @@ struct aos_rpc *aos_rpc_get_serial_channel(void)
     return NULL;
 }
 
-void aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func)
+errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func)
 {
+    errval_t err;
+
     rpc->process_msg_func = process_msg_func;
-    lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
+
+    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        return err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+    }
+
+    err = lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
                            MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, rpc));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to register receive function");
+        return err_push(err, LIB_ERR_LMP_CHAN_INIT);
+    }
+
+    return SYS_ERR_OK;
 }

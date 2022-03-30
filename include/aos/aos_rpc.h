@@ -145,6 +145,6 @@ struct aos_rpc *aos_rpc_get_serial_channel(void);
 
 void aos_handshake_recv_closure (void *arg);
 
-void aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
+errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

@@ -847,15 +847,11 @@ static int bsp_main(int argc, char *argv[])
     // Grading
     grading_test_late();
 
-    debug_printf("Message handler loop\n");
-
-    // Hang around
-    struct waitset *default_ws = get_default_waitset();
-    lmp_chan_register_recv(&init_spawninfo.rpc.chan, default_ws, MKCLOSURE((void (*)(void*))aos_rpc_recv_msg_handler, &init_spawninfo.rpc));
 
     aos_rpc_register_recv(&init_spawninfo.rpc, do_stuff);
 
-
+    debug_printf("Message handler loop\n");
+    struct waitset *default_ws = get_default_waitset();
     while (true) {
         err = event_dispatch(default_ws);
         if (err_is_fail(err)) {
