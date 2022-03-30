@@ -738,9 +738,22 @@ __attribute__((unused)) static void test_spawn_memeater(void) {
     assert(err_is_ok(err));
 }
 
+__attribute__((unused)) static void test_get_number(void) {
+    errval_t err;
+    uintptr_t num;
+
+    err = aos_rpc_get_number(&init_spawninfo.rpc,  &num);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Error in recieving number in init \n");
+        assert(false);
+    }
+    printf("Recieved number %d \n", num);
+    assert(num == 42);
+}
 
 __attribute__((unused)) static void run_m3_tests(void) {
     test_spawn_memeater();
+    test_get_number();
 }
 
 static int bsp_main(int argc, char *argv[])

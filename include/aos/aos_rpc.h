@@ -131,6 +131,5 @@ struct aos_rpc *aos_rpc_get_process_channel(void);
 struct aos_rpc *aos_rpc_get_serial_channel(void);
 
 void aos_handshake_recv_closure (void *arg);
-void aos_on_receive(void *arg);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

@@ -122,13 +122,17 @@ static errval_t test_basic_rpc(void)
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
-
+    /*
     debug_printf("RPC: sending small string...\n");
     err =  aos_rpc_send_string(init_rpc, "Hello init");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
-    }
+    return ec == SYS_ERR_LMP_BUF_OVERFLOW
+           || ec == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_LOOKUP
+           || ec == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID
+           || ec == SYS_ERR_LMP_CAPTRANSFER_DST_SLOT_OCCUPIED
+           || ec == SYS_ERR_LMP_TARGET_DISABLED;}
 
     debug_printf("RPC: sending large string...\n");
     err =  aos_rpc_send_string(init_rpc, str);
@@ -136,7 +140,7 @@ static errval_t test_basic_rpc(void)
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
-
+    */
     debug_printf("RPC: testing basic RPCs. SUCCESS\n");
 
     return SYS_ERR_OK;
