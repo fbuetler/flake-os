@@ -813,6 +813,7 @@ static int bsp_main(int argc, char *argv[])
                                           .paging_state = *get_current_paging_state(),
                                           .dispatcher_handle = 0 };
 
+    // setup endpoint of init
     lmp_chan_init(&init_spawninfo.rpc.chan);
 
     err = lmp_endpoint_create_in_slot(6, cap_initep, &init_spawninfo.rpc.chan.endpoint);
@@ -821,6 +822,7 @@ static int bsp_main(int argc, char *argv[])
         abort();
     }
 
+    // spawn memeater
     printf("spawning memeater \n");
     struct spawninfo si;
     domainid_t pid;
@@ -828,6 +830,11 @@ static int bsp_main(int argc, char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn memeater");
     }
+
+    // setup channel of memeater
+    lmp_chan_init(&si.rpc.chan);
+   
+    si.rpc.chan.endpoint = init_spawninfo.rpc.chan.endpoint;
 
     struct capref memeater_endpoint_cap;
     err = slot_alloc(&memeater_endpoint_cap);
@@ -839,8 +846,8 @@ static int bsp_main(int argc, char *argv[])
      while (1) {
         struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
 
-        lmp_endpoint_set_recv_slot(init_spawninfo.rpc.chan.endpoint, memeater_endpoint_cap);
-        err = lmp_endpoint_recv(init_spawninfo.rpc.chan.endpoint, &recv_msg.buf,
+        lmp_endpoint_set_recv_slot(si.rpc.chan.endpoint, memeater_endpoint_cap);
+        err = lmp_endpoint_recv(si.rpc.chan.endpoint, &recv_msg.buf,
                                 &memeater_endpoint_cap);
         if (err_is_fail(err)){
             if(err == LIB_ERR_NO_LMP_MSG || lmp_err_is_transient(err)) {
@@ -858,19 +865,21 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
-    init_spawninfo.rpc.chan.local_cap = cap_initep;
-    init_spawninfo.rpc.chan.remote_cap = memeater_endpoint_cap;
+    si.rpc.chan.local_cap = cap_initep;
+    si.rpc.chan.remote_cap = memeater_endpoint_cap;
+;
+
     printf("init local\n");
     char buf0[256];
-    debug_print_cap_at_capref(buf0, 256, init_spawninfo.rpc.chan.local_cap);
+    debug_print_cap_at_capref(buf0, 256, si.rpc.chan.local_cap);
     debug_printf("%.*s\n", 256, buf0);
 
     printf("init remote\n");
     char buf1[256];
-    debug_print_cap_at_capref(buf1, 256, init_spawninfo.rpc.chan.remote_cap);
+    debug_print_cap_at_capref(buf1, 256, si.rpc.chan.remote_cap);
     debug_printf("%.*s\n", 256, buf1);
 
-    err = lmp_chan_send0(&init_spawninfo.rpc.chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP);
+    err = lmp_chan_send0(&si.rpc.chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send acknowledgement");
         abort();
