@@ -16,11 +16,26 @@ TODO
 
 \subsection{Process Creation}
 
+\subsubsection{Load from multiboot image}
+
+At the moment we can only load binaries that are included in the boot image as we dont have a filesystem yet. So we need to find our binary by looking for it by its filepath in the boot image first.
+Once we found it we start setting up our bookkeeping for a spawned process. Here we set the name of the process to the binary name and store the module location that holds the binary.
+We also need to load the binaries arguments from the boot image as they are also hardcoded in there. We get them as e raw string and hence they need to be parsed. The chosen argument seperator here is a whitespace. If there are multiple whitespaces between the arguments, they are stripped.
+As we later want to load binaries not only from the boot image but also from the filesystem we moved the following part into another api endpoint so the common functionality to actually spawn a process can be shared.
+
 \subsubsection{Find ELF image}
-TODO
+We will now refer to the process that spawns a process the parent and the spawned process the child.
+To work with the binary we need to map it into the parents virtual memory space. For this we map the address of the module into our vspace with the help of our paging infrastructure.
+To check whether we mapped the modulo correctly we can try to access the first four bytes of the mapped address in the parents virtual memory spaces. As we mapped a ELF binary the should be the ELF macig bytes namels '0x7f', 'E', 'L' and 'F'.
 
 \subsubsection{Create intial CSpace}
-TODO
+Next we need to setup the capability space of the child. It has the well known layout of one root L1 Cnode and then multiple L2 CNodes in some predefined slot of the L1 CNode.
+So first we create the L1 root cnode. From this we can create the L2 CNodes: task cnode, three slot cnodes, the base page cnode and the page cnode.
+The task cnode holds multiple capabilities such as the dispacher, dispacher frame, argument page, the endpoint to itself (created from the dispatcher capability) and the root cnode from above.
+At this point we also copy the parents endpoint to a well known location in the child cspace such that the child can use it later to setup a channel to the parent for inter process communication.
+The three slot cnode are empty and contain space for the child's initial slot allocator and more if needed.
+Each slot of the base page cnode hold a ram capability of the base page size such that the child has some initial memory to work with.
+Finally the page cnode has in the first slot a capability to the top level page table. The other slots can be used to store other page tables.
 
 \subsubsection{Create initial VSpace}
 TODO
@@ -37,7 +52,6 @@ TODO
 \subsubsection{Start the process}
 TODO
 
-
 \subsection{Process Management}
 
 \subsubsection{Datastructure}
@@ -45,3 +59,10 @@ TODO
 
 \subsubsection{Kill a process}
 TODO
+
+
+% virtual address starts at 0 instead of VADDR_OFFSET
+% overwrite string termination of args
+% refills during a page mapping
+% reuse same datastrucuture for process creation
+% out of stack memory during process creation in init
