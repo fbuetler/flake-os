@@ -21,7 +21,7 @@
 // forward declaration
 struct aos_rpc_msg;
 
-typedef errval_t (* process_msg_func_t)(struct aos_rpc_msg*); 
+typedef errval_t (* process_msg_func_t)(struct aos_rpc*); 
 /* An RPC binding, which may be transported over LMP or UMP. */
 struct aos_rpc {
     // TODO(M3): Add state
@@ -34,8 +34,9 @@ struct aos_rpc {
 };
 
 enum aos_rpc_msg_type {
-    SendNumber = 1,
-    SendString = 2
+    Handshake = 1,
+    SendNumber = 2,
+    SendString = 3
 };
 
 struct aos_rpc_msg {
@@ -51,6 +52,8 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
  * \brief Initialize an aos_rpc struct.
  */
 errval_t aos_rpc_init(struct aos_rpc *rpc);
+
+errval_t aos_rpc_process_msg(struct aos_rpc *rpc);
 
 /**
  * \brief Message receive handler to be used in the 
@@ -68,8 +71,6 @@ errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret);
  * \brief Send a string.
  */
 errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string);
-
-errval_t aos_rpc_get_string(struct aos_rpc *rpc, char **ret_string);
 
 /**
  * \brief Request a RAM capability with >= request_bits of size over the given
@@ -142,8 +143,6 @@ struct aos_rpc *aos_rpc_get_process_channel(void);
  * \brief Returns the channel to the serial console
  */
 struct aos_rpc *aos_rpc_get_serial_channel(void);
-
-void aos_handshake_recv_closure (void *arg);
 
 errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
 
