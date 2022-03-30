@@ -35,7 +35,7 @@ struct aos_rpc_msg {
     int message_type;
     char payload[0];
 };
-
+errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc);
 /**
  * \brief Initialize an aos_rpc struct.
  */

@@ -727,55 +727,27 @@ __attribute__((unused)) static void run_m2_tests(void)
     test_spawn_and_kill_multiple_process(20);
 }
 
+__attribute__((unused)) static void test_spawn_memeater(void) {
+    printf("spawning memeater \n");
+    struct spawninfo si;
+    domainid_t pid;
+    errval_t err = spawn_load_by_name("memeater", &si, &pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn memeater");
+    }
+    assert(err_is_ok(err));
 
-//static void init_recv_handler(void *arg)
-//{
-//    struct lmp_chan *lc = arg;
-//    struct lmp_recv_msg msg = LMP_RECV_MSG_INIT;
-//    struct capref cap;
-//    errval_t err;
-//
-//    printf("oh no 1\n");
-//    err = lmp_chan_recv(lc, &msg, &cap);
-//    printf("oh no 2\n");
-//
-//    if (err_is_fail(err)) {
-//        if (lmp_err_is_transient(err)) {
-//            // re-register
-//            struct event_closure recv_handler = {
-//                .handler = init_recv_handler,
-//                .arg = arg,
-//            };
-//            struct waitset *ws = get_default_waitset();
-//            err = lmp_chan_register_recv(lc, ws, recv_handler);
-//            if (err_is_fail(err)) {
-//                DEBUG_ERR(err, "in lmp_chan_register_recv");
-//                abort();
-//            }
-//        } else {
-//            DEBUG_ERR(err, "in lmp_chan_recv");
-//            abort();
-//        }
-//    }
-//
-//    assert(!capref_is_null(cap));
-//
-//    // store cap
-//    lc->remote_cap = cap;
-//
-//    printf("oh no 3\n");
-//
-//    err = lmp_chan_send0(lc, LMP_SEND_FLAGS_DEFAULT, lc->remote_cap);
-//    if (err_is_fail(err)) {
-//        DEBUG_ERR(err, "COULD NOT SEND FROM INIT TO CHILD \n");
-//        abort();
-//    }
-//
-//    printf("oh no 4\n");
-//}
+    err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si.rpc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup channel to init");
+    }
+    assert(err_is_ok(err));
+}
 
-//static struct lmp_chan memeater_chan;
 
+__attribute__((unused)) static void run_m3_tests(void) {
+    test_spawn_memeater();
+}
 
 static int bsp_main(int argc, char *argv[])
 {
@@ -808,74 +780,10 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "failed create endpoint in init process");
         abort();
     }
-
-    // spawn memeater
-    printf("spawning memeater \n");
-    struct spawninfo si;
-    domainid_t pid;
-    err = spawn_load_by_name("memeater", &si, &pid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to spawn memeater");
-    }
-
-    // setup channel of memeater
-    lmp_chan_init(&si.rpc.chan);
-   
-    si.rpc.chan.endpoint = init_spawninfo.rpc.chan.endpoint;
-
-    struct capref memeater_endpoint_cap;
-    err = slot_alloc(&memeater_endpoint_cap);
-    if (err_is_fail(err)) {
-        DEBUG_PRINTF("Failed to allocate slot for memeater endpoint\n");
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-     while (1) {
-        struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
-
-        lmp_endpoint_set_recv_slot(si.rpc.chan.endpoint, memeater_endpoint_cap);
-        err = lmp_endpoint_recv(si.rpc.chan.endpoint, &recv_msg.buf,
-                                &memeater_endpoint_cap);
-        if (err_is_fail(err)){
-            if(err == LIB_ERR_NO_LMP_MSG || lmp_err_is_transient(err)) {
-                //DEBUG_ERR(err, "no lmp msg, or is transiend: continue! \n");
-                continue;
-            } else {
-                DEBUG_ERR(err, "loop in main, !err_is_transient \n");
-                assert(0);
-            }
-        } else {
-            printf("worked :) \n");
-            // TODO caution: si is on stack & memeater_endpoint_cap is on stack
-            //si.endpoint = &memeater_endpoint_cap;
-            break;
-        }
-    }
-
-    si.rpc.chan.local_cap = cap_initep;
-    si.rpc.chan.remote_cap = memeater_endpoint_cap;
-;
-
-    printf("init local\n");
-    char buf0[256];
-    debug_print_cap_at_capref(buf0, 256, si.rpc.chan.local_cap);
-    debug_printf("%.*s\n", 256, buf0);
-
-    printf("init remote\n");
-    char buf1[256];
-    debug_print_cap_at_capref(buf1, 256, si.rpc.chan.remote_cap);
-    debug_printf("%.*s\n", 256, buf1);
-
-    err = lmp_chan_send0(&si.rpc.chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send acknowledgement");
-        abort();
-    }
-    // lmp_chan_recv( ,recv_msg ,NULL);
-
     // run_m1_tests();
     // run_m2_tests();
     // run_demo_m2();
+    run_m3_tests();
 
     // TODO: Spawn system processes, boot second core etc. here
 
