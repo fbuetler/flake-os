@@ -15,6 +15,304 @@
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
 
+void aos_on_receive(void *arg)
+{
+    errval_t err;
+    DEBUG_PRINTF("receiving messsage\n");
+
+    // receive message
+    struct aos_rpc *rpc = arg;
+    struct lmp_recv_msg msg = LMP_RECV_MSG_INIT;
+    struct capref msg_cap = NULL_CAP;
+    err = lmp_chan_recv(&rpc->chan, &msg, &msg_cap);
+    if (err_is_fail(err) && lmp_err_is_transient(err)) {
+        DEBUG_PRINTF("message transient error\n");
+        goto reregister;
+    } else if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive message");
+        goto reregister;
+    }
+    DEBUG_PRINTF("message received\n");
+
+    // receive slot was used, allocate a new one
+    if (!capref_is_null(msg_cap)) {
+        err = lmp_chan_alloc_recv_slot(&rpc->chan);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to allocate receive slot");
+            goto reregister;
+        }
+    }
+
+reregister:
+    // register again for futher messages
+    err = lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
+                                 MKCLOSURE(aos_on_receive, rpc));
+    DEBUG_ERR(err, "failed to register receive callback function");
+
+    return;
+}
+
+/**
+ * Abstraction to send a formatted message in multiple chunks.
+ * @param rpc
+ * @param msg
+ * @return
+ */
+static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
+{
+    errval_t err;
+    size_t total_size = msg->header_bytes + msg->payload_bytes;
+
+    uint64_t *buf = (uint64_t *)msg;
+
+    size_t transferred_size;
+    for (transferred_size = 0; transferred_size < total_size;
+         transferred_size += 4 * sizeof(uint64_t)) {
+        struct capref send_cap;
+        if (transferred_size == 0 && !capcmp(msg->cap, NULL_CAP)) {
+            send_cap = msg->cap;
+        } else {
+            send_cap = NULL_CAP;
+        }
+
+        err = lmp_chan_send(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, send_cap, 4, buf[0],
+                            buf[1], buf[2], buf[3]);
+        if (err_is_fail(err)) {
+            DEBUG_PRINTF("chan_send in loop\n");
+            return err_push(err, LIB_ERR_LMP_CHAN_SEND);
+        }
+    }
+
+    size_t remaining = total_size - transferred_size;
+    switch (remaining / sizeof(uint64_t)) {
+    case 1:
+        err = lmp_chan_send1(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0]);
+        break;
+    case 2:
+        err = lmp_chan_send2(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0], buf[1]);
+        break;
+    case 3:
+        err = lmp_chan_send3(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0], buf[1],
+                             buf[2]);
+        break;
+    default:
+        err = LIB_ERR_SHOULD_NOT_GET_HERE;
+        break;
+    }
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("chan_send in remaining buffer fields\n");
+        return err_push(err, LIB_ERR_LMP_CHAN_SEND);
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * Abstraction to receive a message from possibly multiple chunks and assemble them
+ * @param rpc
+ * @param msg Unallocated pointer for a message struct. Will be allocaetd by this function
+ * based on the size of the payload/header
+ * @return
+ */
+static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc, struct aos_rpc_msg **ret_msg)
+{
+    // recieve first message
+    struct capref ret_cap;
+    struct lmp_recv_msg recv_buffer;
+    recv_buffer.buf.buflen = 4;  // unknown how large the first message is, therefore
+                                 // always accept all the arguments for the first message
+
+    errval_t err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not recieve message \n");
+        return err;
+    }
+    // extract total size of this message from initial message
+    struct aos_rpc_msg *tmp_msg = (struct aos_rpc_msg *)recv_buffer.words;
+    size_t total_size = tmp_msg->header_bytes + tmp_msg->payload_bytes;  // size in bytes
+    size_t full_lmp_msg_size
+        = sizeof(uintptr_t)
+          * 4;  // total size of an lmp message which uses all 4 arguments
+    size_t recv_size = full_lmp_msg_size;  // first message contained up to 4 arguments
+
+    // allocate space for return message, copy current message already to it
+    ret_msg = malloc(total_size);  // todo: check if malloc worked
+    memcpy(ret_msg, tmp_msg, MIN(recv_size, total_size));
+    free(tmp_msg);
+
+    while (recv_size <= total_size) {
+        size_t remaining_size = recv_size <= total_size;
+        err = lmp_chan_recv(&rpc->chan, &recv_buffer, &ret_cap);
+
+        if (err_is_fail(err)) {
+            // todo: check if message is in transient or if it's a real error
+            DEBUG_ERR(err, "recieve message has an error. Ignore it and continue \n");
+            continue;
+        }
+
+        size_t copy_size = MIN(remaining_size, full_lmp_msg_size);
+        memcpy(ret_msg + recv_size, recv_buffer.words, copy_size);
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
+{
+    printf("Inside RPC_SEND_NUMBER \n");
+
+    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + sizeof(num));
+
+    msg->header_bytes = sizeof(struct aos_rpc_msg);
+    msg->payload_bytes = sizeof(num);
+    msg->cap = NULL_CAP;
+    msg->message_type = SendNumber;
+    msg->payload[0] = num;
+
+    errval_t err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not send number \n");
+        free(msg);
+        return err_push(err, LIB_ERR_RPC_SEND);
+    }
+
+    free(msg);
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret)
+{
+    errval_t err;
+
+    struct aos_rpc_msg *msg = NULL;
+    err = aos_rpc_recv_msg(rpc, &msg);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not get number with RPC call \n");
+        return err_push(err, LIB_ERR_RPC_RECV);
+    }
+
+    if(!msg) {
+       DEBUG_PRINTF("Something went wrong \n"); //ToDo: improve error
+       return LIB_ERR_SHOULD_NOT_GET_HERE;
+    }
+
+    assert(msg->message_type == SendNumber);
+
+    *ret = (uintptr_t)*msg->payload;
+
+    free(msg);
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
+{
+    // TODO: implement functionality to send a string over the given channel
+    // and wait for a response.
+
+    printf("Inside sending string \n");
+    errval_t err;
+
+    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + strlen(string));
+
+    msg->header_bytes = sizeof(struct aos_rpc_msg);
+    msg->payload_bytes = strlen(string);
+    msg->message_type = SendString;
+    msg->cap = NULL_CAP;
+    strncpy(msg->payload, string, strlen(string));
+
+    err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not send string\n");
+        free(msg);
+        return err_push(err, LIB_ERR_RPC_SEND);
+    }
+
+    free(msg);
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_get_string(struct aos_rpc *rpc, char *ret_string)
+{
+    // call rpc_get_msg(), read payload size, malloc ret_string to this size, copy string
+    // to ret_string, all done :)
+
+    struct aos_rpc_msg *msg = NULL;
+    errval_t err = aos_rpc_recv_msg(rpc, &msg);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to recieve message! \n");
+        free(msg);
+        return err_push(err, LIB_ERR_RPC_RECV);
+    }
+
+    if(!msg) {
+       DEBUG_PRINTF("Something went wrong \n"); //ToDo: improve error
+       return LIB_ERR_SHOULD_NOT_GET_HERE;
+    }
+
+    assert(msg->message_type == SendString);
+
+    ret_string = malloc(msg->payload_bytes);
+    if (!ret_string) {
+        printf("Failured to allocate buffer for return string in rpc get string \n");
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    strncpy(ret_string, msg->payload, msg->payload_bytes);
+    free(msg);
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment,
+                             struct capref *ret_cap, size_t *ret_bytes)
+{
+    // TODO: implement functionality to request a RAM capability over the
+    // given channel and wait until it is delivered.
+    return SYS_ERR_OK;
+}
+
+
+errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
+{
+    // TODO implement functionality to request a character from
+    // the serial driver.
+    return SYS_ERR_OK;
+}
+
+
+errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
+{
+    // TODO implement functionality to send a character to the
+    // serial port.
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core,
+                               domainid_t *newpid)
+{
+    // TODO (M5): implement spawn new process rpc
+    return SYS_ERR_OK;
+}
+
+
+errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **name)
+{
+    // TODO (M5): implement name lookup for process given a process id
+    return SYS_ERR_OK;
+}
+
+
+errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
+                                      size_t *pid_count)
+{
+    // TODO (M5): implement process id discovery
+    return SYS_ERR_OK;
+}
+
 
 errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc) {
 	errval_t err;
@@ -150,118 +448,6 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc){
 	return SYS_ERR_OK;
 }
 
-errval_t
-aos_rpc_send_number(struct aos_rpc *child_rpc, uintptr_t num) {
-	// TODO: implement functionality to send a number over the channel
-	// given channel and wait until the ack gets returned.
-	printf("Inside RPC_SEND_NUMBER \n"); 
-
-	struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + sizeof(num));
-
-	msg->header_size = sizeof(struct aos_rpc_msg);
-	msg->payload_size = sizeof(num);
-	msg->message_type = SendNumber;
-	msg->payload[0] = num;
-
-	errval_t err = lmp_chan_send(&child_rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, 4, num, 0, 0, 0);
-	if(err_is_fail(err)) {
-		DEBUG_ERR(err, "Could not send number\n");
-		return AOS_ERR_LMP_SEND_FAILURE;
-	}
-
-	return SYS_ERR_OK;
-}
-
-errval_t
-aos_rpc_send_string(struct aos_rpc *child_rpc, const char *string) {
-	// TODO: implement functionality to send a string over the given channel
-	// and wait for a response.
-
-	printf("Inside sending string \n"); 
-	errval_t err;
-
-	struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + strlen(string));
-
-	msg->header_size = sizeof(struct aos_rpc_msg);
-	msg->payload_size = strlen(string);
-	msg->message_type = SendString;
-	strncpy(msg->payload, string, strlen(string));
-
-	int total_size = msg->header_size + msg->payload_size;
-	int transfered_size = 0;
-
-	uint64_t * buf = (uint64_t*) msg;
-
-	while(transfered_size < total_size) {
-		int remaining_size = total_size - transfered_size;
-		if(remaining_size >=  4*sizeof(uint64_t)) {
-			err = lmp_chan_send(&child_rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, 4, buf[0], buf[1], buf[2], buf[3]);
-
-			if(err_is_fail(err)) {
-				DEBUG_ERR(err, "Failed sending stream! \n");
-				return AOS_ERR_LMP_SEND_FAILURE;
-			}
-
-			transfered_size += 4*sizeof(uint64_t);
-		}
-
-	}
-	return SYS_ERR_OK;
-}
-
-/**
- * \brief Receive a number from the given channel.
- * 
- * After you obtained a new frame capability, you can use your paging infrastructure from the
- * previous milestone to map it and access the memory on it.
- */
-errval_t
-aos_rpc_get_ram_cap(struct aos_rpc *child_rpc, size_t bytes, size_t alignment,
-					struct capref *ret_cap, size_t *ret_bytes) {
-	// TODO: implement functionality to request a RAM capability over the
-	// given channel and wait until it is delivered.
-	return SYS_ERR_OK;
-}
-
-
-errval_t
-aos_rpc_serial_getchar(struct aos_rpc *child_rpc, char *retc) {
-	// TODO implement functionality to request a character from
-	// the serial driver.
-	return SYS_ERR_OK;
-}
-
-
-errval_t
-aos_rpc_serial_putchar(struct aos_rpc *child_rpc, char c) {
-	// TODO implement functionality to send a character to the
-	// serial port.
-	return SYS_ERR_OK;
-}
-
-errval_t
-aos_rpc_process_spawn(struct aos_rpc *child_rpc, char *cmdline,
-					  coreid_t core, domainid_t *newpid) {
-	// TODO (M5): implement spawn new process child_rpc
-	return SYS_ERR_OK;
-}
-
-
-
-errval_t
-aos_rpc_process_get_name(struct aos_rpc *child_rpc, domainid_t pid, char **name) {
-	// TODO (M5): implement name lookup for process given a process id
-	return SYS_ERR_OK;
-}
-
-
-errval_t
-aos_rpc_process_get_all_pids(struct aos_rpc *child_rpc, domainid_t **pids,
-							 size_t *pid_count) {
-	// TODO (M5): implement process id discovery
-	return SYS_ERR_OK;
-}
-
 void aos_handshake_recv_closure (void *arg) {
 	errval_t err;
 
@@ -326,4 +512,3 @@ struct aos_rpc *aos_rpc_get_serial_channel(void)
 	debug_printf("aos_rpc_get_serial_channel NYI\n");
 	return NULL;
 }
-

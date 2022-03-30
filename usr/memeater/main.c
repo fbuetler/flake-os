@@ -149,16 +149,17 @@ int main(int argc, char *argv[])
     debug_printf("memeater started....\n");
 
     init_rpc = get_init_rpc();
+
+    err = test_basic_rpc();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failure in testing basic RPC\n");
+    }
+
     assert(!"successfully initialized memeater rpc, aborting");
 
     mem_rpc = aos_rpc_get_memory_channel();
     if (!mem_rpc) {
         USER_PANIC_ERR(err, "memory RPC channel NULL?\n");
-    }
-
-    err = test_basic_rpc();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failure in testing basic RPC\n");
     }
 
     err = request_and_map_memory();

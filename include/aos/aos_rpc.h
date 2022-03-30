@@ -30,11 +30,13 @@ enum aos_rpc_msg_type {
 };
 
 struct aos_rpc_msg {
-    int header_size;
-    int payload_size;
-    int message_type;
+    uint16_t header_bytes;
+    uint16_t payload_bytes;
+    enum aos_rpc_msg_type message_type;
+    struct capref cap;
     char payload[0];
 };
+
 errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc);
 /**
  * \brief Initialize an aos_rpc struct.
@@ -47,11 +49,14 @@ errval_t aos_rpc_init(struct aos_rpc *rpc);
  */
 errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val);
 
+errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret);
+
 /**
  * \brief Send a string.
  */
 errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string);
 
+errval_t aos_rpc_get_string(struct aos_rpc *rpc, char *ret_string);
 
 /**
  * \brief Request a RAM capability with >= request_bits of size over the given
@@ -126,5 +131,6 @@ struct aos_rpc *aos_rpc_get_process_channel(void);
 struct aos_rpc *aos_rpc_get_serial_channel(void);
 
 void aos_handshake_recv_closure (void *arg);
+void aos_on_receive(void *arg);
 
 #endif // _LIB_BARRELFISH_AOS_MESSAGES_H

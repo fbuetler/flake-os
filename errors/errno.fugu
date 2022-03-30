@@ -373,6 +373,12 @@ errors libaos LIB_ERR_ {
     failure MSGBUF_CANNOT_GROW  "Failed to grow message buffer while marshalling",
     failure RCK_NOTIFY          "Failure in rck_notify()",
     failure IPI_NOTIFY          "Failure in ipi_notify()",
+    failure RPC_SEND            "Failure in aos_rpc_send_msg()",
+    failure RPC_RECV             "Failure in aos_rpc_recv_msg()",
+    failure RPC_SEND_NUMBER     "Failure in aos_rpc_send_number()",
+    failure RPC_GET_NUMBER      "Failure in aos_rpc_get_number()",
+    failure RPC_SEND_STRING     "Failure in aos_rpc_send_string()",
+    failure RPC_GET_STRING      "Faulure in aos_rpc_get_string()",
 
     // IDC binding/export and Monitor client interface
     failure MONITOR_CLIENT_BIND "Error in monitor_client_lmp_bind()",
