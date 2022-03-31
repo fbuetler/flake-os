@@ -14,6 +14,7 @@
 
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
+#include <math.h>
 #include <spawn/spawn.h>
 
 /**
@@ -39,7 +40,8 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     }
 
     size_t transferred_size = 0;
-    while (total_bytes - transferred_size >= 4 * sizeof(uint64_t)) {
+
+    while (transferred_size < total_bytes && ceil((double)(total_bytes-transferred_size)/ (double)sizeof(uint64_t)) >= 4) {
         // size_t remaining = total_bytes - transferred_size;
         // if (remaining < LMP_MSG_LENGTH_BYTES) {
         //     memset(buf + remaining, 0, (LMP_MSG_LENGTH_BYTES - remaining));
@@ -58,7 +60,12 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         transferred_size += 4 * sizeof(uint64_t);
     }
 
-    size_t remaining = total_bytes - transferred_size;
+    size_t remaining;
+    if(transferred_size >= total_bytes)
+        remaining = 0;
+    else
+        remaining = total_bytes - transferred_size;
+
     do {
         switch (DIVIDE_ROUND_UP(remaining, sizeof(uint64_t))) {
         case 0:
@@ -104,6 +111,7 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 static void aos_process_handshake(struct aos_rpc_msg *msg)
 {
     printf("Handshake ACK\n");
+    free(msg);
 }
 
 /**
@@ -114,16 +122,19 @@ static void aos_process_handshake(struct aos_rpc_msg *msg)
 static void aos_process_number(struct aos_rpc_msg *msg)
 {
     printf("received number: %d\n", *((uint64_t *)msg->payload));
+    free(msg);
 }
 
 /**
  * @brief default handler for string messages
  *
- * @param msg
+ * @param ms
+ * g
  */
 static void aos_process_string(struct aos_rpc_msg *msg)
 {
     printf("received string: %s\n", msg->payload);
+    free(msg);
 }
 
 
@@ -146,6 +157,7 @@ static void aos_process_ram_cap_response(struct aos_rpc_msg *msg)
     debug_printf("%.*s\n", 256, buf1);
 
     *ret_cap = msg->cap;
+    free(msg);
 }
 
 
@@ -162,6 +174,7 @@ static void aos_process_spawn_response(struct aos_rpc_msg *msg)
     domainid_t *pid = (domainid_t *)((char *)msg->payload + sizeof(domainid_t));
 
     *pid = assigned_pid;
+    free(msg);
 }
 
 /**
@@ -191,6 +204,7 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
         break;
     default:
         printf("received unknown message type\n");
+        free(rpc->recv_msg);
         break;
     }
     // TODO: free msg
