@@ -561,12 +561,18 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
         return err;
     }
 
-    err = aos_rpc_send_msg(rpc, msg);
+    err = aos_rpc_call(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
-    return event_dispatch(get_default_waitset());
+
+    domainid_t assigned_pid = *((domainid_t *)rpc->recv_msg->payload);
+    debug_printf("spawned process with PID %d\n", assigned_pid);
+    *newpid = assigned_pid;
+    free(msg);
+
+    return SYS_ERR_OK;
 }
 
 

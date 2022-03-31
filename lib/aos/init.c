@@ -200,11 +200,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     }
 
     struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
-    // rpc->chan.local_cap = (struct capref) { .cnode = cnode_task,
-    //                                         .slot = TASKCN_SLOT_SELFEP };
-    // rpc->chan.remote_cap = (struct capref) { .cnode = cnode_task,
-    //                                          .slot = TASKCN_SLOT_INITEP };
-
     err = aos_rpc_init(rpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init rpc");

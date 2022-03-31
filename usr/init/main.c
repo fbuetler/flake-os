@@ -88,24 +88,27 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc)
 
 static void aos_process_spawn_request(struct aos_rpc *rpc)
 {
+    errval_t err;
+
     char *module = rpc->recv_msg->payload;
     DEBUG_PRINTF("module to spawn: %s\n", module);
 
     struct spawninfo *info = malloc(sizeof(struct spawninfo));
     domainid_t pid = 0;
 
-    errval_t err = start_process(module, info, &pid);
-    assert(err_is_ok(err));
-
+    err = start_process(module, info, &pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to start spawn process");
+        return;
+    }
     debug_printf("spawned process with PID %d\n", pid);
 
-    size_t payload_size = sizeof(domainid_t) + sizeof(domainid_t *);
-    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    size_t payload_size = sizeof(domainid_t);
+    void *payload = malloc(payload_size);
+    *((domainid_t *)payload) = pid;
 
-    char payload[payload_size];
-    memcpy(payload, &pid, sizeof(domainid_t *));
-    memcpy(payload + sizeof(domainid_t *), rpc->recv_msg->payload, sizeof(domainid_t));
-    err = aos_rpc_create_msg(&reply, SpawnResponse, payload_size, (void *)&payload,
+    struct aos_rpc_msg *reply;
+    err = aos_rpc_create_msg(&reply, SpawnResponse, payload_size, (void *)payload,
                              NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
