@@ -191,32 +191,28 @@ static errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
+// forward declared
+static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc);
+
+static errval_t aos_rpc_recv_msg_handler(void *args)
 {
     errval_t err;
+    struct aos_rpc *rpc = (struct aos_rpc *)args;
 
-    // send message
-    err = aos_rpc_send_msg(rpc, msg);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send message");
-        return err;
-    }
-
-    // wait for the response message
-    while (!lmp_chan_can_recv(&rpc->chan)) {
-    }
-
-    // receive message
     err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
     }
 
+    if (!rpc->is_busy) {
+        rpc->process_msg_func(rpc);
+    }
+
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
+static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
 {
     errval_t err;
 
@@ -290,19 +286,27 @@ reregister:
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_recv_msg_handler(void *args)
+
+errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 {
     errval_t err;
-    struct aos_rpc *rpc = (struct aos_rpc *)args;
 
+    // send message
+    err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err;
+    }
+
+    // wait for the response message
+    while (!lmp_chan_can_recv(&rpc->chan)) {
+    }
+
+    // receive message
     err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
-    }
-
-    if (!rpc->is_busy) {
-        rpc->process_msg_func(rpc);
     }
 
     return SYS_ERR_OK;
@@ -517,7 +521,7 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
             break;
         }
     }
-    // we've received the capability; 
+    // we've received the capability;
 
     child_rpc->chan.local_cap = init_ep_cap;
     child_rpc->chan.remote_cap = memeater_endpoint_cap;

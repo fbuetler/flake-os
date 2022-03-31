@@ -65,16 +65,30 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 errval_t aos_rpc_init(struct aos_rpc *rpc);
 
 /**
- * \brief Message receive handler to be used in the
+ * @brief Helper function to create a message
  */
-errval_t aos_rpc_recv_msg_handler(void *args);
+errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type,
+                            size_t payload_size, void *payload, struct capref msg_cap);
+
+/**
+ * @brief Asynchronously send a message
+ */
+errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
+
+/**
+ * @brief Register a receive handler that should be called on icoming messages
+ */
+errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
+
+/**
+ * @brief Synchronously send a message
+ */
+errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
 
 /**
  * \brief Send a number.
  */
 errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val);
-
-errval_t aos_rpc_get_number(struct aos_rpc *rpc, uintptr_t *ret);
 
 /**
  * \brief Send a string.
@@ -109,7 +123,6 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c);
 errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *cmdline, coreid_t core,
                                domainid_t *newpid);
 
-
 /**
  * \brief Get name of process with the given PID.
  * \arg pid the process id to lookup
@@ -118,7 +131,6 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *cmdline, coreid_t cor
  * responsibility.
  */
 errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid, char **name);
-
 
 /**
  * \brief Get PIDs of all running processes.
@@ -129,7 +141,6 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid, char **n
  */
 errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan, domainid_t **pids,
                                       size_t *pid_count);
-
 
 /**
  * \brief Returns the RPC channel to init.
@@ -150,17 +161,5 @@ struct aos_rpc *aos_rpc_get_process_channel(void);
  * \brief Returns the channel to the serial console
  */
 struct aos_rpc *aos_rpc_get_serial_channel(void);
-
-errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
-
-
-errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type,
-                            size_t payload_size, void *payload, struct capref msg_cap);
-
-errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
-
-errval_t aos_rpc_recv_msg(struct aos_rpc *rpc);
-
-errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
 
 #endif  // _LIB_BARRELFISH_AOS_MESSAGES_H
