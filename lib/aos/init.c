@@ -67,30 +67,62 @@ static void libc_assert(const char *expression, const char *file, const char *fu
 
 __attribute__((__used__)) static size_t syscall_terminal_write(const char *buf, size_t len)
 {
+    if (len) {
+        errval_t err = sys_print(buf, len);
+
+        if (err_is_fail(err)) {
+            return 0;
+        }
+    }
+
+    return len;
+}
+
+__attribute__((__used__)) static size_t terminal_write(const char *buf, size_t len){
     struct aos_rpc *rpc = get_init_rpc();
     if(!rpc) {
-        if (len) {
-            errval_t err = sys_print(buf, len);
-
-            if (err_is_fail(err)) {
-                return 0;
-            }
-        }
+        return syscall_terminal_write(buf, len);
     }else{
         int i = 0;
         while(i++ < len){
             aos_rpc_serial_putchar(rpc, *(buf++));
         }     
     }
-
     return len;
 }
+
+__attribute__((__used__)) static size_t terminal_read(char *buf, size_t len){
+    errval_t err;
+    struct aos_rpc *rpc = get_init_rpc();
+    if(1){
+        int i = 0;
+        while(i++ < len){
+            err = sys_getchar(buf++);
+            if(err_is_fail(err)){
+                return i - 1;
+            }
+        }
+    }else{
+        int i = 0;
+        while(i++ < len){
+            err = aos_rpc_serial_getchar(rpc, (buf++));
+            if (err_is_fail(err)) {
+                return i -1;
+            }
+        }
+    }
+    return len;
+}
+
 
 __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t len)
 {
     debug_printf("Terminal read NYI!\n");
     return 0;
 }
+
+
+
 
 /* Set libc function pointers */
 void barrelfish_libc_glue_init(void)
@@ -100,7 +132,7 @@ void barrelfish_libc_glue_init(void)
     // TODO: change these to use the user-space serial driver if possible
     // TODO: set these functions
     _libc_terminal_read_func = dummy_terminal_read;
-    _libc_terminal_write_func = syscall_terminal_write;
+    _libc_terminal_write_func = terminal_write;
     _libc_exit_func = libc_exit;
     _libc_assert_func = libc_assert;
     /* morecore func is setup by morecore_init() */

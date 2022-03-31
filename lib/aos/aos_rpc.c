@@ -199,14 +199,13 @@ static void aos_process_spawn_response(struct aos_rpc_msg *msg)
 }
 
 static void aos_process_serial_read_response(struct aos_rpc_msg *msg){
-    //void *ptr = ((void **) msg->payload)[0];
+    char *ptr = ((char **) msg->payload)[0];
     char c = (char) ((uint64_t*) msg->payload)[1];
 
     //char c = ((size_t)buf) >> (63-8);
 
     //buf = (char *)((size_t)buf ^ ((size_t)c << (63 - 8)));
-    //*buf = c; 
-    printf("got serial read response: '%c'\n", c);
+    *ptr = c; 
 }
 
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
