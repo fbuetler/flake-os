@@ -21,5 +21,8 @@
 void run_m1_tests(void);
 void run_m2_tests(void);
 void run_m3_tests(void);
+void run_m4_tests(void);
+void run_m5_tests(void);
+void run_m6_tests(void);
 
 #endif /* _INIT_CUSTOM_E2E_TESTS_H_ */

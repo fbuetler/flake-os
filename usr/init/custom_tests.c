@@ -29,200 +29,9 @@
 
 struct mm aos_mm;
 
-// forward declaration
-static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid);
-
-static void aos_process_number(struct aos_rpc_msg *msg)
-{
-    debug_printf("received number: %d\n", *((uint64_t *)msg->payload));
-}
-
-static void aos_process_string(struct aos_rpc_msg *msg)
-{
-    debug_printf("received string: %s\n", msg->payload);
-}
-
-static void aos_process_ram_cap_request(struct aos_rpc *rpc)
-{
-    errval_t err;
-
-    // read ram request properties
-    size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
-    size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
-
-    // alloc ram
-    struct capref ram_cap;
-    err = ram_alloc_aligned(&ram_cap, bytes, alignment);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "ram_alloc in ram cap request failed");
-        return;
-    }
-
-    // create response with ram cap
-    size_t payload_size = 0;
-    struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, RamCapResponse, payload_size, NULL, ram_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
-        return;
-    }
-
-    // char buf1[256];
-    // debug_print_cap_at_capref(buf1, 256, ram_cap);
-    // DEBUG_PRINTF("%.*s\n", 256, buf1);
-
-    // send response
-    err = aos_rpc_send_msg(rpc, reply);
-    if (err_is_fail(err)) {
-        DEBUG_PRINTF("error sending ram cap response\n");
-    }
-}
-
-static void aos_process_spawn_request(struct aos_rpc *rpc)
-{
-    errval_t err;
-
-    char *module = rpc->recv_msg->payload;
-
-    struct spawninfo *info = malloc(sizeof(struct spawninfo));
-    domainid_t pid = 0;
-
-    err = start_process(module, info, &pid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to start spawn process");
-        return;
-    }
-    debug_printf("spawned process with PID %d\n", pid);
-
-    size_t payload_size = sizeof(domainid_t);
-    void *payload = malloc(payload_size);
-    *((domainid_t *)payload) = pid;
-
-    struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, SpawnResponse, payload_size, (void *)payload,
-                             NULL_CAP);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
-        return;
-    }
-
-    err = aos_rpc_send_msg(rpc, reply);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error sending spawn response\n");
-        return;
-    }
-}
-
-static errval_t aos_process_serial_write_char(struct aos_rpc *rpc)
-{
-    char *buf = rpc->recv_msg->payload;
-    errval_t err = sys_print(buf, 1);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error writing to serial");
-        return err;
-    }
-
-    size_t payload_size = 0;
-    struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, SerialWriteCharResponse, payload_size, NULL,
-                             NULL_CAP);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
-        return err;
-    }
-
-    err = aos_rpc_send_msg(rpc, reply);
-    if (err_is_fail(err)) {
-        DEBUG_PRINTF("error sending serial read char response\n");
-        return err;
-    }
-
-    return SYS_ERR_OK;
-}
-
-static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
-{
-    errval_t err;
-
-    char c;
-    err = sys_getchar(&c);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    size_t payload_size = sizeof(char);
-    void *payload = malloc(payload_size);
-    *((char *)payload) = c;
-
-    struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, SerialReadCharResponse, payload_size, payload,
-                             NULL_CAP);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
-        return err;
-    }
-
-    err = aos_rpc_send_msg(rpc, reply);
-    if (err_is_fail(err)) {
-        DEBUG_PRINTF("error sending serial read char response\n");
-        return err;
-    }
-
-    return SYS_ERR_OK;
-}
-
-static errval_t init_process_msg(struct aos_rpc *rpc)
-{
-    // should only handle incoming messages not initiated by us
-    enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
-    switch (msg_type) {
-    case SendNumber:
-        aos_process_number(rpc->recv_msg);
-        break;
-    case SendString:
-        aos_process_string(rpc->recv_msg);
-        break;
-    case RamCapRequest:
-        aos_process_ram_cap_request(rpc);
-        break;
-    case SpawnRequest:
-        aos_process_spawn_request(rpc);
-        break;
-    case SerialWriteChar:
-        aos_process_serial_write_char(rpc);
-        break;
-    case SerialReadChar:
-        aos_process_serial_read_char_request(rpc);
-        break;
-    default:
-        printf("received unknown message type\n");
-        break;
-    }
-    // TODO: free msg
-    return SYS_ERR_OK;
-}
-
-static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid)
-{
-    errval_t err;
-
-    err = spawn_load_by_name(cmd, si, pid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to spawn \"%s\"", cmd);
-        return err_push(err, SPAWN_ERR_LOAD);
-    }
-
-    // setup handler for the process
-    err = aos_rpc_register_recv(&si->rpc, init_process_msg);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to register receive handler for channel to %s in init\n",
-                  cmd);
-        return err;
-    }
-
-    return SYS_ERR_OK;
-}
-
+/*
+    M1 TEST START
+*/
 
 __attribute__((unused)) static void test_alternate_allocs_and_frees(size_t n, size_t size,
                                                                     size_t alignment)
@@ -740,6 +549,10 @@ void run_m1_tests(void)
     test_many_single_pages_allocated(40000);
 }
 
+/*
+    M2 TEST START
+*/
+
 __attribute__((unused)) static void test_spawn_single_process(void)
 {
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
@@ -919,6 +732,207 @@ void run_m2_tests(void)
     test_spawn_and_kill_multiple_process(20);
 }
 
+/*
+    M2 TEST START
+*/
+
+// forward declared
+__attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc);
+
+__attribute__((unused)) static errval_t start_process(char *cmd, struct spawninfo *si,
+                                                      domainid_t *pid)
+{
+    errval_t err;
+
+    err = spawn_load_by_name(cmd, si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn \"%s\"", cmd);
+        return err_push(err, SPAWN_ERR_LOAD);
+    }
+
+    // setup handler for the process
+    err = aos_rpc_register_recv(&si->rpc, init_process_msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register receive handler for channel to %s in init\n",
+                  cmd);
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+__attribute__((unused)) static void aos_process_number(struct aos_rpc_msg *msg)
+{
+    debug_printf("received number: %d\n", *((uint64_t *)msg->payload));
+}
+
+__attribute__((unused)) static void aos_process_string(struct aos_rpc_msg *msg)
+{
+    debug_printf("received string: %s\n", msg->payload);
+}
+
+__attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *rpc)
+{
+    errval_t err;
+
+    // read ram request properties
+    size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
+    size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
+
+    // alloc ram
+    struct capref ram_cap;
+    err = ram_alloc_aligned(&ram_cap, bytes, alignment);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "ram_alloc in ram cap request failed");
+        return;
+    }
+
+    // create response with ram cap
+    size_t payload_size = 0;
+    struct aos_rpc_msg *reply;
+    err = aos_rpc_create_msg(&reply, RamCapResponse, payload_size, NULL, ram_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return;
+    }
+
+    // char buf1[256];
+    // debug_print_cap_at_capref(buf1, 256, ram_cap);
+    // DEBUG_PRINTF("%.*s\n", 256, buf1);
+
+    // send response
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error sending ram cap response\n");
+    }
+}
+
+__attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rpc)
+{
+    errval_t err;
+
+    char *module = rpc->recv_msg->payload;
+
+    struct spawninfo *info = malloc(sizeof(struct spawninfo));
+    domainid_t pid = 0;
+
+    err = start_process(module, info, &pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to start spawn process");
+        return;
+    }
+    debug_printf("spawned process with PID %d\n", pid);
+
+    size_t payload_size = sizeof(domainid_t);
+    void *payload = malloc(payload_size);
+    *((domainid_t *)payload) = pid;
+
+    struct aos_rpc_msg *reply;
+    err = aos_rpc_create_msg(&reply, SpawnResponse, payload_size, (void *)payload,
+                             NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return;
+    }
+
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error sending spawn response\n");
+        return;
+    }
+}
+
+__attribute__((unused)) static errval_t aos_process_serial_write_char(struct aos_rpc *rpc)
+{
+    char *buf = rpc->recv_msg->payload;
+    errval_t err = sys_print(buf, 1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error writing to serial");
+        return err;
+    }
+
+    size_t payload_size = 0;
+    struct aos_rpc_msg *reply;
+    err = aos_rpc_create_msg(&reply, SerialWriteCharResponse, payload_size, NULL,
+                             NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
+
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error sending serial read char response\n");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+__attribute__((unused)) static errval_t
+aos_process_serial_read_char_request(struct aos_rpc *rpc)
+{
+    errval_t err;
+
+    char c;
+    err = sys_getchar(&c);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    size_t payload_size = sizeof(char);
+    void *payload = malloc(payload_size);
+    *((char *)payload) = c;
+
+    struct aos_rpc_msg *reply;
+    err = aos_rpc_create_msg(&reply, SerialReadCharResponse, payload_size, payload,
+                             NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
+
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error sending serial read char response\n");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+__attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
+{
+    // should only handle incoming messages not initiated by us
+    enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
+    switch (msg_type) {
+    case SendNumber:
+        aos_process_number(rpc->recv_msg);
+        break;
+    case SendString:
+        aos_process_string(rpc->recv_msg);
+        break;
+    case RamCapRequest:
+        aos_process_ram_cap_request(rpc);
+        break;
+    case SpawnRequest:
+        aos_process_spawn_request(rpc);
+        break;
+    case SerialWriteChar:
+        aos_process_serial_write_char(rpc);
+        break;
+    case SerialReadChar:
+        aos_process_serial_read_char_request(rpc);
+        break;
+    default:
+        printf("received unknown message type\n");
+        break;
+    }
+    // TODO: free msg
+    return SYS_ERR_OK;
+}
+
+
 __attribute__((unused)) static void test_spawn_memeater(void)
 {
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
@@ -987,10 +1001,27 @@ __attribute__((unused)) static void test_get_number(void)
     printf("Big string success! \n");
 }*/
 
-
 void run_m3_tests(void)
 {
     test_spawn_memeater();
     // test_spawn_multiple_memeaters();
     // test_get_number();
 }
+
+/*
+    M4 TEST START
+*/
+
+void run_m4_tests(void) { }
+
+/*
+    M5 TEST START
+*/
+
+void run_m5_tests(void) { }
+
+/*
+    M6 TEST START
+*/
+
+void run_m6_tests(void) { }
