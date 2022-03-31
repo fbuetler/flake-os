@@ -358,8 +358,6 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
 {
     errval_t err;
 
-    DEBUG_PRINTF("get ram request: size: 0x%lx alignment: 0x%lx\n", bytes, alignment);
-
     size_t payload_size = 3 * sizeof(size_t);
     void *payload = malloc(payload_size);
     ((size_t *)payload)[0] = bytes;
@@ -380,10 +378,10 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     }
 
     *ret_cap = (struct capref)rpc->recv_msg->cap;
-    DEBUG_PRINTF("receive ram cap\n");
-    char buf1[256];
-    debug_print_cap_at_capref(buf1, 256, *ret_cap);
-    DEBUG_PRINTF("%.*s\n", 256, buf1);
+
+    // char buf1[256];
+    // debug_print_cap_at_capref(buf1, 256, *ret_cap);
+    // DEBUG_PRINTF("%.*s\n", 256, buf1);
 
     free(msg);
 
@@ -524,12 +522,12 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
     child_rpc->chan.local_cap = init_ep_cap;
     child_rpc->chan.remote_cap = memeater_endpoint_cap;
 
-    char buf0[256];
-    debug_print_cap_at_capref(buf0, 256, child_rpc->chan.local_cap);
-    DEBUG_PRINTF("local: %.*s\n", 256, buf0);
-    char buf1[256];
-    debug_print_cap_at_capref(buf1, 256, child_rpc->chan.remote_cap);
-    DEBUG_PRINTF("remote %.*s\n", 256, buf1);
+    // char buf0[256];
+    // debug_print_cap_at_capref(buf0, 256, child_rpc->chan.local_cap);
+    // DEBUG_PRINTF("local: %.*s\n", 256, buf0);
+    // char buf1[256];
+    // debug_print_cap_at_capref(buf1, 256, child_rpc->chan.remote_cap);
+    // DEBUG_PRINTF("remote %.*s\n", 256, buf1);
 
     size_t payload_size = 0;
     struct aos_rpc_msg *msg;
@@ -603,12 +601,12 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
         abort();
     }
 
-    char buf0[256];
-    debug_print_cap_at_capref(buf0, 256, aos_rpc->chan.local_cap);
-    DEBUG_PRINTF("local: %.*s\n", 256, buf0);
-    char buf1[256];
-    debug_print_cap_at_capref(buf1, 256, aos_rpc->chan.remote_cap);
-    DEBUG_PRINTF("remote: %.*s\n", 256, buf1);
+    // char buf0[256];
+    // debug_print_cap_at_capref(buf0, 256, aos_rpc->chan.local_cap);
+    // DEBUG_PRINTF("local: %.*s\n", 256, buf0);
+    // char buf1[256];
+    // debug_print_cap_at_capref(buf1, 256, aos_rpc->chan.remote_cap);
+    // DEBUG_PRINTF("remote: %.*s\n", 256, buf1);
 
     /* initialize init RPC client with lmp channel */
 

@@ -37,23 +37,21 @@ static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid);
 
 static void aos_process_number(struct aos_rpc_msg *msg)
 {
-    printf("received number: %d\n", *((uint64_t *)msg->payload));
+    debug_printf("received number: %d\n", *((uint64_t *)msg->payload));
 }
 
 static void aos_process_string(struct aos_rpc_msg *msg)
 {
-    printf("received string: %s\n", msg->payload);
+    debug_printf("received string: %s\n", msg->payload);
 }
 
 static void aos_process_ram_cap_request(struct aos_rpc *rpc)
 {
     errval_t err;
-    DEBUG_PRINTF("received ram cap request\n");
 
     // read ram request properties
     size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
     size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
-    DEBUG_PRINTF("received payload: size: %lx alignment: %lx\n", bytes, alignment);
 
     // alloc ram
     struct capref ram_cap;
@@ -72,17 +70,15 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc)
         return;
     }
 
-    // send response
-    char buf1[256];
-    debug_print_cap_at_capref(buf1, 256, ram_cap);
-    DEBUG_PRINTF("%.*s\n", 256, buf1);
+    // char buf1[256];
+    // debug_print_cap_at_capref(buf1, 256, ram_cap);
+    // DEBUG_PRINTF("%.*s\n", 256, buf1);
 
+    // send response
     err = aos_rpc_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
-
-    DEBUG_PRINTF("ram request handled.\n");
 }
 
 static void aos_process_spawn_request(struct aos_rpc *rpc)
@@ -90,7 +86,6 @@ static void aos_process_spawn_request(struct aos_rpc *rpc)
     errval_t err;
 
     char *module = rpc->recv_msg->payload;
-    DEBUG_PRINTF("module to spawn: %s\n", module);
 
     struct spawninfo *info = malloc(sizeof(struct spawninfo));
     domainid_t pid = 0;
@@ -929,7 +924,6 @@ __attribute__((unused)) static void run_m2_tests(void)
 
 __attribute__((unused)) static void test_spawn_memeater(void)
 {
-    printf("spawning memeater \n");
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
     errval_t err = start_process("memeater", si, pid);
@@ -941,7 +935,6 @@ __attribute__((unused)) static void test_spawn_memeater(void)
 
 __attribute__((unused)) static void test_spawn_multiple_memeaters(void)
 {
-    printf("spawning memeater \n");
     for (int i = 0; i < 5; i++) {
         struct spawninfo *si = malloc(sizeof(struct spawninfo));
         domainid_t *pid = malloc(sizeof(domainid_t));

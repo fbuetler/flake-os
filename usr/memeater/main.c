@@ -78,7 +78,6 @@ static errval_t request_and_map_memory(void)
     debug_printf("performing memset.\n");
     memset(buf1, 0x00, BASE_PAGE_SIZE);
 
-
     debug_printf("obtaining cap of %" PRIu32 " bytes using frame alloc...\n",
                  LARGE_PAGE_SIZE);
 
