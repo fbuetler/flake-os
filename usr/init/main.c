@@ -550,9 +550,9 @@ __attribute__((unused)) static void run_m1_tests(void)
 
 __attribute__((unused)) static void test_spawn_single_process(void)
 {
-    struct spawninfo si;
-    domainid_t pid;
-    spawn_load_by_name("hello", &si, &pid);
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    spawn_load_by_name("hello", si, pid);
 }
 
 __attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
@@ -730,9 +730,9 @@ __attribute__((unused)) static void run_m2_tests(void)
 __attribute__((unused)) static void test_spawn_memeater(void)
 {
     printf("spawning memeater \n");
-    struct spawninfo si;
-    domainid_t pid;
-    errval_t err = spawn_load_by_name("memeater", &si, &pid);
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    errval_t err = spawn_load_by_name("memeater", si, pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn memeater");
     }
