@@ -55,13 +55,14 @@ struct aos_rpc_msg {
     char payload[0];
 };
 
+/**
+ * @brief Initialize an aos_rpc struct from parent to child
+ */
 errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc);
 /**
- * \brief Initialize an aos_rpc struct.
+ * \brief Initialize an aos_rpc struct from child to parent.
  */
 errval_t aos_rpc_init(struct aos_rpc *rpc);
-
-errval_t aos_rpc_process_msg(struct aos_rpc *rpc);
 
 /**
  * \brief Message receive handler to be used in the

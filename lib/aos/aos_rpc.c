@@ -168,7 +168,7 @@ static void aos_process_string(struct aos_rpc_msg *msg)
     free(msg);
 }
 
-errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
+static errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
 {
     // should only handle incoming messages not initiated by us
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
