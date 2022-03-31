@@ -167,18 +167,22 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
 
+    /*
     domainid_t pid;
     err = aos_rpc_process_spawn(init_rpc, "hello", disp_get_core_id(), &pid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not spawn process\n");
     }
+    */
 
-    char c = 'A';
+    char c;
     // aos_rpc_serial_putchar(init_rpc, c);
-
     printf("enter a char: \n");
     err = aos_rpc_serial_getchar(init_rpc, &c);
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to get char");
+    }
+    printf("get char: %c\n", c);
 
     /* test printf functionality */
     debug_printf("testing terminal printf function...\n");

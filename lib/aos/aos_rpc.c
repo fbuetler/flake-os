@@ -413,19 +413,22 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
 {
     // TODO implement functionality to request a character from
     // the serial driver.
+
+    errval_t err;
+
     size_t payload_size = sizeof(char *);
+    void *payload = malloc(payload_size);
+    ((char **)payload)[0] = retc;
 
-    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + payload_size);
-    ((char **)msg->payload)[0] = retc;
+    struct aos_rpc_msg *msg;
+    err = aos_rpc_create_msg(&msg, SerialReadChar, payload_size, (void *)payload,
+                             NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
 
-    printf("actual pointer is: %p\n", retc);
-
-    msg->header_bytes = sizeof(struct aos_rpc_msg);
-    msg->payload_bytes = payload_size;
-    msg->message_type = SerialReadChar;
-    msg->cap = NULL_CAP;
-
-    errval_t err = aos_rpc_send_msg(rpc, msg);
+    err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
@@ -449,17 +452,22 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 {
     // TODO implement functionality to send a character to the
     // serial port.
-    size_t payload_size = sizeof(size_t);
 
-    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + payload_size);
-    msg->payload[0] = c;
+    errval_t err;
 
-    msg->header_bytes = sizeof(struct aos_rpc_msg);
-    msg->payload_bytes = payload_size;
-    msg->message_type = SerialWriteChar;
-    msg->cap = NULL_CAP;
+    size_t payload_size = sizeof(char);
+    void *payload = malloc(payload_size);
+    ((char *)payload)[0] = c;
 
-    errval_t err = aos_rpc_send_msg(rpc, msg);
+    struct aos_rpc_msg *msg;
+    err = aos_rpc_create_msg(&msg, SerialWriteChar, payload_size, (void *)payload,
+                             NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
+
+    err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
