@@ -933,6 +933,20 @@ __attribute__((unused)) static void run_m2_tests(void)
     test_spawn_and_kill_multiple_process(20);
 }
 
+__attribute__((unused)) static void test_spawn_multiple_memeaters(void)
+{
+    printf("spawning memeater \n");
+    for (int i = 0; i < 5; i++) {
+        struct spawninfo *si = malloc(sizeof(struct spawninfo));
+        domainid_t *pid = malloc(sizeof(domainid_t));
+        errval_t err = start_process("memeater", si, pid);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to spawn memeater");
+        }
+        assert(err_is_ok(err));
+    }
+}
+
 __attribute__((unused)) static void test_spawn_memeater(void)
 {
     printf("spawning memeater \n");
@@ -995,6 +1009,7 @@ __attribute__((unused)) static void test_get_number(void)
 __attribute__((unused)) static void run_m3_tests(void)
 {
     test_spawn_memeater();
+    // test_spawn_multiple_memeaters();
     // test_get_number();
 }
 

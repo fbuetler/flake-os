@@ -369,7 +369,6 @@ errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
     if (rpc->recv_bytes < rpc->recv_msg->payload_bytes + rpc->recv_msg->header_bytes) {
         goto reregister;
     }
-    DEBUG_PRINTF("but we're here??\n");
 
     rpc->is_busy = false;
     // rpc->process_msg_func(rpc);
