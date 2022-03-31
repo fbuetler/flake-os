@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 
     assert(!"success up to here");
 
-     char c = 'A';
+    char c = 'A';
     // aos_rpc_serial_putchar(init_rpc, c);
 
     printf("enter a char: \n");
@@ -182,7 +182,6 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
-
 
     /* test printf functionality */
     debug_printf("testing terminal printf function...\n");

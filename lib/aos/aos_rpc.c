@@ -216,7 +216,7 @@ static void aos_process_serial_read_response(struct aos_rpc_msg *msg)
     // char c = ((size_t)buf) >> (63-8);
 
     // buf = (char *)((size_t)buf ^ ((size_t)c << (63 - 8)));
-    *ptr = c; 
+    *ptr = c;
 }
 
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
@@ -428,7 +428,7 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
     }
-    
+
     err = event_dispatch(get_default_waitset());
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Error in event_dispatch");
@@ -439,7 +439,7 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
         DEBUG_ERR(err, "Error in event_dispatch");
         return err;
     }
-    
+
     return SYS_ERR_OK;
 }
 
@@ -462,7 +462,7 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
     }
-    
+
     return SYS_ERR_OK;
 }
 
@@ -479,8 +479,6 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
-
-    printf("cmd in msg: %s\n", msg->payload);
 
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
