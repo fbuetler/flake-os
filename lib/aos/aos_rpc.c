@@ -30,7 +30,8 @@ errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type 
                             size_t payload_size, void *payload, struct capref msg_cap)
 {
     size_t header_size = sizeof(struct aos_rpc_msg);
-    struct aos_rpc_msg *msg = malloc(header_size + payload_size);
+    struct aos_rpc_msg *msg = malloc(
+        ROUND_UP(header_size + payload_size, sizeof(uintptr_t)));
     if (!msg) {
         DEBUG_ERR(LIB_ERR_MALLOC_FAIL, "failed to allocate memory");
         return LIB_ERR_MALLOC_FAIL;
@@ -93,7 +94,7 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 
     size_t remaining = total_bytes - transferred_size;
     do {
-        switch (remaining / sizeof(uint64_t)) {
+        switch (DIVIDE_ROUND_UP(remaining, sizeof(uint64_t))) {
         case 0:
             if (remaining == 0) {
                 err = SYS_ERR_OK;
@@ -264,6 +265,8 @@ errval_t aos_rpc_recv_msg_handler(void *args)
 
         size_t recv_bytes = MIN(LMP_MSG_LENGTH_BYTES, total_bytes);
 
+        // printf("Received bytes: %zu total_bytes: %zu", recv_bytes, total_bytes);
+
         // allocate space for return message, copy current message already to it
         rpc->recv_msg = malloc(total_bytes);
         if (!rpc->recv_msg) {
@@ -277,7 +280,13 @@ errval_t aos_rpc_recv_msg_handler(void *args)
     } else {
         size_t total_bytes = rpc->recv_msg->header_bytes + rpc->recv_msg->payload_bytes;
         size_t remaining_bytes = total_bytes - rpc->recv_bytes;
+        // printf("Recv: total bytes: %zu msg_header: %hu msg_payload %d , recv_bytes: %zu
+        // \n", total_bytes,  rpc->recv_msg->header_bytes,  rpc->recv_msg->payload_bytes,
+        // rpc->recv_bytes);
+
         size_t copy_bytes = MIN(remaining_bytes, LMP_MSG_LENGTH_BYTES);
+        // printf("Copy bytes: %zu \n", copy_bytes);
+        // printf("buffer content: %s \n", (char*)recv_buf.words);
         memcpy(((char *)rpc->recv_msg) + rpc->recv_bytes, recv_buf.words, copy_bytes);
         rpc->recv_bytes += copy_bytes;
     }
@@ -299,7 +308,6 @@ reregister:
 errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
 {
     errval_t err;
-
     struct aos_rpc_msg *msg;
     err = aos_rpc_create_msg(&msg, SendNumber, sizeof(num), (void *)&num, NULL_CAP);
     if (err_is_fail(err)) {
@@ -330,6 +338,9 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
+
+    // printf("msg sizes header: %lu payload size: %zu \n", sizeof(struct aos_rpc_msg),
+    // len); printf("Payload before sending: %s \n", msg->payload);
 
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
