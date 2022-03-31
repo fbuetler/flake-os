@@ -457,7 +457,7 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 
     size_t payload_size = sizeof(char);
     void *payload = malloc(payload_size);
-    ((char *)payload)[0] = char;
+    ((char *)payload)[0] = c;
 
     struct aos_rpc_msg *msg;
     err = aos_rpc_create_msg(&msg, SerialWriteChar, payload_size, (void *)payload,
