@@ -174,12 +174,12 @@ int main(int argc, char *argv[])
 
     char c;
     // aos_rpc_serial_putchar(init_rpc, c);
-    printf("enter a char: \n");
+    debug_printf("enter a char: \n");
     err = aos_rpc_serial_getchar(init_rpc, &c);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to get char");
     }
-    printf("get char: %c\n", c);
+    debug_printf("get char: %c\n", c);
 
     /* test printf functionality */
     debug_printf("testing terminal printf function...\n");

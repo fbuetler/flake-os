@@ -120,7 +120,7 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
             if (remaining == 0) {
                 err = SYS_ERR_OK;
             } else {
-                printf("inside msg_send. Should not get here \n");
+                DEBUG_PRINTF("inside msg_send. Should not get here \n");
                 err = LIB_ERR_SHOULD_NOT_GET_HERE;
             }
             break;
@@ -152,7 +152,7 @@ static void aos_process_handshake(struct aos_rpc_msg *msg)
  */
 static void aos_process_number(struct aos_rpc_msg *msg)
 {
-    printf("received number: %d\n", *((uint64_t *)msg->payload));
+    DEBUG_PRINTF("received number: %d\n", *((uint64_t *)msg->payload));
     free(msg);
 }
 
@@ -164,7 +164,7 @@ static void aos_process_number(struct aos_rpc_msg *msg)
  */
 static void aos_process_string(struct aos_rpc_msg *msg)
 {
-    printf("received string: %s\n", msg->payload);
+    DEBUG_PRINTF("received string: %s\n", msg->payload);
     free(msg);
 }
 
@@ -183,7 +183,7 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
         aos_process_string(rpc->recv_msg);
         break;
     default:
-        debug_printf("received unknown message type %d\n", msg_type);
+        DEBUG_PRINTF("received unknown message type %d\n", msg_type);
         // free(rpc->recv_msg);
         break;
     }
@@ -249,7 +249,7 @@ errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
 
         size_t recv_bytes = MIN(LMP_MSG_LENGTH_BYTES, total_bytes);
 
-        // printf("Received bytes: %zu total_bytes: %zu", recv_bytes, total_bytes);
+        // DEBUG_PRINTF("Received bytes: %zu total_bytes: %zu", recv_bytes, total_bytes);
 
         // allocate space for return message, copy current message already to it
         rpc->recv_msg = malloc(total_bytes);
@@ -265,13 +265,13 @@ errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
     } else {
         size_t total_bytes = rpc->recv_msg->header_bytes + rpc->recv_msg->payload_bytes;
         size_t remaining_bytes = total_bytes - rpc->recv_bytes;
-        // printf("Recv: total bytes: %zu msg_header: %hu msg_payload %d , recv_bytes:
-        // %zu \n", total_bytes,  rpc->recv_msg->header_bytes,
+        // DEBUG_PRINTF("Recv: total bytes: %zu msg_header: %hu msg_payload %d ,
+        // recv_bytes: %zu \n", total_bytes,  rpc->recv_msg->header_bytes,
         // rpc->recv_msg->payload_bytes, rpc->recv_bytes);
 
         size_t copy_bytes = MIN(remaining_bytes, LMP_MSG_LENGTH_BYTES);
-        // printf("Copy bytes: %zu \n", copy_bytes);
-        // printf("buffer content: %s \n", (char*)recv_buf.words);
+        // DEBUG_PRINTF("Copy bytes: %zu \n", copy_bytes);
+        // DEBUG_PRINTF("buffer content: %s \n", (char*)recv_buf.words);
         memcpy(((char *)rpc->recv_msg) + rpc->recv_bytes, recv_buf.words, copy_bytes);
         rpc->recv_bytes += copy_bytes;
     }
@@ -359,7 +359,6 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     errval_t err;
 
     DEBUG_PRINTF("get ram request: size: 0x%lx alignment: 0x%lx\n", bytes, alignment);
-    DEBUG_PRINTF("initial ret addr %lx\n", ret_cap);
 
     size_t payload_size = 3 * sizeof(size_t);
     void *payload = malloc(payload_size);
@@ -381,10 +380,10 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     }
 
     *ret_cap = (struct capref)rpc->recv_msg->cap;
-    debug_printf("receive ram cap\n");
+    DEBUG_PRINTF("receive ram cap\n");
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, *ret_cap);
-    debug_printf("%.*s\n", 256, buf1);
+    DEBUG_PRINTF("%.*s\n", 256, buf1);
 
     free(msg);
 
@@ -466,7 +465,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     }
 
     domainid_t assigned_pid = *((domainid_t *)rpc->recv_msg->payload);
-    debug_printf("spawned process with PID %d\n", assigned_pid);
+    DEBUG_PRINTF("spawned process with PID %d\n", assigned_pid);
     *newpid = assigned_pid;
     free(msg);
 
@@ -529,10 +528,10 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 
     char buf0[256];
     debug_print_cap_at_capref(buf0, 256, child_rpc->chan.local_cap);
-    debug_printf("local: %.*s\n", 256, buf0);
+    DEBUG_PRINTF("local: %.*s\n", 256, buf0);
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, child_rpc->chan.remote_cap);
-    debug_printf("remote %.*s\n", 256, buf1);
+    DEBUG_PRINTF("remote %.*s\n", 256, buf1);
 
     size_t payload_size = 0;
     struct aos_rpc_msg *msg;
@@ -608,10 +607,10 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 
     char buf0[256];
     debug_print_cap_at_capref(buf0, 256, aos_rpc->chan.local_cap);
-    debug_printf("local: %.*s\n", 256, buf0);
+    DEBUG_PRINTF("local: %.*s\n", 256, buf0);
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, aos_rpc->chan.remote_cap);
-    debug_printf("remote: %.*s\n", 256, buf1);
+    DEBUG_PRINTF("remote: %.*s\n", 256, buf1);
 
     /* initialize init RPC client with lmp channel */
 
