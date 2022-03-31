@@ -135,7 +135,19 @@ static void aos_process_spawn_response(struct aos_rpc_msg *msg){
 
 }
 
+static void aos_process_serial_read_response(struct aos_rpc_msg *msg){
+    //void *ptr = ((void **) msg->payload)[0];
+    char c = (char) ((uint64_t*) msg->payload)[1];
+
+    //char c = ((size_t)buf) >> (63-8);
+
+    //buf = (char *)((size_t)buf ^ ((size_t)c << (63 - 8)));
+    //*buf = c; 
+    printf("got serial read response: '%c'\n", c);
+}
+
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
+    printf("in process msg\n");
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
     case Handshake:
@@ -152,6 +164,9 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
         break;
     case SpawnResponse:
         aos_process_spawn_response(rpc->recv_msg);
+        break;
+    case SerialReadCharResponse:
+        aos_process_serial_read_response(rpc->recv_msg);
         break;
     default:
         printf("received unknown message type\n");
@@ -319,19 +334,60 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     return SYS_ERR_OK;
 }
 
-
 errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
 {
     // TODO implement functionality to request a character from
     // the serial driver.
+    size_t payload_size = sizeof(char *);
+
+    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    ((char**)msg->payload)[0] = retc;
+
+    msg->header_bytes = sizeof(struct aos_rpc_msg);
+    msg->payload_bytes = payload_size;
+    msg->message_type = SerialReadChar;
+    msg->cap = NULL_CAP;
+
+    errval_t err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err_push(err, LIB_ERR_RPC_SEND);
+    }
+    
+    err = event_dispatch(get_default_waitset());
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Error in event_dispatch");
+        return err;
+    }
+    err = event_dispatch(get_default_waitset());
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Error in event_dispatch");
+        return err;
+    }
+    
     return SYS_ERR_OK;
 }
-
 
 errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 {
     // TODO implement functionality to send a character to the
     // serial port.
+    size_t payload_size = sizeof(size_t);
+
+    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    msg->payload[0] = c;
+
+    msg->header_bytes = sizeof(struct aos_rpc_msg);
+    msg->payload_bytes = payload_size;
+    msg->message_type = SerialWriteChar;
+    msg->cap = NULL_CAP;
+
+    errval_t err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err_push(err, LIB_ERR_RPC_SEND);
+    }
+    
     return SYS_ERR_OK;
 }
 
@@ -485,12 +541,6 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
         return err;
     }*/
 
-    err = aos_rpc_register_recv(aos_rpc, aos_rpc_process_msg);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "Could not register recv handler in child \n");
-        return err;
-    }
-
     /* send local ep to init */
     err = lmp_chan_send0(&aos_rpc->chan, LMP_SEND_FLAGS_DEFAULT, aos_rpc->chan.local_cap);
     if (err_is_fail(err)) {
@@ -498,6 +548,11 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
         return err;
     }
 
+    err = aos_rpc_register_recv(aos_rpc, aos_rpc_process_msg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not register recv handler in child \n");
+        return err;
+    }
 
     err = event_dispatch(get_default_waitset());
     if(err_is_fail(err)){
@@ -562,7 +617,7 @@ struct aos_rpc *aos_rpc_get_process_channel(void)
 {
     // TODO: Return channel to talk to process server process (or whoever
     // implements process server functionality)
-    debug_printf("aos_rpc_get_process_channel NYI\n");
+    return get_init_rpc();
     return NULL;
 }
 
@@ -573,8 +628,7 @@ struct aos_rpc *aos_rpc_get_serial_channel(void)
 {
     // TODO: Return channel to talk to serial driver/terminal process (whoever
     // implements print/read functionality)
-    debug_printf("aos_rpc_get_serial_channel NYI\n");
-    return NULL;
+    return get_init_rpc();
 }
 
 errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func)

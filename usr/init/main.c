@@ -83,7 +83,8 @@ static void aos_process_spawn_request(struct aos_rpc *rpc){
     assert(err_is_ok(err));
 
     size_t payload_size = sizeof(domainid_t) + sizeof(domainid_t *);
-    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + sizeof(domainid_t));
+    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    
     reply->header_bytes = sizeof(struct aos_rpc_msg);
     reply->message_type = SpawnResponse;
     reply->payload_bytes = payload_size;
@@ -95,7 +96,50 @@ static void aos_process_spawn_request(struct aos_rpc *rpc){
     if(err_is_fail(err)){
         DEBUG_PRINTF("error sending spawn response\n");
     }
+}
 
+static errval_t aos_process_serial_write_char(struct aos_rpc *rpc){
+    char *buf = rpc->recv_msg->payload;
+    errval_t err = sys_print(buf, 1);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    return SYS_ERR_OK;
+}
+
+static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc){
+    errval_t err;
+
+    char *ptr = rpc->recv_msg->payload;
+
+    char c;
+    err = sys_getchar(&c);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    size_t payload_size = sizeof(size_t) + sizeof(size_t);
+    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    if(!reply){
+        printf("no reply!!!\n");
+        abort();
+    }
+
+    reply->header_bytes = sizeof(struct aos_rpc_msg);
+    reply->message_type = SerialReadCharResponse;
+    reply->payload_bytes = payload_size;
+    reply->cap = NULL_CAP;
+    ((char **)reply->payload)[0] = ptr;
+    *((char *)reply->payload + sizeof(char *)) = c;
+
+
+    err = aos_rpc_send_msg(rpc, reply);
+    if(err_is_fail(err)){
+        DEBUG_PRINTF("error sending serial read char response\n");
+        return err;
+    }
+
+    return SYS_ERR_OK; 
 }
 
 static errval_t init_process_msg(struct aos_rpc *rpc) {
@@ -112,6 +156,12 @@ static errval_t init_process_msg(struct aos_rpc *rpc) {
         break;
     case SpawnRequest:
         aos_process_spawn_request(rpc);
+        break;
+    case SerialWriteChar:
+        aos_process_serial_write_char(rpc);
+        break;
+    case SerialReadChar:
+        aos_process_serial_read_char_request(rpc); 
         break;
     default:
         printf("received unknown message type\n");
@@ -947,10 +997,6 @@ static int bsp_main(int argc, char *argv[])
 
     // Grading
     grading_test_late();
-
-
-
-
 
     debug_printf("Message handler loop\n");
     struct waitset *default_ws = get_default_waitset();

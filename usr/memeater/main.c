@@ -145,11 +145,20 @@ int main(int argc, char *argv[])
 
     init_rpc = get_init_rpc();
 
+     char c = 'A';
+    //aos_rpc_serial_putchar(init_rpc, c);
+
+    printf("enter a char: \n");
+    err = aos_rpc_serial_getchar(init_rpc, &c);
+    assert(err_is_ok(err));
+    assert(!"success until now");
+
     domainid_t pid;
-    err = aos_rpc_process_spawn(init_rpc, "hello ", 0, &pid);
+
+    err = aos_rpc_process_spawn(init_rpc, "infinite_print", 0, &pid);
     assert(err_is_ok(err));
 
-    assert(!"success up to here");
+
     err = test_basic_rpc();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failure in testing basic RPC\n");
@@ -169,6 +178,7 @@ int main(int argc, char *argv[])
     debug_printf("testing terminal printf function...\n");
 
     printf("Hello world using terminal service\n");
+
     debug_printf("memeater terminated....\n");
 
     return EXIT_SUCCESS;

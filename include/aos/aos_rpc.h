@@ -40,7 +40,10 @@ enum aos_rpc_msg_type {
     RamCapRequest = 4,
     RamCapResponse = 5,
     SpawnRequest = 6,
-    SpawnResponse = 7
+    SpawnResponse = 7,
+    SerialWriteChar = 8,
+    SerialReadChar = 9,
+    SerialReadCharResponse = 10,
 };
 
 struct aos_rpc_msg {
