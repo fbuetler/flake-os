@@ -351,16 +351,13 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 {
     errval_t err;
 
-    size_t len = strlen(string);
+    size_t payload_size = strlen(string);
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, SendString, len, (void *)string, NULL_CAP);
+    err = aos_rpc_create_msg(&msg, SendString, payload_size, (void *)string, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
-
-    // printf("msg sizes header: %lu payload size: %zu \n", sizeof(struct aos_rpc_msg),
-    // len); printf("Payload before sending: %s \n", msg->payload);
 
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
@@ -477,7 +474,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
 
     size_t payload_size = strlen(cmdline);
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, SpawnRequest, payload_size, cmdline, NULL_CAP);
+    err = aos_rpc_create_msg(&msg, SpawnRequest, payload_size, (void *)cmdline, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;

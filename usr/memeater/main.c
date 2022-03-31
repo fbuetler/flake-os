@@ -152,18 +152,26 @@ int main(int argc, char *argv[])
 
     init_rpc = get_init_rpc();
 
+    err = test_basic_rpc();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failure in testing basic RPC\n");
+    }
+
+    domainid_t pid;
+    err = aos_rpc_process_spawn(init_rpc, "hello", disp_get_core_id(), &pid);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not spawn process\n");
+    }
+
+    assert(!"success up to here");
+
      char c = 'A';
-    //aos_rpc_serial_putchar(init_rpc, c);
+    // aos_rpc_serial_putchar(init_rpc, c);
 
     printf("enter a char: \n");
     err = aos_rpc_serial_getchar(init_rpc, &c);
     assert(err_is_ok(err));
     assert(!"success until now");
-
-    err = test_basic_rpc();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failure in testing basic RPC\n");
-    }
 
     mem_rpc = aos_rpc_get_memory_channel();
     if (!mem_rpc) {
