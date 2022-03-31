@@ -38,11 +38,10 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 
     size_t transferred_size = 0;
     while (total_bytes - transferred_size >= 4 * sizeof(uint64_t)) {
-
-        //size_t remaining = total_bytes - transferred_size;
-        //if (remaining < LMP_MSG_LENGTH_BYTES) {
-        //    memset(buf + remaining, 0, (LMP_MSG_LENGTH_BYTES - remaining));
-        //}
+        // size_t remaining = total_bytes - transferred_size;
+        // if (remaining < LMP_MSG_LENGTH_BYTES) {
+        //     memset(buf + remaining, 0, (LMP_MSG_LENGTH_BYTES - remaining));
+        // }
 
         do {
             err = lmp_chan_send(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, send_cap, 4, buf[0],
@@ -95,27 +94,30 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     return SYS_ERR_OK;
 }
 
-static void aos_process_handshake(struct aos_rpc_msg *msg) {
+static void aos_process_handshake(struct aos_rpc_msg *msg)
+{
     printf("Handshake ACK\n");
-
 }
 
-void aos_process_number(struct aos_rpc_msg *msg) {
+void aos_process_number(struct aos_rpc_msg *msg)
+{
     printf("received number: %d\n", *((uint64_t *)msg->payload));
 }
 
-void aos_process_string(struct aos_rpc_msg *msg) {
+void aos_process_string(struct aos_rpc_msg *msg)
+{
     printf("received string: %s\n", msg->payload);
 }
 
 
-static void aos_process_ram_cap_response(struct aos_rpc_msg *msg) {
+static void aos_process_ram_cap_response(struct aos_rpc_msg *msg)
+{
     printf("received ram cap response\n");
     // TODO got the ram cap
 
     struct capref *ret_cap = ((struct capref **)msg->payload)[0];
     printf("roundtrip ret addr %lx\n", ret_cap);
-    
+
     printf("receive ram cap\n");
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, msg->cap);
@@ -125,17 +127,18 @@ static void aos_process_ram_cap_response(struct aos_rpc_msg *msg) {
 }
 
 
-static void aos_process_spawn_response(struct aos_rpc_msg *msg){
+static void aos_process_spawn_response(struct aos_rpc_msg *msg)
+{
     domainid_t assigned_pid = *((domainid_t *)msg->payload);
     printf("spawned process: %d\n", assigned_pid);
 
     domainid_t *pid = (domainid_t *)((char *)msg->payload + sizeof(domainid_t));
 
     *pid = assigned_pid;
-
 }
 
-errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
+errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
+{
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
     case Handshake:
@@ -178,7 +181,7 @@ errval_t aos_rpc_recv_msg_handler(void *args)
     }
 
     if (!capref_is_null(msg_cap)) {
-        // alloc for next time 
+        // alloc for next time
         err = lmp_chan_alloc_recv_slot(&rpc->chan);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to allocated receive slot");
@@ -287,12 +290,12 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     // given channel and wait until it is delivered.
 
     // send memory allocation request to init
-    
+
     printf("get ram request: size: 0x%lx alignment: 0x%lx\n", bytes, alignment);
     printf("initial ret addr %lx\n", ret_cap);
     size_t payload_size = 3 * sizeof(size_t);
 
-    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + sizeof(size_t) * 3);
+    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + sizeof(size_t) * 3);
     ((size_t *)msg->payload)[0] = bytes;
     ((size_t *)msg->payload)[1] = alignment;
     ((struct capref **)msg->payload)[2] = ret_cap;
@@ -301,19 +304,19 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     msg->payload_bytes = payload_size;
     msg->message_type = RamCapRequest;
     msg->cap = NULL_CAP;
-    
+
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
     }
-    
+
     err = event_dispatch(get_default_waitset());
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Error in event_dispatch");
         return err;
     }
-    
+
     // read result
 
     return SYS_ERR_OK;
@@ -342,7 +345,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
 
     size_t payload_size = strlen(cmdline) + 1;
 
-    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + payload_size);
     memcpy(msg->payload, cmdline, payload_size);
 
     msg->header_bytes = sizeof(struct aos_rpc_msg);
@@ -437,7 +440,7 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 
     assert(err_is_ok(err));
 
-    //aos_rpc_register_recv(child_rpc, aos_rpc_process_msg);
+    // aos_rpc_register_recv(child_rpc, aos_rpc_process_msg);
 
     return SYS_ERR_OK;
 }
@@ -486,7 +489,7 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     }*/
 
     err = aos_rpc_register_recv(aos_rpc, aos_rpc_process_msg);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not register recv handler in child \n");
         return err;
     }
@@ -500,7 +503,7 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 
 
     err = event_dispatch(get_default_waitset());
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Error in event dispatch\n");
         abort();
     }
@@ -589,8 +592,9 @@ errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_m
         return err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
     }
 
-    err = lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
-                           MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, rpc));
+    err = lmp_chan_register_recv(
+        &rpc->chan, get_default_waitset(),
+        MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, rpc));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to register receive function");
         return err_push(err, LIB_ERR_LMP_CHAN_INIT);
@@ -598,4 +602,3 @@ errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_m
 
     return SYS_ERR_OK;
 }
-
