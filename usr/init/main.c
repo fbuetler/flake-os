@@ -161,7 +161,7 @@ static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
         return err;
     }
 
-    size_t payload_size = sizeof(size_t) + sizeof(size_t);
+    size_t payload_size = sizeof(size_t);
     struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
     if (!reply) {
         DEBUG_PRINTF("no reply!!!\n");
@@ -172,9 +172,7 @@ static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
     reply->message_type = SerialReadCharResponse;
     reply->payload_bytes = payload_size;
     reply->cap = NULL_CAP;
-    ((char **)reply->payload)[0] = ptr;
-    *((char *)reply->payload + sizeof(char *)) = c;
-
+    ((char **)reply->payload)[0] = (char *)((size_t)ptr ^ ((size_t)c << 48));
 
     err = aos_rpc_send_msg(rpc, reply);
     if (err_is_fail(err)) {

@@ -210,9 +210,11 @@ static void aos_process_string(struct aos_rpc_msg *msg)
 
 static void aos_process_serial_read_response(struct aos_rpc_msg *msg)
 {
-    DEBUG_PRINTF("we're here\n");
     char *ptr = ((char **)msg->payload)[0];
-    char c = (char)((uint64_t *)msg->payload)[1];
+
+    char c = ((size_t)ptr) >> 48;
+
+    ptr = (char *)((size_t)ptr ^ ((size_t)c << 48));
     *ptr = c;
 }
 
@@ -361,10 +363,6 @@ errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         memcpy(((char *)rpc->recv_msg) + rpc->recv_bytes, recv_buf.words, copy_bytes);
         rpc->recv_bytes += copy_bytes;
     }
-
-    DEBUG_PRINTF("type: %d, recv_bytes: %d, payload_bytes: %d, header_bytes: %d\n",
-                 rpc->recv_msg->message_type, rpc->recv_bytes,
-                 rpc->recv_msg->payload_bytes, rpc->recv_msg->header_bytes);
 
     if (rpc->recv_bytes < rpc->recv_msg->payload_bytes + rpc->recv_msg->header_bytes) {
         goto reregister;
