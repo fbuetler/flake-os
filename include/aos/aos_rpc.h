@@ -44,6 +44,7 @@ enum aos_rpc_msg_type {
     SerialWriteChar = 8,
     SerialReadChar = 9,
     SerialReadCharResponse = 10,
+    SerialWriteCharResponse = 11,
 };
 
 struct aos_rpc_msg {

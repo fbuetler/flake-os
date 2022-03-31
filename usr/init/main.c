@@ -48,12 +48,12 @@ static void aos_process_string(struct aos_rpc_msg *msg)
 static void aos_process_ram_cap_request(struct aos_rpc *rpc)
 {
     errval_t err;
-    printf("received ram cap request\n");
+    DEBUG_PRINTF("received ram cap request\n");
 
     // read ram request properties
     size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
     size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
-    printf("received payload: size: %lx alignment: %lx\n", bytes, alignment);
+    DEBUG_PRINTF("received payload: size: %lx alignment: %lx\n", bytes, alignment);
 
     // alloc ram
     struct capref ram_cap;
@@ -76,20 +76,20 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc)
     printf("send ram cap\n");
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, ram_cap);
-    debug_printf("%.*s\n", 256, buf1);
+    DEBUG_PRINTF("%.*s\n", 256, buf1);
 
     err = aos_rpc_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
 
-    printf("ram request handled.\n");
+    DEBUG_PRINTF("ram request handled.\n");
 }
 
 static void aos_process_spawn_request(struct aos_rpc *rpc)
 {
     char *module = rpc->recv_msg->payload;
-    printf("module to spawn: %s\n", module);
+    DEBUG_PRINTF("module to spawn: %s\n", module);
 
     struct spawninfo *info = malloc(sizeof(struct spawninfo));
     domainid_t pid = 0;
@@ -124,8 +124,25 @@ static errval_t aos_process_serial_write_char(struct aos_rpc *rpc)
     char *buf = rpc->recv_msg->payload;
     errval_t err = sys_print(buf, 1);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error writing to serial");
         return err;
     }
+
+    // size_t payload_size = 0;
+    // struct aos_rpc_msg *reply;
+    // err = aos_rpc_create_msg(&reply, SerialWriteCharResponse, payload_size, NULL,
+    //                          NULL_CAP);
+    // if (err_is_fail(err)) {
+    //     DEBUG_ERR(err, "failed to create message");
+    //     return err;
+    // }
+
+    // err = aos_rpc_send_msg(rpc, reply);
+    // if (err_is_fail(err)) {
+    //     DEBUG_PRINTF("error sending serial read char response\n");
+    //     return err;
+    // }
+
     return SYS_ERR_OK;
 }
 
@@ -144,7 +161,7 @@ static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
     size_t payload_size = sizeof(size_t) + sizeof(size_t);
     struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
     if (!reply) {
-        printf("no reply!!!\n");
+        DEBUG_PRINTF("no reply!!!\n");
         abort();
     }
 
@@ -916,13 +933,15 @@ __attribute__((unused)) static void run_m2_tests(void)
 __attribute__((unused)) static void test_spawn_memeater(void)
 {
     printf("spawning memeater \n");
-    struct spawninfo *si = malloc(sizeof(struct spawninfo));
-    domainid_t *pid = malloc(sizeof(domainid_t));
-    errval_t err = start_process("memeater", si, pid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to spawn memeater");
+    for (int i = 0; i < 5; i++) {
+        struct spawninfo *si = malloc(sizeof(struct spawninfo));
+        domainid_t *pid = malloc(sizeof(domainid_t));
+        errval_t err = start_process("memeater", si, pid);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to spawn memeater");
+        }
+        assert(err_is_ok(err));
     }
-    assert(err_is_ok(err));
 }
 
 /*
@@ -1001,11 +1020,14 @@ static int bsp_main(int argc, char *argv[])
     spawn_init();
 
     // setup endpoint of init
-    err = lmp_endpoint_create_in_slot(256, cap_initep, &init_spawninfo.rpc.chan.endpoint);
+    lmp_chan_init(&init_spawninfo.rpc.chan);
+
+    err = lmp_endpoint_create_in_slot(512, cap_initep, &init_spawninfo.rpc.chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed create endpoint in init process");
         abort();
     }
+
     init_spawninfo.rpc.chan.buflen_words = 256;
     // run_m1_tests();
     // run_m2_tests();

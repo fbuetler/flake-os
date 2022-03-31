@@ -110,23 +110,18 @@ static errval_t request_and_map_memory(void)
 static errval_t test_basic_rpc(void)
 {
     errval_t err;
+
     debug_printf("RPC: testing basic RPCs...\n");
+
     debug_printf("RPC: sending number...\n");
     err = aos_rpc_send_number(init_rpc, 42);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not send a number\n");
-        return err;
-    }
-
-    debug_printf("RPC: sending small string...\n");
-    err = aos_rpc_send_string(init_rpc, "Hello init");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
 
-    debug_printf("RPC: sending another small string...\n");
-    err = aos_rpc_send_string(init_rpc, "Hello");
+    debug_printf("RPC: sending small string...\n");
+    err = aos_rpc_send_string(init_rpc, "Hello init");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
@@ -138,6 +133,7 @@ static errval_t test_basic_rpc(void)
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
+
     debug_printf("RPC: testing basic RPCs. SUCCESS\n");
 
     return SYS_ERR_OK;
@@ -147,18 +143,22 @@ static errval_t test_basic_rpc(void)
 int main(int argc, char *argv[])
 {
     errval_t err = SYS_ERR_OK;
+
     debug_printf("memeater started....\n");
 
-    init_rpc = get_init_rpc();
-
-    err = test_basic_rpc();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failure in testing basic RPC\n");
+    init_rpc = aos_rpc_get_init_channel();
+    if (!init_rpc) {
+        USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
 
     mem_rpc = aos_rpc_get_memory_channel();
     if (!mem_rpc) {
         USER_PANIC_ERR(err, "memory RPC channel NULL?\n");
+    }
+
+    err = test_basic_rpc();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failure in testing basic RPC\n");
     }
 
     err = request_and_map_memory();
@@ -187,7 +187,6 @@ int main(int argc, char *argv[])
     debug_printf("testing terminal printf function...\n");
 
     printf("Hello world using terminal service\n");
-
     debug_printf("memeater terminated....\n");
 
     return EXIT_SUCCESS;

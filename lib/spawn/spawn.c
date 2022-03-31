@@ -158,6 +158,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         DEBUG_ERR(err, "failed to allocate slot in dispatcher cap");
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
+
     err = dispatcher_create(si->dispatcher_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create dispatcher capability");
@@ -190,7 +191,16 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     struct capref child_cap_init_endpoint = { .cnode = si->taskcn,
                                               .slot = TASKCN_SLOT_INITEP };
 
-    err = cap_copy(child_cap_init_endpoint, cap_initep);
+
+    // create a new endpoint for init
+    struct capref new_init_ep_cap;
+    err = lmp_chan_accept(&si->rpc.chan, 256, new_init_ep_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to accept endpoint");
+        return err;
+    }
+
+    err = cap_copy(child_cap_init_endpoint, si->rpc.chan.local_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to copy init endpoint to cap location in child");
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error
