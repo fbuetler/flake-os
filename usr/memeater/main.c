@@ -174,6 +174,11 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
 
+    assert(!"success up to here");
+    domainid_t pid;
+    err = aos_rpc_process_spawn(init_rpc, "hello ", disp_get_core_id(), &pid);
+    assert(err_is_ok(err));
+
     /* test printf functionality */
     debug_printf("testing terminal printf function...\n");
 

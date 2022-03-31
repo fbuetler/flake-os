@@ -21,7 +21,7 @@
 // forward declaration
 struct aos_rpc_msg;
 
-typedef errval_t (* process_msg_func_t)(struct aos_rpc*); 
+typedef errval_t (*process_msg_func_t)(struct aos_rpc *);
 /* An RPC binding, which may be transported over LMP or UMP. */
 struct aos_rpc {
     // TODO(M3): Add state
@@ -63,7 +63,7 @@ errval_t aos_rpc_init(struct aos_rpc *rpc);
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc);
 
 /**
- * \brief Message receive handler to be used in the 
+ * \brief Message receive handler to be used in the
  */
 errval_t aos_rpc_recv_msg_handler(void *args);
 
@@ -83,9 +83,8 @@ errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string);
  * \brief Request a RAM capability with >= request_bits of size over the given
  * channel.
  */
-errval_t aos_rpc_get_ram_cap(struct aos_rpc *chan, size_t bytes,
-                             size_t alignment, struct capref *retcap,
-                             size_t *ret_bytes);
+errval_t aos_rpc_get_ram_cap(struct aos_rpc *chan, size_t bytes, size_t alignment,
+                             struct capref *retcap, size_t *ret_bytes);
 
 
 /**
@@ -105,8 +104,8 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c);
  *           path prefix) and optionally any arguments to pass to it
  * \arg newpid the process id of the newly-spawned process
  */
-errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *cmdline,
-                               coreid_t core, domainid_t *newpid);
+errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *cmdline, coreid_t core,
+                               domainid_t *newpid);
 
 
 /**
@@ -116,8 +115,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *cmdline,
  * that is allocated by the rpc implementation. Freeing is the caller's
  * responsibility.
  */
-errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid,
-                                  char **name);
+errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid, char **name);
 
 
 /**
@@ -127,8 +125,8 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid,
  * caller's  responsibility.
  * \arg pid_count The number of entries in `pids' if the call was successful
  */
-errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan,
-                                      domainid_t **pids, size_t *pid_count);
+errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan, domainid_t **pids,
+                                      size_t *pid_count);
 
 
 /**
@@ -154,11 +152,9 @@ struct aos_rpc *aos_rpc_get_serial_channel(void);
 errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
 
 
-
-void aos_process_string(struct aos_rpc_msg *msg);
-
-void aos_process_number(struct aos_rpc_msg *msg);
+errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type,
+                            size_t payload_size, void *payload, struct capref msg_cap);
 
 errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
 
-#endif // _LIB_BARRELFISH_AOS_MESSAGES_H
+#endif  // _LIB_BARRELFISH_AOS_MESSAGES_H
