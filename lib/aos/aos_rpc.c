@@ -75,12 +75,9 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 
     size_t transferred_size = 0;
 
-    while (transferred_size < total_bytes && ceil((double)(total_bytes-transferred_size)/ (double)sizeof(uint64_t)) >= 4) {
-        // size_t remaining = total_bytes - transferred_size;
-        // if (remaining < LMP_MSG_LENGTH_BYTES) {
-        //     memset(buf + remaining, 0, (LMP_MSG_LENGTH_BYTES - remaining));
-        // }
-
+    while (transferred_size < total_bytes
+           && ceil((double)(total_bytes - transferred_size) / (double)sizeof(uint64_t))
+                  >= 4) {
         do {
             err = lmp_chan_send(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, send_cap, 4, buf[0],
                                 buf[1], buf[2], buf[3]);
@@ -95,7 +92,7 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     }
 
     size_t remaining;
-    if(transferred_size >= total_bytes)
+    if (transferred_size >= total_bytes)
         remaining = 0;
     else
         remaining = total_bytes - transferred_size;
@@ -211,17 +208,19 @@ static void aos_process_spawn_response(struct aos_rpc_msg *msg)
     free(msg);
 }
 
-static void aos_process_serial_read_response(struct aos_rpc_msg *msg){
-    char *ptr = ((char **) msg->payload)[0];
-    char c = (char) ((uint64_t*) msg->payload)[1];
+static void aos_process_serial_read_response(struct aos_rpc_msg *msg)
+{
+    char *ptr = ((char **)msg->payload)[0];
+    char c = (char)((uint64_t *)msg->payload)[1];
 
-    //char c = ((size_t)buf) >> (63-8);
+    // char c = ((size_t)buf) >> (63-8);
 
-    //buf = (char *)((size_t)buf ^ ((size_t)c << (63 - 8)));
+    // buf = (char *)((size_t)buf ^ ((size_t)c << (63 - 8)));
     *ptr = c; 
 }
 
-errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
+errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
+{
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
     case Handshake:
@@ -290,7 +289,8 @@ errval_t aos_rpc_recv_msg_handler(void *args)
         // allocate space for return message, copy current message already to it
         rpc->recv_msg = malloc(total_bytes);
         if (!rpc->recv_msg) {
-            DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg_handler for ret_msg failed \n");
+            DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg_handler for ret_msg failed "
+                         "\n");
             return LIB_ERR_MALLOC_FAIL;
         }
         memcpy(rpc->recv_msg, tmp_msg, recv_bytes);
@@ -300,9 +300,9 @@ errval_t aos_rpc_recv_msg_handler(void *args)
     } else {
         size_t total_bytes = rpc->recv_msg->header_bytes + rpc->recv_msg->payload_bytes;
         size_t remaining_bytes = total_bytes - rpc->recv_bytes;
-        // printf("Recv: total bytes: %zu msg_header: %hu msg_payload %d , recv_bytes: %zu
-        // \n", total_bytes,  rpc->recv_msg->header_bytes,  rpc->recv_msg->payload_bytes,
-        // rpc->recv_bytes);
+        // printf("Recv: total bytes: %zu msg_header: %hu msg_payload %d , recv_bytes:
+        // %zu \n", total_bytes,  rpc->recv_msg->header_bytes,
+        // rpc->recv_msg->payload_bytes, rpc->recv_bytes);
 
         size_t copy_bytes = MIN(remaining_bytes, LMP_MSG_LENGTH_BYTES);
         // printf("Copy bytes: %zu \n", copy_bytes);
@@ -418,8 +418,8 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
     // the serial driver.
     size_t payload_size = sizeof(char *);
 
-    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + payload_size);
-    ((char**)msg->payload)[0] = retc;
+    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    ((char **)msg->payload)[0] = retc;
 
     msg->header_bytes = sizeof(struct aos_rpc_msg);
     msg->payload_bytes = payload_size;
@@ -433,12 +433,12 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
     }
     
     err = event_dispatch(get_default_waitset());
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Error in event_dispatch");
         return err;
     }
     err = event_dispatch(get_default_waitset());
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Error in event_dispatch");
         return err;
     }
@@ -452,7 +452,7 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
     // serial port.
     size_t payload_size = sizeof(size_t);
 
-    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + payload_size);
     msg->payload[0] = c;
 
     msg->header_bytes = sizeof(struct aos_rpc_msg);
@@ -612,10 +612,9 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 
     /* set receive handler */
     /*err = lmp_chan_register_recv(&aos_rpc->chan, get_default_waitset(),
-                                 MKCLOSURE(aos_handshake_recv_closure, &aos_rpc->chan));
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not register recv handler in child \n");
-        return err;
+                                 MKCLOSURE(aos_handshake_recv_closure,
+    &aos_rpc->chan)); if (err_is_fail(err)) { DEBUG_ERR(err, "Could not register recv
+    handler in child \n"); return err;
     }*/
 
     /* send local ep to init */
@@ -626,7 +625,7 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     }
 
     err = aos_rpc_register_recv(aos_rpc, aos_rpc_process_msg);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not register recv handler in child \n");
         return err;
     }

@@ -78,36 +78,38 @@ __attribute__((__used__)) static size_t syscall_terminal_write(const char *buf, 
     return len;
 }
 
-__attribute__((__used__)) static size_t terminal_write(const char *buf, size_t len){
+__attribute__((__used__)) static size_t terminal_write(const char *buf, size_t len)
+{
     struct aos_rpc *rpc = get_init_rpc();
-    if(!rpc) {
+    if (!rpc) {
         return syscall_terminal_write(buf, len);
-    }else{
+    } else {
         int i = 0;
-        while(i++ < len){
+        while (i++ < len) {
             aos_rpc_serial_putchar(rpc, *(buf++));
         }     
     }
     return len;
 }
 
-__attribute__((__used__)) static size_t terminal_read(char *buf, size_t len){
+__attribute__((__used__)) static size_t terminal_read(char *buf, size_t len)
+{
     errval_t err;
     struct aos_rpc *rpc = get_init_rpc();
-    if(1){
+    if (1) {
         int i = 0;
-        while(i++ < len){
+        while (i++ < len) {
             err = sys_getchar(buf++);
-            if(err_is_fail(err)){
+            if (err_is_fail(err)) {
                 return i - 1;
             }
         }
-    }else{
+    } else {
         int i = 0;
-        while(i++ < len){
+        while (i++ < len) {
             err = aos_rpc_serial_getchar(rpc, (buf++));
             if (err_is_fail(err)) {
-                return i -1;
+                return i - 1;
             }
         }
     }
@@ -120,8 +122,6 @@ __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t le
     debug_printf("Terminal read NYI!\n");
     return 0;
 }
-
-
 
 
 /* Set libc function pointers */
