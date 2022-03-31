@@ -17,9 +17,11 @@
 #include <spawn/spawn.h>
 
 /**
- * Abstraction to send a formatted message in multiple chunks.
+ * @brief Abstraction to send a formatted message in multiple chunks.
+ *
  * @param rpc
  * @param msg
+ *
  * @return
  */
 errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
@@ -94,22 +96,42 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief handler for handshake messages
+ *
+ * @param msg
+ */
 static void aos_process_handshake(struct aos_rpc_msg *msg)
 {
     printf("Handshake ACK\n");
 }
 
-void aos_process_number(struct aos_rpc_msg *msg)
+/**
+ * @brief default handler for number messages
+ *
+ * @param msg
+ */
+static void aos_process_number(struct aos_rpc_msg *msg)
 {
     printf("received number: %d\n", *((uint64_t *)msg->payload));
 }
 
-void aos_process_string(struct aos_rpc_msg *msg)
+/**
+ * @brief default handler for string messages
+ *
+ * @param msg
+ */
+static void aos_process_string(struct aos_rpc_msg *msg)
 {
     printf("received string: %s\n", msg->payload);
 }
 
 
+/**
+ * @brief default handler for ram cap response messages
+ *
+ * @param msg
+ */
 static void aos_process_ram_cap_response(struct aos_rpc_msg *msg)
 {
     printf("received ram cap response\n");
@@ -127,6 +149,11 @@ static void aos_process_ram_cap_response(struct aos_rpc_msg *msg)
 }
 
 
+/**
+ * @brief default handler for spawn response messages
+ *
+ * @param msg
+ */
 static void aos_process_spawn_response(struct aos_rpc_msg *msg)
 {
     domainid_t assigned_pid = *((domainid_t *)msg->payload);
@@ -137,6 +164,12 @@ static void aos_process_spawn_response(struct aos_rpc_msg *msg)
     *pid = assigned_pid;
 }
 
+/**
+ * @brief sets the default handlers for some message types
+ *
+ * @param rpc
+ * @return errval_t
+ */
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
 {
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
@@ -440,8 +473,6 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 
     assert(err_is_ok(err));
 
-    // aos_rpc_register_recv(child_rpc, aos_rpc_process_msg);
-
     return SYS_ERR_OK;
 }
 
@@ -458,8 +489,7 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     // initial state
     aos_rpc->is_busy = false;
 
-
-    // TODO MILESTONE 3: register ourselves with init
+    // MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
 
     /* create local endpoint */
@@ -480,14 +510,6 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     aos_rpc->chan.remote_cap = cap_initep;
     set_init_rpc(aos_rpc);
 
-    /* set receive handler */
-    /*err = lmp_chan_register_recv(&aos_rpc->chan, get_default_waitset(),
-                                 MKCLOSURE(aos_handshake_recv_closure, &aos_rpc->chan));
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not register recv handler in child \n");
-        return err;
-    }*/
-
     err = aos_rpc_register_recv(aos_rpc, aos_rpc_process_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not register recv handler in child \n");
@@ -507,15 +529,6 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
         DEBUG_ERR(err, "Error in event dispatch\n");
         abort();
     }
-
-    /* wait for init to acknowledge receiving the endpoint */
-    /*while (!lmp_chan_can_recv(&aos_rpc->chan)) {
-        err = event_dispatch(get_default_waitset());
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            abort();
-        }
-    };*/
 
     printf("memeater local\n");
     char buf0[256];

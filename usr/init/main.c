@@ -32,6 +32,16 @@ struct bootinfo *bi;
 
 coreid_t my_core_id;
 
+static void aos_process_number(struct aos_rpc_msg *msg)
+{
+    printf("received number: %d\n", *((uint64_t *)msg->payload));
+}
+
+static void aos_process_string(struct aos_rpc_msg *msg)
+{
+    printf("received string: %s\n", msg->payload);
+}
+
 static void aos_process_ram_cap_request(struct aos_rpc *rpc)
 {
     printf("received ram cap request\n");

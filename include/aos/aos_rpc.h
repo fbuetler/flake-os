@@ -149,10 +149,6 @@ struct aos_rpc *aos_rpc_get_serial_channel(void);
 errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
 
 
-void aos_process_string(struct aos_rpc_msg *msg);
-
-void aos_process_number(struct aos_rpc_msg *msg);
-
 errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
 
 #endif  // _LIB_BARRELFISH_AOS_MESSAGES_H
