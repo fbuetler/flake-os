@@ -172,8 +172,6 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not spawn process\n");
     }
 
-    assert(!"SUCCESS");
-
     char c;
     // aos_rpc_serial_putchar(init_rpc, c);
     printf("enter a char: \n");

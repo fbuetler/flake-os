@@ -208,15 +208,13 @@ static void aos_process_string(struct aos_rpc_msg *msg)
 //     free(msg);
 // }
 
-static void aos_process_serial_read_response(struct aos_rpc_msg *msg)
-{
-    char *ptr = ((char **)msg->payload)[0];
-
-    char c = ((size_t)ptr) >> 48;
-
-    ptr = (char *)((size_t)ptr ^ ((size_t)c << 48));
-    *ptr = c;
-}
+// static void aos_process_serial_read_response(struct aos_rpc_msg *msg)
+// {
+//     DEBUG_PRINTF("we're here\n");
+//     char *ptr = ((char **)msg->payload)[0];
+//     char c = (char)((uint64_t *)msg->payload)[1];
+//     *ptr = c;
+// }
 
 
 static void aos_process_serial_write_char_response(struct aos_rpc *rpc) { }
@@ -242,9 +240,9 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
     // case SpawnResponse:
     //     aos_process_spawn_response(rpc->recv_msg);
     //     break;
-    case SerialReadCharResponse:
-        aos_process_serial_read_response(rpc->recv_msg);
-        break;
+    // case SerialReadCharResponse:
+    //     aos_process_serial_read_response(rpc->recv_msg);
+    //     break;
     case SerialWriteCharResponse:
         aos_process_serial_write_char_response(rpc);
         break;
@@ -262,19 +260,16 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     errval_t err;
 
     // send message
-    printf("sending message\n");
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
 
-    printf("waiting for response\n");
     // wait for the response message
     while (!lmp_chan_can_recv(&rpc->chan)) {
     }
 
-    printf("receiving response\n");
     // receive message
     err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
@@ -282,7 +277,6 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         return err;
     }
 
-    printf("processing response\n");
     // process message
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
@@ -292,9 +286,9 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     // case SpawnResponse:
     //     aos_process_spawn_response(rpc->recv_msg);
     //     break;
-    case SerialReadCharResponse:
-        aos_process_serial_read_response(rpc->recv_msg);
-        break;
+    // case SerialReadCharResponse:
+    //     aos_process_serial_read_response(rpc->recv_msg);
+    //     break;
     default:
         debug_printf("received unknown message type %d\n", msg_type);
         free(rpc->recv_msg);
@@ -486,31 +480,22 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
 
     errval_t err;
 
-    size_t payload_size = sizeof(char *);
-    void *payload = malloc(payload_size);
-    ((char **)payload)[0] = retc;
-
+    size_t payload_size = 0;
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, SerialReadChar, payload_size, (void *)payload,
-                             NULL_CAP);
+    err = aos_rpc_create_msg(&msg, SerialReadChar, payload_size, NULL, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
 
-    err = aos_rpc_send_msg(rpc, msg);
+    err = aos_rpc_call(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
-        return err_push(err, LIB_ERR_RPC_SEND);
-    }
-
-    err = event_dispatch(get_default_waitset());
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Error in event_dispatch");
         return err;
     }
 
-    DEBUG_PRINTF("end of serial getchar\n");
+    char c = ((char *)rpc->recv_msg->payload)[0];
+    *retc = c;
 
     return SYS_ERR_OK;
 }
@@ -533,13 +518,11 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
-    err = aos_rpc_send_msg(rpc, msg);
+    err = aos_rpc_call(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
-        return err_push(err, LIB_ERR_RPC_SEND);
+        return err;
     }
-
-    // err = event_dispatch(get_default_waitset());
 
     return err;
 }
