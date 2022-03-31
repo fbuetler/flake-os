@@ -168,58 +168,6 @@ static void aos_process_string(struct aos_rpc_msg *msg)
     free(msg);
 }
 
-
-/**
- * @brief default handler for ram cap response messages
- *
- * @param msg
- */
-// static void aos_process_ram_cap_response(struct aos_rpc_msg *msg)
-// {
-//     printf("received ram cap response\n");
-//     // TODO got the ram cap
-
-//     struct capref *ret_cap = ((struct capref **)msg->payload)[0];
-//     printf("roundtrip ret addr %lx\n", ret_cap);
-
-//     debug_printf("receive ram cap\n");
-//     char buf1[256];
-//     debug_print_cap_at_capref(buf1, 256, msg->cap);
-//     debug_printf("%.*s\n", 256, buf1);
-
-//     *ret_cap = msg->cap;
-//     free(msg);
-// }
-
-
-/**
- * @brief default handler for spawn response messages
- *
- * @param msg
- */
-// static void aos_process_spawn_response(struct aos_rpc_msg *msg)
-// {
-//     domainid_t assigned_pid = *((domainid_t *)msg->payload);
-//     printf("spawned process: %d\n", assigned_pid);
-
-//     domainid_t *pid = (domainid_t *)((char *)msg->payload + sizeof(domainid_t));
-
-//     *pid = assigned_pid;
-//     free(msg);
-// }
-
-// static void aos_process_serial_read_response(struct aos_rpc_msg *msg)
-// {
-//     DEBUG_PRINTF("we're here\n");
-//     char *ptr = ((char **)msg->payload)[0];
-//     char c = (char)((uint64_t *)msg->payload)[1];
-//     *ptr = c;
-// }
-
-
-static void aos_process_serial_write_char_response(struct aos_rpc *rpc) { }
-
-
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
 {
     // should only handle incoming messages not initiated by us
@@ -234,21 +182,9 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
     case SendString:
         aos_process_string(rpc->recv_msg);
         break;
-    // case RamCapResponse:
-    //     aos_process_ram_cap_response(rpc->recv_msg);
-    // break;
-    // case SpawnResponse:
-    //     aos_process_spawn_response(rpc->recv_msg);
-    //     break;
-    // case SerialReadCharResponse:
-    //     aos_process_serial_read_response(rpc->recv_msg);
-    //     break;
-    case SerialWriteCharResponse:
-        aos_process_serial_write_char_response(rpc);
-        break;
     default:
         debug_printf("received unknown message type %d\n", msg_type);
-        free(rpc->recv_msg);
+        // free(rpc->recv_msg);
         break;
     }
     // TODO: free msg
@@ -275,24 +211,6 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
-    }
-
-    // process message
-    enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
-    switch (msg_type) {
-    // case RamCapResponse:
-    //     aos_process_ram_cap_response(rpc->recv_msg);
-    //     break;
-    // case SpawnResponse:
-    //     aos_process_spawn_response(rpc->recv_msg);
-    //     break;
-    // case SerialReadCharResponse:
-    //     aos_process_serial_read_response(rpc->recv_msg);
-    //     break;
-    default:
-        debug_printf("received unknown message type %d\n", msg_type);
-        free(rpc->recv_msg);
-        break;
     }
 
     return SYS_ERR_OK;
@@ -668,13 +586,6 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     /* set remote endpoint to init's endpoint */
     aos_rpc->chan.remote_cap = cap_initep;
     set_init_rpc(aos_rpc);
-
-    /* set receive handler */
-    /*err = lmp_chan_register_recv(&aos_rpc->chan, get_default_waitset(),
-                                 MKCLOSURE(aos_handshake_recv_closure,
-    &aos_rpc->chan)); if (err_is_fail(err)) { DEBUG_ERR(err, "Could not register recv
-    handler in child \n"); return err;
-    }*/
 
     /* send local ep to init */
     err = lmp_chan_send0(&aos_rpc->chan, LMP_SEND_FLAGS_DEFAULT, aos_rpc->chan.local_cap);
