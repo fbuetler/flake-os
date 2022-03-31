@@ -191,7 +191,6 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
                                               .slot = TASKCN_SLOT_INITEP };
 
     err = cap_copy(child_cap_init_endpoint, cap_initep);
-
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to copy init endpoint to cap location in child");
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error

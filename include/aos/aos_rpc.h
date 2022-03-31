@@ -157,4 +157,8 @@ errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type 
 
 errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
 
+errval_t aos_rpc_recv_msg(struct aos_rpc *rpc);
+
+errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
+
 #endif  // _LIB_BARRELFISH_AOS_MESSAGES_H

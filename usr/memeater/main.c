@@ -50,7 +50,6 @@ static errval_t request_and_map_memory(void)
         return err;
     }
 
-
     struct capref cap1_frame;
     err = slot_alloc(&cap1_frame);
     assert(err_is_ok(err));
@@ -167,13 +166,13 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
 
-    /*
     domainid_t pid;
     err = aos_rpc_process_spawn(init_rpc, "hello", disp_get_core_id(), &pid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not spawn process\n");
     }
-    */
+
+    assert(!"SUCCESS");
 
     char c;
     // aos_rpc_serial_putchar(init_rpc, c);

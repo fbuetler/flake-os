@@ -174,22 +174,22 @@ static void aos_process_string(struct aos_rpc_msg *msg)
  *
  * @param msg
  */
-static void aos_process_ram_cap_response(struct aos_rpc_msg *msg)
-{
-    printf("received ram cap response\n");
-    // TODO got the ram cap
+// static void aos_process_ram_cap_response(struct aos_rpc_msg *msg)
+// {
+//     printf("received ram cap response\n");
+//     // TODO got the ram cap
 
-    struct capref *ret_cap = ((struct capref **)msg->payload)[0];
-    printf("roundtrip ret addr %lx\n", ret_cap);
+//     struct capref *ret_cap = ((struct capref **)msg->payload)[0];
+//     printf("roundtrip ret addr %lx\n", ret_cap);
 
-    printf("receive ram cap\n");
-    char buf1[256];
-    debug_print_cap_at_capref(buf1, 256, msg->cap);
-    debug_printf("%.*s\n", 256, buf1);
+//     debug_printf("receive ram cap\n");
+//     char buf1[256];
+//     debug_print_cap_at_capref(buf1, 256, msg->cap);
+//     debug_printf("%.*s\n", 256, buf1);
 
-    *ret_cap = msg->cap;
-    free(msg);
-}
+//     *ret_cap = msg->cap;
+//     free(msg);
+// }
 
 
 /**
@@ -197,30 +197,27 @@ static void aos_process_ram_cap_response(struct aos_rpc_msg *msg)
  *
  * @param msg
  */
-static void aos_process_spawn_response(struct aos_rpc_msg *msg)
-{
-    domainid_t assigned_pid = *((domainid_t *)msg->payload);
-    printf("spawned process: %d\n", assigned_pid);
+// static void aos_process_spawn_response(struct aos_rpc_msg *msg)
+// {
+//     domainid_t assigned_pid = *((domainid_t *)msg->payload);
+//     printf("spawned process: %d\n", assigned_pid);
 
-    domainid_t *pid = (domainid_t *)((char *)msg->payload + sizeof(domainid_t));
+//     domainid_t *pid = (domainid_t *)((char *)msg->payload + sizeof(domainid_t));
 
-    *pid = assigned_pid;
-    free(msg);
-}
+//     *pid = assigned_pid;
+//     free(msg);
+// }
 
 static void aos_process_serial_read_response(struct aos_rpc_msg *msg)
 {
     char *ptr = ((char **)msg->payload)[0];
     char c = (char)((uint64_t *)msg->payload)[1];
-
-    // char c = ((size_t)buf) >> (63-8);
-
-    // buf = (char *)((size_t)buf ^ ((size_t)c << (63 - 8)));
     *ptr = c;
 }
 
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
 {
+    // should only handle incoming messages not initiated by us
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
     case Handshake:
@@ -232,17 +229,8 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
     case SendString:
         aos_process_string(rpc->recv_msg);
         break;
-    case RamCapResponse:
-        aos_process_ram_cap_response(rpc->recv_msg);
-        break;
-    case SpawnResponse:
-        aos_process_spawn_response(rpc->recv_msg);
-        break;
-    case SerialReadCharResponse:
-        aos_process_serial_read_response(rpc->recv_msg);
-        break;
     default:
-        printf("received unknown message type\n");
+        debug_printf("received unknown message type %d\n", msg_type);
         free(rpc->recv_msg);
         break;
     }
@@ -250,10 +238,56 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_recv_msg_handler(void *args)
+errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 {
     errval_t err;
-    struct aos_rpc *rpc = (struct aos_rpc *)args;
+
+    // send message
+    printf("sending message\n");
+    err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err;
+    }
+
+    printf("waiting for response\n");
+    // wait for the response message
+    while (!lmp_chan_can_recv(&rpc->chan)) {
+    }
+
+    printf("receiving response\n");
+    // receive message
+    err = aos_rpc_recv_msg(rpc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive message");
+        return err;
+    }
+
+    printf("processing response\n");
+    // process message
+    enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
+    switch (msg_type) {
+    // case RamCapResponse:
+    //     aos_process_ram_cap_response(rpc->recv_msg);
+    //     break;
+    // case SpawnResponse:
+    //     aos_process_spawn_response(rpc->recv_msg);
+    //     break;
+    case SerialReadCharResponse:
+        aos_process_serial_read_response(rpc->recv_msg);
+        break;
+    default:
+        debug_printf("received unknown message type %d\n", msg_type);
+        free(rpc->recv_msg);
+        break;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
+{
+    errval_t err;
 
     // receive first message
     struct capref msg_cap;
@@ -316,11 +350,29 @@ errval_t aos_rpc_recv_msg_handler(void *args)
     }
 
     rpc->is_busy = false;
-    rpc->process_msg_func(rpc);
+    // rpc->process_msg_func(rpc);
 
 reregister:
     lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
-                           MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, args));
+                           MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, rpc));
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_recv_msg_handler(void *args)
+{
+    errval_t err;
+    struct aos_rpc *rpc = (struct aos_rpc *)args;
+
+    err = aos_rpc_recv_msg(rpc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive message");
+        return err;
+    }
+
+    if (!rpc->is_busy) {
+        rpc->process_msg_func(rpc);
+    }
 
     return SYS_ERR_OK;
 }
@@ -337,8 +389,7 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
 
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not send number \n");
-        free(msg);
+        DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
     }
 
@@ -392,19 +443,19 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
         return err;
     }
 
-    err = aos_rpc_send_msg(rpc, msg);
+    err = aos_rpc_call(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
     }
 
-    err = event_dispatch(get_default_waitset());
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Error in event_dispatch");
-        return err;
-    }
+    *ret_cap = (struct capref)rpc->recv_msg->cap;
+    debug_printf("receive ram cap\n");
+    char buf1[256];
+    debug_print_cap_at_capref(buf1, 256, *ret_cap);
+    debug_printf("%.*s\n", 256, buf1);
 
-    // read result
+    free(msg);
 
     return SYS_ERR_OK;
 }

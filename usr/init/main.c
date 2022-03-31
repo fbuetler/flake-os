@@ -50,13 +50,12 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc)
     errval_t err;
     printf("received ram cap request\n");
 
-    // TODO sanitize inputs
+    // read ram request properties
     size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
     size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
-    struct capref *ret_cap = ((struct capref **)rpc->recv_msg->payload)[2];
-
     printf("received payload: size: %lx alignment: %lx\n", bytes, alignment);
 
+    // alloc ram
     struct capref ram_cap;
     err = ram_alloc_aligned(&ram_cap, bytes, alignment);
     if (err_is_fail(err)) {
@@ -64,15 +63,16 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc)
         return;
     }
 
-    size_t payload_size = 1 * sizeof(size_t);
+    // create response with ram cap
+    size_t payload_size = 0;
     struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, RamCapResponse, payload_size, (void *)&ret_cap,
-                             ram_cap);
+    err = aos_rpc_create_msg(&reply, RamCapResponse, payload_size, NULL, ram_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return;
     }
 
+    // send response
     printf("send ram cap\n");
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, ram_cap);
@@ -82,7 +82,7 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc)
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
-    printf("callback rpc: %p \n", rpc);
+
     printf("ram request handled.\n");
 }
 
@@ -96,6 +96,8 @@ static void aos_process_spawn_request(struct aos_rpc *rpc)
 
     errval_t err = start_process(module, info, &pid);
     assert(err_is_ok(err));
+
+    debug_printf("spawned process with PID %d\n", pid);
 
     size_t payload_size = sizeof(domainid_t) + sizeof(domainid_t *);
     struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
@@ -165,6 +167,7 @@ static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
 
 static errval_t init_process_msg(struct aos_rpc *rpc)
 {
+    // should only handle incoming messages not initiated by us
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
     case SendNumber:
@@ -198,7 +201,6 @@ static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid)
     errval_t err;
 
     err = spawn_load_by_name(cmd, si, pid);
-
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn \"%s\"", cmd);
         return err_push(err, SPAWN_ERR_LOAD);
@@ -211,8 +213,6 @@ static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid)
                   cmd);
         return err;
     }
-
-    assert(err_is_ok(err));
 
     return SYS_ERR_OK;
 }
@@ -1001,8 +1001,6 @@ static int bsp_main(int argc, char *argv[])
     spawn_init();
 
     // setup endpoint of init
-    lmp_chan_init(&init_spawninfo.rpc.chan);
-
     err = lmp_endpoint_create_in_slot(256, cap_initep, &init_spawninfo.rpc.chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed create endpoint in init process");
