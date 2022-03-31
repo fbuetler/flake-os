@@ -28,14 +28,15 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 
     uint64_t *buf = (uint64_t *)msg;
 
+    struct capref send_cap;
+    if (!capcmp(msg->cap, NULL_CAP)) {
+        send_cap = msg->cap;
+    } else {
+        send_cap = NULL_CAP;
+    }
+
     size_t transferred_size = 0;
     while (total_bytes - transferred_size >= 4 * sizeof(uint64_t)) {
-        struct capref send_cap;
-        if (transferred_size == 0 && !capcmp(msg->cap, NULL_CAP)) {
-            send_cap = msg->cap;
-        } else {
-            send_cap = NULL_CAP;
-        }
 
         //size_t remaining = total_bytes - transferred_size;
         //if (remaining < LMP_MSG_LENGTH_BYTES) {
@@ -65,14 +66,14 @@ static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
             }
             // continue in case 1 for leftover stuff?
         case 1:
-            err = lmp_chan_send1(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0]);
+            err = lmp_chan_send1(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, send_cap, buf[0]);
             break;
         case 2:
-            err = lmp_chan_send2(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0],
+            err = lmp_chan_send2(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, send_cap, buf[0],
                                  buf[1]);
             break;
         case 3:
-            err = lmp_chan_send3(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, NULL_CAP, buf[0],
+            err = lmp_chan_send3(&rpc->chan, LMP_SEND_FLAGS_DEFAULT, send_cap, buf[0],
                                  buf[1], buf[2]);
             break;
         default:
@@ -108,17 +109,36 @@ static void aos_process_string(struct aos_rpc_msg *msg) {
 
 static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
     printf("received ram cap request\n");
-    printf("received payload: size: %lx alignment: %lx\n", rpc->recv_msg->payload[0], rpc->recv_msg->payload[1]);
+
+    // TODO sanitize inputs
+    size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
+    size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
+
+    printf("received payload: size: %lx alignment: %lx\n", bytes, alignment);
+
+    struct capref ram_cap;
+    errval_t err = ram_alloc_aligned(&ram_cap, bytes, alignment);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "ram_alloc in ram cap request failed");
+        return;
+    }
 
     struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg));
     reply->header_bytes = sizeof(struct aos_rpc_msg);
     reply->message_type = RamCapResponse;
     reply->payload_bytes = 0; 
-    reply->cap = NULL_CAP;
+    reply->cap = ram_cap;
 
-    // TODO alloc ram 
+    printf("send ram cap\n");
+    char buf0[256];
+    debug_print_capref(buf0, 256, ram_cap);
+    debug_printf("%.*s\n", 256, buf0);
 
-    errval_t err = aos_rpc_send_msg(rpc, reply);
+    char buf1[256];
+    debug_print_cap_at_capref(buf1, 256, ram_cap);
+    debug_printf("%.*s\n", 256, buf1);
+
+    err = aos_rpc_send_msg(rpc, reply);
 
     if(err_is_fail(err)){
         DEBUG_PRINTF("error sending ram cap response\n");
@@ -131,6 +151,15 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
 static void aos_process_ram_cap_response(struct aos_rpc_msg *msg) {
     printf("received ram cap response\n");
     // TODO got the ram cap
+    
+    printf("receive ram cap\n");
+    char buf0[256];
+    debug_print_capref(buf0, 256, msg->cap);
+    debug_printf("%.*s\n", 256, buf0);
+
+    char buf1[256];
+    debug_print_cap_at_capref(buf1, 256, msg->cap);
+    debug_printf("%.*s\n", 256, buf1);
 }
 
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
@@ -165,7 +194,7 @@ errval_t aos_rpc_recv_msg_handler(void *args)
     struct aos_rpc *rpc = (struct aos_rpc *)args;
 
     // receive first message
-    struct capref msg_cap = NULL_CAP;
+    struct capref msg_cap;
     struct lmp_recv_msg recv_buf = LMP_RECV_MSG_INIT;
 
     err = lmp_chan_recv(&rpc->chan, &recv_buf, &msg_cap);
@@ -173,9 +202,10 @@ errval_t aos_rpc_recv_msg_handler(void *args)
         goto reregister;
     } else if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
-     }
+    }
 
     if (!capref_is_null(msg_cap)) {
+        // alloc for next time 
         err = lmp_chan_alloc_recv_slot(&rpc->chan);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to allocated receive slot");
@@ -201,6 +231,7 @@ errval_t aos_rpc_recv_msg_handler(void *args)
         memcpy(rpc->recv_msg, tmp_msg, recv_bytes);
         rpc->recv_bytes = recv_bytes;
         rpc->is_busy = true;
+        rpc->recv_msg->cap = msg_cap;
     } else {
         size_t total_bytes = rpc->recv_msg->header_bytes + rpc->recv_msg->payload_bytes;
         size_t remaining_bytes = total_bytes - rpc->recv_bytes;
@@ -284,12 +315,12 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
 
     // send memory allocation request to init
     
-    printf("get ram request: size: %lx alignment: %lx\n", bytes, alignment);
+    printf("get ram request: size: 0x%lx alignment: 0x%lx\n", bytes, alignment);
     size_t payload_size = 2 * sizeof(size_t);
 
     struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + sizeof(size_t) * 2);
-    msg->payload[0] = bytes;
-    msg->payload[8] = alignment;
+    ((size_t *)msg->payload)[0] = bytes;
+    ((size_t *)msg->payload)[1] = alignment;
 
     msg->header_bytes = sizeof(struct aos_rpc_msg);
     msg->payload_bytes = payload_size;

@@ -144,8 +144,6 @@ int main(int argc, char *argv[])
     errval_t err = SYS_ERR_OK;
     debug_printf("memeater started....\n");
 
-
-
     init_rpc = get_init_rpc();
 
     err = test_basic_rpc();
