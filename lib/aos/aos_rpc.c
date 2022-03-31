@@ -110,25 +110,21 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
     printf("received ram cap request\n");
     printf("received payload: size: %lx alignment: %lx\n", rpc->recv_msg->payload[0], rpc->recv_msg->payload[1]);
 
-    size_t size_buf[2] = {0, 0};
-    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + sizeof(size_buf));
-
-    reply->message_type = RamCapResponse;
+    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg));
     reply->header_bytes = sizeof(struct aos_rpc_msg);
-    reply->payload_bytes = sizeof(size_buf);
+    reply->message_type = RamCapResponse;
+    reply->payload_bytes = 0; 
     reply->cap = NULL_CAP;
+
     // TODO alloc ram 
-   
+
     errval_t err = aos_rpc_send_msg(rpc, reply);
 
     if(err_is_fail(err)){
         DEBUG_PRINTF("error sending ram cap response\n");
     }
-    err = event_dispatch(get_default_waitset());
+    assert(err_is_ok(event_dispatch(get_default_waitset())));
     printf("callback rpc: %p \n", rpc);
-    if(err_is_fail(err)){
-        DEBUG_PRINTF("error dispatching\n");
-    }
     printf("ram request handled.\n");
 }
 
@@ -154,6 +150,7 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
         break;
     case RamCapResponse:
         aos_process_ram_cap_response(rpc->recv_msg);
+        break;
     default:
         printf("received unknown message type\n");
         break;
@@ -222,6 +219,7 @@ errval_t aos_rpc_recv_msg_handler(void *args)
 reregister:
     lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
                            MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, args));
+
     return SYS_ERR_OK;
 }
 
