@@ -14,6 +14,7 @@
 
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
+#include <spawn/spawn.h>
 
 /**
  * Abstraction to send a formatted message in multiple chunks.
@@ -21,7 +22,7 @@
  * @param msg
  * @return
  */
-static errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
+errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 {
     errval_t err;
     size_t total_bytes = msg->header_bytes + msg->payload_bytes;
@@ -99,53 +100,14 @@ static void aos_process_handshake(struct aos_rpc_msg *msg) {
 
 }
 
-static void aos_process_number(struct aos_rpc_msg *msg) {
+void aos_process_number(struct aos_rpc_msg *msg) {
     printf("received number: %d\n", *((uint64_t *)msg->payload));
 }
 
-static void aos_process_string(struct aos_rpc_msg *msg) {
+void aos_process_string(struct aos_rpc_msg *msg) {
     printf("received string: %s\n", msg->payload);
 }
 
-static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
-    printf("received ram cap request\n");
-
-    // TODO sanitize inputs
-    size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
-    size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
-    struct capref *ret_cap = ((struct capref **)rpc->recv_msg->payload)[2];
-
-    printf("received payload: size: %lx alignment: %lx\n", bytes, alignment);
-
-    struct capref ram_cap;
-    errval_t err = ram_alloc_aligned(&ram_cap, bytes, alignment);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "ram_alloc in ram cap request failed");
-        return;
-    }
-
-    size_t payload_size = 1 * sizeof(size_t);
-    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + sizeof(struct capref *));
-    reply->header_bytes = sizeof(struct aos_rpc_msg);
-    reply->message_type = RamCapResponse;
-    reply->payload_bytes = payload_size; 
-    reply->cap = ram_cap;
-    ((struct capref**)reply->payload)[0] = ret_cap;
-
-    printf("send ram cap\n");
-    char buf1[256];
-    debug_print_cap_at_capref(buf1, 256, ram_cap);
-    debug_printf("%.*s\n", 256, buf1);
-
-    err = aos_rpc_send_msg(rpc, reply);
-
-    if(err_is_fail(err)){
-        DEBUG_PRINTF("error sending ram cap response\n");
-    }
-    //assert(err_is_ok(event_dispatch(get_default_waitset())));
-    printf("callback rpc: %p \n", rpc);
-    printf("ram request handled.\n");
-}
 
 static void aos_process_ram_cap_response(struct aos_rpc_msg *msg) {
     printf("received ram cap response\n");
@@ -162,6 +124,17 @@ static void aos_process_ram_cap_response(struct aos_rpc_msg *msg) {
     *ret_cap = msg->cap;
 }
 
+
+static void aos_process_spawn_response(struct aos_rpc_msg *msg){
+    domainid_t assigned_pid = *((domainid_t *)msg->payload);
+    printf("spawned process: %d\n", assigned_pid);
+
+    domainid_t *pid = (domainid_t *)((char *)msg->payload + sizeof(domainid_t));
+
+    *pid = assigned_pid;
+
+}
+
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
@@ -174,11 +147,11 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
     case SendString:
         aos_process_string(rpc->recv_msg);
         break;
-    case RamCapRequest:
-        aos_process_ram_cap_request(rpc);
-        break;
     case RamCapResponse:
         aos_process_ram_cap_response(rpc->recv_msg);
+        break;
+    case SpawnResponse:
+        aos_process_spawn_response(rpc->recv_msg);
         break;
     default:
         printf("received unknown message type\n");
@@ -366,7 +339,20 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
                                domainid_t *newpid)
 {
     // TODO (M5): implement spawn new process rpc
-    return SYS_ERR_OK;
+
+    size_t payload_size = strlen(cmdline) + 1;
+
+    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    memcpy(msg->payload, cmdline, payload_size);
+
+    msg->header_bytes = sizeof(struct aos_rpc_msg);
+    msg->payload_bytes = payload_size;
+    msg->message_type = SpawnRequest;
+    msg->cap = NULL_CAP;
+
+    errval_t err = aos_rpc_send_msg(rpc, msg);
+    assert(err_is_ok(err));
+    return event_dispatch(get_default_waitset());
 }
 
 
@@ -451,7 +437,7 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 
     assert(err_is_ok(err));
 
-    aos_rpc_register_recv(child_rpc, aos_rpc_process_msg);
+    //aos_rpc_register_recv(child_rpc, aos_rpc_process_msg);
 
     return SYS_ERR_OK;
 }

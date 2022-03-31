@@ -145,6 +145,11 @@ int main(int argc, char *argv[])
 
     init_rpc = get_init_rpc();
 
+    domainid_t pid;
+    err = aos_rpc_process_spawn(init_rpc, "hello ", 0, &pid);
+    assert(err_is_ok(err));
+
+    assert(!"success up to here");
     err = test_basic_rpc();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failure in testing basic RPC\n");
