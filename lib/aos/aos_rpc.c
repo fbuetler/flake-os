@@ -113,6 +113,7 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
     // TODO sanitize inputs
     size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
     size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
+    struct capref *ret_cap = ((struct capref **)rpc->recv_msg->payload)[2];
 
     printf("received payload: size: %lx alignment: %lx\n", bytes, alignment);
 
@@ -123,11 +124,13 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
         return;
     }
 
-    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg));
+    size_t payload_size = 1 * sizeof(size_t);
+    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + sizeof(struct capref *));
     reply->header_bytes = sizeof(struct aos_rpc_msg);
     reply->message_type = RamCapResponse;
-    reply->payload_bytes = 0; 
+    reply->payload_bytes = payload_size; 
     reply->cap = ram_cap;
+    ((struct capref**)reply->payload)[0] = ret_cap;
 
     printf("send ram cap\n");
     char buf1[256];
@@ -139,7 +142,7 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
     if(err_is_fail(err)){
         DEBUG_PRINTF("error sending ram cap response\n");
     }
-    assert(err_is_ok(event_dispatch(get_default_waitset())));
+    //assert(err_is_ok(event_dispatch(get_default_waitset())));
     printf("callback rpc: %p \n", rpc);
     printf("ram request handled.\n");
 }
@@ -147,15 +150,16 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
 static void aos_process_ram_cap_response(struct aos_rpc_msg *msg) {
     printf("received ram cap response\n");
     // TODO got the ram cap
+
+    struct capref *ret_cap = ((struct capref **)msg->payload)[0];
+    printf("roundtrip ret addr %lx\n", ret_cap);
     
     printf("receive ram cap\n");
-    char buf0[256];
-    debug_print_capref(buf0, 256, msg->cap);
-    debug_printf("%.*s\n", 256, buf0);
-
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, msg->cap);
     debug_printf("%.*s\n", 256, buf1);
+
+    *ret_cap = msg->cap;
 }
 
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
@@ -312,11 +316,13 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     // send memory allocation request to init
     
     printf("get ram request: size: 0x%lx alignment: 0x%lx\n", bytes, alignment);
-    size_t payload_size = 2 * sizeof(size_t);
+    printf("initial ret addr %lx\n", ret_cap);
+    size_t payload_size = 3 * sizeof(size_t);
 
-    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + sizeof(size_t) * 2);
+    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + sizeof(size_t) * 3);
     ((size_t *)msg->payload)[0] = bytes;
     ((size_t *)msg->payload)[1] = alignment;
+    ((struct capref **)msg->payload)[2] = ret_cap;
 
     msg->header_bytes = sizeof(struct aos_rpc_msg);
     msg->payload_bytes = payload_size;

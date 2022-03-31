@@ -50,7 +50,6 @@ static errval_t request_and_map_memory(void)
         return err;
     }
 
-    assert(!"successfully initialized memeater rpc, aborting");
 
     struct capref cap1_frame;
     err = slot_alloc(&cap1_frame);
@@ -67,6 +66,7 @@ static errval_t request_and_map_memory(void)
     err = frame_identify(cap1_frame, &id);
     assert(err_is_ok(err));
 
+    // TODO here happens another ram alloc that fails
     debug_printf("Mapping frame \n");
     void *buf1;
     err = paging_map_frame(pstate, &buf1, BASE_PAGE_SIZE, cap1_frame);
