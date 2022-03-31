@@ -195,6 +195,8 @@ errval_t aos_rpc_recv_msg_handler(void *args)
 
         size_t recv_bytes = MIN(LMP_MSG_LENGTH_BYTES, total_bytes);
 
+        //printf("Received bytes: %zu total_bytes: %zu", recv_bytes, total_bytes);
+
         // allocate space for return message, copy current message already to it
         rpc->recv_msg = malloc(total_bytes);
         if (!rpc->recv_msg) {
@@ -208,7 +210,11 @@ errval_t aos_rpc_recv_msg_handler(void *args)
     } else {
         size_t total_bytes = rpc->recv_msg->header_bytes + rpc->recv_msg->payload_bytes;
         size_t remaining_bytes = total_bytes - rpc->recv_bytes;
+        //printf("Recv: total bytes: %zu msg_header: %hu msg_payload %d , recv_bytes: %zu \n", total_bytes,  rpc->recv_msg->header_bytes,  rpc->recv_msg->payload_bytes, rpc->recv_bytes);
+
         size_t copy_bytes = MIN(remaining_bytes, LMP_MSG_LENGTH_BYTES);
+        //printf("Copy bytes: %zu \n", copy_bytes);
+        //printf("buffer content: %s \n", (char*)recv_buf.words);
         memcpy(((char *)rpc->recv_msg) + rpc->recv_bytes, recv_buf.words, copy_bytes);
         rpc->recv_bytes += copy_bytes;
     }
@@ -229,7 +235,9 @@ reregister:
 
 errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
 {
-    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + sizeof(num));
+    // round to next uintptr_t so that send_msg doesn't read beyond buffer limit
+    size_t struct_size = ROUND_UP(sizeof(struct aos_rpc_msg) + sizeof(num), sizeof(uintptr_t));
+    struct aos_rpc_msg *msg = malloc(struct_size);
 
     if (!msg) {
         DEBUG_PRINTF("Malloc failed in aos_rpc_send_number \n");
@@ -259,13 +267,18 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
     errval_t err;
 
     size_t len = strlen(string);
-    struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + len);
+
+    size_t struct_size = ROUND_UP(sizeof(struct aos_rpc_msg) + len, sizeof(uintptr_t));
+    struct aos_rpc_msg *msg = malloc(struct_size);
 
     msg->header_bytes = sizeof(struct aos_rpc_msg);
     msg->payload_bytes = len;
     msg->message_type = SendString;
     msg->cap = NULL_CAP;
     memcpy(msg->payload, string, len);
+
+    //printf("msg sizes header: %lu payload size: %zu \n", sizeof(struct aos_rpc_msg), len);
+    //printf("Payload before sending: %s \n", msg->payload);
 
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
@@ -292,7 +305,9 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     printf("initial ret addr %lx\n", ret_cap);
     size_t payload_size = 3 * sizeof(size_t);
 
-    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + sizeof(size_t) * 3);
+    size_t struct_size = ROUND_UP(sizeof(struct aos_rpc_msg) + sizeof(size_t) * 3, sizeof(uintptr_t));
+
+    struct aos_rpc_msg *msg  = malloc(struct_size);
     ((size_t *)msg->payload)[0] = bytes;
     ((size_t *)msg->payload)[1] = alignment;
     ((struct capref **)msg->payload)[2] = ret_cap;
@@ -342,7 +357,9 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
 
     size_t payload_size = strlen(cmdline) + 1;
 
-    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    size_t struct_size = ROUND_UP(sizeof(struct aos_rpc_msg) + payload_size, sizeof(uintptr_t));
+
+    struct aos_rpc_msg *msg  = malloc(struct_size);
     memcpy(msg->payload, cmdline, payload_size);
 
     msg->header_bytes = sizeof(struct aos_rpc_msg);
