@@ -494,12 +494,13 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 
     struct capref init_ep_cap = child_rpc->chan.local_cap;
 
+    // will contain endpoint cap of child
     struct capref memeater_endpoint_cap;
     err = slot_alloc(&memeater_endpoint_cap);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("Failed to allocate slot for memeater endpoint\n");
+        return err;
     }
-    assert(err_is_ok(err));
 
     while (1) {
         struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
@@ -509,19 +510,16 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
                                 &memeater_endpoint_cap);
         if (err_is_fail(err)) {
             if (err == LIB_ERR_NO_LMP_MSG || lmp_err_is_transient(err)) {
-                // DEBUG_ERR(err, "no lmp msg, or is transiend: continue! \n");
                 continue;
             } else {
                 DEBUG_ERR(err, "loop in main, !err_is_transient \n");
-                assert(0);
+                return err;
             }
         } else {
-            // TODO caution: si is on stack & memeater_endpoint_cap is on stack
-            // si.endpoint = &memeater_endpoint_cap;
             break;
         }
     }
-
+    // we've received the capability; 
 
     child_rpc->chan.local_cap = init_ep_cap;
     child_rpc->chan.remote_cap = memeater_endpoint_cap;

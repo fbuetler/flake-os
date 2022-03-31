@@ -191,10 +191,8 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     struct capref child_cap_init_endpoint = { .cnode = si->taskcn,
                                               .slot = TASKCN_SLOT_INITEP };
 
-
-    // create a new endpoint for init
-    struct capref new_init_ep_cap;
-    err = lmp_chan_accept(&si->rpc.chan, 256, new_init_ep_cap);
+    // creates a new endpoint into local_cap!
+    err = lmp_chan_accept(&si->rpc.chan, 256, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to accept endpoint");
         return err;
