@@ -130,10 +130,6 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
     reply->cap = ram_cap;
 
     printf("send ram cap\n");
-    char buf0[256];
-    debug_print_capref(buf0, 256, ram_cap);
-    debug_printf("%.*s\n", 256, buf0);
-
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, ram_cap);
     debug_printf("%.*s\n", 256, buf1);
