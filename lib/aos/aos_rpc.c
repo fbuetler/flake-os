@@ -212,11 +212,10 @@ static void aos_process_serial_read_response(struct aos_rpc_msg *msg)
 {
     DEBUG_PRINTF("we're here\n");
     char *ptr = ((char **)msg->payload)[0];
-    char c = (char)((uint64_t *)msg->payload)[1];
 
-    // char c = ((size_t)buf) >> (63-8);
+    char c = ((size_t)ptr) >> 48;
 
-    // buf = (char *)((size_t)buf ^ ((size_t)c << (63 - 8)));
+    ptr = (char *)((size_t)ptr ^ ((size_t)c << 48));
     *ptr = c;
 }
 
@@ -320,14 +319,9 @@ errval_t aos_rpc_recv_msg_handler(void *args)
         rpc->recv_bytes += copy_bytes;
     }
 
-    DEBUG_PRINTF("type: %d, recv_bytes: %d, payload_bytes: %d, header_bytes: %d\n",
-           rpc->recv_msg->message_type, rpc->recv_bytes, rpc->recv_msg->payload_bytes,
-           rpc->recv_msg->header_bytes);
-
     if (rpc->recv_bytes < rpc->recv_msg->payload_bytes + rpc->recv_msg->header_bytes) {
         goto reregister;
     }
-    DEBUG_PRINTF("but we're here??\n");
 
     rpc->is_busy = false;
     rpc->process_msg_func(rpc);

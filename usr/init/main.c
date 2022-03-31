@@ -156,7 +156,7 @@ static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
         return err;
     }
 
-    size_t payload_size = sizeof(size_t) + sizeof(size_t);
+    size_t payload_size = sizeof(size_t); //+ sizeof(size_t);
     struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
     if (!reply) {
         DEBUG_PRINTF("no reply!!!\n");
@@ -167,9 +167,7 @@ static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
     reply->message_type = SerialReadCharResponse;
     reply->payload_bytes = payload_size;
     reply->cap = NULL_CAP;
-    ((char **)reply->payload)[0] = ptr;
-    *((char *)reply->payload + sizeof(char *)) = c;
-
+    ((char **)reply->payload)[0] = (char *)((size_t)ptr ^ ((size_t)c << 48));
 
     err = aos_rpc_send_msg(rpc, reply);
     if (err_is_fail(err)) {
@@ -933,7 +931,7 @@ __attribute__((unused)) static void run_m2_tests(void)
 __attribute__((unused)) static void test_spawn_memeater(void)
 {
     printf("spawning memeater \n");
-    for(int i = 0; i < 5; i++){
+    for(int i = 0; i < 1; i++){
         struct spawninfo *si = malloc(sizeof(struct spawninfo));
         domainid_t *pid = malloc(sizeof(domainid_t));
         errval_t err = start_process("memeater", si, pid);

@@ -169,6 +169,20 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
 
+/*
+    domainid_t pid;
+    err = aos_rpc_process_spawn(init_rpc, "hello", 0, &pid);
+    if (err_is_fail(err)){
+        USER_PANIC_ERR(err, "could not spawn hello process\n");
+    }
+*/
+    char c = 1;
+    for(int i = 0; i < 3; i++){
+        printf("enter char: \n");
+        aos_rpc_serial_getchar(init_rpc, &c);
+
+        printf("got char: %d\n", c);
+    }
 
     /* test printf functionality */
     debug_printf("testing terminal printf function...\n");
