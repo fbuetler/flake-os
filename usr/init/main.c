@@ -933,7 +933,7 @@ __attribute__((unused)) static void run_m2_tests(void)
     test_spawn_and_kill_multiple_process(20);
 }
 
-__attribute__((unused)) static void test_spawn_memeaters(void)
+__attribute__((unused)) static void test_spawn_memeater(void)
 {
     printf("spawning memeater \n");
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
