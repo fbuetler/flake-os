@@ -130,20 +130,20 @@ static errval_t aos_process_serial_write_char(struct aos_rpc *rpc)
         return err;
     }
 
-    // size_t payload_size = 0;
-    // struct aos_rpc_msg *reply;
-    // err = aos_rpc_create_msg(&reply, SerialWriteCharResponse, payload_size, NULL,
-    //                          NULL_CAP);
-    // if (err_is_fail(err)) {
-    //     DEBUG_ERR(err, "failed to create message");
-    //     return err;
-    // }
+    size_t payload_size = 0;
+    struct aos_rpc_msg *reply;
+    err = aos_rpc_create_msg(&reply, SerialWriteCharResponse, payload_size, NULL,
+                             NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
 
-    // err = aos_rpc_send_msg(rpc, reply);
-    // if (err_is_fail(err)) {
-    //     DEBUG_PRINTF("error sending serial read char response\n");
-    //     return err;
-    // }
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error sending serial read char response\n");
+        return err;
+    }
 
     return SYS_ERR_OK;
 }
