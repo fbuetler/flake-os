@@ -816,11 +816,12 @@ static int bsp_main(int argc, char *argv[])
     // setup endpoint of init
     lmp_chan_init(&init_spawninfo.rpc.chan);
 
-    err = lmp_endpoint_create_in_slot(6, cap_initep, &init_spawninfo.rpc.chan.endpoint);
+    err = lmp_endpoint_create_in_slot(256, cap_initep, &init_spawninfo.rpc.chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed create endpoint in init process");
         abort();
     }
+    init_spawninfo.rpc.chan.buflen_words = 256;
     // run_m1_tests();
     // run_m2_tests();
     // run_demo_m2();
@@ -831,7 +832,6 @@ static int bsp_main(int argc, char *argv[])
     // Grading
     grading_test_late();
 
-    aos_rpc_register_recv(&init_spawninfo.rpc, aos_rpc_process_msg);
 
     debug_printf("Message handler loop\n");
     struct waitset *default_ws = get_default_waitset();

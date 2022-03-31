@@ -105,6 +105,45 @@ static void aos_process_string(struct aos_rpc_msg *msg) {
     printf("received string: %s\n", msg->payload);
 }
 
+static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
+    printf("received ram cap request\n");
+    printf("received payload: size: %lx alignment: %lx\n", rpc->recv_msg->payload[0], rpc->recv_msg->payload[1]);
+
+    printf("callback rpc: %p \n", rpc);
+    printf("init local\n");
+    char buf0[256];
+    debug_print_cap_at_capref(buf0, 256, rpc->chan.local_cap);
+    debug_printf("%.*s\n", 256, buf0);
+
+    printf("init remote\n");
+    char buf1[256];
+    debug_print_cap_at_capref(buf1, 256, rpc->chan.remote_cap);
+    debug_printf("%.*s\n", 256, buf1);
+
+    size_t size_buf[2] = {0, 0};
+    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + sizeof(size_buf));
+
+    reply->message_type = RamCapResponse;
+    reply->header_bytes = sizeof(struct aos_rpc_msg);
+    reply->payload_bytes = sizeof(size_buf);
+    reply->cap = NULL_CAP;
+    // TODO alloc ram 
+   
+    errval_t err = aos_rpc_send_msg(rpc, reply);
+    if(err_is_fail(err)){
+        DEBUG_PRINTF("error sending ram cap response\n");
+    }
+    err = event_dispatch(get_default_waitset());
+    if(err_is_fail(err)){
+        DEBUG_PRINTF("error dispatching\n");
+    }
+}
+
+static void aos_process_ram_cap_response(struct aos_rpc_msg *msg) {
+    printf("received ram cap response\n");
+    // TODO got the ram cap
+}
+
 errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
@@ -117,11 +156,16 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
     case SendString:
         aos_process_string(rpc->recv_msg);
         break;
+    case RamCapRequest:
+        aos_process_ram_cap_request(rpc);
+        break;
+    case RamCapResponse:
+        aos_process_ram_cap_response(rpc->recv_msg);
     default:
         printf("received unknown message type\n");
         break;
     }
-
+    // TODO: free msg
     return SYS_ERR_OK;
 }
 
@@ -243,8 +287,38 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment,
                              struct capref *ret_cap, size_t *ret_bytes)
 {
+    errval_t err;
     // TODO: implement functionality to request a RAM capability over the
     // given channel and wait until it is delivered.
+
+    // send memory allocation request to init
+    
+    printf("get ram request: size: %lx alignment: %lx\n", bytes, alignment);
+    size_t payload_size = 2 * sizeof(size_t);
+
+    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + sizeof(size_t) * 2);
+    msg->payload[0] = bytes;
+    msg->payload[8] = alignment;
+
+    msg->header_bytes = sizeof(struct aos_rpc_msg);
+    msg->payload_bytes = payload_size;
+    msg->message_type = RamCapRequest;
+    msg->cap = NULL_CAP;
+    
+    err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err_push(err, LIB_ERR_RPC_SEND);
+    }
+    
+    err = event_dispatch(get_default_waitset());
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Error in event_dispatch");
+        return err;
+    }
+    
+    // read result
+
     return SYS_ERR_OK;
 }
 
@@ -327,12 +401,12 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
     child_rpc->chan.local_cap = cap_initep;
     child_rpc->chan.remote_cap = memeater_endpoint_cap;
 
-    printf("init local\n");
+    printf("init local \n");
     char buf0[256];
     debug_print_cap_at_capref(buf0, 256, child_rpc->chan.local_cap);
     debug_printf("%.*s\n", 256, buf0);
 
-    printf("init remote\n");
+    printf("init remote \n");
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, child_rpc->chan.remote_cap);
     debug_printf("%.*s\n", 256, buf1);
@@ -342,11 +416,15 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
     handshake_msg.message_type = Handshake;
     handshake_msg.payload_bytes = 0;
 
+    printf("child rpc: %p \n", child_rpc);
     err = aos_rpc_send_msg(child_rpc, &handshake_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send acknowledgement");
     }
+
     assert(err_is_ok(err));
+
+    aos_rpc_register_recv(child_rpc, aos_rpc_process_msg);
 
     return SYS_ERR_OK;
 }
@@ -375,11 +453,12 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     assert(ep);
 
     aos_rpc->chan.endpoint = ep;
-    err = endpoint_create(8, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
+    err = endpoint_create(256, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not create endpoint in child \n");
         return err;
     }
+    aos_rpc->chan.buflen_words = 256;
 
     /* set remote endpoint to init's endpoint */
     aos_rpc->chan.remote_cap = cap_initep;

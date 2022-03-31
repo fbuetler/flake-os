@@ -50,6 +50,8 @@ static errval_t request_and_map_memory(void)
         return err;
     }
 
+    assert(!"successfully initialized memeater rpc, aborting");
+
     struct capref cap1_frame;
     err = slot_alloc(&cap1_frame);
     assert(err_is_ok(err));
@@ -110,7 +112,6 @@ static errval_t request_and_map_memory(void)
 static errval_t test_basic_rpc(void)
 {
     errval_t err;
-    printf("we want to send a string of length %d\n", strlen(str));
     debug_printf("RPC: testing basic RPCs...\n");
     debug_printf("RPC: sending number...\n");
     err = aos_rpc_send_number(init_rpc, 42);
@@ -149,8 +150,6 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failure in testing basic RPC\n");
     }
-
-    assert(!"successfully initialized memeater rpc, aborting");
 
     mem_rpc = aos_rpc_get_memory_channel();
     if (!mem_rpc) {

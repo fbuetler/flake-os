@@ -36,7 +36,9 @@ struct aos_rpc {
 enum aos_rpc_msg_type {
     Handshake = 1,
     SendNumber = 2,
-    SendString = 3
+    SendString = 3,
+    RamCapRequest = 4,
+    RamCapResponse = 5
 };
 
 struct aos_rpc_msg {
