@@ -60,7 +60,7 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 
     size_t remaining = total_bytes - transferred_size;
     do {
-        switch (remaining / sizeof(uint64_t)) {
+        switch (DIVIDE_ROUND_UP(remaining, sizeof(uint64_t))) {
         case 0:
             if (remaining == 0) {
                 err = SYS_ERR_OK;
