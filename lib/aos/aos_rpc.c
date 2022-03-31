@@ -418,6 +418,8 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
     struct aos_rpc_msg *msg = malloc(sizeof(struct aos_rpc_msg) + payload_size);
     ((char **)msg->payload)[0] = retc;
 
+    printf("actual pointer is: %p\n", retc);
+
     msg->header_bytes = sizeof(struct aos_rpc_msg);
     msg->payload_bytes = payload_size;
     msg->message_type = SerialReadChar;
