@@ -32,6 +32,9 @@ struct bootinfo *bi;
 
 coreid_t my_core_id;
 
+// forward declaration
+static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid);
+
 static void aos_process_number(struct aos_rpc_msg *msg)
 {
     printf("received number: %d\n", *((uint64_t *)msg->payload));
@@ -90,7 +93,8 @@ static void aos_process_spawn_request(struct aos_rpc *rpc)
 
     struct spawninfo *info = malloc(sizeof(struct spawninfo));
     domainid_t pid = 0;
-    errval_t err = spawn_load_by_name(module, info, &pid);
+
+    errval_t err = start_process(module, info, &pid);
     assert(err_is_ok(err));
 
     size_t payload_size = sizeof(domainid_t) + sizeof(domainid_t *);
@@ -103,6 +107,12 @@ static void aos_process_spawn_request(struct aos_rpc *rpc)
                              NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
+        return;
+    }
+
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error sending spawn response\n");
         return;
     }
 }
@@ -182,7 +192,6 @@ static errval_t init_process_msg(struct aos_rpc *rpc)
     // TODO: free msg
     return SYS_ERR_OK;
 }
-
 
 static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid)
 {
