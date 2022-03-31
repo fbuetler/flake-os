@@ -126,6 +126,13 @@ static errval_t test_basic_rpc(void)
         return err;
     }
 
+    debug_printf("RPC: sending another small string...\n");
+    err = aos_rpc_send_string(init_rpc, "Hello");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not send a string\n");
+        return err;
+    }
+
     debug_printf("RPC: sending large string...\n");
     err = aos_rpc_send_string(init_rpc, str);
     if (err_is_fail(err)) {
