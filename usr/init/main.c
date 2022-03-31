@@ -95,15 +95,10 @@ static void aos_process_spawn_request(struct aos_rpc *rpc)
 
     size_t payload_size = sizeof(domainid_t) + sizeof(domainid_t *);
     struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
-    
-    reply->header_bytes = sizeof(struct aos_rpc_msg);
-    reply->message_type = SpawnResponse;
-    reply->payload_bytes = payload_size;
-    reply->cap = NULL_CAP;
-    ((domainid_t*)reply->payload)[0] = pid;
-    memcpy((char *)reply->payload + sizeof(domainid_t), rpc->recv_msg->payload, sizeof(domainid_t *));
 
-    struct aos_rpc_msg *reply;
+    char payload[payload_size];
+    memcpy(payload, &pid, sizeof(domainid_t *));
+    memcpy(payload + sizeof(domainid_t*), rpc->recv_msg->payload, sizeof(domainid_t));
     err = aos_rpc_create_msg(&reply, SpawnResponse, payload_size, (void *)&payload,
                              NULL_CAP);
     if (err_is_fail(err)) {
