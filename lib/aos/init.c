@@ -67,12 +67,22 @@ static void libc_assert(const char *expression, const char *file, const char *fu
 
 __attribute__((__used__)) static size_t syscall_terminal_write(const char *buf, size_t len)
 {
-    if (len) {
-        errval_t err = sys_print(buf, len);
-        if (err_is_fail(err)) {
-            return 0;
+    struct aos_rpc *rpc = get_init_rpc();
+    if(!rpc) {
+        if (len) {
+            errval_t err = sys_print(buf, len);
+
+            if (err_is_fail(err)) {
+                return 0;
+            }
         }
+    }else{
+        int i = 0;
+        while(i++ < len){
+            aos_rpc_serial_putchar(rpc, *(buf++));
+        }     
     }
+
     return len;
 }
 
