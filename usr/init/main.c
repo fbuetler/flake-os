@@ -131,7 +131,7 @@ static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
 {
     errval_t err;
 
-    char *ptr = rpc->recv_msg->payload;
+    char *ptr = *(char **)rpc->recv_msg->payload;
 
     char c;
     err = sys_getchar(&c);
