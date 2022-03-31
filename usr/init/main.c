@@ -32,8 +32,18 @@ struct bootinfo *bi;
 
 coreid_t my_core_id;
 
-static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
+static void aos_process_number(struct aos_rpc_msg *msg)
+{
+    printf("received number: %d\n", *((uint64_t *)msg->payload));
+}
 
+static void aos_process_string(struct aos_rpc_msg *msg)
+{
+    printf("received string: %s\n", msg->payload);
+}
+
+static void aos_process_ram_cap_request(struct aos_rpc *rpc)
+{
     printf("received ram cap request\n");
 
     // TODO sanitize inputs
@@ -51,12 +61,13 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
     }
 
     size_t payload_size = 1 * sizeof(size_t);
-    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + sizeof(struct capref *));
+    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg)
+                                       + sizeof(struct capref *));
     reply->header_bytes = sizeof(struct aos_rpc_msg);
     reply->message_type = RamCapResponse;
-    reply->payload_bytes = payload_size; 
+    reply->payload_bytes = payload_size;
     reply->cap = ram_cap;
-    ((struct capref**)reply->payload)[0] = ret_cap;
+    ((struct capref **)reply->payload)[0] = ret_cap;
 
     printf("send ram cap\n");
     char buf1[256];
@@ -65,15 +76,16 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc) {
 
     err = aos_rpc_send_msg(rpc, reply);
 
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
-    //assert(err_is_ok(event_dispatch(get_default_waitset())));
+    // assert(err_is_ok(event_dispatch(get_default_waitset())));
     printf("callback rpc: %p \n", rpc);
     printf("ram request handled.\n");
 }
 
-static void aos_process_spawn_request(struct aos_rpc *rpc){
+static void aos_process_spawn_request(struct aos_rpc *rpc)
+{
     char *module = rpc->recv_msg->payload;
     printf("module to spawn: %s\n", module);
 
@@ -88,17 +100,18 @@ static void aos_process_spawn_request(struct aos_rpc *rpc){
     reply->message_type = SpawnResponse;
     reply->payload_bytes = payload_size;
     reply->cap = NULL_CAP;
-    ((domainid_t*)reply->payload)[0] = pid;
-    memcpy((char *)reply->payload + sizeof(domainid_t), rpc->recv_msg->payload, sizeof(domainid_t *));
+    ((domainid_t *)reply->payload)[0] = pid;
+    memcpy((char *)reply->payload + sizeof(domainid_t), rpc->recv_msg->payload,
+           sizeof(domainid_t *));
 
     err = aos_rpc_send_msg(rpc, reply);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending spawn response\n");
     }
-
 }
 
-static errval_t init_process_msg(struct aos_rpc *rpc) {
+static errval_t init_process_msg(struct aos_rpc *rpc)
+{
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
     case SendNumber:
@@ -122,20 +135,22 @@ static errval_t init_process_msg(struct aos_rpc *rpc) {
 }
 
 
-static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid){
+static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid)
+{
     errval_t err;
 
     err = spawn_load_by_name(cmd, si, pid);
 
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn \"%s\"", cmd);
-        return err_push(err, SPAWN_ERR_LOAD); 
+        return err_push(err, SPAWN_ERR_LOAD);
     }
 
     // setup handler for the process
     err = aos_rpc_register_recv(&si->rpc, init_process_msg);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to register receive handler for channel to %s in init\n", cmd);
+        DEBUG_ERR(err, "Failed to register receive handler for channel to %s in init\n",
+                  cmd);
         return err;
     }
 
@@ -900,10 +915,8 @@ __attribute__((unused)) static void test_get_number(void)
 __attribute__((unused)) static void run_m3_tests(void)
 {
     test_spawn_memeater();
-    //test_get_number();
+    // test_get_number();
 }
-
-
 
 
 static int bsp_main(int argc, char *argv[])
@@ -947,9 +960,6 @@ static int bsp_main(int argc, char *argv[])
 
     // Grading
     grading_test_late();
-
-
-
 
 
     debug_printf("Message handler loop\n");
