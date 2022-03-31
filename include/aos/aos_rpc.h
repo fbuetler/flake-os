@@ -40,7 +40,10 @@ enum aos_rpc_msg_type {
     RamCapRequest = 4,
     RamCapResponse = 5,
     SpawnRequest = 6,
-    SpawnResponse = 7
+    SpawnResponse = 7,
+    SerialWriteChar = 8,
+    SerialReadChar = 9,
+    SerialReadCharResponse = 10,
 };
 
 struct aos_rpc_msg {
@@ -148,6 +151,9 @@ struct aos_rpc *aos_rpc_get_serial_channel(void);
 
 errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
 
+
+errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type,
+                            size_t payload_size, void *payload, struct capref msg_cap);
 
 errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
 

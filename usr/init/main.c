@@ -44,6 +44,7 @@ static void aos_process_string(struct aos_rpc_msg *msg)
 
 static void aos_process_ram_cap_request(struct aos_rpc *rpc)
 {
+    errval_t err;
     printf("received ram cap request\n");
 
     // TODO sanitize inputs
@@ -54,20 +55,20 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc)
     printf("received payload: size: %lx alignment: %lx\n", bytes, alignment);
 
     struct capref ram_cap;
-    errval_t err = ram_alloc_aligned(&ram_cap, bytes, alignment);
+    err = ram_alloc_aligned(&ram_cap, bytes, alignment);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "ram_alloc in ram cap request failed");
         return;
     }
 
     size_t payload_size = 1 * sizeof(size_t);
-    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg)
-                                       + sizeof(struct capref *));
-    reply->header_bytes = sizeof(struct aos_rpc_msg);
-    reply->message_type = RamCapResponse;
-    reply->payload_bytes = payload_size;
-    reply->cap = ram_cap;
-    ((struct capref **)reply->payload)[0] = ret_cap;
+    struct aos_rpc_msg *reply;
+    err = aos_rpc_create_msg(&reply, RamCapResponse, payload_size, (void *)&ret_cap,
+                             ram_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return;
+    }
 
     printf("send ram cap\n");
     char buf1[256];
@@ -75,11 +76,9 @@ static void aos_process_ram_cap_request(struct aos_rpc *rpc)
     debug_printf("%.*s\n", 256, buf1);
 
     err = aos_rpc_send_msg(rpc, reply);
-
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
-    // assert(err_is_ok(event_dispatch(get_default_waitset())));
     printf("callback rpc: %p \n", rpc);
     printf("ram request handled.\n");
 }
@@ -95,19 +94,61 @@ static void aos_process_spawn_request(struct aos_rpc *rpc)
     assert(err_is_ok(err));
 
     size_t payload_size = sizeof(domainid_t) + sizeof(domainid_t *);
-    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + sizeof(domainid_t));
+    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+
+    char payload[payload_size];
+    memcpy(payload, &pid, sizeof(domainid_t *));
+    memcpy(payload + sizeof(domainid_t*), rpc->recv_msg->payload, sizeof(domainid_t));
+    err = aos_rpc_create_msg(&reply, SpawnResponse, payload_size, (void *)&payload,
+                             NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return;
+    }
+}
+
+static errval_t aos_process_serial_write_char(struct aos_rpc *rpc){
+    char *buf = rpc->recv_msg->payload;
+    errval_t err = sys_print(buf, 1);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    return SYS_ERR_OK;
+}
+
+static errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc){
+    errval_t err;
+
+    char *ptr = rpc->recv_msg->payload;
+
+    char c;
+    err = sys_getchar(&c);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    size_t payload_size = sizeof(size_t) + sizeof(size_t);
+    struct aos_rpc_msg *reply = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    if(!reply){
+        printf("no reply!!!\n");
+        abort();
+    }
+
     reply->header_bytes = sizeof(struct aos_rpc_msg);
-    reply->message_type = SpawnResponse;
+    reply->message_type = SerialReadCharResponse;
     reply->payload_bytes = payload_size;
     reply->cap = NULL_CAP;
-    ((domainid_t *)reply->payload)[0] = pid;
-    memcpy((char *)reply->payload + sizeof(domainid_t), rpc->recv_msg->payload,
-           sizeof(domainid_t *));
+    ((char **)reply->payload)[0] = ptr;
+    *((char *)reply->payload + sizeof(char *)) = c;
+
 
     err = aos_rpc_send_msg(rpc, reply);
-    if (err_is_fail(err)) {
-        DEBUG_PRINTF("error sending spawn response\n");
+    if(err_is_fail(err)){
+        DEBUG_PRINTF("error sending serial read char response\n");
+        return err;
     }
+
+    return SYS_ERR_OK; 
 }
 
 static errval_t init_process_msg(struct aos_rpc *rpc)
@@ -125,6 +166,12 @@ static errval_t init_process_msg(struct aos_rpc *rpc)
         break;
     case SpawnRequest:
         aos_process_spawn_request(rpc);
+        break;
+    case SerialWriteChar:
+        aos_process_serial_write_char(rpc);
+        break;
+    case SerialReadChar:
+        aos_process_serial_read_char_request(rpc); 
         break;
     default:
         printf("received unknown message type\n");
@@ -960,7 +1007,6 @@ static int bsp_main(int argc, char *argv[])
 
     // Grading
     grading_test_late();
-
 
     debug_printf("Message handler loop\n");
     struct waitset *default_ws = get_default_waitset();

@@ -18,6 +18,40 @@
 #include <spawn/spawn.h>
 
 /**
+ * @brief helper to create a message that should be sent
+ *
+ * @param ret_msg
+ * @param msg_type
+ * @param payload_size
+ * @param payload
+ * @param msg_cap
+ * @return errval_t
+ */
+errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type,
+                            size_t payload_size, void *payload, struct capref msg_cap)
+{
+    size_t header_size = sizeof(struct aos_rpc_msg);
+    struct aos_rpc_msg *msg = malloc(
+        ROUND_UP(header_size + payload_size, sizeof(uintptr_t)));
+    if (!msg) {
+        DEBUG_ERR(LIB_ERR_MALLOC_FAIL, "failed to allocate memory");
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg->message_type = msg_type;
+    msg->header_bytes = header_size;
+    msg->payload_bytes = payload_size;
+    msg->cap = msg_cap;
+    memcpy(msg->payload, payload, payload_size);
+
+    if (ret_msg) {
+        *ret_msg = msg;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
  * @brief Abstraction to send a formatted message in multiple chunks.
  *
  * @param rpc
@@ -177,14 +211,17 @@ static void aos_process_spawn_response(struct aos_rpc_msg *msg)
     free(msg);
 }
 
-/**
- * @brief sets the default handlers for some message types
- *
- * @param rpc
- * @return errval_t
- */
-errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
-{
+static void aos_process_serial_read_response(struct aos_rpc_msg *msg){
+    char *ptr = ((char **) msg->payload)[0];
+    char c = (char) ((uint64_t*) msg->payload)[1];
+
+    //char c = ((size_t)buf) >> (63-8);
+
+    //buf = (char *)((size_t)buf ^ ((size_t)c << (63 - 8)));
+    *ptr = c; 
+}
+
+errval_t aos_rpc_process_msg(struct aos_rpc *rpc) {
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
     case Handshake:
@@ -201,6 +238,9 @@ errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
         break;
     case SpawnResponse:
         aos_process_spawn_response(rpc->recv_msg);
+        break;
+    case SerialReadCharResponse:
+        aos_process_serial_read_response(rpc->recv_msg);
         break;
     default:
         printf("received unknown message type\n");
@@ -245,7 +285,7 @@ errval_t aos_rpc_recv_msg_handler(void *args)
 
         size_t recv_bytes = MIN(LMP_MSG_LENGTH_BYTES, total_bytes);
 
-        //printf("Received bytes: %zu total_bytes: %zu", recv_bytes, total_bytes);
+        // printf("Received bytes: %zu total_bytes: %zu", recv_bytes, total_bytes);
 
         // allocate space for return message, copy current message already to it
         rpc->recv_msg = malloc(total_bytes);
@@ -260,11 +300,13 @@ errval_t aos_rpc_recv_msg_handler(void *args)
     } else {
         size_t total_bytes = rpc->recv_msg->header_bytes + rpc->recv_msg->payload_bytes;
         size_t remaining_bytes = total_bytes - rpc->recv_bytes;
-        //printf("Recv: total bytes: %zu msg_header: %hu msg_payload %d , recv_bytes: %zu \n", total_bytes,  rpc->recv_msg->header_bytes,  rpc->recv_msg->payload_bytes, rpc->recv_bytes);
+        // printf("Recv: total bytes: %zu msg_header: %hu msg_payload %d , recv_bytes: %zu
+        // \n", total_bytes,  rpc->recv_msg->header_bytes,  rpc->recv_msg->payload_bytes,
+        // rpc->recv_bytes);
 
         size_t copy_bytes = MIN(remaining_bytes, LMP_MSG_LENGTH_BYTES);
-        //printf("Copy bytes: %zu \n", copy_bytes);
-        //printf("buffer content: %s \n", (char*)recv_buf.words);
+        // printf("Copy bytes: %zu \n", copy_bytes);
+        // printf("buffer content: %s \n", (char*)recv_buf.words);
         memcpy(((char *)rpc->recv_msg) + rpc->recv_bytes, recv_buf.words, copy_bytes);
         rpc->recv_bytes += copy_bytes;
     }
@@ -285,22 +327,15 @@ reregister:
 
 errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
 {
-    // round to next uintptr_t so that send_msg doesn't read beyond buffer limit
-    size_t struct_size = ROUND_UP(sizeof(struct aos_rpc_msg) + sizeof(num), sizeof(uintptr_t));
-    struct aos_rpc_msg *msg = malloc(struct_size);
-
-    if (!msg) {
-        DEBUG_PRINTF("Malloc failed in aos_rpc_send_number \n");
-        return LIB_ERR_MALLOC_FAIL;
+    errval_t err;
+    struct aos_rpc_msg *msg;
+    err = aos_rpc_create_msg(&msg, SendNumber, sizeof(num), (void *)&num, NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
     }
 
-    msg->header_bytes = sizeof(struct aos_rpc_msg);
-    msg->payload_bytes = sizeof(num);
-    msg->cap = NULL_CAP;
-    msg->message_type = SendNumber;
-    msg->payload[0] = num;
-
-    errval_t err = aos_rpc_send_msg(rpc, msg);
+    err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not send number \n");
         free(msg);
@@ -317,18 +352,15 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
     errval_t err;
 
     size_t len = strlen(string);
+    struct aos_rpc_msg *msg;
+    err = aos_rpc_create_msg(&msg, SendString, len, (void *)string, NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
 
-    size_t struct_size = ROUND_UP(sizeof(struct aos_rpc_msg) + len, sizeof(uintptr_t));
-    struct aos_rpc_msg *msg = malloc(struct_size);
-
-    msg->header_bytes = sizeof(struct aos_rpc_msg);
-    msg->payload_bytes = len;
-    msg->message_type = SendString;
-    msg->cap = NULL_CAP;
-    memcpy(msg->payload, string, len);
-
-    //printf("msg sizes header: %lu payload size: %zu \n", sizeof(struct aos_rpc_msg), len);
-    //printf("Payload before sending: %s \n", msg->payload);
+    // printf("msg sizes header: %lu payload size: %zu \n", sizeof(struct aos_rpc_msg),
+    // len); printf("Payload before sending: %s \n", msg->payload);
 
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
@@ -346,26 +378,22 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
                              struct capref *ret_cap, size_t *ret_bytes)
 {
     errval_t err;
-    // TODO: implement functionality to request a RAM capability over the
-    // given channel and wait until it is delivered.
-
-    // send memory allocation request to init
 
     printf("get ram request: size: 0x%lx alignment: 0x%lx\n", bytes, alignment);
     printf("initial ret addr %lx\n", ret_cap);
+
     size_t payload_size = 3 * sizeof(size_t);
+    void *payload = malloc(payload_size);
+    ((size_t *)payload)[0] = bytes;
+    ((size_t *)payload)[1] = alignment;
+    ((struct capref **)payload)[2] = ret_cap;
 
-    size_t struct_size = ROUND_UP(sizeof(struct aos_rpc_msg) + sizeof(size_t) * 3, sizeof(uintptr_t));
-    struct aos_rpc_msg *msg  = malloc(struct_size);
-
-    ((size_t *)msg->payload)[0] = bytes;
-    ((size_t *)msg->payload)[1] = alignment;
-    ((struct capref **)msg->payload)[2] = ret_cap;
-
-    msg->header_bytes = sizeof(struct aos_rpc_msg);
-    msg->payload_bytes = payload_size;
-    msg->message_type = RamCapRequest;
-    msg->cap = NULL_CAP;
+    struct aos_rpc_msg *msg;
+    err = aos_rpc_create_msg(&msg, RamCapRequest, payload_size, (void *)payload, NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
 
     err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
@@ -384,19 +412,60 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     return SYS_ERR_OK;
 }
 
-
 errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
 {
     // TODO implement functionality to request a character from
     // the serial driver.
+    size_t payload_size = sizeof(char *);
+
+    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    ((char**)msg->payload)[0] = retc;
+
+    msg->header_bytes = sizeof(struct aos_rpc_msg);
+    msg->payload_bytes = payload_size;
+    msg->message_type = SerialReadChar;
+    msg->cap = NULL_CAP;
+
+    errval_t err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err_push(err, LIB_ERR_RPC_SEND);
+    }
+    
+    err = event_dispatch(get_default_waitset());
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Error in event_dispatch");
+        return err;
+    }
+    err = event_dispatch(get_default_waitset());
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Error in event_dispatch");
+        return err;
+    }
+    
     return SYS_ERR_OK;
 }
-
 
 errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 {
     // TODO implement functionality to send a character to the
     // serial port.
+    size_t payload_size = sizeof(size_t);
+
+    struct aos_rpc_msg *msg  = malloc(sizeof(struct aos_rpc_msg) + payload_size);
+    msg->payload[0] = c;
+
+    msg->header_bytes = sizeof(struct aos_rpc_msg);
+    msg->payload_bytes = payload_size;
+    msg->message_type = SerialWriteChar;
+    msg->cap = NULL_CAP;
+
+    errval_t err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err_push(err, LIB_ERR_RPC_SEND);
+    }
+    
     return SYS_ERR_OK;
 }
 
@@ -404,21 +473,23 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
                                domainid_t *newpid)
 {
     // TODO (M5): implement spawn new process rpc
+    errval_t err;
 
-    size_t payload_size = strlen(cmdline) + 1;
+    size_t payload_size = strlen(cmdline);
+    struct aos_rpc_msg *msg;
+    err = aos_rpc_create_msg(&msg, SpawnRequest, payload_size, cmdline, NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
 
-    size_t struct_size = ROUND_UP(sizeof(struct aos_rpc_msg) + payload_size, sizeof(uintptr_t));
-    struct aos_rpc_msg *msg  = malloc(struct_size);
+    printf("cmd in msg: %s\n", msg->payload);
 
-    memcpy(msg->payload, cmdline, payload_size);
-
-    msg->header_bytes = sizeof(struct aos_rpc_msg);
-    msg->payload_bytes = payload_size;
-    msg->message_type = SpawnRequest;
-    msg->cap = NULL_CAP;
-
-    errval_t err = aos_rpc_send_msg(rpc, msg);
-    assert(err_is_ok(err));
+    err = aos_rpc_send_msg(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err;
+    }
     return event_dispatch(get_default_waitset());
 }
 
@@ -479,25 +550,23 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
     child_rpc->chan.local_cap = cap_initep;
     child_rpc->chan.remote_cap = memeater_endpoint_cap;
 
-
-    printf("init local \n");
     char buf0[256];
     debug_print_cap_at_capref(buf0, 256, child_rpc->chan.local_cap);
-    debug_printf("%.*s\n", 256, buf0);
-
-    printf("init remote \n");
+    debug_printf("local: %.*s\n", 256, buf0);
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, child_rpc->chan.remote_cap);
-    debug_printf("%.*s\n", 256, buf1);
+    debug_printf("remote %.*s\n", 256, buf1);
 
-    struct aos_rpc_msg handshake_msg;
-    handshake_msg.header_bytes = sizeof(struct aos_rpc_msg);
-    handshake_msg.message_type = Handshake;
-    handshake_msg.payload_bytes = 0;
-    handshake_msg.cap = child_rpc->chan.local_cap;
+    size_t payload_size = 0;
+    struct aos_rpc_msg *msg;
+    err = aos_rpc_create_msg(&msg, Handshake, payload_size, NULL,
+                             child_rpc->chan.local_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
 
-    printf("child rpc: %p \n", child_rpc);
-    err = aos_rpc_send_msg(child_rpc, &handshake_msg);
+    err = aos_rpc_send_msg(child_rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send acknowledgement");
     }
@@ -541,11 +610,13 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     aos_rpc->chan.remote_cap = cap_initep;
     set_init_rpc(aos_rpc);
 
-    err = aos_rpc_register_recv(aos_rpc, aos_rpc_process_msg);
+    /* set receive handler */
+    /*err = lmp_chan_register_recv(&aos_rpc->chan, get_default_waitset(),
+                                 MKCLOSURE(aos_handshake_recv_closure, &aos_rpc->chan));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not register recv handler in child \n");
         return err;
-    }
+    }*/
 
     /* send local ep to init */
     err = lmp_chan_send0(&aos_rpc->chan, LMP_SEND_FLAGS_DEFAULT, aos_rpc->chan.local_cap);
@@ -554,6 +625,11 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
         return err;
     }
 
+    err = aos_rpc_register_recv(aos_rpc, aos_rpc_process_msg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not register recv handler in child \n");
+        return err;
+    }
 
     err = event_dispatch(get_default_waitset());
     if (err_is_fail(err)) {
@@ -561,15 +637,12 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
         abort();
     }
 
-    printf("memeater local\n");
     char buf0[256];
     debug_print_cap_at_capref(buf0, 256, aos_rpc->chan.local_cap);
-    debug_printf("%.*s\n", 256, buf0);
-
-    printf("memeater remote\n");
+    debug_printf("local: %.*s\n", 256, buf0);
     char buf1[256];
     debug_print_cap_at_capref(buf1, 256, aos_rpc->chan.remote_cap);
-    debug_printf("%.*s\n", 256, buf1);
+    debug_printf("remote: %.*s\n", 256, buf1);
 
     /* initialize init RPC client with lmp channel */
 
@@ -609,7 +682,7 @@ struct aos_rpc *aos_rpc_get_process_channel(void)
 {
     // TODO: Return channel to talk to process server process (or whoever
     // implements process server functionality)
-    debug_printf("aos_rpc_get_process_channel NYI\n");
+    return get_init_rpc();
     return NULL;
 }
 
@@ -620,8 +693,7 @@ struct aos_rpc *aos_rpc_get_serial_channel(void)
 {
     // TODO: Return channel to talk to serial driver/terminal process (whoever
     // implements print/read functionality)
-    debug_printf("aos_rpc_get_serial_channel NYI\n");
-    return NULL;
+    return get_init_rpc();
 }
 
 errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func)
