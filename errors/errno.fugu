@@ -38,6 +38,7 @@ errors kernel SYS_ERR_ {
     failure LRPC_NOT_L2         "L2 CNode lookup failed for LRPC",
     failure LRPC_NOT_ENDPOINT   "Slot specified for LRPC does not contain an endpoint cap",
     failure INVALID_EPLEN       "Endpoint buffer has invalid length",
+    failure LMP_NO_INIT_RPC      "No init RPC for this endpoint",
 
     // XXX: this should go away -AB
     failure IDC_MSG_BOUNDS      "Attempted to retrieve a word beyond the size of an LMP message structure",
@@ -224,6 +225,7 @@ errors libaos LIB_ERR_ {
     failure CNODE_CREATE_FROM_MEM "Failure in cnode_create_from_mem()",
     failure CNODE_CREATE_FOREIGN_L2 "Failure in cnode_create_foreign_l2()",
     failure RAM_ALLOC           "Failure in ram_alloc()",
+    failure RAM_ALLOC_REMOTE    "Failure in ram_alloc_remote()",
     failure RAM_ALLOC_WRONG_SIZE "Wrong size of memory requested in ram alloc",
     failure RAM_ALLOC_MS_CONSTRAINTS "Ram alloc failed due to constraints to mem_serv",
     failure RAM_ALLOC_FIXED_EXHAUSTED "No more RAM available in early allocator",
@@ -371,6 +373,12 @@ errors libaos LIB_ERR_ {
     failure MSGBUF_CANNOT_GROW  "Failed to grow message buffer while marshalling",
     failure RCK_NOTIFY          "Failure in rck_notify()",
     failure IPI_NOTIFY          "Failure in ipi_notify()",
+    failure RPC_SEND            "Failure in aos_rpc_send_msg()",
+    failure RPC_RECV             "Failure in aos_rpc_recv_msg()",
+    failure RPC_SEND_NUMBER     "Failure in aos_rpc_send_number()",
+    failure RPC_GET_NUMBER      "Failure in aos_rpc_get_number()",
+    failure RPC_SEND_STRING     "Failure in aos_rpc_send_string()",
+    failure RPC_GET_STRING      "Faulure in aos_rpc_get_string()",
 
     // IDC binding/export and Monitor client interface
     failure MONITOR_CLIENT_BIND "Error in monitor_client_lmp_bind()",

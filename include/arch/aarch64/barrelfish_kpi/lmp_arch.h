@@ -22,6 +22,7 @@
  * XXX: TODO: figure out numbers here
  */
 #define LMP_MSG_LENGTH          4
+#define LMP_MSG_LENGTH_BYTES    (LMP_MSG_LENGTH * sizeof(uintptr_t))    
 #define LRPC_MSG_LENGTH         0
 
 #endif // ARCH_AARCH64_BARRELFISH_KPI_LMP_H

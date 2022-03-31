@@ -41,6 +41,24 @@ armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got_base;
 }
 
+void spawn_init(void)
+{
+    global_pid_counter = 0;
+    init_spawninfo = (struct spawninfo) { .next = NULL,
+                                          .binary_name = "init",
+                                          .rootcn = cnode_root,
+                                          .taskcn = cnode_task,
+                                          .base_pagecn = cnode_task,
+                                          .rootcn_cap = cap_root,
+                                          .rootvn_cap = cap_vroot,
+                                          .dispatcher_cap = cap_dispatcher,
+                                          .dispatcher_frame_cap = cap_dispframe,
+                                          .args_frame_cap = cap_argcn,
+                                          .pid = 0,
+                                          .paging_state = *get_current_paging_state(),
+                                          .dispatcher_handle = 0 };
+}
+
 /**
  * @brief maps the given module to the parents vspace
  *
@@ -88,7 +106,6 @@ static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
 static errval_t spawn_setup_cspace(struct spawninfo *si)
 {
     errval_t err;
-
     // create root cnode
     err = cnode_create_l1(&si->rootcn_cap, &si->rootcn);
     if (err_is_fail(err)) {
@@ -141,6 +158,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         DEBUG_ERR(err, "failed to allocate slot in dispatcher cap");
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
+
     err = dispatcher_create(si->dispatcher_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create dispatcher capability");
@@ -167,6 +185,23 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to retype self endpoint");
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);
+    }
+
+    // copy init's endpoint into known location in child
+    struct capref child_cap_init_endpoint = { .cnode = si->taskcn,
+                                              .slot = TASKCN_SLOT_INITEP };
+
+    // creates a new endpoint into local_cap!
+    err = lmp_chan_accept(&si->rpc.chan, 256, NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to accept endpoint");
+        return err;
+    }
+
+    err = cap_copy(child_cap_init_endpoint, si->rpc.chan.local_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to copy init endpoint to cap location in child");
+        return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error
     }
 
     // map root L1 cnode
@@ -588,9 +623,9 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err;
     }
     // ELF magic number: 0x7f E L F
-    printf("%x %c %c %c \n", *(char *)binary, *(char *)(binary + 1),
-           *(char *)(binary + 2), *(char *)(binary + 3));
-           
+    // printf("%x %c %c %c \n", *(char *)binary, *(char *)(binary + 1),
+    //        *(char *)(binary + 2), *(char *)(binary + 3));
+
     assert(*(char *)(binary + 0) == 0x7f);
     assert(*(char *)(binary + 1) == 0x45);
     assert(*(char *)(binary + 2) == 0x4c);
@@ -655,6 +690,13 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
 
     si->pid = *pid;
     spawn_add_process(si);
+
+    // setup lmp channel via handshake to child
+    err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si->rpc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup channel to child");
+        return err;
+    }
 
     return SYS_ERR_OK;
 }

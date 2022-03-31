@@ -17,6 +17,7 @@
 
 #include "aos/slot_alloc.h"
 #include "aos/paging.h"
+#include "aos/aos_rpc.h"
 
 
 struct spawninfo {
@@ -48,10 +49,14 @@ struct spawninfo {
     struct paging_state paging_state;
 
     dispatcher_handle_t dispatcher_handle;
+
+    struct aos_rpc rpc;
 };
 
 domainid_t global_pid_counter;
 struct spawninfo init_spawninfo;
+
+void spawn_init(void);
 
 // Start a child process using the multiboot command line. Fills in si.
 errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid);

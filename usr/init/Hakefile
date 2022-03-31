@@ -17,10 +17,11 @@
                         "distops/deletestep.c",
                         "distops/invocations.c",
                         "main.c",
-                        "mem_alloc.c"
+                        "mem_alloc.c",
+                        "custom_tests.c"
                       ],
                       addLinkFlags = [ "-e _start_init"], -- this is only needed for init
-                      addLibraries = [ "mm", "getopt", "elf", "grading", "spawn"],
+                      addLibraries = [ "mm", "getopt", "elf", "grading", "spawn" ],
                       architectures = allArchitectures
                     }
 ]

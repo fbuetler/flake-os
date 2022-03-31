@@ -25,6 +25,7 @@
 #include <aos/paging.h>
 #include <aos/systime.h>
 #include <barrelfish_kpi/domain_params.h>
+#include <aos/aos_rpc.h>
 
 #include "threads_priv.h"
 #include "init.h"
@@ -45,41 +46,84 @@ void libc_exit(int status)
     debug_printf("libc exit NYI!\n");
     thread_exit(status);
     // If we're not dead by now, we wait
-    while (1) {}
+    while (1) {
+    }
 }
 
-static void libc_assert(const char *expression, const char *file,
-                        const char *function, int line)
+static void libc_assert(const char *expression, const char *file, const char *function,
+                        int line)
 {
     char buf[512];
     size_t len;
 
     /* Formatting as per suggestion in C99 spec 7.2.1.1 */
-    len = snprintf(buf, sizeof(buf), "Assertion failed on core %d in %.*s: %s,"
+    len = snprintf(buf, sizeof(buf),
+                   "Assertion failed on core %d in %.*s: %s,"
                    " function %s, file %s, line %d.\n",
-                   disp_get_core_id(), DISP_NAME_LEN,
-                   disp_name(), expression, function, file, line);
+                   disp_get_core_id(), DISP_NAME_LEN, disp_name(), expression, function,
+                   file, line);
     sys_print(buf, len < sizeof(buf) ? len : sizeof(buf));
 }
 
-__attribute__((__used__))
-static size_t syscall_terminal_write(const char *buf, size_t len)
+__attribute__((__used__)) static size_t syscall_terminal_write(const char *buf, size_t len)
 {
-    if(len) {
+    if (len) {
         errval_t err = sys_print(buf, len);
+
         if (err_is_fail(err)) {
             return 0;
+        }
+    }
+
+    return len;
+}
+
+__attribute__((__used__)) static size_t terminal_write(const char *buf, size_t len)
+{
+    struct aos_rpc *rpc = get_init_rpc();
+    if (!rpc || init_domain) {
+        return syscall_terminal_write(buf, len);
+    } else {
+        int i = 0;
+        while (i++ < len) {
+            errval_t err = aos_rpc_serial_putchar(rpc, *(buf++));
+            assert(err_is_ok(err));
         }
     }
     return len;
 }
 
-__attribute__((__used__))
-static size_t dummy_terminal_read(char *buf, size_t len)
+__attribute__((__used__)) static size_t terminal_read(char *buf, size_t len)
+{
+    errval_t err;
+    struct aos_rpc *rpc = get_init_rpc();
+    if (1) {
+        int i = 0;
+        while (i++ < len) {
+            err = sys_getchar(buf++);
+            if (err_is_fail(err)) {
+                return i - 1;
+            }
+        }
+    } else {
+        int i = 0;
+        while (i++ < len) {
+            err = aos_rpc_serial_getchar(rpc, (buf++));
+            if (err_is_fail(err)) {
+                return i - 1;
+            }
+        }
+    }
+    return len;
+}
+
+
+__attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t len)
 {
     debug_printf("Terminal read NYI!\n");
     return 0;
 }
+
 
 /* Set libc function pointers */
 void barrelfish_libc_glue_init(void)
@@ -89,7 +133,7 @@ void barrelfish_libc_glue_init(void)
     // TODO: change these to use the user-space serial driver if possible
     // TODO: set these functions
     _libc_terminal_read_func = dummy_terminal_read;
-    _libc_terminal_write_func = syscall_terminal_write;
+    _libc_terminal_write_func = terminal_write;
     _libc_exit_func = libc_exit;
     _libc_assert_func = libc_assert;
     /* morecore func is setup by morecore_init() */
@@ -146,22 +190,25 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     lmp_endpoint_init();
 
     // HINT: Use init_domain to check if we are the init domain.
+    if (init_domain) {
+        err = cap_retype(cap_selfep, cap_dispatcher, 0, ObjType_EndPointLMP, 0, 1);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to retype self endpoint of init");
+            return err_push(err, SPAWN_ERR_CREATE_SELFEP);
+        }
+        return SYS_ERR_OK;
+    }
 
-    // TODO MILESTONE 3: register ourselves with init
-    /* allocate lmp channel structure */
-    /* create local endpoint */
-    /* set remote endpoint to init's endpoint */
-    /* set receive handler */
-    /* send local ep to init */
-    /* wait for init to acknowledge receiving the endpoint */
-    /* initialize init RPC client with lmp channel */
-    /* set init RPC client in our program state */
+    struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
+    err = aos_rpc_init(rpc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to init rpc");
+        return err;
+    }
 
-    /* TODO MILESTONE 3: now we should have a channel with init set up and can
-     * use it for the ram allocator */
+    // reset the RAM allocator to use ram_alloc_remote
+    ram_alloc_set(NULL);
 
-    // right now we don't have the nameservice & don't need the terminal
-    // and domain spanning, so we return here
     return SYS_ERR_OK;
 }
 

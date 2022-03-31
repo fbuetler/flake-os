@@ -128,7 +128,7 @@ void debug_printf(const char *fmt, ...)
 
 void debug_tracef(const char *fmt, ...)
 {
-    if (false) {  // guard to enable/disable tracing
+    if (true) {  // guard to enable/disable tracing
         return;
     }
     debug_printf(fmt);

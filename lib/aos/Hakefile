@@ -57,7 +57,7 @@
                         "arch/aarch64/cache.S"
                   ],
                   addIncludes =   [ "include", "include/arch/aarch64" ],
-                  addLibraries = [ "cap_predicates", "hashtable", "mm" ],
+                  addLibraries = [ "cap_predicates", "hashtable", "mm"  ],
                   addCFlags = ["-DMORECORE_PAGESIZE=BASE_PAGE_SIZE"],
                   addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                 }
