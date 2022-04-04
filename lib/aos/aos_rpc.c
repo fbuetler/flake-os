@@ -61,7 +61,7 @@ aos_rpc_serial_putchar(struct aos_rpc *rpc, char c) {
 errval_t
 aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline,
                       coreid_t core, domainid_t *newpid) {
-    // TODO (M5): implement spawn new process rpc
+    // TODO: implement spawn new process rpc
     return SYS_ERR_OK;
 }
 
@@ -69,7 +69,7 @@ aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline,
 
 errval_t
 aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **name) {
-    // TODO (M5): implement name lookup for process given a process id
+    // TODO: implement name lookup for process given a process id
     return SYS_ERR_OK;
 }
 
@@ -77,7 +77,7 @@ aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **name) {
 errval_t
 aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
                              size_t *pid_count) {
-    // TODO (M5): implement process id discovery
+    // TODO: implement process id discovery
     return SYS_ERR_OK;
 }
 

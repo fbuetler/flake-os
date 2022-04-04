@@ -21,6 +21,7 @@
 #include <barrelfish_kpi/distcaps.h>            // for distcap_state_t
 #include <barrelfish_kpi/lmp.h> // invoking lmp endpoint requires flags
 #include <barrelfish_kpi/syscalls.h>
+#include <barrelfish_kpi/platform.h> // for struct platform info
 #include <aos/caddr.h>
 #include <barrelfish_kpi/paging_arch.h>
 
@@ -239,6 +240,17 @@ static inline errval_t invoke_vnode_inherit(struct capref dest, capaddr_t src,
     uintptr_t dst_mcn = ((uintptr_t)mcn[2]) << CPTR_BITS | mcn[3];
     return cap_invoke8(dest, VNodeCmd_Inherit, src, slevel, start, end,
                        newflags, src_mcn, dst_mcn).error;
+}
+
+static inline errval_t invoke_kernel_get_platform_info(struct capref kernel_cap, struct platform_info* pi)
+{
+    struct sysret sr = cap_invoke2(kernel_cap, KernelCmd_Get_platform, (lvaddr_t)pi);
+    if (err_is_fail(sr.error)) {
+        pi->arch = PI_ARCH_UNKNOWN;
+        pi->platform = PI_PLATFORM_UNKNOWN;
+    }
+
+    return sr.error;
 }
 
 #endif

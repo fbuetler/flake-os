@@ -851,7 +851,9 @@ static struct sysret dispatcher_dump_ptables(
     assert(3 == argc);
 
    struct dcb *dispatcher = to->u.dispatcher.dcb;
-   paging_dump_tables(dispatcher);
+
+   struct registers_aarch64_syscall_args* sa = &context->syscall_args;
+   paging_dump_tables(dispatcher, sa->arg2);
 
     return SYSRET(SYS_ERR_OK);
 }
@@ -1311,6 +1313,9 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
 
         case SYSCALL_NOP:
             r.error = SYS_ERR_OK;
+            break;
+        case SYSCALL_REBOOT:
+            psci_system_reset();
             break;
 
         case SYSCALL_PRINT:

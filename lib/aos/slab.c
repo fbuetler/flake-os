@@ -179,29 +179,36 @@ size_t slab_freecount(struct slab_allocator *slabs)
  */
 static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
 {
-    // Hint: you can't just use malloc here...
-    // Hint: For M1, just use the fixed mapping funcionality, however you may want to replace
-    //       the fixed mapping later to avoid conflicts.
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+    struct capref cap;
+
+    err = slot_alloc(&cap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    err = slab_refill_no_pagefault(slabs, cap, bytes);
+    if (err_is_fail(err)) {
+        slot_free(cap);
+    }
+
+    return err;
 }
 
 
 /**
  * @brief refills the slab allocator without causing a page fault
  *
- * @param slabs     the slab allocator to be refilled
- * @param frame     an empty slot to hold the frame capability
- * @param minbytes  the minimum about of bytes to refill
+ * @param slabs       the slab allocator to be refilled
+ * @param frame_slot  an empty capability slot for the frames
+ * @param minbytes    the minimum number of bytes to allocate
  *
- * @return SYS_ERR_OK on success, errval on failure
- *
- * Note, the frame here is an empty slot that can be used as storage for a frame.
+ * @return SYS_ERR_OK on success, error code on failure
  */
-errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame,
+errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref frame_slot,
                                   size_t minbytes)
 {
-    // Refill the slot allocator without causing a page fault
-    // Hint: you can't just use malloc here...
+    // Refill the slot allocator without causing a page-fault
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 

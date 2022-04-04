@@ -28,6 +28,15 @@ mkdir -p $BF_BUILD
 
 # run the command in the docker image with the same userid to avoid
 # permission problems later.
-docker run -u $(id -u) -i -t \
-    --mount type=bind,source=$BF_SOURCE,target=/source \
-    $BF_DOCKER
+
+if [[ "$@" == "" ]]; then
+    docker run -u $(id -u) -i -t \
+        --mount type=bind,source=$BF_SOURCE,target=/source \
+        $BF_DOCKER "$@"
+else
+    docker run -u $(id -u) \
+        --mount type=bind,source=$BF_SOURCE,target=/source \
+        $BF_DOCKER "$@"
+fi
+
+

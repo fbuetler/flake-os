@@ -29,8 +29,8 @@ static struct paging_state current;
  * \brief Helper function that allocates a slot and
  *        creates a aarch64 page table capability for a certain level
  */
-static errval_t pt_alloc(struct paging_state * st, enum objtype type, 
-                         struct capref *ret) 
+static errval_t pt_alloc(struct paging_state * st, enum objtype type,
+                         struct capref *ret)
 {
     errval_t err;
     err = st->slot_alloc->alloc(st->slot_alloc, ret);
@@ -56,7 +56,7 @@ __attribute__((unused)) static errval_t pt_alloc_l2(struct paging_state * st, st
     return pt_alloc(st, ObjType_VNode_AARCH64_l2, ret);
 }
 
-__attribute__((unused)) static errval_t pt_alloc_l3(struct paging_state * st, struct capref *ret) 
+__attribute__((unused)) static errval_t pt_alloc_l3(struct paging_state * st, struct capref *ret)
 {
     return pt_alloc(st, ObjType_VNode_AARCH64_l3, ret);
 }
@@ -67,7 +67,7 @@ __attribute__((unused)) static errval_t pt_alloc_l3(struct paging_state * st, st
  * TODO(M4): Improve this function.
  * \brief Initialize the paging_state struct for the paging
  *        state of the calling process.
- * 
+ *
  * \param st The struct to be initialized, must not be NULL.
  * \param start_vaddr Virtual address allocation should start at
  *        this address.
@@ -90,7 +90,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
  * TODO(M4): Improve this function.
  * \brief Initialize the paging_state struct for the paging state
  *        of a child process.
- * 
+ *
  * \param st The struct to be initialized, must not be NULL.
  * \param start_vaddr Virtual address allocation should start at
  *        this address.
@@ -115,7 +115,6 @@ errval_t paging_init_state_foreign(struct paging_state *st, lvaddr_t start_vaddr
  */
 errval_t paging_init(void)
 {
-    debug_printf("paging_init\n");
     // TODO (M2): Call paging_init_state for &current
     // TODO (M4): initialize self-paging handler
     // TIP: use thread_set_exception_handler() to setup a page fault handler
@@ -194,7 +193,6 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-
 /**
  * @brief mapps the provided frame at the supplied address in the paging state
  *
@@ -233,8 +231,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
  * @return SYS_ERR_OK on success, or error code indicating the kind of failure
  *
  * The supplied `region` must be the start of a previously mapped frame.
- *
- * @NOTE: Implementing this function is optional.
  */
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {

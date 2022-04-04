@@ -525,8 +525,14 @@ caps_map_l3(struct capability* dest,
 {
     assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
 
-    if (slot + pte_count >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
-        return SYS_ERR_VNODE_SLOT_INVALID;
+    // Check slot is valid and mapping does not overlap leaf page table
+    if (slot + pte_count > VMSAv8_64_PTABLE_NUM_ENTRIES) {
+        if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
+            return SYS_ERR_VNODE_SLOT_INVALID;
+        }
+        else {
+            return SYS_ERR_VM_MAP_SIZE;
+        }
     }
 
     if (src->type != ObjType_Frame && src->type != ObjType_DevFrame) {
@@ -534,14 +540,9 @@ caps_map_l3(struct capability* dest,
     }
 
     // check offset within frame
-    if ((offset + BASE_PAGE_SIZE > get_size(src)) ||
+    if ((offset + pte_count * BASE_PAGE_SIZE > get_size(src)) ||
         ((offset % BASE_PAGE_SIZE) != 0)) {
         return SYS_ERR_FRAME_OFFSET_INVALID;
-    }
-
-    // check mapping does not overlap leaf page table
-    if (slot + pte_count > VMSAv8_64_PTABLE_NUM_ENTRIES ) {
-        return SYS_ERR_VM_MAP_SIZE;
     }
 
     // Destination
@@ -770,7 +771,7 @@ bool paging_is_region_valid(lvaddr_t buffer, size_t size, uint8_t type)
     return true;
 }
 
-void paging_dump_tables(struct dcb *dispatcher)
+void paging_dump_tables(struct dcb *dispatcher, lvaddr_t addr)
 {
     if (!local_phys_is_valid(dispatcher->vspace)) {
         printk(LOG_ERR, "dispatcher->vspace = 0x%"PRIxLPADDR": too high!\n" ,
@@ -778,6 +779,68 @@ void paging_dump_tables(struct dcb *dispatcher)
         return;
     }
     lvaddr_t l0 = local_phys_to_mem(dispatcher->vspace);
+
+    if (addr < (VMSAv8_64_PTABLE_NUM_ENTRIES * VMSAv8_64_PTABLE_NUM_ENTRIES * HUGE_PAGE_SIZE)) {
+        uint32_t l0_index = VMSAv8_64_L0_INDEX(addr);
+        uint32_t l1_index = VMSAv8_64_L1_INDEX(addr);
+        uint32_t l2_index = VMSAv8_64_L2_INDEX(addr);
+        uint32_t l3_index = VMSAv8_64_L3_INDEX(addr);
+
+        printf("dumping table: %lx -> %u.%u.%u.%u\n", addr, l0_index, l1_index, l2_index, l3_index);
+
+        union armv8_ttable_entry *l0_e = (union armv8_ttable_entry *) l0 + l0_index;
+        if (!l0_e->d.valid) {
+            printf("l0[% 3d] -> INVALID\n", l0_index);
+            return;
+        }
+
+        genpaddr_t l1_gp = (genpaddr_t)(l0_e->d.base) << BASE_PAGE_BITS;
+        lvaddr_t l1 = local_phys_to_mem(gen_phys_to_local_phys(l1_gp));
+        printf("l0[% 3d] -> l1 @ %p\n", l0_index, l1);
+
+        union armv8_ttable_entry *l1_e = (union armv8_ttable_entry *)l1 + l1_index;
+        if (!l1_e->d.valid) {
+            printf("  l1[% 3d] -> INVALID\n", l1_index);
+            return;
+        }
+
+        // super page mapping
+        if (l1_e->block_l1.mb0 == 0) {
+            genpaddr_t l2_gp = (genpaddr_t)(l1_e->block_l1.base) << HUGE_PAGE_BITS;
+            printf("  l1[% 3d] -> HUGE_PAGE @ 0x%lx\n", l1_index, l2_gp);
+            return;
+        }
+
+        genpaddr_t l2_gp = (genpaddr_t)(l1_e->d.base) << BASE_PAGE_BITS;
+        lvaddr_t l2 = local_phys_to_mem(gen_phys_to_local_phys(l2_gp));
+        printf("  l1[% 3d] -> l2 @ %p\n", l1_index, l2);
+
+        union armv8_ttable_entry *l2_e = (union armv8_ttable_entry *)l2 + l2_index;
+        if (!l2_e->d.valid) {
+            printf("    l2[% 3d] -> INVALID\n", l2_index);
+            return;
+        }
+
+         if (l2_e->block_l2.mb0 == 0) {
+            genpaddr_t l3_gp = (genpaddr_t)(l1_e->block_l2.base) << LARGE_PAGE_BITS;
+            printf("    l2[% 3d] -> LARGE_PAGE @ 0x%lx\n", l1_index, l3_gp);
+            return;
+         }
+
+        genpaddr_t l3_gp = (genpaddr_t)(l2_e->d.base) << BASE_PAGE_BITS;
+        lvaddr_t l3 = local_phys_to_mem(gen_phys_to_local_phys(l3_gp));
+        printf("    l2 [% 3d] -> l3 @ %p\n", l2_index, l3);
+
+        union armv8_ttable_entry *l3_e = (union armv8_ttable_entry *)l3 + l3_index;
+        if (!l3_e->d.valid) {
+            printf("      l3[% 3d] -> INVALID\n", l3_index);
+            return;
+        }
+        genpaddr_t paddr = (genpaddr_t)(l3_e->page.base) << BASE_PAGE_BITS;
+        printf("      l3[% 3d] -> BASE_PAGE @ 0x%lx \n", l3_index, paddr);
+
+        return;
+    }
 
     for (int l0_index = 0; l0_index < VMSAv8_64_PTABLE_NUM_ENTRIES; l0_index++) {
         // get level0 table
