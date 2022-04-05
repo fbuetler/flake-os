@@ -32,7 +32,7 @@
 #include "init.h"
 
 #if defined(__x86_64__)
-#  include "arch/ldt.h"
+#    include "arch/ldt.h"
 #endif
 
 // TODO (M4): define this once your self-paging implementation works...
@@ -45,12 +45,10 @@
 /// Static stack and storage for a bootstrap/cleanup thread
 // XXX: 16-byte aligned for x86-64
 static uintptr_t staticstack[THREADS_DEFAULT_STACK_BYTES / sizeof(uintptr_t)]
-__attribute__((aligned(STACK_ALIGNMENT)));
+    __attribute__((aligned(STACK_ALIGNMENT)));
 
-static struct thread staticthread __attribute__((aligned(THREAD_ALIGNMENT))) = {
-    .stack = staticstack,
-    .stack_top = (char *)staticstack + sizeof(staticstack)
-};
+static struct thread staticthread __attribute__((aligned(THREAD_ALIGNMENT)))
+= { .stack = staticstack, .stack_top = (char *)staticstack + sizeof(staticstack) };
 static struct thread_mutex staticthread_lock = THREAD_MUTEX_INITIALIZER;
 
 /// Storage metadata for thread structures (and TLS data)
@@ -74,7 +72,7 @@ static size_t tls_block_total_len;
 /// Warning already issued about RSP usage.  (Prevent repeated warnings
 /// from the same domain -- e.g., when using THC whose stacks appear
 /// invalid here).
-__attribute__((unused)) static bool stack_warned=0;
+__attribute__((unused)) static bool stack_warned = 0;
 
 /// Wrapper function for most threads, runs given function then deletes itself
 static void thread_entry(thread_func_t start_func, void *start_data)
@@ -116,7 +114,7 @@ static void check_queue(struct thread *queue)
     } while (q != queue);
 }
 #else /* NDEBUG version */
-static inline void check_queue(struct thread *queue) {}
+static inline void check_queue(struct thread *queue) { }
 #endif
 
 /**
@@ -245,10 +243,10 @@ static void thread_init(dispatcher_handle_t disp, struct thread *newthread)
  * \brief Returns false if the stack pointer is out of bounds.
  */
 static bool thread_check_stack_bounds(struct thread *thread,
-                                      arch_registers_state_t *archregs) {
-    lvaddr_t sp = (lvaddr_t) registers_get_sp(archregs);
-    return sp > (lvaddr_t)thread->stack ||
-           sp <= (lvaddr_t)thread->stack_top;
+                                      arch_registers_state_t *archregs)
+{
+    lvaddr_t sp = (lvaddr_t)registers_get_sp(archregs);
+    return sp > (lvaddr_t)thread->stack || sp <= (lvaddr_t)thread->stack_top;
 }
 
 /**
@@ -262,10 +260,8 @@ static bool thread_check_stack_bounds(struct thread *thread,
 void thread_run_disabled(dispatcher_handle_t handle)
 {
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(handle);
-    arch_registers_state_t *enabled_area =
-        dispatcher_get_enabled_save_area(handle);
+    struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
+    arch_registers_state_t *enabled_area = dispatcher_get_enabled_save_area(handle);
 
     if (disp_gen->current != NULL) {
         assert_disabled(disp_gen->runq != NULL);
@@ -301,10 +297,10 @@ void thread_run_disabled(dispatcher_handle_t handle)
 /** Free all heap/slab-allocated state associated with a thread */
 static void free_thread(struct thread *thread)
 {
-#if defined(__x86_64__) // XXX: gungy segment selector stuff
+#if defined(__x86_64__)  // XXX: gungy segment selector stuff
     assert(thread->thread_seg_selector != 0);
     uint16_t fs;
-    __asm("mov %%fs, %0" : "=r" (fs));
+    __asm("mov %%fs, %0" : "=r"(fs));
     if (thread->thread_seg_selector == fs) {
         assert(thread->disp == curdispatcher());
         struct dispatcher_x86_64 *disp_priv = get_dispatcher_x86_64(thread->disp);
@@ -312,7 +308,7 @@ static void free_thread(struct thread *thread)
         // selector so that curdispatcher() keeps working!
         __asm volatile("mov %%ax, %%fs"
                        : /* No outputs */
-                       : "a" (disp_priv->disp_seg_selector));
+                       : "a"(disp_priv->disp_seg_selector));
     }
     ldt_free_segment(thread->thread_seg_selector);
 #endif
@@ -324,12 +320,13 @@ static void free_thread(struct thread *thread)
 
     thread_mutex_lock(&thread_slabs_mutex);
     acquire_spinlock(&thread_slabs_spinlock);
-    slab_free(&thread_slabs, thread->slab); // frees thread itself
+    slab_free(&thread_slabs, thread->slab);  // frees thread itself
     release_spinlock(&thread_slabs_spinlock);
     thread_mutex_unlock(&thread_slabs_mutex);
 }
 
-#define ALIGN_PTR(ptr, alignment) ((((uintptr_t)(ptr)) + (alignment) - 1) & ~((alignment) - 1))
+#define ALIGN_PTR(ptr, alignment)                                                        \
+    ((((uintptr_t)(ptr)) + (alignment)-1) & ~((alignment)-1))
 
 /**
  * \brief Creates a new thread that will not be runnable
@@ -366,7 +363,8 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     // XXX: this layout is specific to the x86 ABIs! once other (saner)
     // architectures support TLS, we'll need to break out the logic.
     void *tls_data = space;
-    struct thread *newthread = (void *)ALIGN_PTR((uintptr_t)space + tls_block_total_len, THREAD_ALIGNMENT);
+    struct thread *newthread = (void *)ALIGN_PTR((uintptr_t)space + tls_block_total_len,
+                                                 THREAD_ALIGNMENT);
 
     // init thread
     thread_init(curdispatcher(), newthread);
@@ -408,7 +406,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
 
     // waste space for alignment, if malloc gave us an unaligned stack
     newthread->stack_top = (char *)newthread->stack_top
-        - (lvaddr_t)newthread->stack_top % STACK_ALIGNMENT;
+                           - (lvaddr_t)newthread->stack_top % STACK_ALIGNMENT;
 
     // set thread's ID
     newthread->id = threadid++;
@@ -417,8 +415,8 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
 
     // init registers
     registers_set_initial(&newthread->regs, newthread, (lvaddr_t)thread_entry,
-                          (lvaddr_t)newthread->stack_top,
-                          (lvaddr_t)start_func, (lvaddr_t)arg, 0, 0);
+                          (lvaddr_t)newthread->stack_top, (lvaddr_t)start_func,
+                          (lvaddr_t)arg, 0, 0);
 
     return newthread;
 }
@@ -475,28 +473,28 @@ errval_t thread_join(struct thread *thread, int *retval)
     assert(thread->coreid == disp_get_core_id());
 
     thread_mutex_lock(&thread->exit_lock);
-    if(thread->detached) {
+    if (thread->detached) {
         // Thread is detached and thus not joinable
         thread_mutex_unlock(&thread->exit_lock);
         return LIB_ERR_THREAD_JOIN_DETACHED;
     }
 
-    if(thread->joining) {
+    if (thread->joining) {
         // Someone else already joins, that's an error
         thread_mutex_unlock(&thread->exit_lock);
         return LIB_ERR_THREAD_JOIN;
     }
 
     thread->joining = true;
-    if(thread->state != THREAD_STATE_EXITED) { // Possibly wait for thread exit
+    if (thread->state != THREAD_STATE_EXITED) {  // Possibly wait for thread exit
         thread_cond_wait(&thread->exit_condition, &thread->exit_lock);
     }
 
-    if(retval != NULL) {
+    if (retval != NULL) {
         *retval = thread->return_value;
     }
 
-    thread_mutex_unlock(&thread->exit_lock);    // Not really needed
+    thread_mutex_unlock(&thread->exit_lock);  // Not really needed
     free_thread(thread);
 
     return SYS_ERR_OK;
@@ -514,13 +512,13 @@ errval_t thread_detach(struct thread *thread)
     assert(thread != NULL);
     thread_mutex_lock(&thread->exit_lock);
 
-    if(thread->joining) {
+    if (thread->joining) {
         // Someone else already joins, that's an error
         thread_mutex_unlock(&thread->exit_lock);
         return LIB_ERR_THREAD_JOIN;
     }
 
-    if(!thread->detached) {
+    if (!thread->detached) {
         thread->detached = true;
     } else {
         // Detaching more than once is an error
@@ -528,7 +526,7 @@ errval_t thread_detach(struct thread *thread)
         return LIB_ERR_THREAD_DETACHED;
     }
 
-    if(thread->state == THREAD_STATE_EXITED) {
+    if (thread->state == THREAD_STATE_EXITED) {
         // Thread already exited before we detached, clean it up
         free_thread(thread);
         return SYS_ERR_OK;
@@ -544,8 +542,8 @@ errval_t thread_detach(struct thread *thread)
 struct thread *thread_self(void)
 {
     struct thread *me;
-#if defined(__x86_64__) // XXX: AB's silly little arch-specific optimisation
-    __asm("movq %%fs:0, %0" : "=r" (me));
+#if defined(__x86_64__)  // XXX: AB's silly little arch-specific optimisation
+    __asm("movq %%fs:0, %0" : "=r"(me));
 #else
     // it's not necessary to disable, but might be once we do migration
     bool was_enabled;
@@ -585,14 +583,15 @@ uint32_t thread_set_token(struct waitset_chanstate *channel)
 {
     struct thread *me = thread_self();
     // generate new token
-    uint32_t outgoing_token = (uint32_t)((me->id << 16) |
-         (me->coreid << 24) | ((me->token_number & 255) << 8)) | 1;
+    uint32_t outgoing_token = (uint32_t)((me->id << 16) | (me->coreid << 24)
+                                         | ((me->token_number & 255) << 8))
+                              | 1;
     assert(me->token == 0);
     me->token_number++;
     if (!(me->token_number & 255))
         me->token_number = 1;
-    me->token = outgoing_token & ~1;    // wait for this token
-    me->channel = channel;              // on that channel
+    me->token = outgoing_token & ~1;  // wait for this token
+    me->channel = channel;            // on that channel
     return outgoing_token;
 }
 
@@ -600,7 +599,7 @@ void thread_clear_token(struct waitset_chanstate *channel)
 {
     struct thread *me = thread_self();
 
-    me->token = 0;      // don't wait anymore
+    me->token = 0;  // don't wait anymore
     me->channel = NULL;
 }
 
@@ -633,7 +632,7 @@ void thread_set_local_trigger(struct waitset_chanstate *trigger)
     me->local_trigger = trigger;
 }
 
-struct waitset_chanstate * thread_get_local_trigger(void)
+struct waitset_chanstate *thread_get_local_trigger(void)
 {
     struct thread *me = thread_self();
     return me->local_trigger;
@@ -691,7 +690,8 @@ struct capref thread_get_next_recv_slot(void)
     return retcap;
 }
 
-void thread_set_status(int status) {
+void thread_set_status(int status)
+{
     struct thread *me = thread_self();
     me->return_value = status;
 }
@@ -706,10 +706,8 @@ void thread_yield(void)
 {
     dispatcher_handle_t handle = disp_disable();
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(handle);
-    arch_registers_state_t *enabled_area =
-        dispatcher_get_enabled_save_area(handle);
+    struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
+    arch_registers_state_t *enabled_area = dispatcher_get_enabled_save_area(handle);
 
     struct thread *me = disp_gen->current;
     struct thread *next = me;
@@ -719,9 +717,9 @@ void thread_yield(void)
         assert_disabled(next != NULL);
         next = next->next;
         if (next == me) {
-            break; // Everybody yielded this timeslice
+            break;  // Everybody yielded this timeslice
         }
-    } while(next->yield_epoch == disp_gen->timeslice);
+    } while (next->yield_epoch == disp_gen->timeslice);
 
     poll_channels_disabled(handle);
 
@@ -747,10 +745,8 @@ void thread_yield_dispatcher(struct capref endpoint)
 {
     dispatcher_handle_t handle = disp_disable();
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(handle);
-    arch_registers_state_t *enabled_area =
-        dispatcher_get_enabled_save_area(handle);
+    struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
+    arch_registers_state_t *enabled_area = dispatcher_get_enabled_save_area(handle);
 
     assert_disabled(disp_gen->runq != NULL);
     assert_disabled(disp->haswork);
@@ -771,11 +767,10 @@ static int cleanup_thread(void *arg)
     // disable and release static thread
     dispatcher_handle_t handle = disp_disable();
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(handle);
+    struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
     struct thread *me = disp_gen->current;
-    struct thread *ft =
-        thread_mutex_unlock_disabled(handle, &disp_gen->cleanupthread_lock);
+    struct thread *ft = thread_mutex_unlock_disabled(handle,
+                                                     &disp_gen->cleanupthread_lock);
     assert(ft == NULL);
 
     // run the next thread, if any
@@ -808,12 +803,10 @@ void thread_exit(int status)
         // disable and release static thread
         dispatcher_handle_t handle = disp_disable();
         struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-        struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(handle);
+        struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
         assert_disabled(me == &staticthread);
         assert_disabled(me->stack == staticstack);
-        struct thread *ft =
-            thread_mutex_unlock_disabled(handle, &staticthread_lock);
+        struct thread *ft = thread_mutex_unlock_disabled(handle, &staticthread_lock);
         assert(ft == NULL);
 
         // run the next thread, if any
@@ -833,17 +826,15 @@ void thread_exit(int status)
         // otherwise, we use a dispatcher-local thread to perform cleanup
         struct dispatcher_generic *dg = get_dispatcher_generic(curdispatcher());
         thread_mutex_lock(&dg->cleanupthread_lock);
-        if(dg->cleanupthread == NULL) {
-            dg->cleanupthread =
-                thread_create_unrunnable(cleanup_thread, me,
-                                         THREADS_DEFAULT_STACK_BYTES);
+        if (dg->cleanupthread == NULL) {
+            dg->cleanupthread = thread_create_unrunnable(cleanup_thread, me,
+                                                         THREADS_DEFAULT_STACK_BYTES);
         }
         thread_init(curdispatcher(), dg->cleanupthread);
 
-        registers_set_initial(&dg->cleanupthread->regs, dg->cleanupthread,
-                              (lvaddr_t)cleanup_thread,
-                              (lvaddr_t)dg->cleanupthread->stack_top, (lvaddr_t)me,
-                              0, 0, 0);
+        registers_set_initial(
+            &dg->cleanupthread->regs, dg->cleanupthread, (lvaddr_t)cleanup_thread,
+            (lvaddr_t)dg->cleanupthread->stack_top, (lvaddr_t)me, 0, 0, 0);
 
         // Switch to it (on this dispatcher)
         dispatcher_handle_t handle = disp_disable();
@@ -862,11 +853,9 @@ void thread_exit(int status)
 
         // Disable and unlock exit lock
         dispatcher_handle_t handle = disp_disable();
-        struct thread *wakeup =
-            thread_mutex_unlock_disabled(handle, &me->exit_lock);
+        struct thread *wakeup = thread_mutex_unlock_disabled(handle, &me->exit_lock);
         struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-        struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(handle);
+        struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
 
         assert_disabled(wakeup == NULL);
 
@@ -907,8 +896,7 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
                                                  struct thread **queue,
                                                  spinlock_t *spinlock)
 {
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(handle);
+    struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
     struct thread *me = disp_gen->current;
     struct thread *next = me->next;
@@ -937,7 +925,7 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
         disp_save(handle, &me->regs, true, CPTR_NULL);
     }
 
-    assert(me->disp == handle); // didn't migrate while asleep
+    assert(me->disp == handle);  // didn't migrate while asleep
     return me->wakeup_reason;
 }
 
@@ -987,8 +975,7 @@ void *thread_block(struct thread **queue)
  * \returns Pointer to thread to be woken on a foreign dispatcher
  */
 struct thread *thread_unblock_one_disabled(dispatcher_handle_t handle,
-                                           struct thread **queue,
-                                           void *reason)
+                                           struct thread **queue, void *reason)
 {
     assert_disabled(queue != NULL);
 
@@ -1076,12 +1063,12 @@ static int main_thread(void *params)
     return EXIT_FAILURE;
 }
 
-static bool init_domain_global; // XXX
+static bool init_domain_global;  // XXX
 
 /// Thread created on static stack in new domain that runs init code
 static int bootstrap_thread(struct spawn_domain_params *params)
-//int bootstrap_thread(struct spawn_domain_params *params);
-//int bootstrap_thread(struct spawn_domain_params *params)
+// int bootstrap_thread(struct spawn_domain_params *params);
+// int bootstrap_thread(struct spawn_domain_params *params)
 {
     errval_t err;
 
@@ -1089,8 +1076,7 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     barrelfish_libc_glue_init();
 
     if (params == NULL) {
-        printf("%s: error in creating a thread, NULL parameters given\n",
-                disp_name());
+        printf("%s: error in creating a thread, NULL parameters given\n", disp_name());
     }
     assert(params != NULL);
 
@@ -1114,7 +1100,7 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     main_thread(params);
 #else
     // Allocate storage region for real threads
-    size_t blocksize = sizeof(struct thread) + tls_block_total_len  + THREAD_ALIGNMENT;
+    size_t blocksize = sizeof(struct thread) + tls_block_total_len + THREAD_ALIGNMENT;
     slab_init(&thread_slabs, blocksize, refill_thread_slabs);
 
     if (init_domain_global) {
@@ -1131,7 +1117,7 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     }
 #endif
 
-    return 0; // ignored
+    return 0;  // ignored
 }
 
 /**
@@ -1146,21 +1132,19 @@ static int bootstrap_thread(struct spawn_domain_params *params)
  */
 void thread_init_disabled(dispatcher_handle_t handle, bool init_domain)
 {
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(handle);
+    struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    arch_registers_state_t *enabled_area =
-        dispatcher_get_enabled_save_area(handle);
+    arch_registers_state_t *enabled_area = dispatcher_get_enabled_save_area(handle);
 
     init_domain_global = init_domain;
 
     // Create the first thread manually
     struct thread *thread = &staticthread;
-    staticthread_lock.locked = true; // XXX: safe while disabled
+    staticthread_lock.locked = true;  // XXX: safe while disabled
 
     // waste space for alignment, if unaligned
     thread->stack_top = (char *)thread->stack_top
-        - (lvaddr_t)thread->stack_top % STACK_ALIGNMENT;
+                        - (lvaddr_t)thread->stack_top % STACK_ALIGNMENT;
 
     // Initialise the first (static) thread
     thread_init(handle, thread);
@@ -1181,8 +1165,8 @@ void thread_init_disabled(dispatcher_handle_t handle, bool init_domain)
     registers_set_initial(&thread->regs, thread, (lvaddr_t)thread_entry,
                           /* TODO: pass stack base and limit, choose in arch
                            * code (possibly setting up other hints on stack) */
-                          (lvaddr_t)thread->stack_top,
-                          (lvaddr_t)bootstrap_thread, param, 0, 0);
+                          (lvaddr_t)thread->stack_top, (lvaddr_t)bootstrap_thread, param,
+                          0, 0);
 
     // Switch to it (always on this dispatcher)
     thread->disp = handle;
@@ -1199,8 +1183,7 @@ void thread_init_disabled(dispatcher_handle_t handle, bool init_domain)
  */
 void thread_init_remote(dispatcher_handle_t handle, struct thread *thread)
 {
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(handle);
+    struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
     thread_enqueue(thread, &disp_gen->runq);
     disp_gen->current = thread;
@@ -1210,7 +1193,8 @@ void thread_init_remote(dispatcher_handle_t handle, struct thread *thread)
 
 
 /**
- * \brief Pause (suspend execution of) the given thread, and optionally capture its register state
+ * \brief Pause (suspend execution of) the given thread, and optionally capture its
+ * register state
  *
  * The thread will not be run, until a subsequent call to thread_resume()
  */
@@ -1223,8 +1207,8 @@ void thread_pause_and_capture_state(struct thread *thread,
     if (thread->disp == dh) {
         if (!thread->paused) {
             thread->paused = true;
-            if (thread == disp->current) { // doesn't make much sense...
-                sys_print("Warning: pausing current thread!\n",100);
+            if (thread == disp->current) {  // doesn't make much sense...
+                sys_print("Warning: pausing current thread!\n", 100);
                 assert_disabled(thread->state == THREAD_STATE_RUNNABLE);
                 thread_block_disabled(dh, NULL);
             } else if (thread->state == THREAD_STATE_RUNNABLE) {
@@ -1361,7 +1345,7 @@ static void exception_handler_wrapper(arch_registers_state_t *cpuframe,
     // resume state
     dispatcher_handle_t dh = disp_disable();
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(dh);
-    //memcpy(&me->regs, cpuframe, sizeof(arch_registers_state_t));
+    // memcpy(&me->regs, cpuframe, sizeof(arch_registers_state_t));
 
     assert_disabled(me->in_exception);
     me->in_exception = false;
@@ -1398,8 +1382,8 @@ void thread_debug_regs(struct thread *t)
  * \param regs   CPU register state at time of exception
  */
 void thread_deliver_exception_disabled(dispatcher_handle_t handle,
-                                       enum exception_type type, int subtype,
-                                       void *addr, arch_registers_state_t *regs)
+                                       enum exception_type type, int subtype, void *addr,
+                                       arch_registers_state_t *regs)
 {
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
     struct thread *thread = disp_gen->current;
@@ -1410,22 +1394,19 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
     if (thread->exception_handler == NULL || thread->exception_stack_top == NULL
         || thread->in_exception) {
         if (thread->in_exception) {
-            sys_print("Can't deliver exception to thread: already in handler\n",
-                      100);
+            sys_print("Can't deliver exception to thread: already in handler\n", 100);
         } else {
-            sys_print("Can't deliver exception to thread: handler not set\n",
-                      100);
+            sys_print("Can't deliver exception to thread: handler not set\n", 100);
         }
 
         // warn on stack overflow.
-        lvaddr_t sp = (lvaddr_t) registers_get_sp(regs);
-        if (sp < (lvaddr_t)thread->stack ||
-            sp > (lvaddr_t)thread->stack_top) {
+        lvaddr_t sp = (lvaddr_t)registers_get_sp(regs);
+        if (sp < (lvaddr_t)thread->stack || sp > (lvaddr_t)thread->stack_top) {
             char str[256];
-            snprintf(str, sizeof(str), "Error: stack bounds exceeded: sp = 0x%"
-                     PRIxPTR " but [bottom, top] = [0x%" PRIxPTR ", 0x%"
-                     PRIxPTR "]\n", (lvaddr_t) sp, (lvaddr_t) thread->stack,
-                     (lvaddr_t) thread->stack_top);
+            snprintf(str, sizeof(str),
+                     "Error: stack bounds exceeded: sp = 0x%" PRIxPTR
+                     " but [bottom, top] = [0x%" PRIxPTR ", 0x%" PRIxPTR "]\n",
+                     (lvaddr_t)sp, (lvaddr_t)thread->stack, (lvaddr_t)thread->stack_top);
             sys_print(str, sizeof(str));
         }
 
@@ -1452,10 +1433,8 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
     // XXX: pack two small ints together to fit into a single register
     uintptr_t hack_arg = (uintptr_t)type << 16 | (subtype & 0xffff);
 
-    registers_set_initial(&thread->regs, thread,
-                          (lvaddr_t)exception_handler_wrapper,
-                          stack_top, (lvaddr_t)cpuframe, hack_arg,
-                          (lvaddr_t)addr, 0);
+    registers_set_initial(&thread->regs, thread, (lvaddr_t)exception_handler_wrapper,
+                          stack_top, (lvaddr_t)cpuframe, hack_arg, (lvaddr_t)addr, 0);
 
     disp_resume(handle, &thread->regs);
 }

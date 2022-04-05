@@ -33,7 +33,7 @@ extern morecore_free_func_t sys_morecore_free;
 
 // dummy mini heap (16M)
 
-#define HEAP_SIZE (1<<24)
+#    define HEAP_SIZE (1 << 24)
 
 static char mymem[HEAP_SIZE] = { 0 };
 static char *endp = mymem + HEAP_SIZE;
@@ -55,8 +55,7 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
     if (state->freep + aligned_bytes < endp) {
         ret = state->freep;
         state->freep += aligned_bytes;
-    }
-    else {
+    } else {
         aligned_bytes = 0;
     }
     *retbytes = aligned_bytes;
