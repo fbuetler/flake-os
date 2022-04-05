@@ -72,6 +72,16 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     debug_printf("type: %d\n", type);        // exception_type
     debug_printf("subtype: %d\n", subtype);  // pagefault_exception_type
     debug_printf("addr: 0x%lx\n", addr);
+
+    // TODO recommended
+    // * detect NULL pointer dereferences
+    // * disallowing any mapping outside the ranges that you defined as valid for heap, stack
+    // * add a guard page to the process’ stack
+
+    // TODO servicing the page fault: install a newly acquired page of RAM at the faulting
+    // address with paging_map_fixed_attr()
+
+    // TODO resuming the thread.
 }
 
 #define INTERNAL_STACK_SIZE (1 << 14)
