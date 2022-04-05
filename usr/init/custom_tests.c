@@ -1012,7 +1012,16 @@ void run_m3_tests(void)
     M4 TEST START
 */
 
-void run_m4_tests(void) { }
+__attribute__((unused)) static void test_trigger_page_fault(void)
+{
+    char *addr = (char *)0xffffffffffff;  // last virtual address of user space
+    printf("%c\n", *addr);
+}
+
+void run_m4_tests(void)
+{
+    test_trigger_page_fault();
+}
 
 /*
     M5 TEST START

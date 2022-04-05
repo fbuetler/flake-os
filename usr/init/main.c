@@ -64,12 +64,12 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "failed create endpoint in init process");
         abort();
     }
-
     init_spawninfo.rpc.chan.buflen_words = 256;
+
     // run_m1_tests();
     // run_m2_tests();
-    // run_demo_m2();
-    run_m3_tests();
+    // run_m3_tests();
+    run_m4_tests();
 
     // TODO: Spawn system processes, boot second core etc. here
 

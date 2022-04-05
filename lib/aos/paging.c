@@ -65,6 +65,38 @@ __attribute__((unused)) static errval_t pt_alloc_l3(struct paging_state *st,
     return pt_alloc(st, ObjType_VNode_AARCH64_l3, ret);
 }
 
+static void page_fault_exception_handler(enum exception_type type, int subtype,
+                                         void *addr, arch_registers_state_t *regs)
+{
+    debug_printf("page fault exception handler entered\n");
+    debug_printf("type: %d\n", type);        // exception_type
+    debug_printf("subtype: %d\n", subtype);  // pagefault_exception_type
+    debug_printf("addr: 0x%lx\n", addr);
+}
+
+#define INTERNAL_STACK_SIZE (1 << 14)
+static char internal_ex_stack[INTERNAL_STACK_SIZE];
+
+static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size)
+{
+    errval_t err;
+
+    char *stack_top = NULL;
+    if (stack_base && stack_size >= 4096u) {
+        stack_top = stack_base + stack_size;
+    } else {  // use our exception stack region
+        stack_base = internal_ex_stack;
+        stack_top = stack_base + INTERNAL_STACK_SIZE;
+    }
+
+    exception_handler_fn old_handler;
+    void *old_stack_base, *old_stack_top;
+    err = thread_set_exception_handler(page_fault_exception_handler, &old_handler,
+                                       stack_base, stack_top, &old_stack_base,
+                                       &old_stack_top);
+    return SYS_ERR_OK;
+}
+
 
 /**
  * TODO(M2): Implement this function.
@@ -111,6 +143,12 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     node->next = NULL;
     node->prev = NULL;
     mm_tracker_node_insert(&st->vspace_tracker, node);
+
+    // set page fault exception handler
+    err = paging_set_exception_handler(NULL, 0);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PAGING_STATE_INIT);
+    }
 
     return SYS_ERR_OK;
 }
@@ -412,13 +450,13 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
 
 #ifdef DEMO_M2
     int lvl;
-    if(pt_type == ObjType_VNode_AARCH64_l0){
+    if (pt_type == ObjType_VNode_AARCH64_l0) {
         lvl = 0;
-    }else if(pt_type == ObjType_VNode_AARCH64_l1){
+    } else if (pt_type == ObjType_VNode_AARCH64_l1) {
         lvl = 1;
-    }else if(pt_type == ObjType_VNode_AARCH64_l2){
+    } else if (pt_type == ObjType_VNode_AARCH64_l2) {
         lvl = 2;
-    }else{
+    } else {
         lvl = 3;
     }
 
@@ -608,7 +646,7 @@ unwind_allocated_vnode:;
 
 
 static errval_t paging_pt_unmap_slot(struct paging_state *st, struct page_table *pt,
-                              uint16_t slot_index)
+                                     uint16_t slot_index)
 {
     errval_t err;
     err = cap_destroy(pt->mappings[slot_index]);
@@ -691,11 +729,10 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
 
         // get l1, l2, l3 levels
 
-        if(do_recompute){
-
+        if (do_recompute) {
             l1_pt = NULL;
             err = paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1,
-                                        &l1_pt);
+                                          &l1_pt);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to get l1 page table");
                 err = err_push(err, LIB_ERR_PMAP_MAP);
@@ -705,7 +742,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
             // DEBUG_TRACEF("Map frame to fixed addr: Get/create L2 page table\n");
             l2_pt = NULL;
             err = paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2,
-                                        &l2_pt);
+                                          &l2_pt);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to get l2 page table");
                 err = err_push(err, LIB_ERR_PMAP_MAP);
@@ -715,7 +752,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
             // DEBUG_TRACEF("Map frame to fixed addr: Get/create L3 page table\n");
             l3_pt = NULL;
             err = paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3,
-                                        &l3_pt);
+                                          &l3_pt);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to get l3 page table");
                 err = err_push(err, LIB_ERR_PMAP_MAP);
@@ -723,15 +760,15 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
             }
         }
 
-        if(l3_index == 511 ||  l2_index == 511 || l1_index == 511){
+        if (l3_index == 511 || l2_index == 511 || l1_index == 511) {
             do_recompute = true;
-        }else{
+        } else {
             do_recompute = false;
         }
 
         // free the frame slot manually
         err = cap_destroy(l3_pt->mappings[l3_index]);
-        if(err_is_fail(err)){
+        if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CAP_DESTROY);
         }
 
@@ -765,8 +802,8 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
         current_vaddr += BASE_PAGE_SIZE;
     }
 
-    err = mm_tracker_free(&st->vspace_tracker, (genpaddr_t) region, allocated_node->size);
-    if(err_is_fail(err)){
+    err = mm_tracker_free(&st->vspace_tracker, (genpaddr_t)region, allocated_node->size);
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to free virtual memory region");
         err = err_push(err, MM_ERR_MM_FREE);
         return err;
