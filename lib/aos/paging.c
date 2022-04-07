@@ -65,28 +65,86 @@ __attribute__((unused)) static errval_t pt_alloc_l3(struct paging_state *st,
     return pt_alloc(st, ObjType_VNode_AARCH64_l3, ret);
 }
 
+int paging_lock = 0;
+static void paging_refill(struct paging_state *st)
+{
+    if (!paging_lock) {
+        paging_lock = 1;
+        if (slab_freecount(&st->slab_allocator) < 10) {
+            assert(err_is_ok(st->slab_allocator.refill_func(&st->slab_allocator)));
+        }
+        paging_lock = 0;
+    }
+}
+
+/**
+ * \brief handler for handling a page fault exception
+ *
+ * \param type of the exception (should be EXCEPT_PAGEFAULT i.e. 1)
+ * \param subtype of the exceptoin (READ (1), WRITE (2), EXECUTE (3))
+ * \param addr that caused the page fault
+ * \param regs current register state
+ */
 static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
-    debug_printf("page fault exception handler entered\n");
-    debug_printf("type: %d\n", type);        // exception_type
-    debug_printf("subtype: %d\n", subtype);  // pagefault_exception_type
-    debug_printf("addr: 0x%lx\n", addr);
+    errval_t err;
 
     // TODO recommended
     // * detect NULL pointer dereferences
     // * disallowing any mapping outside the ranges that you defined as valid for heap, stack
     // * add a guard page to the process’ stack
 
-    // TODO servicing the page fault: install a newly acquired page of RAM at the faulting
-    // address with paging_map_fixed_attr()
+    struct paging_state *st = get_current_paging_state();
 
-    // TODO resuming the thread.
+    DEBUG_TRACEF("Map frame to free addr: Refill slabs\n");
+    mm_tracker_refill(&st->vspace_tracker);
+    paging_refill(st);
+
+    // align address to base page size
+    lvaddr_t addr_aligned = ROUND_DOWN((lvaddr_t)addr, BASE_PAGE_SIZE);
+
+    // allocate a frame
+    struct capref frame;
+    size_t allocated_bytes;
+    err = frame_alloc(&frame, BASE_PAGE_SIZE, &allocated_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate frame");
+        return;
+    }
+
+    if (allocated_bytes != BASE_PAGE_SIZE) {
+        DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "alloacted frame is not big enough");
+        // TODO free frame
+        cap_destroy(frame);
+        return;
+    }
+
+    // install frame at the faulting address
+    debug_printf("page fault type %d at addr: 0x%lx\n", subtype, addr);
+    debug_printf("install frame at address 0x%lx\n", addr_aligned);
+    err = paging_map_fixed_attr(st, addr_aligned, frame, BASE_PAGE_SIZE,
+                                VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map frame");
+        return;
+    }
+
+    // TODO track that this frame is part of the heap
+    // TODO track vaddr <-> paddr mapping
 }
 
 #define INTERNAL_STACK_SIZE (1 << 14)
 static char internal_ex_stack[INTERNAL_STACK_SIZE];
 
+/**
+ * \brief registers a page fault exception handler.
+ * If no stack_base or stack_size is provided a static piece of memory is used
+ *
+ * \param stack_base address to a memory region used for the exception stack
+ * \param stack_size size of the exception stack
+ * \return errval_t
+ */
 static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size)
 {
     errval_t err;
@@ -285,18 +343,6 @@ errval_t paging_init(void)
     return SYS_ERR_OK;
 }
 
-int paging_lock = 0;
-static void paging_refill(struct paging_state *st)
-{
-    if (!paging_lock) {
-        paging_lock = 1;
-        if (slab_freecount(&st->slab_allocator) < 10) {
-            assert(err_is_ok(st->slab_allocator.refill_func(&st->slab_allocator)));
-        }
-        paging_lock = 0;
-    }
-}
-
 /**
  * @brief Initializes the paging functionality for the calling thread
  *
@@ -340,7 +386,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
     err = mm_tracker_get_next_fit(&st->vspace_tracker, &frame_region, bytes,
                                   BASE_PAGE_SIZE);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to get next fit in paging_map_frame_attr");
+        DEBUG_ERR(err, "failed to find free page");
         return err_push(err, MM_ERR_FIND_NODE);
     }
 
@@ -398,7 +444,6 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
     // DEBUG_PRINTF("Map frame to free addr: map frame at %lx\n", *buf);
 
     err = paging_map_fixed_attr(st, (lvaddr_t)*buf, frame, bytes, flags);
-
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map frame");
         return err_push(err, LIB_ERR_PAGING_MAP_FIXED);

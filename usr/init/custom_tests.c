@@ -1014,8 +1014,9 @@ void run_m3_tests(void)
 
 __attribute__((unused)) static void test_trigger_page_fault(void)
 {
-    char *addr = (char *)0xffffffffffff;  // last virtual address of user space
-    printf("%c\n", *addr);
+    int volatile *addr = (int *)0xfffffffffff0;  // last virtual address of user space
+    *addr = 3;
+    printf("%d\n", *addr);
 }
 
 void run_m4_tests(void)
