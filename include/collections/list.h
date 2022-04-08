@@ -27,9 +27,8 @@
 #endif  // WIN32
 
 #ifdef BARRELFISH
-#include <stdint.h>
-#include <aos/aos.h>
-#endif // BARRELFISH
+#    include <stdint.h>
+#endif  // BARRELFISH
 
 __BEGIN_DECLS
 
