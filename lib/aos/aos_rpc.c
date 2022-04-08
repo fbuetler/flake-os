@@ -610,7 +610,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     // TODO (M5): implement spawn new process rpc
     errval_t err;
 
-    size_t payload_size = strlen(cmdline);
+    size_t payload_size = strlen(cmdline) + 1;
     struct aos_rpc_msg *msg;
     err = aos_rpc_create_msg(&msg, SpawnRequest, payload_size, (void *)cmdline, NULL_CAP);
     if (err_is_fail(err)) {
