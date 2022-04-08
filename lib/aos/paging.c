@@ -16,6 +16,7 @@
 #include <aos/paging.h>
 #include <aos/except.h>
 #include <aos/slab.h>
+#include <collections/hash_table.h>
 #include "threads_priv.h"
 
 #include <stdio.h>
@@ -586,6 +587,42 @@ static errval_t paging_walk_pt(struct paging_state *st, struct page_table **l0_p
 
 
 /**
+ * @brief updates the map of physical addresses to virtual addresses
+ *
+ * @param st Paging State
+ * @param paddr Physical address (Key)
+ * @param vaddr Virtual address (Value 1)
+ * @param bytes Bytes in region (Value 2)
+ * @return errval_t
+ */
+static errval_t paging_vspace_lookup_insert_entry(struct paging_state *st,
+                                                  genpaddr_t paddr, genvaddr_t vaddr,
+                                                  size_t bytes)
+{
+    errval_t err;
+
+    if (!st->vspace_lookup) {
+        // initialize hash map for p->v addr lookup
+        collections_hash_create_with_buckets(&st->vspace_lookup, 1,
+                                             (collections_hash_data_free)free);
+    }
+
+    struct vaddr_region *region = (struct vaddr_region *)malloc(
+        sizeof(struct vaddr_region));
+    if (!region) {
+        err = LIB_ERR_MALLOC_FAIL;
+        DEBUG_ERR(err, "failed to allocate memory for vspace_lookup "
+                       "entry");
+        return err;
+    }
+    region->vaddr = vaddr;
+    region->bytes = bytes;
+    collections_hash_insert(st->vspace_lookup, paddr, region);
+
+    return SYS_ERR_OK;
+}
+
+/**
  * @brief mapps the provided frame at the supplied address in the paging state
  *
  * @param[in] st      the paging state to create the mapping in
@@ -622,12 +659,20 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     errval_t err;
 
-#define DEBUG
-#ifdef DEBUG
+#define DEBUG_PAGING_MAP_FIXED_ATTR
+#ifdef DEBUG_PAGING_MAP_FIXED_ATTR
     mmnode_t *allocated_node;
     err = mm_tracker_find_allocated_node(&st->vspace_tracker, vaddr, &allocated_node);
     assert(err_is_ok(err));
 #endif
+
+    struct capability c;
+    err = cap_direct_identify(frame_cap, &c);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to identify capability");
+        return err_push(err, LIB_ERR_CAP_IDENTIFY);
+    }
+    genpaddr_t paddr = c.u.frame.base;
 
     size_t allocated_bytes = 0;
 
@@ -684,6 +729,13 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         l3_pt->mappings[l3_index] = frame_mapping_cap;
         l3_pt->filled_slots++;
 
+        err = paging_vspace_lookup_insert_entry(st, paddr, vaddr, bytes);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to update vspace lookup");
+            return err;
+        }
+
+        paddr += BASE_PAGE_SIZE;
         vaddr += BASE_PAGE_SIZE;
         allocated_bytes += BASE_PAGE_SIZE;
 

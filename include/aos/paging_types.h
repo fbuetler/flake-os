@@ -60,12 +60,20 @@ struct page_table {
     uint16_t filled_slots;                       ///< nr of filled slots in this table
 };
 
+// struct to be used as the value of vspace_lookup
+struct vaddr_region {
+    genvaddr_t vaddr;
+    gensize_t bytes;
+};
+
 // struct to store the paging status of a process
 struct paging_state {
-    struct slot_allocator
-        *slot_allocator;  ///< Slab allocator used for allocating page tables
-    struct slab_allocator slab_allocator;  ///< Slot allocator for allocating cspac
-    struct page_table root_page_table;     ///< L0 page table
+    struct slot_allocator *slot_allocator;  ///< Slab allocator used for allocating
+                                            ///< page tables
+    struct slab_allocator slab_allocator;   ///< Slot allocator for allocating cspac
+    struct page_table root_page_table;      ///< L0 page table
+    collections_hash_table *vspace_lookup;  ///< Hashmap to lookup the virtual
+                                            ///< address given a physical address
 
     mm_tracker_t vspace_tracker;                  ///< mm tracker for vspace
     struct slab_allocator vspace_slab_allocator;  ///< Slab allocator for allocating vspace
