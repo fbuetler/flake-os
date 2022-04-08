@@ -347,6 +347,15 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t
         child_flags |= VREGION_FLAGS_READ;
     }
 
+    mmnode_t *allocated_node;
+    err = mm_tracker_alloc_range(&paging_state->vspace_tracker, base,
+                                 allocated_frame_size, &allocated_node);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "mm_tracker_alloc_range failed");
+        err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
+        return err;
+    }
+
     err = paging_map_fixed_attr(paging_state, base, segment_frame, allocated_frame_size,
                                 child_flags);
     if (err_is_fail(err)) {

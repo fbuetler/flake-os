@@ -391,6 +391,15 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
         return err_push(err, MM_ERR_FIND_NODE);
     }
 
+    mmnode_t *allocated_node;
+    err = mm_tracker_alloc_range(&st->vspace_tracker, frame_region->base, bytes,
+                                 &allocated_node);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "mm_tracker_alloc_range failed");
+        err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
+        return err;
+    }
+
     // DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", frame_region->base);
     if (buf != NULL) {
         *buf = (void *)frame_region->base;
@@ -611,18 +620,14 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     assert(bytes % BASE_PAGE_SIZE == 0);
     assert(vaddr % BASE_PAGE_SIZE == 0);
 
-
     errval_t err;
 
-    // DEBUG_TRACEF("Map frame to fixed addr: Allocating range\n");
+#define DEBUG
+#ifdef DEBUG
     mmnode_t *allocated_node;
-    err = mm_tracker_alloc_range(&st->vspace_tracker, vaddr, bytes, &allocated_node);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "mm_tracker_alloc_range failed");
-        err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
-        return err;
-    }
-    // DEBUG_TRACEF("Map frame to fixed addr: Allocated range\n");
+    err = mm_tracker_find_allocated_node(&st->vspace_tracker, vaddr, &allocated_node);
+    assert(err_is_ok(err));
+#endif
 
     size_t allocated_bytes = 0;
 
