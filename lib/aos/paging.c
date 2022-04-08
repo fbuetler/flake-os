@@ -114,7 +114,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     }
 
     if (allocated_bytes != BASE_PAGE_SIZE) {
-        DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "alloacted frame is not big enough");
+        DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "allocated frame is not big enough");
         // TODO free frame
         cap_destroy(frame);
         return;
@@ -133,6 +133,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     // TODO track that this frame is part of the heap
     // TODO track vaddr <-> paddr mapping
 }
+
 
 #define INTERNAL_STACK_SIZE (1 << 14)
 static char internal_ex_stack[INTERNAL_STACK_SIZE];
@@ -538,6 +539,43 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
 }
 
 
+static errval_t paging_walk_pt(struct paging_state *st, struct page_table **l0_pt,
+                               struct page_table **l1_pt, struct page_table **l2_pt,
+                               struct page_table **l3_pt, size_t l0_index,
+                               size_t l1_index, size_t l2_index)
+{
+    errval_t err;
+    // DEBUG_TRACEF("Map frame to fixed addr: Get/create L1 page table\n");
+    *l1_pt = NULL;
+    err = paging_get_or_create_pt(st, *l0_pt, l0_index, ObjType_VNode_AARCH64_l1, l1_pt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get/create l1 page table");
+        err = err_push(err, LIB_ERR_PMAP_MAP);
+        return err;
+    }
+
+    // DEBUG_TRACEF("Map frame to fixed addr: Get/create L2 page table\n");
+    *l2_pt = NULL;
+    err = paging_get_or_create_pt(st, *l1_pt, l1_index, ObjType_VNode_AARCH64_l2, l2_pt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get/create l2 page table");
+        err = err_push(err, LIB_ERR_PMAP_MAP);
+        return err;
+    }
+
+    // DEBUG_TRACEF("Map frame to fixed addr: Get/create L3 page table\n");
+    *l3_pt = NULL;
+    err = paging_get_or_create_pt(st, *l2_pt, l2_index, ObjType_VNode_AARCH64_l3, l3_pt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get/create l3 page table");
+        err = err_push(err, LIB_ERR_PMAP_MAP);
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+
 /**
  * @brief mapps the provided frame at the supplied address in the paging state
  *
@@ -607,62 +645,35 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         assert(l2_index < 512);
         assert(l3_index < 512);
 
-
         if (do_recompute) {
-            // TODO: make efficient
-            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L1 page table\n");
-            l1_pt = NULL;
-            err = paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1,
-                                          &l1_pt);
+            err = paging_walk_pt(st, &l0_pt, &l1_pt, &l2_pt, &l3_pt, l0_index, l1_index,
+                                 l2_index);
             if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to get/create l1 page table");
-                err = err_push(err, LIB_ERR_PMAP_MAP);
-                goto unwind_allocated_vnode;
-            }
-
-            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L2 page table\n");
-            l2_pt = NULL;
-            err = paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2,
-                                          &l2_pt);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to get/create l2 page table");
-                err = err_push(err, LIB_ERR_PMAP_MAP);
-                goto unwind_allocated_vnode;
-            }
-
-            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L3 page table\n");
-            l3_pt = NULL;
-            err = paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3,
-                                          &l3_pt);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to get/create l3 page table");
-                err = err_push(err, LIB_ERR_PMAP_MAP);
-                goto unwind_allocated_vnode;
+                DEBUG_ERR(err, "failed to walk page table");
+                return err;
             }
         }
 
         // DEBUG_TRACEF("Map frame to fixed addr: Map frame in L3 page table at %d\n",
         //             l3_index);
-
         if (capcmp(l3_pt->mappings[l3_index], NULL_CAP) == 0) {
             err = LIB_ERR_PMAP_EXISTING_MAPPING;
-            goto unwind_allocated_vnode;
+            DEBUG_ERR(err, "failed to compare capabilities");
+            return err;
         }
 
         struct capref frame_mapping_cap;
         err = st->slot_allocator->alloc(st->slot_allocator, &frame_mapping_cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "slot_alloc failed");
-            err = err_push(err, LIB_ERR_SLOT_ALLOC);
-            goto unwind_allocated_vnode;
+            return err_push(err, LIB_ERR_SLOT_ALLOC);
         }
 
         err = vnode_map(l3_pt->cap, frame_cap, l3_index, flags, allocated_bytes, 1,
                         frame_mapping_cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to map page table");
-            err = err_push(err, LIB_ERR_VNODE_MAP);
-            goto unwind_allocated_vnode;
+            return err_push(err, LIB_ERR_VNODE_MAP);
         }
 
         l3_pt->mappings[l3_index] = frame_mapping_cap;
@@ -681,22 +692,10 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     // DEBUG_TRACEF("Map frame to fixed addr: Refill slabs\n");
     mm_tracker_refill(&st->vspace_tracker);
 
-
     // mm_tracker_debug_print(&st->vspace_tracker);
     // DEBUG_TRACEF("Map frame to fixed addr: Mapped frame\n");
 
     return SYS_ERR_OK;
-
-unwind_allocated_vnode:;
-
-    errval_t free_err = mm_tracker_free(&st->vspace_tracker, allocated_node->base,
-                                        allocated_node->size);
-    if (err_is_fail(free_err)) {
-        DEBUG_ERR(free_err, "failed to free allocated node");
-        err = err_push(err, free_err);
-    }
-
-    return err;
 }
 
 
@@ -785,32 +784,10 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
         // get l1, l2, l3 levels
 
         if (do_recompute) {
-            l1_pt = NULL;
-            err = paging_get_or_create_pt(st, l0_pt, l0_index, ObjType_VNode_AARCH64_l1,
-                                          &l1_pt);
+            err = paging_walk_pt(st, &l0_pt, &l1_pt, &l2_pt, &l3_pt, l0_index, l1_index,
+                                 l2_index);
             if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to get l1 page table");
-                err = err_push(err, LIB_ERR_PMAP_MAP);
-                return err;
-            }
-
-            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L2 page table\n");
-            l2_pt = NULL;
-            err = paging_get_or_create_pt(st, l1_pt, l1_index, ObjType_VNode_AARCH64_l2,
-                                          &l2_pt);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to get l2 page table");
-                err = err_push(err, LIB_ERR_PMAP_MAP);
-                return err;
-            }
-
-            // DEBUG_TRACEF("Map frame to fixed addr: Get/create L3 page table\n");
-            l3_pt = NULL;
-            err = paging_get_or_create_pt(st, l2_pt, l2_index, ObjType_VNode_AARCH64_l3,
-                                          &l3_pt);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to get l3 page table");
-                err = err_push(err, LIB_ERR_PMAP_MAP);
+                DEBUG_ERR(err, "failed to walk page table while unmapping");
                 return err;
             }
         }
