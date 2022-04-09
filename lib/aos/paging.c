@@ -793,8 +793,6 @@ static errval_t paging_pt_unmap_slot(struct paging_state *st, struct page_table 
  */
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {
-    // TODO -> optional
-
     /*
         1. find node belonging to region
         2. iterate by BASE_PAGE_SIZE steps
@@ -852,6 +850,16 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
         } else {
             do_recompute = false;
         }
+
+        struct capability c;
+        err = cap_direct_identify(l3_pt->mappings[l3_index], &c);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to identify capability");
+            return err_push(err, LIB_ERR_CAP_IDENTIFY);
+        }
+        struct Frame_Mapping mapping = c.u.frame_mapping;
+        genpaddr_t paddr = mapping.cap->u.frame.base;
+        collections_hash_delete(st->vspace_lookup, paddr);
 
         // free the frame slot manually
         err = cap_destroy(l3_pt->mappings[l3_index]);
