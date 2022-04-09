@@ -17,6 +17,8 @@
 
 #include <aos/solution.h>
 #include <mm/mm_tracker.h>
+#include "collections/list.h"
+#include <collections/hash_table.h>
 
 #define VADDR_OFFSET ((lvaddr_t)512UL * 1024 * 1024 * 1024)  // 1GB
 #define VREGION_FLAGS_READ 0x01                              // Reading allowed
