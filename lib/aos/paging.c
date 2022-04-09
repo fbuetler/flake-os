@@ -729,7 +729,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         l3_pt->mappings[l3_index] = frame_mapping_cap;
         l3_pt->filled_slots++;
 
-        err = paging_vspace_lookup_insert_entry(st, paddr, vaddr, bytes);
+        err = paging_vspace_lookup_insert_entry(st, paddr, vaddr, BASE_PAGE_SIZE);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to update vspace lookup");
             return err;
