@@ -602,8 +602,9 @@ static errval_t paging_vspace_lookup_insert_entry(struct paging_state *st,
 
     if (!st->vspace_lookup) {
         // initialize hash map for p->v addr lookup
-        collections_hash_create_with_buckets(&st->vspace_lookup, 1,
-                                             (collections_hash_data_free)free);
+        // we do this lazily because the paging code initialized before
+        // morecore and the hash map needs malloc..
+        collections_hash_create(&st->vspace_lookup, (collections_hash_data_free)free);
     }
 
     struct vaddr_region *region = (struct vaddr_region *)malloc(
