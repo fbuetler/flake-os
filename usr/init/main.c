@@ -32,6 +32,7 @@
 struct bootinfo *bi;
 
 coreid_t my_core_id;
+struct platform_info platform_info;
 
 static int bsp_main(int argc, char *argv[])
 {
@@ -103,17 +104,41 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
+    /* obtain the core information from the kernel*/
+    err = invoke_kernel_get_core_id(cap_kernel, &my_core_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to obtain the core id from the kernel\n");
+    }
 
     /* Set the core id in the disp_priv struct */
-    err = invoke_kernel_get_core_id(cap_kernel, &my_core_id);
-    assert(err_is_ok(err));
     disp_set_core_id(my_core_id);
 
-    debug_printf("init: on core %" PRIuCOREID ", invoked as:", my_core_id);
+    /* obtain the platform information */
+    err = invoke_kernel_get_platform_info(cap_kernel, &platform_info);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to obtain the platform info from the kernel\n");
+    }
+
+    char *platform;
+    switch (platform_info.platform) {
+        case PI_PLATFORM_QEMU:
+            platform = "QEMU";
+            break;
+        case PI_PLATFORM_IMX8X:
+            platform = "IMX8X";
+            break;
+        default:
+            platform = "UNKNOWN";
+    }
+
+    debug_printf("init domain starting on core %" PRIuCOREID " (%s), invoked as:", my_core_id, platform);
     for (int i = 0; i < argc; i++) {
         printf(" %s", argv[i]);
     }
     printf("\n");
+
+
+
     fflush(stdout);
 
     if (my_core_id == 0)

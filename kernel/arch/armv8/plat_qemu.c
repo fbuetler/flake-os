@@ -153,6 +153,11 @@ uint32_t platform_get_timer_interrupt(void){
 
 // TODO get this right
 void platform_get_dev_range(lpaddr_t* start, size_t* size){
-    *start = 0;
-    *size = 0;
+    // the whole platform_get_dev_range is rather a hack.
+    // to make the Qemu work with the approach of imx8x.
+
+    // see: https://github.com/qemu/qemu/blob/master/hw/arm/virt.c
+    *start = 0x08000000;
+
+    *size = 0x01010000; // just include up to the uart
 }

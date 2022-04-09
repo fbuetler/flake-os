@@ -6,16 +6,16 @@
 #include <stdlib.h>
 #include <assert.h>
 
-size_t (*_libc_terminal_read_func)(char *, size_t);
-size_t (*_libc_terminal_write_func)(const char *, size_t);
+extern size_t (*_libc_terminal_read_func)(char *, size_t);
+extern size_t (*_libc_terminal_write_func)(const char *, size_t);
 
 void (*_libc_assert_func)(const char *, const char *, const char *, int);
 
 typedef void *(*morecore_alloc_func_t)(size_t bytes, size_t *retbytes);
-morecore_alloc_func_t sys_morecore_alloc;
+extern morecore_alloc_func_t sys_morecore_alloc;
 
 typedef void (*morecore_free_func_t)(void *base, size_t bytes);
-morecore_free_func_t sys_morecore_free;
+extern morecore_free_func_t sys_morecore_free;
 
 int system(const char *cmd)
 {

@@ -26,7 +26,8 @@ extern lpaddr_t platform_gic_distributor_base;
 // Command line arguments
 static struct cmdarg cmdargs[] = {
     {"gic", ArgType_ULong, { .ulonginteger = &platform_gic_cpu_interface_base }},
-    {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_distributor_base }}
+    {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_distributor_base }},
+    {NULL, 0, {NULL}}
 };
 
 /*

@@ -313,7 +313,6 @@ errval_t paging_init_state_foreign(struct paging_state *st, lvaddr_t start_vaddr
  */
 errval_t paging_init(void)
 {
-    debug_printf("paging_init\n");
     // TODO (M2): Call paging_init_state for &current
     // TODO (M4): initialize self-paging handler
     // TIP: use thread_set_exception_handler() to setup a page fault handler
@@ -790,8 +789,6 @@ static errval_t paging_pt_unmap_slot(struct paging_state *st, struct page_table 
  * @return SYS_ERR_OK on success, or error code indicating the kind of failure
  *
  * The supplied `region` must be the start of a previously mapped frame.
- *
- * @NOTE: Implementing this function is optional.
  */
 errval_t paging_unmap(struct paging_state *st, const void *region)
 {

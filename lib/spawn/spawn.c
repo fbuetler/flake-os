@@ -59,6 +59,7 @@ void spawn_init(void)
                                           .dispatcher_handle = 0 };
 }
 
+
 /**
  * @brief maps the given module to the parents vspace
  *

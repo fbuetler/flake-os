@@ -70,6 +70,8 @@ errval_t slot_alloc_root(struct capref *ret)
         }
         state->rootca.refilling = false;
     }
+    // If we got below two here somehow it's game over
+    assert(rootcn_free > 2);
     struct slot_allocator *ca = (struct slot_allocator*)(&state->rootca);
     return ca->alloc(ca, ret);
 }

@@ -14,7 +14,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3 parted wget mtools
 
 # install barrelfish dependencies
-apt-get update
+apt-get update && apt-get upgrade
 DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential bison flex ghc libghc-src-exts-dev \
     libghc-ghc-paths-dev libghc-parsec3-dev libghc-random-dev\
@@ -26,6 +26,10 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
 # install the remaining haskell package
 cabal v1-update
 cabal v1-install --global bytestring-trie
+
+# install the autograder dependencies
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3 python3-pexpect  python3-plumbum
 
 # get the uuu tool
 wget -P /bin https://github.com/NXPmicro/mfgtools/releases/download/uuu_1.4.165/uuu
