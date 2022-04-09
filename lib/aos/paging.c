@@ -727,6 +727,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         }
 
         l3_pt->mappings[l3_index] = frame_mapping_cap;
+        l3_pt->paddrs[l3_index] = paddr;
         l3_pt->filled_slots++;
 
         err = paging_vspace_lookup_insert_entry(st, paddr, vaddr, BASE_PAGE_SIZE);
@@ -851,14 +852,8 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
             do_recompute = false;
         }
 
-        struct capability c;
-        err = cap_direct_identify(l3_pt->mappings[l3_index], &c);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to identify capability");
-            return err_push(err, LIB_ERR_CAP_IDENTIFY);
-        }
-        struct Frame_Mapping mapping = c.u.frame_mapping;
-        genpaddr_t paddr = mapping.cap->u.frame.base;
+        genpaddr_t paddr = l3_pt->paddrs[l3_index];
+        debug_printf("Deleting 0x%lx\n", paddr);
         collections_hash_delete(st->vspace_lookup, paddr);
 
         // free the frame slot manually

@@ -59,7 +59,8 @@ struct page_table {
     struct capref cap;  ///< cap that represent the memory where this page table is stored
     struct page_table *entries[PTABLE_ENTRIES];  ///< the entries of the page table
     struct capref mappings[PTABLE_ENTRIES];      ///< the mapping of the page table
-    uint16_t filled_slots;                       ///< nr of filled slots in this table
+    genpaddr_t paddrs[PTABLE_ENTRIES];
+    uint16_t filled_slots;  ///< nr of filled slots in this table
 };
 
 // struct to be used as the value of vspace_lookup
