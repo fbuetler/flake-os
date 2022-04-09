@@ -21,7 +21,7 @@ void mm_tracker_init(mm_tracker_t *mmt, struct slab_allocator *slabs)
  *
  * @param mmt Memory Tracker
  *
- * @note Necessary is when there are less than 16 slabs remaining.
+ * @note Necessary is when there are less than 32 slabs remaining.
  */
 errval_t mm_tracker_refill(mm_tracker_t *mmt)
 {
@@ -29,7 +29,7 @@ errval_t mm_tracker_refill(mm_tracker_t *mmt)
     if (!mmt->refill_lock) {
         mmt->refill_lock = true;
 
-        if (slab_freecount(mmt->slabs) < 16) {
+        if (slab_freecount(mmt->slabs) < 32) {
             err = slab_default_refill(mmt->slabs);
             if (err_is_fail(err)) {
                 err = err_push(err, LIB_ERR_SLAB_REFILL);
