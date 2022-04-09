@@ -121,9 +121,19 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         return;
     }
 
-    // install frame at the faulting address
     debug_printf("page fault type %d at addr: 0x%lx\n", subtype, addr);
     debug_printf("install frame at address 0x%lx\n", addr_aligned);
+
+    // virtual memory region has to be logically allocated before it can be mapped
+    mmnode_t *allocated_node;
+    err = mm_tracker_find_allocated_node(&st->vspace_tracker, addr_aligned,
+                                         &allocated_node);
+    if (err_is_fail(err)) {
+        // TODO fault?
+        USER_PANIC("Unallocated region in segfault");
+    }
+
+    // install frame at the faulting address
     err = paging_map_fixed_attr(st, addr_aligned, frame, BASE_PAGE_SIZE,
                                 VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
