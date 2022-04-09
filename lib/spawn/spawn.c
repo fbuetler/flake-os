@@ -256,6 +256,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     }
 
     // init paging state
+    // TODO: use proper slot allocator from child
     err = paging_init_state_foreign(&si->paging_state, 0, parent_l0_pt,
                                     get_default_slot_allocator());
     if (err_is_fail(err)) {
@@ -324,13 +325,15 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t
 
     DEBUG_TRACEF("Mapping into parent vspace\n");
     // map memory into parent vspace
-    err = paging_map_frame_attr(get_current_paging_state(), ret, allocated_frame_size,
-                                segment_frame, VREGION_FLAGS_READ_WRITE);
+    void *allocated_frame_addr_parent;
+    err = paging_map_frame_attr(get_current_paging_state(), &allocated_frame_addr_parent,
+                                allocated_frame_size, segment_frame,
+                                VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map segment frame into parent vspace");
         return err_push(err, ELF_ERR_ALLOCATE);
     }
-    *ret += base_offset;
+    *ret = allocated_frame_addr_parent + base_offset;
     DEBUG_TRACEF("ELF allocate callback addr: 0x%lx\n", *ret);
 
     // map memory in child vspace
@@ -569,6 +572,13 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     arch_registers_state_t *enabled_area = dispatcher_get_enabled_save_area(
         si->dispatcher_handle);
     registers_set_param(enabled_area, (uint64_t)args_frame_addr_child);
+
+    // unmap frame from parent
+    err = paging_unmap(get_current_paging_state(), args_frame_addr_parent);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to unmap frame");
+        return err_push(err, ELF_ERR_ALLOCATE);
+    }
 
     return SYS_ERR_OK;
 }
