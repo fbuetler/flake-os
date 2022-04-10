@@ -214,7 +214,7 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
         return err_push(err, MM_ERR_ALLOC_NODE);
     }
 
-    size_t initial_size = BIT(50);
+    size_t initial_size = 0xffffffffffff - start_vaddr;
     node->type = NodeType_Free;
     node->capinfo
         = (struct capinfo) { .cap = NULL_CAP, .base = start_vaddr, .size = initial_size };
