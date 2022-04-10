@@ -255,7 +255,7 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
 
     assert(addr != 0);
 
-    DEBUG_PRINTF("couldnt find %lx %lx\n", addr, size);
+    DEBUG_PRINTF("mm_tracker: Couldnt find node at 0x%lx with size 0x%lx B\n", addr, size);
 
     return MM_ERR_NOT_FOUND;
 }

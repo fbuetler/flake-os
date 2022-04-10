@@ -539,7 +539,6 @@ void run_m1_tests(void)
     test_vtable_mapping_size(1 * BASE_PAGE_SIZE);
     test_vtable_mapping_size(2 * BASE_PAGE_SIZE);
     test_vtable_mapping_size(8 * BASE_PAGE_SIZE);
-    mm_tracker_debug_print(&get_current_paging_state()->vspace_tracker);
     test_vtable_mapping_size(64 * BASE_PAGE_SIZE);
 
     // allocate then deallocate, 5000 times

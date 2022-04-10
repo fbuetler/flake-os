@@ -19,7 +19,7 @@
 /* remote (indirect through a channel) version of ram_alloc, for most domains */
 static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignment)
 {
-    //TODO(M3): Implement me!
+    // TODO(M3): Implement me!
     errval_t err;
 
     struct aos_rpc *memory_rpc = aos_rpc_get_memory_channel();
@@ -44,11 +44,11 @@ void ram_set_affinity(uint64_t minbase, uint64_t maxlimit)
 void ram_get_affinity(uint64_t *minbase, uint64_t *maxlimit)
 {
     struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
-    *minbase  = ram_alloc_state->default_minbase;
+    *minbase = ram_alloc_state->default_minbase;
     *maxlimit = ram_alloc_state->default_maxlimit;
 }
 
-#define OBJSPERPAGE_CTE         (1 << (BASE_PAGE_BITS - OBJBITS_CTE))
+#define OBJSPERPAGE_CTE (1 << (BASE_PAGE_BITS - OBJBITS_CTE))
 
 errval_t ram_alloc_fixed(struct capref *ret, size_t size, size_t alignment)
 {
@@ -58,7 +58,7 @@ errval_t ram_alloc_fixed(struct capref *ret, size_t size, size_t alignment)
         // XXX: Return error if check to see if out of slots
         assert(state->base_capnum < OBJSPERPAGE_CTE);
         ret->cnode = cnode_base;
-        ret->slot  = state->base_capnum++;
+        ret->slot = state->base_capnum++;
         return SYS_ERR_OK;
     } else {
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
@@ -121,12 +121,12 @@ void ram_alloc_init(void)
     /* Initialize the ram_alloc_state */
     struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
     ram_alloc_state->mem_connect_done = false;
-    ram_alloc_state->mem_connect_err  = 0;
+    ram_alloc_state->mem_connect_err = 0;
     thread_mutex_init(&ram_alloc_state->ram_alloc_lock);
-    ram_alloc_state->ram_alloc_func   = NULL;
-    ram_alloc_state->default_minbase  = 0;
+    ram_alloc_state->ram_alloc_func = NULL;
+    ram_alloc_state->default_minbase = 0;
     ram_alloc_state->default_maxlimit = 0;
-    ram_alloc_state->base_capnum      = 0;
+    ram_alloc_state->base_capnum = 0;
 }
 
 /**

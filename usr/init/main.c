@@ -131,13 +131,12 @@ int main(int argc, char *argv[])
             platform = "UNKNOWN";
     }
 
-    debug_printf("init domain starting on core %" PRIuCOREID " (%s), invoked as:", my_core_id, platform);
+    debug_printf("init domain starting on core %" PRIuCOREID " (%s), invoked as:",
+                 my_core_id, platform);
     for (int i = 0; i < argc; i++) {
         printf(" %s", argv[i]);
     }
     printf("\n");
-
-
 
     fflush(stdout);
 

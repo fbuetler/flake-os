@@ -1155,7 +1155,7 @@ static int bootstrap_thread(struct spawn_domain_params *params)
         if (tls_block_total_len > 0) {
             USER_PANIC("unsupported: use of TLS data in bootstrap domain\n");
         }
-        DEBUG_PRINTF("running main on staticthread!\n");
+        DEBUG_PRINTF("running main on static thread!\n");
         main_thread(params);
     } else {
         // Start real thread to run main()

@@ -113,7 +113,7 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
     }
     *retbytes = bytes;
 
-    // debug_printf("reserved (0x%lx, 0x%lx)\n", buf, *retbytes);
+    debug_printf("reserved (0x%lx, 0x%lx)\n", buf, *retbytes);
     mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
 
     return buf;

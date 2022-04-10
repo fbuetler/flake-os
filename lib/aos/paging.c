@@ -109,7 +109,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         vspace_tracker = &st->vstack_tracker;
     } else {
         err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
-        DEBUG_ERR(err, "vadddr is way of limits");
+        DEBUG_ERR(err, "vadddr is way off limits");
         return;
     }
 
@@ -125,7 +125,6 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     err = mm_tracker_find_allocated_node(vspace_tracker, vaddr_aligned, &allocated_node);
     if (err_is_fail(err)) {
         // TODO fault?
-        mm_tracker_debug_print(vspace_tracker);
         debug_printf("unallocated region at %p\n", vaddr);
         USER_PANIC("Unallocated region in segfault");
     }
@@ -141,16 +140,15 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         return;
     }
 
-    if (allocated_bytes != frame_size) {
+    if (allocated_bytes < frame_size) {
         DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "allocated frame is not big "
                                                      "enough");
-        // TODO free frame
         cap_destroy(frame);
         return;
     }
 
-    // debug_printf("page fault type %d at addr: 0x%lx\n", subtype, addr);
-    // debug_printf("install frame at address 0x%lx\n", addr_aligned);
+    debug_printf("page fault type %d at addr: 0x%lx\n", subtype, vaddr);
+    mm_tracker_debug_print(vspace_tracker);
 
     // install frame at the faulting address
     err = paging_map_fixed_attr(st, vaddr_aligned, frame, allocated_bytes,
@@ -466,7 +464,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
      *     accomodate a buffer of size `bytes`.
      */
     return paging_alloc_region(st, VREGION_TYPE_HEAP, buf, bytes, alignment);
-    }
+}
 
 errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, void **buf,
                              size_t bytes, size_t alignment)
@@ -498,7 +496,7 @@ errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, vo
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to find free page");
         return err_push(err, MM_ERR_FIND_NODE);
-}
+    }
 
     mmnode_t *allocated_node;
     err = mm_tracker_alloc_range(vspace_tracker, vspace_region->base, bytes,
@@ -1073,3 +1071,34 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
 
     return SYS_ERR_OK;
 }
+
+
+/*
+6.7 - Design the Address Space Layout
+
+0
+UNUSED
+TEXT/BSS
+Heap
+
+Stack
+fffffff
+
+
+- Heap
+- Stack
+- Guard Page
+- Unused segment: 0 - 16KB
+
+
+Operations:
+    - morecore: Allocate more pages to heap
+    - extra challenges: Detect stack page fault: Allocate more pages to stack
+
+    - Efficiently:
+        - Say if part of stack or heap
+        - Distinguish heap from stack
+        - Allocation
+
+
+*/
