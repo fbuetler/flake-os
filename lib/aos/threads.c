@@ -417,10 +417,33 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     }
 #endif
 
-    // allocate stack
     assert((stacksize % sizeof(uintptr_t)) == 0);
-    void *stack = malloc(stacksize);
-    if (stack == NULL) {
+
+    errval_t err;
+
+    // reserve stack space
+    void *stack;
+    err = paging_alloc_stack(get_current_paging_state(), &stack, VSTACK_SIZE,
+                             BASE_PAGE_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate stack");
+        return NULL;
+    }
+
+    // allocate stack frame
+    struct capref stack_frame;
+    size_t stack_stack_bytes;
+    err = frame_alloc(&stack_frame, stacksize, &stack_stack_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate frame");
+        return NULL;
+    }
+
+    // allocate stack
+    err = paging_map_fixed_attr(get_current_paging_state(), (lvaddr_t)stack, stack_frame,
+                                stack_stack_bytes, VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map frame");
         return NULL;
     }
 

@@ -16,16 +16,46 @@
 #define PAGING_TYPES_H_ 1
 
 #include <aos/solution.h>
+#include <aos/threads.h>
 #include <mm/mm_tracker.h>
 #include "collections/list.h"
 #include <collections/hash_table.h>
 
-#define VADDR_OFFSET ((lvaddr_t)512UL * 1024 * 1024 * 1024)  // 1GB
+/*
+    vspace layout:
+
+        high addr
+            stacks (in total MAX_THREADS)
+                stack
+                stack guard page
+            heap
+            readonly (binary, args)
+            unusuable
+        low addr
+*/
+
+
+#define VADDR_OFFSET ((lvaddr_t)512UL * 1024 * 1024 * 1024)  // 512 GB
 #define VADDR_MIN (0x0000000000000000UL)
 #define VADDR_MAX (0xffffffffffffffffUL)
 
 #define VADDR_MIN_USERSPACE (0x0000000000000000UL)
 #define VADDR_MAX_USERSPACE (0x0000ffffffffffffUL)
+
+#define VSTACK_GUARD_PAGE_SIZE (BASE_PAGE_SIZE)  // 4 KB
+#define VSTACK_SIZE (1024UL * 1024UL * 1024UL)   // 1 GB
+
+#define VSTACKS_OFFSET ((lvaddr_t)(VADDR_MAX_USERSPACE - MAX_THREADS * VSTACK_SIZE + 1UL))
+#define VSTACKS_SIZE (MAX_THREADS * VSTACK_SIZE)
+
+#define VHEAP_OFFSET ((lvaddr_t)(2 * VADDR_OFFSET))
+#define VHEAP_SIZE (VSTACKS_OFFSET - VHEAP_OFFSET)
+
+#define VREADONLY_OFFSET (VADDR_OFFSET)  //(lvaddr_t)(4 * BASE_PAGE_SIZE))
+#define VREADONLY_SIZE (VHEAP_OFFSET - VREADONLY_OFFSET)
+
+#define VUNUSABLE_OFFSET ((lvaddr_t)0x0LU)
+#define VUNUSABLE_SIZE (VREADONLY_OFFSET - VUNUSABLE_OFFSET)
 
 #define VREGION_FLAGS_READ 0x01     // Reading allowed
 #define VREGION_FLAGS_WRITE 0x02    // Writing allowed
@@ -101,7 +131,10 @@ struct paging_state {
     collections_hash_table *vspace_lookup;  ///< Hashmap to lookup the virtual
                                             ///< address given a physical address
 
-    mm_tracker_t vspace_tracker;                  ///< mm tracker for vspace
+    // heap and stack alloc
+    mm_tracker_t vreadonly_tracker;  ///< mm tracker for vspace
+    mm_tracker_t vheap_tracker;
+    mm_tracker_t vstack_tracker;
     struct slab_allocator vspace_slab_allocator;  ///< Slab allocator for allocating vspace
 };
 

@@ -42,7 +42,11 @@ errval_t paging_init_onthread(struct thread *t);
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t alignment);
 
-                      size_t alignment);
+errval_t paging_alloc_stack(struct paging_state *st, void **buf, size_t bytes,
+                            size_t alignment);
+
+errval_t paging_alloc_heap(struct paging_state *st, void **buf, size_t bytes,
+                           size_t alignment);
 
 /**
  * Functions to map a user provided frame.

@@ -39,4 +39,4 @@ static inline bool thread_check_syscall_succeeded(uintptr_t *save_area)
 #endif
 }
 
-#endif // LIBBARRELFISH_ARCH_THREADS_H
+#endif  // LIBBARRELFISH_ARCH_THREADS_H

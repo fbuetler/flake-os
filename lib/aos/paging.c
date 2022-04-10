@@ -22,9 +22,6 @@
 #include <stdio.h>
 #include <string.h>
 
-// uncomment for demo
-#define PRINT_PT_CREATION
-
 static struct paging_state current;
 
 
@@ -97,22 +94,39 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     // * add a guard page to the process’ stack
 
     struct paging_state *st = get_current_paging_state();
+    lvaddr_t vaddr = (lvaddr_t)addr;
+
+    mm_tracker_t *vspace_tracker;
+    if (vaddr < VREADONLY_OFFSET) {
+        err = LIB_ERR_PAGING_MAP_UNUSABLE_VADDR;
+        DEBUG_ERR(err, "vadddr is in the forbidden areas");
+        return;
+    } else if (vaddr < VHEAP_OFFSET) {
+        vspace_tracker = &st->vreadonly_tracker;
+    } else if (vaddr < VSTACKS_OFFSET) {
+        vspace_tracker = &st->vheap_tracker;
+    } else if (vaddr < VADDR_MAX_USERSPACE) {
+        vspace_tracker = &st->vstack_tracker;
+    } else {
+        err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
+        DEBUG_ERR(err, "vadddr is way of limits");
+        return;
+    }
 
     DEBUG_TRACEF("Map frame to free addr: Refill slabs\n");
-    mm_tracker_refill(&st->vspace_tracker);
+    mm_tracker_refill(vspace_tracker);
     paging_refill(st);
 
     // align address to base page size
-    lvaddr_t addr_aligned = ROUND_DOWN((lvaddr_t)addr, BASE_PAGE_SIZE);
+    lvaddr_t vaddr_aligned = ROUND_DOWN(vaddr, BASE_PAGE_SIZE);
 
     // virtual memory region has to be logically allocated before it can be mapped
     mmnode_t *allocated_node;
-    err = mm_tracker_find_allocated_node(&st->vspace_tracker, addr_aligned,
-                                         &allocated_node);
+    err = mm_tracker_find_allocated_node(vspace_tracker, vaddr_aligned, &allocated_node);
     if (err_is_fail(err)) {
         // TODO fault?
-        mm_tracker_debug_print(&st->vspace_tracker);
-        debug_printf("unallocated region at %p\n", addr);
+        mm_tracker_debug_print(vspace_tracker);
+        debug_printf("unallocated region at %p\n", vaddr);
         USER_PANIC("Unallocated region in segfault");
     }
 
@@ -139,7 +153,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     // debug_printf("install frame at address 0x%lx\n", addr_aligned);
 
     // install frame at the faulting address
-    err = paging_map_fixed_attr(st, addr_aligned, frame, allocated_bytes,
+    err = paging_map_fixed_attr(st, vaddr_aligned, frame, allocated_bytes,
                                 VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map frame");
@@ -181,6 +195,30 @@ static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size
 }
 
 
+static errval_t setup_vspace_tracker(mm_tracker_t *vspace_tracker, lvaddr_t base,
+                                     size_t size)
+{
+    errval_t err;
+
+    mmnode_t *node;
+    err = mm_tracker_alloc(vspace_tracker, &node);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to allocate the ROOT node in the VSpace");
+        return err_push(err, MM_ERR_ALLOC_NODE);
+    }
+
+    node->type = NodeType_Free;
+    node->capinfo = (struct capinfo) { .cap = NULL_CAP, .base = base, .size = size };
+    node->base = base;
+    node->size = size;
+    node->next = NULL;
+    node->prev = NULL;
+    mm_tracker_node_insert(vspace_tracker, node);
+
+    return SYS_ERR_OK;
+}
+
+
 /**
  * TODO(M2): Implement this function.
  * TODO(M4): Improve this function.
@@ -198,6 +236,7 @@ static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size
 errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
                            struct capref pdir, struct slot_allocator *ca)
 {
+    debug_printf("INIT PAGING SHARED\n");
     // TODO (M2): Implement state struct initialization
     // TODO (M4): Implement page fault handler that installs frames when a page fault
     // occurs and keeps track of the virtual address space.
@@ -209,37 +248,26 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     // store slot allocator
     st->slot_allocator = ca;
 
-    // add one node to mmt for whole vspace
-    mmnode_t *node;
-    err = mm_tracker_alloc(&st->vspace_tracker, &node);
+    // add one node to mmt for whole vspace but stack and heap aka readonly
+    err = setup_vspace_tracker(&st->vreadonly_tracker, VREADONLY_OFFSET, VREADONLY_SIZE);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to allocate the ROOT node in the VSpace");
-        return err_push(err, MM_ERR_ALLOC_NODE);
+        DEBUG_ERR(err, "failed to setup readonly tracker");
+        return err;
     }
 
-    /*
-    we set up the virtual memory space here with the following layout:
-    high addr
-        ? - VADDR_MAX_USERSPACE         stack
-        ? - ?                           stack guard page
-        ? - ?                           slabs
-        VADDR_OFFSET -                  heap
-        BASE_PAGE_SIZE - VADDR_OFFSET   readonly (binary, args)
-        0x0 - BASE_PAGE_SIZE            unusuable
-    low addr
-    */
+    // vspace tracker for heap
+    err = setup_vspace_tracker(&st->vheap_tracker, VHEAP_OFFSET, VHEAP_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup heap tracker");
+        return err;
+    }
 
-    // user vspace:      0x0000’00000000 -     0xffff’ffffffff
-    // kernel vspace 0xffff0000’00000000 - 0xffffffff’ffffffff
-    size_t initial_size = VADDR_MAX_USERSPACE - start_vaddr;
-    node->type = NodeType_Free;
-    node->capinfo
-        = (struct capinfo) { .cap = NULL_CAP, .base = start_vaddr, .size = initial_size };
-    node->base = start_vaddr;
-    node->size = initial_size;
-    node->next = NULL;
-    node->prev = NULL;
-    mm_tracker_node_insert(&st->vspace_tracker, node);
+    // vspace tracker for stack
+    err = setup_vspace_tracker(&st->vstack_tracker, VSTACKS_OFFSET, VSTACKS_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup stack tracker");
+        return err;
+    }
 
     return SYS_ERR_OK;
 }
@@ -313,8 +341,12 @@ errval_t paging_init_state_foreign(struct paging_state *st, lvaddr_t start_vaddr
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }
 
+    // init vspace trackers
+    mm_tracker_init(&st->vreadonly_tracker, &st->vspace_slab_allocator);
+    mm_tracker_init(&st->vstack_tracker, &st->vspace_slab_allocator);
+    mm_tracker_init(&st->vheap_tracker, &st->vspace_slab_allocator);
+
     // give virtual memory slab allocator some memory
-    mm_tracker_init(&st->vspace_tracker, &st->vspace_slab_allocator);
     slab_grow(&st->vspace_slab_allocator, vmm_slab_frame_addr,
               vmm_slab_frame_allocated_size);
 
@@ -351,8 +383,12 @@ errval_t paging_init(void)
     static uint8_t pt_buf[SLAB_STATIC_SIZE(16, sizeof(struct page_table))];
     slab_grow(&st->slab_allocator, pt_buf, sizeof(pt_buf));
 
+    // init vspace trackers
+    mm_tracker_init(&st->vreadonly_tracker, &st->vspace_slab_allocator);
+    mm_tracker_init(&st->vstack_tracker, &st->vspace_slab_allocator);
+    mm_tracker_init(&st->vheap_tracker, &st->vspace_slab_allocator);
+
     // give virtual memory slab allocator some memory
-    mm_tracker_init(&st->vspace_tracker, &st->vspace_slab_allocator);
     static uint8_t vspace_buf[SLAB_STATIC_SIZE(16, sizeof(mmnode_t))];
     slab_grow(&st->vspace_slab_allocator, vspace_buf, sizeof(vspace_buf));
 
@@ -410,6 +446,36 @@ errval_t paging_init_onthread(struct thread *t)
     return SYS_ERR_OK;
 }
 
+static errval_t paging_alloc_vspace(mm_tracker_t *vspace_tracker, void **buf,
+                                    size_t bytes, size_t alignment)
+{
+    bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
+    errval_t err;
+
+    // DEBUG_TRACEF("Map frame to free addr: get next fit\n");
+    mmnode_t *vspace_region;
+    err = mm_tracker_get_next_fit(vspace_tracker, &vspace_region, bytes, alignment);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to find free page");
+        return err_push(err, MM_ERR_FIND_NODE);
+    }
+
+    mmnode_t *allocated_node;
+    err = mm_tracker_alloc_range(vspace_tracker, vspace_region->base, bytes,
+                                 &allocated_node);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "mm_tracker_alloc_range failed");
+        err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
+        return err;
+    }
+
+    // DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", vspace_region->base);
+    if (buf != NULL) {
+        *buf = (void *)vspace_region->base;
+    }
+
+    return SYS_ERR_OK;
+}
 
 /**
  * @brief Find a free region of virtual address space that is large enough to accomodate a
@@ -430,30 +496,40 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
      *   - Find a region of free virtual address space that is large enough to
      *     accomodate a buffer of size `bytes`.
      */
-
-    bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
     errval_t err;
 
-    // DEBUG_TRACEF("Map frame to free addr: get next fit\n");
-    mmnode_t *vspace_region;
-    err = mm_tracker_get_next_fit(&st->vspace_tracker, &vspace_region, bytes, alignment);
+    err = paging_alloc_vspace(&st->vreadonly_tracker, buf, bytes, alignment);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to find free page");
-        return err_push(err, MM_ERR_FIND_NODE);
-    }
-
-    mmnode_t *allocated_node;
-    err = mm_tracker_alloc_range(&st->vspace_tracker, vspace_region->base, bytes,
-                                 &allocated_node);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "mm_tracker_alloc_range failed");
-        err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
+        DEBUG_ERR(err, "failed to alloc readonly vspace");
         return err;
     }
 
-    // DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", vspace_region->base);
-    if (buf != NULL) {
-        *buf = (void *)vspace_region->base;
+    return SYS_ERR_OK;
+}
+
+errval_t paging_alloc_stack(struct paging_state *st, void **buf, size_t bytes,
+                            size_t alignment)
+{
+    errval_t err;
+
+    err = paging_alloc_vspace(&st->vstack_tracker, buf, VSTACK_SIZE, alignment);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to alloc stack vspace");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t paging_alloc_heap(struct paging_state *st, void **buf, size_t bytes,
+                           size_t alignment)
+{
+    errval_t err;
+
+    err = paging_alloc_vspace(&st->vheap_tracker, buf, bytes, alignment);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to alloc heap vspace");
+        return err;
     }
 
     return SYS_ERR_OK;
@@ -490,7 +566,7 @@ errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes
     assert(st != NULL);
 
     DEBUG_TRACEF("Map frame to free addr: Refill slabs\n");
-    mm_tracker_refill(&st->vspace_tracker);
+    mm_tracker_refill(&st->vreadonly_tracker);  // TODO should this really be like this?
     paging_refill(st);
 
     bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
@@ -545,7 +621,6 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
     }
 
     assert(parent_pt_index < 512);
-
     err = vnode_map(parent_pt->cap, pt_cap, parent_pt_index, VREGION_FLAGS_READ, 0, 1,
                     pt_mapping_cap);
     if (err_is_fail(err)) {
@@ -723,10 +798,27 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     errval_t err;
 
+    mm_tracker_t *vspace_tracker;
+    if (vaddr < VREADONLY_OFFSET) {
+        err = LIB_ERR_PAGING_MAP_UNUSABLE_VADDR;
+        DEBUG_ERR(err, "vadddr is in the forbidden areas");
+        return err;
+    } else if (vaddr < VHEAP_OFFSET) {
+        vspace_tracker = &st->vreadonly_tracker;
+    } else if (vaddr < VSTACKS_OFFSET) {
+        vspace_tracker = &st->vheap_tracker;
+    } else if (vaddr < VADDR_MAX_USERSPACE) {
+        vspace_tracker = &st->vstack_tracker;
+    } else {
+        err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
+        DEBUG_ERR(err, "vadddr is way of limits");
+        return err;
+    }
+
 #define DEBUG_PAGING_MAP_FIXED_ATTR
 #ifdef DEBUG_PAGING_MAP_FIXED_ATTR
     mmnode_t *allocated_node;
-    err = mm_tracker_find_allocated_node(&st->vspace_tracker, vaddr, &allocated_node);
+    err = mm_tracker_find_allocated_node(vspace_tracker, vaddr, &allocated_node);
     assert(err_is_ok(err));
 #endif
 
@@ -812,7 +904,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     }
 
     // DEBUG_TRACEF("Map frame to fixed addr: Refill slabs\n");
-    mm_tracker_refill(&st->vspace_tracker);
+    mm_tracker_refill(vspace_tracker);
 
     // mm_tracker_debug_print(&st->vspace_tracker);
     // DEBUG_TRACEF("Map frame to fixed addr: Mapped frame\n");
@@ -868,16 +960,34 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
     */
     errval_t err;
 
+    lvaddr_t vaddr = (lvaddr_t)region;
+
+    mm_tracker_t *vspace_tracker;
+    if (vaddr < VREADONLY_OFFSET) {
+        err = LIB_ERR_PAGING_MAP_UNUSABLE_VADDR;
+        DEBUG_ERR(err, "vadddr is in the forbidden areas");
+        return err;
+    } else if (vaddr < VHEAP_OFFSET) {
+        vspace_tracker = &st->vreadonly_tracker;
+    } else if (vaddr < VSTACKS_OFFSET) {
+        vspace_tracker = &st->vheap_tracker;
+    } else if (vaddr < VADDR_MAX_USERSPACE) {
+        vspace_tracker = &st->vstack_tracker;
+    } else {
+        err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
+        DEBUG_ERR(err, "vadddr is way of limits");
+        return err;
+    }
+
     // 1. find node belonging to region
     mmnode_t *allocated_node;
-    err = mm_tracker_find_allocated_node(&st->vspace_tracker, (genpaddr_t)region,
-                                         &allocated_node);
+    err = mm_tracker_find_allocated_node(vspace_tracker, vaddr, &allocated_node);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MMT_FIND_ALLOCATED_NODE);
     }
 
-    genpaddr_t current_vaddr = (genpaddr_t)region;
-    genpaddr_t end_vaddr = current_vaddr + allocated_node->size;
+    genvaddr_t current_vaddr = vaddr;
+    genvaddr_t end_vaddr = current_vaddr + allocated_node->size;
 
     struct page_table *l0_pt = &st->root_page_table;
     struct page_table *l1_pt;
@@ -914,7 +1024,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
             do_recompute = false;
         }
 
-        genpaddr_t paddr = l3_pt->paddrs[l3_index];
+        genvaddr_t paddr = l3_pt->paddrs[l3_index];
         paging_vspace_lookup_delete_entry(st, paddr);
 
         // free the frame slot manually
@@ -953,7 +1063,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
         current_vaddr += BASE_PAGE_SIZE;
     }
 
-    err = mm_tracker_free(&st->vspace_tracker, (genpaddr_t)region, allocated_node->size);
+    err = mm_tracker_free(vspace_tracker, vaddr, allocated_node->size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to free virtual memory region");
         err = err_push(err, MM_ERR_MM_FREE);
