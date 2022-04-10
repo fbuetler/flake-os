@@ -380,7 +380,32 @@ errval_t paging_init_onthread(struct thread *t)
 {
     // TODO (M4):
     //   - setup exception handler for thread `t'.
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+
+    struct capref exception_frame;
+    size_t exception_stack_bytes;
+    err = frame_alloc(&exception_frame, EXCEPTION_STACK_SIZE, &exception_stack_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate frame");
+        return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+
+    void *exception_stack_addr;
+    err = paging_map_frame_attr(get_current_paging_state(), &exception_stack_addr,
+                                exception_stack_bytes, exception_frame,
+                                VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map frame");
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    err = paging_set_exception_handler(exception_stack_addr, exception_stack_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to set page fault exception handler");
+        return err_push(err, LIB_ERR_PAGING_STATE_INIT);
+    }
+
+    return SYS_ERR_OK;
 }
 
 
