@@ -40,7 +40,7 @@
 
 /// Maximum number of threads in a domain, used to size VM region for thread structures
 // there is no point having MAX_THREADS > LDT_NENTRIES on x86 (see ldt.c)
-#define MAX_THREADS 256
+//#define MAX_THREADS 256
 
 /// Static stack and storage for a bootstrap/cleanup thread
 // XXX: 16-byte aligned for x86-64
@@ -427,7 +427,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     // reserve stack space, the pointer points to the bottom of the topmost page in the stack
     void *stack;
     err = paging_alloc_region(get_current_paging_state(), VREGION_TYPE_STACK, &stack,
-                              VSTACK_SIZE, BASE_PAGE_SIZE);
+                              stacksize, BASE_PAGE_SIZE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate stack");
         return NULL;
@@ -491,7 +491,8 @@ struct thread *thread_create_varstack(thread_func_t start_func, void *arg,
  */
 struct thread *thread_create(thread_func_t start_func, void *arg)
 {
-    return thread_create_varstack(start_func, arg, THREADS_DEFAULT_STACK_BYTES);
+    return thread_create_varstack(start_func, arg, VSTACK_SIZE);
+    //return thread_create_varstack(start_func, arg, THREADS_DEFAULT_STACK_BYTES);
 }
 
 /**
