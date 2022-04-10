@@ -150,9 +150,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     // TODO track vaddr <-> paddr mapping
 }
 
-
-#define INTERNAL_STACK_SIZE (1 << 14)
-static char internal_ex_stack[INTERNAL_STACK_SIZE];
+static char internal_ex_stack[EXCEPTION_STACK_SIZE];
 
 /**
  * \brief registers a page fault exception handler.
@@ -167,11 +165,11 @@ static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size
     errval_t err;
 
     char *stack_top = NULL;
-    if (stack_base && stack_size >= 4096u) {
+    if (stack_base && stack_size >= EXCEPTION_STACK_MIN_SIZE) {
         stack_top = stack_base + stack_size;
     } else {  // use our exception stack region
         stack_base = internal_ex_stack;
-        stack_top = stack_base + INTERNAL_STACK_SIZE;
+        stack_top = stack_base + EXCEPTION_STACK_SIZE;
     }
 
     exception_handler_fn old_handler;
@@ -219,9 +217,19 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
         return err_push(err, MM_ERR_ALLOC_NODE);
     }
 
+    /*
+    we set up the virtual memory space here with the following layout:
+    high addr
+        ? - VADDR_MAX_USERSPACE     stack
+        ? - ?                       stack guard page
+        VADDR_OFFSET -              heap
+        0x0 - VADDR_OFFSET          unusuable (binary, args)
+    low addr
+    */
+
     // user vspace:      0x0000’00000000 -     0xffff’ffffffff
     // kernel vspace 0xffff0000’00000000 - 0xffffffff’ffffffff
-    size_t initial_size = 0xffffffffffff - start_vaddr;
+    size_t initial_size = VADDR_MAX_USERSPACE - start_vaddr;
     node->type = NodeType_Free;
     node->capinfo
         = (struct capinfo) { .cap = NULL_CAP, .base = start_vaddr, .size = initial_size };
@@ -230,12 +238,6 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     node->next = NULL;
     node->prev = NULL;
     mm_tracker_node_insert(&st->vspace_tracker, node);
-
-    // set page fault exception handler
-    err = paging_set_exception_handler(NULL, 0);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_PAGING_STATE_INIT);
-    }
 
     return SYS_ERR_OK;
 }
@@ -354,6 +356,12 @@ errval_t paging_init(void)
 
     // init paging state
     err = paging_init_state(st, VADDR_OFFSET, cap_vroot, get_default_slot_allocator());
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PAGING_STATE_INIT);
+    }
+
+    // set page fault exception handler
+    err = paging_set_exception_handler(NULL, 0);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PAGING_STATE_INIT);
     }
