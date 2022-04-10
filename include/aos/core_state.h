@@ -32,6 +32,7 @@ struct morecore_state {
     Header *header_freep;
     // for "real" morecore (lib/aos/morecore.c)
     // TODO: add some state here if needed.
+    struct paging_state *paging_state;
     // for "static" morecore (see lib/aos/static_morecore.c)
     char *freep;
 };

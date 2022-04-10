@@ -102,12 +102,12 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
 {
     errval_t err;
 
-    // struct morecore_state *st = get_morecore_state();
+    struct morecore_state *st = get_morecore_state();
     // TODO update book keeping: track heap
 
     // reserve a region of virtual memory for the heap
     void *buf;
-    err = paging_alloc(get_current_paging_state(), &buf, bytes, 1);
+    err = paging_alloc(st->paging_state, &buf, bytes, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate a virtual memory for heap");
         return NULL;
@@ -124,10 +124,10 @@ static void morecore_free(void *base, size_t bytes)
 {
     errval_t err;
 
-    // struct morecore_state *st = get_morecore_state();
+    struct morecore_state *st = get_morecore_state();
     // TODO update book keeping
 
-    err = paging_unmap(get_current_paging_state(), base);
+    err = paging_unmap(st->paging_state, base);
     if (err_is_fail(err)) {
         if (err == MM_ERR_MMT_FIND_ALLOCATED_NODE) {
             return;
@@ -146,6 +146,7 @@ errval_t morecore_init(size_t alignment)
     thread_mutex_init(&st->mutex);
 
     // TODO init book keeping
+    st->paging_state = get_current_paging_state();
 
     sys_morecore_alloc = morecore_alloc;
     sys_morecore_free = morecore_free;
