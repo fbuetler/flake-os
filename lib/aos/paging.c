@@ -220,10 +220,12 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     /*
     we set up the virtual memory space here with the following layout:
     high addr
-        ? - VADDR_MAX_USERSPACE     stack
-        ? - ?                       stack guard page
-        VADDR_OFFSET -              heap
-        0x0 - VADDR_OFFSET          unusuable (binary, args)
+        ? - VADDR_MAX_USERSPACE         stack
+        ? - ?                           stack guard page
+        ? - ?                           slabs
+        VADDR_OFFSET -                  heap
+        BASE_PAGE_SIZE - VADDR_OFFSET   readonly (binary, args)
+        0x0 - BASE_PAGE_SIZE            unusuable
     low addr
     */
 

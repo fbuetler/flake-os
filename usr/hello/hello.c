@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < argc; i++) {
         printf("arg %d: %s\n", i, argv[i]);
     }
-    printf("argument variable: (%p, %d)\n", argv, argv[0]);
+    printf("argument variable: (%p, %s)\n", argv, argv[0]);
 
     int stack_var = 27;
     printf("stack variable: (%p, %d)\n", &stack_var, stack_var);

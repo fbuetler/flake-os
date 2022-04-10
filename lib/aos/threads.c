@@ -340,13 +340,6 @@ static void free_thread(struct thread *thread)
 struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
                                         size_t stacksize)
 {
-    // allocate stack
-    assert((stacksize % sizeof(uintptr_t)) == 0);
-    void *stack = malloc(stacksize);
-    if (stack == NULL) {
-        return NULL;
-    }
-
     // allocate space for TCB + initial TLS data
     // no mutex as it may deadlock: see comment for thread_slabs_spinlock
     // thread_mutex_lock(&thread_slabs_mutex);
@@ -355,7 +348,6 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     release_spinlock(&thread_slabs_spinlock);
     // thread_mutex_unlock(&thread_slabs_mutex);
     if (space == NULL) {
-        free(stack);
         return NULL;
     }
 
@@ -395,10 +387,16 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error allocating LDT segment for new thread");
         free_thread(newthread);
-        free(stack);
         return NULL;
     }
 #endif
+
+    // allocate stack
+    assert((stacksize % sizeof(uintptr_t)) == 0);
+    void *stack = malloc(stacksize);
+    if (stack == NULL) {
+        return NULL;
+    }
 
     // init stack
     newthread->stack = stack;
