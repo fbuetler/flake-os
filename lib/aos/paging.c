@@ -105,17 +105,31 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     // align address to base page size
     lvaddr_t addr_aligned = ROUND_DOWN((lvaddr_t)addr, BASE_PAGE_SIZE);
 
+    // virtual memory region has to be logically allocated before it can be mapped
+    mmnode_t *allocated_node;
+    err = mm_tracker_find_allocated_node(&st->vspace_tracker, addr_aligned,
+                                         &allocated_node);
+    if (err_is_fail(err)) {
+        // TODO fault?
+        mm_tracker_debug_print(&st->vspace_tracker);
+        debug_printf("unallocated region at %p\n", addr);
+        USER_PANIC("Unallocated region in segfault");
+    }
+
+    size_t frame_size = ROUND_UP(allocated_node->size, BASE_PAGE_SIZE);
+
     // allocate a frame
     struct capref frame;
     size_t allocated_bytes;
-    err = frame_alloc(&frame, BASE_PAGE_SIZE, &allocated_bytes);
+    err = frame_alloc(&frame, frame_size, &allocated_bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate frame");
         return;
     }
 
-    if (allocated_bytes != BASE_PAGE_SIZE) {
-        DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "allocated frame is not big enough");
+    if (allocated_bytes != frame_size) {
+        DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "allocated frame is not big "
+                                                     "enough");
         // TODO free frame
         cap_destroy(frame);
         return;
@@ -124,17 +138,8 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     debug_printf("page fault type %d at addr: 0x%lx\n", subtype, addr);
     debug_printf("install frame at address 0x%lx\n", addr_aligned);
 
-    // virtual memory region has to be logically allocated before it can be mapped
-    mmnode_t *allocated_node;
-    err = mm_tracker_find_allocated_node(&st->vspace_tracker, addr_aligned,
-                                         &allocated_node);
-    if (err_is_fail(err)) {
-        // TODO fault?
-        USER_PANIC("Unallocated region in segfault");
-    }
-
     // install frame at the faulting address
-    err = paging_map_fixed_attr(st, addr_aligned, frame, BASE_PAGE_SIZE,
+    err = paging_map_fixed_attr(st, addr_aligned, frame, allocated_bytes,
                                 VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map frame");
@@ -214,6 +219,8 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
         return err_push(err, MM_ERR_ALLOC_NODE);
     }
 
+    // user vspace:      0x0000’00000000 -     0xffff’ffffffff
+    // kernel vspace 0xffff0000’00000000 - 0xffffffff’ffffffff
     size_t initial_size = 0xffffffffffff - start_vaddr;
     node->type = NodeType_Free;
     node->capinfo
@@ -393,15 +400,15 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
     errval_t err;
 
     // DEBUG_TRACEF("Map frame to free addr: get next fit\n");
-    mmnode_t *frame_region;
-    err = mm_tracker_get_next_fit(&st->vspace_tracker, &frame_region, bytes, alignment);
+    mmnode_t *vspace_region;
+    err = mm_tracker_get_next_fit(&st->vspace_tracker, &vspace_region, bytes, alignment);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to find free page");
         return err_push(err, MM_ERR_FIND_NODE);
     }
 
     mmnode_t *allocated_node;
-    err = mm_tracker_alloc_range(&st->vspace_tracker, frame_region->base, bytes,
+    err = mm_tracker_alloc_range(&st->vspace_tracker, vspace_region->base, bytes,
                                  &allocated_node);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "mm_tracker_alloc_range failed");
@@ -409,9 +416,9 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
         return err;
     }
 
-    // DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", frame_region->base);
+    // DEBUG_TRACEF("Map frame to free addr: frame address 0x%lx\n", vspace_region->base);
     if (buf != NULL) {
-        *buf = (void *)frame_region->base;
+        *buf = (void *)vspace_region->base;
     }
 
     return SYS_ERR_OK;
@@ -830,14 +837,12 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
     mmnode_t *allocated_node;
     err = mm_tracker_find_allocated_node(&st->vspace_tracker, (genpaddr_t)region,
                                          &allocated_node);
-
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MMT_FIND_ALLOCATED_NODE);
     }
 
     genpaddr_t current_vaddr = (genpaddr_t)region;
     genpaddr_t end_vaddr = current_vaddr + allocated_node->size;
-
 
     struct page_table *l0_pt = &st->root_page_table;
     struct page_table *l1_pt;
