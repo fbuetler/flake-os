@@ -200,11 +200,37 @@ void thread_remove_from_queue(struct thread **queue, struct thread *thread)
 
 /// Refill backing storage for thread region
 #ifdef SELF_PAGING_WORKS
-static errval_t refill_thread_slabs(struct slab_allocator *slabs)
+static errval_t refill_thread_slabs(struct slab_allocator *slab_allocator)
 {
     // TODO(M4):
     //   - implement me!
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+
+    // allocate frame for thread slab allocator
+    struct capref thread_slab_frame;
+    size_t thread_slab_frame_allocated_size;
+    err = frame_alloc(&thread_slab_frame, SLAB_STATIC_SIZE(64, sizeof(struct thread)),
+                      &thread_slab_frame_allocated_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated frame");
+        return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+
+    // map frame for paging slab allocator
+    void *thread_slab_frame_addr;
+    err = paging_map_frame_attr(get_current_paging_state(), &thread_slab_frame_addr,
+                                thread_slab_frame_allocated_size, thread_slab_frame,
+                                VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map frame");
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    // give frame to paging slab allocator
+    slab_init(slab_allocator, sizeof(struct thread), pt_slab_default_refill);
+    slab_grow(slab_allocator, thread_slab_frame_addr, thread_slab_frame_allocated_size);
+
+    return SYS_ERR_OK;
 }
 #endif
 
