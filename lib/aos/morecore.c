@@ -106,7 +106,7 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
 
     // reserve a region of virtual memory for the heap
     void *buf;
-    err = paging_alloc_heap(st->paging_state, &buf, bytes, 1);
+    err = paging_alloc(st->paging_state, &buf, bytes, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate a virtual memory for heap");
         return NULL;

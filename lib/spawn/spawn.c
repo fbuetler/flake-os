@@ -447,9 +447,9 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
     DEBUG_TRACEF("mapping dispatcher frame into child vspace\n");
     // map dispatcher frame into child process
     void *dispatcher_frame_addr_child;
-    err = paging_map_frame_attr(&si->paging_state, &dispatcher_frame_addr_child,
-                                DISPATCHER_FRAME_SIZE, si->dispatcher_frame_cap,
-                                VREGION_FLAGS_READ_WRITE);
+    err = paging_map_frame_attr_region(
+        &si->paging_state, VREGION_TYPE_READONLY, &dispatcher_frame_addr_child,
+        DISPATCHER_FRAME_SIZE, si->dispatcher_frame_cap, VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map dispatcher frame into childs vspace");
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_NEW);
@@ -532,8 +532,9 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     DEBUG_TRACEF("Map arguments frame in childs vspace\n");
     // map args frame into childs vspace
     void *args_frame_addr_child;
-    err = paging_map_frame_attr(&si->paging_state, &args_frame_addr_child, ARGS_SIZE,
-                                si->args_frame_cap, VREGION_FLAGS_READ_WRITE);
+    err = paging_map_frame_attr_region(&si->paging_state, VREGION_TYPE_READONLY,
+                                       &args_frame_addr_child, ARGS_SIZE,
+                                       si->args_frame_cap, VREGION_FLAGS_READ);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map args frame into childs vspace");
         return err_push(err, SPAWN_ERR_MAP_ARGSPG_TO_NEW);

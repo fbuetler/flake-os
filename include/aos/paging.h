@@ -35,6 +35,12 @@ errval_t paging_init(void);
 
 errval_t paging_init_onthread(struct thread *t);
 
+enum vregion_type {
+    VREGION_TYPE_NULL = 0,
+    VREGION_TYPE_READONLY,
+    VREGION_TYPE_HEAP,
+    VREGION_TYPE_STACK,
+};
 
 /**
  * \brief Find a bit of free virtual address space that is large enough to
@@ -42,11 +48,8 @@ errval_t paging_init_onthread(struct thread *t);
  */
 errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t alignment);
 
-errval_t paging_alloc_stack(struct paging_state *st, void **buf, size_t bytes,
-                            size_t alignment);
-
-errval_t paging_alloc_heap(struct paging_state *st, void **buf, size_t bytes,
-                           size_t alignment);
+errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, void **buf,
+                             size_t bytes, size_t alignment);
 
 /**
  * Functions to map a user provided frame.
@@ -54,6 +57,9 @@ errval_t paging_alloc_heap(struct paging_state *st, void **buf, size_t bytes,
 /// Map user provided frame with given flags while allocating VA space for it
 errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes,
                                struct capref frame, int flags);
+errval_t paging_map_frame_attr_region(struct paging_state *st, enum vregion_type type,
+                                      void **buf, size_t bytes, struct capref frame,
+                                      int flags);
 /// Map user provided frame at user provided VA with given flags.
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
                                struct capref frame, size_t bytes, int flags);

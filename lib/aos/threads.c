@@ -423,8 +423,8 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
 
     // reserve stack space
     void *stack;
-    err = paging_alloc_stack(get_current_paging_state(), &stack, VSTACK_SIZE,
-                             BASE_PAGE_SIZE);
+    err = paging_alloc_region(get_current_paging_state(), VREGION_TYPE_STACK, &stack,
+                              VSTACK_SIZE, BASE_PAGE_SIZE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate stack");
         return NULL;
