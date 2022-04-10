@@ -701,6 +701,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
     }
 
+    DEBUG_TRACEF("Get free PID\n");
     err = spawn_get_free_pid(pid);
     if (err_is_fail(err)) {
         // TODO out of PIDs, maybe kill a process?
@@ -708,9 +709,11 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return LIB_ERR_SHOULD_NOT_GET_HERE;
     }
 
+    DEBUG_TRACEF("Add process\n");
     si->pid = *pid;
     spawn_add_process(si);
 
+    DEBUG_TRACEF("Setup channel to child\n");
     // setup lmp channel via handshake to child
     err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si->rpc);
     if (err_is_fail(err)) {
@@ -718,6 +721,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err;
     }
 
+    DEBUG_TRACEF("Spawn complete\n");
     return SYS_ERR_OK;
 }
 
