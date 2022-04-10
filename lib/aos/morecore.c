@@ -27,7 +27,7 @@ extern morecore_free_func_t sys_morecore_free;
 // this define makes morecore use an implementation that just has a static
 // 16MB heap.
 // TODO (M4): use a dynamic heap instead,
-#define USE_STATIC_HEAP
+// #define USE_STATIC_HEAP
 
 #ifdef USE_STATIC_HEAP
 
@@ -100,26 +100,62 @@ errval_t morecore_reinit(void)
  */
 static void *morecore_alloc(size_t bytes, size_t *retbytes)
 {
-    USER_PANIC("NYI: implement me (M4)\n");
-    return NULL;
+    errval_t err;
+
+    // struct morecore_state *st = get_morecore_state();
+    // TODO update book keeping: track heap
+
+    // reserve a region of virtual memory for the heap
+    void *buf;
+    err = paging_alloc(get_current_paging_state(), &buf, bytes, 1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate a virtual memory for heap");
+        return NULL;
+    }
+    *retbytes = bytes;
+
+    // debug_printf("reserved (0x%lx, 0x%lx)\n", buf, *retbytes);
+    mm_tracker_debug_print(&get_current_paging_state()->vspace_tracker);
+
+    return buf;
 }
 
 static void morecore_free(void *base, size_t bytes)
 {
-    USER_PANIC("NYI: implement me (M4)\n");
+    errval_t err;
+
+    // struct morecore_state *st = get_morecore_state();
+    // TODO update book keeping
+
+    err = paging_unmap(get_current_paging_state(), base);
+    if (err_is_fail(err)) {
+        if (err == MM_ERR_MMT_FIND_ALLOCATED_NODE) {
+            return;
+        }
+        DEBUG_ERR(err, "failed to unmap page");
+        return;
+    }
 }
 
 errval_t morecore_init(size_t alignment)
 {
     debug_printf("initializing dynamic heap\n");
 
-    USER_PANIC("NYI: implement me (M4)\n");
-    return LIB_ERR_NOT_IMPLEMENTED;
+    struct morecore_state *st = get_morecore_state();
+
+    thread_mutex_init(&st->mutex);
+
+    // TODO init book keeping
+
+    sys_morecore_alloc = morecore_alloc;
+    sys_morecore_free = morecore_free;
+
+    return SYS_ERR_OK;
 }
 
 errval_t morecore_reinit(void)
 {
-    USER_PANIC("NYI \n");
+    // TODO do we have to do something here?
     return SYS_ERR_OK;
 }
 

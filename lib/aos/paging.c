@@ -135,8 +135,8 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         return;
     }
 
-    debug_printf("page fault type %d at addr: 0x%lx\n", subtype, addr);
-    debug_printf("install frame at address 0x%lx\n", addr_aligned);
+    // debug_printf("page fault type %d at addr: 0x%lx\n", subtype, addr);
+    // debug_printf("install frame at address 0x%lx\n", addr_aligned);
 
     // install frame at the faulting address
     err = paging_map_fixed_attr(st, addr_aligned, frame, allocated_bytes,
