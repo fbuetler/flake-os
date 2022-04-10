@@ -31,4 +31,5 @@ mkdir -p $BF_BUILD
 docker run -u $(id -u) -i -t \
     --mount type=bind,source=$BF_SOURCE,target=/source \
     --mount type=bind,source=$BF_BUILD,target=/build \
+    --privileged \
     $BF_DOCKER
