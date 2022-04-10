@@ -48,6 +48,7 @@ static char *endp = mymem + HEAP_SIZE;
  */
 static void *morecore_alloc(size_t bytes, size_t *retbytes)
 {
+    DEBUG_PRINTF("morecore alloc called \n");
     struct morecore_state *state = get_morecore_state();
 
     size_t aligned_bytes = ROUND_UP(bytes, sizeof(Header));
@@ -101,20 +102,25 @@ errval_t morecore_reinit(void)
 static void *morecore_alloc(size_t bytes, size_t *retbytes)
 {
     errval_t err;
+    DEBUG_PRINTF("morecore dynamic called \n");
 
     struct morecore_state *st = get_morecore_state();
 
     // reserve a region of virtual memory for the heap
+    size_t aligned_bytes = ROUND_UP(bytes, sizeof(Header));
     void *buf;
-    err = paging_alloc(st->paging_state, &buf, bytes, 1);
+    err = paging_alloc(st->paging_state, &buf, aligned_bytes, 1);
+    DEBUG_PRINTF("after paging_alloc in morecore\n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate a virtual memory for heap");
         return NULL;
     }
-    *retbytes = bytes;
+    DEBUG_PRINTF("before retbytes morecore\n");
+    *retbytes = aligned_bytes;
 
-    debug_printf("reserved (0x%lx, 0x%lx)\n", buf, *retbytes);
-    mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
+    DEBUG_PRINTF("after retbytes morecore\n");
+    // debug_printf("reserved (0x%lx, 0x%lx)\n", buf, *retbytes);
+    // mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
 
     return buf;
 }
@@ -143,7 +149,7 @@ errval_t morecore_init(size_t alignment)
 
     thread_mutex_init(&st->mutex);
 
-    mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
+    // mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
     st->paging_state = get_current_paging_state();
 
     sys_morecore_alloc = morecore_alloc;

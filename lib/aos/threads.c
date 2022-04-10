@@ -197,40 +197,39 @@ void thread_remove_from_queue(struct thread **queue, struct thread *thread)
 #endif
 }
 
-
 /// Refill backing storage for thread region
 #ifdef SELF_PAGING_WORKS
+int thread_slabs_is_refilling = false;
 static errval_t refill_thread_slabs(struct slab_allocator *slab_allocator)
 {
     // TODO(M4):
     //   - implement me!
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
 
-    // allocate frame for thread slab allocator
-    struct capref thread_slab_frame;
-    size_t thread_slab_frame_allocated_size;
-    err = frame_alloc(&thread_slab_frame, SLAB_STATIC_SIZE(64, sizeof(struct thread)),
-                      &thread_slab_frame_allocated_size);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to allocated frame");
-        return err_push(err, LIB_ERR_FRAME_ALLOC);
+    if (thread_slabs_is_refilling) {
+        return SYS_ERR_OK;
     }
+    thread_slabs_is_refilling = true;
 
-    // map frame for paging slab allocator
-    void *thread_slab_frame_addr;
-    err = paging_map_frame_attr(get_current_paging_state(), &thread_slab_frame_addr,
-                                thread_slab_frame_allocated_size, thread_slab_frame,
-                                VREGION_FLAGS_READ_WRITE);
+    // allocate for thread slab allocator
+    size_t blocksize = sizeof(struct thread) + tls_block_total_len;
+    DEBUG_PRINTF("blocksize: %zu - sizeof thread: %zu", blocksize, sizeof(struct thread));
+
+    void *buf;
+    size_t size = SLAB_STATIC_SIZE(16, blocksize);
+    err = paging_alloc(get_current_paging_state(), &buf, size, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map frame");
-        return err_push(err, LIB_ERR_VSPACE_MAP);
+        err = err_push(err, LIB_ERR_VSPACE_MAP);
+        goto unwind;
     }
 
     // give frame to paging slab allocator
-    slab_init(slab_allocator, sizeof(struct thread), pt_slab_default_refill);
-    slab_grow(slab_allocator, thread_slab_frame_addr, thread_slab_frame_allocated_size);
+    slab_grow(slab_allocator, buf, size);
 
-    return SYS_ERR_OK;
+unwind:
+    thread_slabs_is_refilling = false;
+    return err;
 }
 #endif
 
@@ -366,12 +365,16 @@ static void free_thread(struct thread *thread)
 struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
                                         size_t stacksize)
 {
+    DEBUG_PRINTF("child thread spinlock\n");
     // allocate space for TCB + initial TLS data
     // no mutex as it may deadlock: see comment for thread_slabs_spinlock
     // thread_mutex_lock(&thread_slabs_mutex);
     acquire_spinlock(&thread_slabs_spinlock);
+    DEBUG_PRINTF("aquired spinlock \n");
     void *space = slab_alloc(&thread_slabs);
+    DEBUG_PRINTF("after slab allocation\n");
     release_spinlock(&thread_slabs_spinlock);
+    DEBUG_PRINTF("after spinlock \n");
     // thread_mutex_unlock(&thread_slabs_mutex);
     if (space == NULL) {
         return NULL;
@@ -421,7 +424,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
 
     errval_t err;
 
-    // reserve stack space
+    // reserve stack space, the pointer points to the bottom of the topmost page in the stack
     void *stack;
     err = paging_alloc_region(get_current_paging_state(), VREGION_TYPE_STACK, &stack,
                               VSTACK_SIZE, BASE_PAGE_SIZE);
@@ -430,26 +433,12 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
         return NULL;
     }
 
-    // allocate stack frame
-    struct capref stack_frame;
-    size_t stack_stack_bytes;
-    err = frame_alloc(&stack_frame, stacksize, &stack_stack_bytes);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to allocate frame");
-        return NULL;
-    }
-
-    // allocate stack
-    err = paging_map_fixed_attr(get_current_paging_state(), (lvaddr_t)stack, stack_frame,
-                                stack_stack_bytes, VREGION_FLAGS_READ_WRITE);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to map frame");
-        return NULL;
-    }
-
     // init stack
     newthread->stack = stack;
     newthread->stack_top = (char *)stack + stacksize;
+
+    DEBUG_PRINTF("reserved stack: (0x%lx, 0x%lx)\n", newthread->stack,
+                 newthread->stack_top);
 
     // waste space for alignment, if malloc gave us an unaligned stack
     newthread->stack_top = (char *)newthread->stack_top

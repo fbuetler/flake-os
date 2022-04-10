@@ -148,7 +148,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     }
 
     debug_printf("page fault type %d at addr: 0x%lx\n", subtype, vaddr);
-    mm_tracker_debug_print(vspace_tracker);
+    // mm_tracker_debug_print(vspace_tracker);
 
     // install frame at the faulting address
     err = paging_map_fixed_attr(st, vaddr_aligned, frame, allocated_bytes,
@@ -470,7 +470,7 @@ errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, vo
                              size_t bytes, size_t alignment)
 {
     errval_t err;
-
+    DEBUG_PRINTF("paging_alloc region called \n");
     mm_tracker_t *vspace_tracker;
     switch (type) {
     case VREGION_TYPE_READONLY:

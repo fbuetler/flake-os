@@ -720,6 +720,7 @@ void run_m2_tests(void)
 {
     // spawn processes
     test_spawn_single_process();
+    return;
     test_spawn_multiple_processes(2);
     // test_spawn_multiple_processes(4);
     // test_spawn_multiple_processes(5);
@@ -1024,6 +1025,8 @@ __attribute__((unused)) static void test_reserve_vspace_region(void)
     size_t n = 100 * one_mb / sizeof(size_t);
     size_t *large_arry = malloc(n);
     large_arry[n / 2] = 27;
+    assert(large_arry[n / 2] == 27);
+    printf("done with reserve vspace region \n ");
 }
 
 void run_m4_tests(void)

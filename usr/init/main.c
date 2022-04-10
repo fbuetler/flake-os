@@ -68,9 +68,9 @@ static int bsp_main(int argc, char *argv[])
     init_spawninfo.rpc.chan.buflen_words = 256;
 
     // run_m1_tests();
-    // run_m2_tests();
+    run_m2_tests();
     // run_m3_tests();
-    run_m4_tests();
+    // run_m4_tests();
 
     // TODO: Spawn system processes, boot second core etc. here
 
@@ -121,14 +121,14 @@ int main(int argc, char *argv[])
 
     char *platform;
     switch (platform_info.platform) {
-        case PI_PLATFORM_QEMU:
-            platform = "QEMU";
-            break;
-        case PI_PLATFORM_IMX8X:
-            platform = "IMX8X";
-            break;
-        default:
-            platform = "UNKNOWN";
+    case PI_PLATFORM_QEMU:
+        platform = "QEMU";
+        break;
+    case PI_PLATFORM_IMX8X:
+        platform = "IMX8X";
+        break;
+    default:
+        platform = "UNKNOWN";
     }
 
     debug_printf("init domain starting on core %" PRIuCOREID " (%s), invoked as:",

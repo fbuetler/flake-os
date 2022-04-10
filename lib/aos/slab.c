@@ -185,13 +185,17 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
     // Hint: you can't just use malloc here...
     // Hint: For M1, just use the fixed mapping funcionality, however you may want to replace
     //       the fixed mapping later to avoid conflicts.
+    DEBUG_PRINTF("inside slab_refill_pages \n");
+
     errval_t err;
 
     struct paging_state *st = get_current_paging_state();
 
     DEBUG_TRACEF("Slab refill: alloc frame\n");
+
     struct capref frame_cap;
     size_t allocated_bytes;
+    DEBUG_PRINTF("slab_refill_pages requested of bytes: 0x%zx \n", bytes);
     err = frame_alloc(&frame_cap, bytes, &allocated_bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated frame");
@@ -201,31 +205,34 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
     DEBUG_TRACEF("Slab refill: map frame\n");
     void *vaddr;
     err = paging_map_frame(st, &vaddr, allocated_bytes, frame_cap);
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to do page mapping");
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
 
     DEBUG_TRACEF("Slab refill: grow slab allocator\n");
-    slab_grow(slabs, vaddr, allocated_bytes);
+    slab_grow(slabs, vaddr, bytes);
 
+
+    DEBUG_PRINTF("%s: success\n", __func__);
     return SYS_ERR_OK;
-/* original
-    errval_t err;
-    struct capref cap;
+    /* original
+        errval_t err;
+        struct capref cap;
 
-    err = slot_alloc(&cap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
+        err = slot_alloc(&cap);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_ALLOC);
+        }
 
-    err = slab_refill_no_pagefault(slabs, cap, bytes);
-    if (err_is_fail(err)) {
-        slot_free(cap);
-    }
+        err = slab_refill_no_pagefault(slabs, cap, bytes);
+        if (err_is_fail(err)) {
+            slot_free(cap);
+        }
 
-    return err;
-*/
+        return err;
+    */
 }
 
 
@@ -262,5 +269,5 @@ errval_t slab_default_refill(struct slab_allocator *slabs)
 
 errval_t pt_slab_default_refill(struct slab_allocator *slabs)
 {
-    return slab_refill_pages(slabs, 32*BASE_PAGE_SIZE);
+    return slab_refill_pages(slabs, 32 * BASE_PAGE_SIZE);
 }

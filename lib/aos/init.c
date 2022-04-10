@@ -124,6 +124,7 @@ __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t le
     return 0;
 }
 
+static struct aos_rpc rpc;
 
 /* Set libc function pointers */
 void barrelfish_libc_glue_init(void)
@@ -199,14 +200,17 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return SYS_ERR_OK;
     }
 
-    struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
-    err = aos_rpc_init(rpc);
+    DEBUG_PRINTF("before malloc in init.c \n");
+    // struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
+    err = aos_rpc_init(&rpc);
+    DEBUG_PRINTF("After aos_rpc_init.c \n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init rpc");
         return err;
     }
 
     // reset the RAM allocator to use ram_alloc_remote
+    DEBUG_PRINTF("Changing ram allocator \n");
     ram_alloc_set(NULL);
 
     return SYS_ERR_OK;
