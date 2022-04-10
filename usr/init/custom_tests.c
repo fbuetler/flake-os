@@ -1019,9 +1019,18 @@ __attribute__((unused)) static void test_trigger_page_fault(void)
     printf("%d\n", *addr);
 }
 
+__attribute__((unused)) static void test_reserve_vspace_region(void)
+{
+    size_t one_mb = 1 << 20;
+    size_t n = 100 * one_mb / sizeof(size_t);
+    size_t *large_arry = malloc(n);
+    large_arry[n / 2] = 27;
+}
+
 void run_m4_tests(void)
 {
-    test_trigger_page_fault();
+    // test_trigger_page_fault();
+    test_reserve_vspace_region();
 }
 
 /*
