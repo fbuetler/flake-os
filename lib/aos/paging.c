@@ -632,6 +632,16 @@ static errval_t paging_vspace_lookup_insert_entry(struct paging_state *st,
     return SYS_ERR_OK;
 }
 
+static errval_t paging_vspace_lookup_delete_entry(struct paging_state *st,
+                                                  genpaddr_t paddr)
+{
+    errval_t err;
+
+    collections_hash_delete(st->vspace_lookup, paddr);
+
+    return SYS_ERR_OK;
+}
+
 /**
  * @brief mapps the provided frame at the supplied address in the paging state
  *
@@ -863,8 +873,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
         }
 
         genpaddr_t paddr = l3_pt->paddrs[l3_index];
-        debug_printf("Deleting 0x%lx\n", paddr);
-        collections_hash_delete(st->vspace_lookup, paddr);
+        paging_vspace_lookup_delete_entry(st, paddr);
 
         // free the frame slot manually
         err = cap_destroy(l3_pt->mappings[l3_index]);
