@@ -394,8 +394,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
 
     // DEBUG_TRACEF("Map frame to free addr: get next fit\n");
     mmnode_t *frame_region;
-    err = mm_tracker_get_next_fit(&st->vspace_tracker, &frame_region, bytes,
-                                  BASE_PAGE_SIZE);
+    err = mm_tracker_get_next_fit(&st->vspace_tracker, &frame_region, bytes, alignment);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to find free page");
         return err_push(err, MM_ERR_FIND_NODE);
