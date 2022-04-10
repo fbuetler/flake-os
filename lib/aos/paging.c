@@ -608,6 +608,7 @@ static errval_t paging_vspace_lookup_insert_entry(struct paging_state *st,
                                                   genpaddr_t paddr, genvaddr_t vaddr,
                                                   size_t bytes)
 {
+    return SYS_ERR_OK;
     errval_t err;
 
     if (!st->vspace_lookup) {
@@ -627,6 +628,8 @@ static errval_t paging_vspace_lookup_insert_entry(struct paging_state *st,
     }
     region->vaddr = vaddr;
     region->bytes = bytes;
+    // TODO currently fails when the same binary is spawned
+    // as we use its static frame and therefore we have the same paddrs
     collections_hash_insert(st->vspace_lookup, paddr, region);
 
     return SYS_ERR_OK;
@@ -635,7 +638,7 @@ static errval_t paging_vspace_lookup_insert_entry(struct paging_state *st,
 static errval_t paging_vspace_lookup_delete_entry(struct paging_state *st,
                                                   genpaddr_t paddr)
 {
-    errval_t err;
+    return SYS_ERR_OK;
 
     collections_hash_delete(st->vspace_lookup, paddr);
 
