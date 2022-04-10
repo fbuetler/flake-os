@@ -25,7 +25,7 @@
  */
 static void aos_process_handshake(struct aos_rpc_msg *msg)
 {
-    DEBUG_PRINTF("Handshake ACK\n");
+    DEBUG_TRACEF("Handshake ACK\n");
     free(msg);
 }
 

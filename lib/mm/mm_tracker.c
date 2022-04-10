@@ -150,7 +150,7 @@ void mm_tracker_node_merge(struct mm_tracker *mmt, mmnode_t *left_split)
     if (left_split->type == NodeType_Free && right_split->type == NodeType_Free) {
         assert(left_split->base + left_split->size == right_split->base);
 
-        debug_printf("Coalescing blocks at: %lx and %lx\n", left_split->base,
+        DEBUG_TRACEF("Coalescing blocks at: %lx and %lx\n", left_split->base,
                      right_split->base);
 
         // resize left split
