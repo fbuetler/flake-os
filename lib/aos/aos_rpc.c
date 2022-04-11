@@ -95,9 +95,7 @@ static errval_t aos_rpc_recv_msg_handler(void *args)
 
     return SYS_ERR_OK;
 }
-
-
-static char STATIC_RPC_RECV_MSG_BUF[20 * BASE_PAGE_SIZE];
+static char STATIC_RPC_RECV_MSG_BUF[4096];
 static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
 {
     errval_t err;
@@ -114,7 +112,10 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
     }
 
     if (!capref_is_null(msg_cap)) {
-        DEBUG_PRINTF("reecv capref \n");
+        DEBUG_PRINTF("recv capref \n");
+        char buf[50];
+        debug_print_capref(buf, 50, msg_cap);
+        debug_printf("%s \n", buf);
         // alloc for next time
         err = lmp_chan_alloc_recv_slot(&rpc->chan);
         DEBUG_PRINTF("after lmp_chan_alloc_recv_slot \n");
@@ -504,9 +505,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
-    // wait for the response message
-    while (!lmp_chan_can_recv(&rpc->chan)) {
-    }
+
 
     printf("aos_rpc_call: before receiv_msg\n");
     // receive message
@@ -593,8 +592,17 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
         return err_push(err, LIB_ERR_RPC_SEND);
     }
 
+    DEBUG_PRINTF("before ret_cap access. Addr of retcap: %p\n", ret_cap);
+    DEBUG_PRINTF("addr of rpc_recv_msg %p\n", rpc->recv_msg);
+    DEBUG_PRINTF("addr of &rpc_recv_msg %p\n", &rpc->recv_msg);
+    DEBUG_PRINTF("addr of rpc_recv_msg->cap %p\n", &rpc->recv_msg->cap);
+    /*
+    char buf[50];
+    debug_print_cap_at_capref(buf, 50, (struct capref)rpc->recv_msg->cap);
+    debug_printf("retcap content: %s \n", buf);
+    */
     *ret_cap = (struct capref)rpc->recv_msg->cap;
-
+    DEBUG_PRINTF("after ret_cap access\n");
     // char buf1[256];
     // debug_print_cap_at_capref(buf1, 256, *ret_cap);
     // DEBUG_PRINTF("%.*s\n", 256, buf1);

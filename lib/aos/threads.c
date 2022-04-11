@@ -341,7 +341,8 @@ static void free_thread(struct thread *thread)
     ldt_free_segment(thread->thread_seg_selector);
 #endif
 
-    free(thread->stack);
+    paging_unmap(get_current_paging_state(), thread->stack);
+    //free(thread->stack);
     if (thread->tls_dtv != NULL) {
         free(thread->tls_dtv);
     }
@@ -435,9 +436,6 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
         DEBUG_ERR(err, "failed to allocate stack");
         return NULL;
     }
-
-    stack = staticstack;
-    stacksize = sizeof(staticstack);
 
     // init stack
     DEBUG_PRINTF("inside thread_create_unrunnable. Stack addr: 0x%zx \n", stack);
@@ -1438,6 +1436,8 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
     struct thread *thread = disp_gen->current;
     assert_disabled(thread != NULL);
     assert_disabled(disp_gen->runq != NULL);
+
+    debug_printf("thread_deliver_exception_disabled: IP: %p\n", regs->named.pc);
 
     // can we deliver the exception?
     if (thread->exception_handler == NULL || thread->exception_stack_top == NULL

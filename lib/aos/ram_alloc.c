@@ -19,6 +19,13 @@
 /* remote (indirect through a channel) version of ram_alloc, for most domains */
 static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignment)
 {
+    struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
+    thread_mutex_lock(&ram_alloc_state->ram_alloc_lock);
+    debug_printf("addr of ret inside ram_alloc_remote %p \n", ret);
+    if(!ret) {
+        debug_printf("ram_alloc_remote, ret capref is NULL \n");
+    }
+
     debug_printf("called ram_alloc_remote\n");
     // TODO(M3): Implement me!
     errval_t err;
@@ -29,12 +36,16 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
         abort();
     }
     size_t allocated_size;
+    debug_printf("addr of ret inside ram_alloc_remote before capp to get_ram_cap %p \n", ret);
     err = aos_rpc_get_ram_cap(memory_rpc, size, alignment, ret, &allocated_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get remote ram cap");
+        thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
         return err_push(err, LIB_ERR_RAM_ALLOC_REMOTE);
     }
 
+    debug_printf("returning from ram_alloc_remote \n");
+    thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
     return SYS_ERR_OK;
 }
 

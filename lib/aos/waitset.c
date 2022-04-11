@@ -345,6 +345,8 @@ errval_t get_next_event_disabled(struct waitset *ws,
         }
         chan = ws->pending; // check a pending queue
         if (!chan) { // if nothing then wait
+            //printf("!chan :(\n");
+            //printf("for id: %p\n", &ws->waiting_threads);
             thread_block_disabled(handle, &ws->waiting_threads);
             disp_disable();
         } else { // something but it's not our event

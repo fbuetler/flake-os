@@ -31,11 +31,20 @@ static int print_hello(void *arg)
 
 int main(int argc, char *argv[])
 {
-    /*struct thread *t = thread_create(print_hello, NULL);
+    int N = 2;
+    struct thread *threads[N];
 
-    int retval;
-    thread_join(t, &retval);*/
+    for(int i = 0; i < N; i++){
+        threads[i] = thread_create(print_hello, NULL);
+    }
 
-    print_hello(NULL);
+
+    for(int i = 0; i < N; i++){
+        int retval;
+        thread_join(threads[i], &retval);
+    }
+
+    debug_printf("done with all threads\n");
+
     return EXIT_SUCCESS;
 }

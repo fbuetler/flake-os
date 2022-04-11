@@ -633,7 +633,6 @@ errval_t vnode_create(struct capref dest, enum objtype type)
  */
 errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
 {
-    DEBUG_PRINTF("frame_create called with size: 0x%zx \n", bytes);
     assert(bytes > 0);
     errval_t err;
 

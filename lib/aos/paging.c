@@ -85,19 +85,25 @@ static void paging_refill(struct paging_state *st)
  * \param addr that caused the page fault
  * \param regs current register state
  */
+
 static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
+
     debug_printf("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d "
                  "===\n",
                  addr, type, subtype);
     errval_t err;
+
+    debug_printf("page_fault_exception_handler stack: %p\n", regs->named.stack);
 
     // TODO recommended
     // * detect NULL pointer dereferences
     // * disallowing any mapping outside the ranges that you defined as valid for heap, stack
     // * add a guard page to the process’ stack
     struct paging_state *st = get_current_paging_state();
+    thread_mutex_lock(&st->paging_mutex);
+
     lvaddr_t vaddr = (lvaddr_t)addr;
 
     mm_tracker_t *vspace_tracker;
@@ -114,7 +120,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     } else {
         err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
         USER_PANIC_ERR(err, "vadddr is way off limits");
-        return;
+        goto unlock;
     }
 
     DEBUG_TRACEF("Map frame to free addr: Refill slabs\n");
@@ -139,31 +145,34 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     err = frame_alloc(&frame, BASE_PAGE_SIZE, &allocated_bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate frame");
-        return;
+        goto unlock;
     }
+
 
     if (allocated_bytes < BASE_PAGE_SIZE) {
         DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "allocated frame is not big "
                                                      "enough");
         cap_destroy(frame);
-        return;
+        goto unlock;
     }
 
     // debug_printf("page fault type %d at addr: 0x%lx\n", subtype, vaddr);
-    mm_tracker_debug_print(vspace_tracker);
+    // mm_tracker_debug_print(vspace_tracker);
 
     // install frame at the faulting address
     err = paging_map_fixed_attr(st, vaddr_aligned, frame, allocated_bytes,
                                 VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map frame");
-        return;
+        goto unlock;
     }
 
     debug_printf("handled page fault at %p\n", addr);
 
     // TODO track that this frame is part of the heap
     // TODO track vaddr <-> paddr mapping
+unlock:
+    thread_mutex_unlock(&st->paging_mutex);
 }
 
 static char internal_ex_stack[EXCEPTION_STACK_SIZE];
@@ -179,6 +188,8 @@ static char internal_ex_stack[EXCEPTION_STACK_SIZE];
 static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size)
 {
     errval_t err;
+
+    debug_printf("!!! inside paging_set_exception_handler !!!!\n");
 
     char *stack_top = NULL;
     if (stack_base && stack_size >= EXCEPTION_STACK_MIN_SIZE) {
@@ -409,11 +420,13 @@ errval_t paging_init(void)
         return err_push(err, LIB_ERR_PAGING_STATE_INIT);
     }
 
+    thread_mutex_init(&st->paging_mutex);
+
     return SYS_ERR_OK;
 }
 
 
-static char exception_stack_buf[EXCEPTION_STACK_SIZE];
+//static char exception_stack_buf[EXCEPTION_STACK_SIZE];
 
 /**
  * @brief Initializes the paging functionality for the calling thread
@@ -429,10 +442,10 @@ errval_t paging_init_onthread(struct thread *t)
 
     debug_printf("paging_init_onthread: start\n");
 
-    /*
+    
     struct capref exception_frame;
     size_t exception_stack_bytes;
-    err = frame_alloc(&exception_frame, EXCEPTION_STACK_SIZE, &exception_stack_bytes);
+    errval_t err = frame_alloc(&exception_frame, EXCEPTION_STACK_SIZE, &exception_stack_bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate frame");
         return err_push(err, LIB_ERR_FRAME_ALLOC);
@@ -448,16 +461,11 @@ errval_t paging_init_onthread(struct thread *t)
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }
     debug_printf("paging_init_onthread: paged exception stack\n");
-*/
 
-    t->exception_stack = exception_stack_buf;
-    t->exception_stack_top = exception_stack_buf + sizeof(exception_stack_buf);
+    t->exception_stack = exception_stack_addr;
+    t->exception_stack_top = exception_stack_addr + exception_stack_bytes;
+    debug_printf("exstack is set to : 0x%lx - 0x%lx\n", t->exception_stack, t->exception_stack_top);
     t->exception_handler = page_fault_exception_handler;
-
-    /*err = paging_set_exception_handler(exception_stack_buf,
-    sizeof(exception_stack_buf)); if (err_is_fail(err)) { DEBUG_ERR(err, "failed to set
-    page fault exception handler"); return err_push(err, LIB_ERR_PAGING_STATE_INIT);
-    }*/
 
     debug_printf("paging_init_onthread: end\n");
 

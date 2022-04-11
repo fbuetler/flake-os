@@ -136,6 +136,8 @@ struct paging_state {
     mm_tracker_t vheap_tracker;
     mm_tracker_t vstack_tracker;
     struct slab_allocator vspace_slab_allocator;  ///< Slab allocator for allocating vspace
+
+    struct thread_mutex paging_mutex;
 };
 
 #endif  /// PAGING_TYPES_H_
