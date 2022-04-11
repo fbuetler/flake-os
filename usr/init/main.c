@@ -67,7 +67,7 @@ static int bsp_main(int argc, char *argv[])
     }
     init_spawninfo.rpc.chan.buflen_words = 256;
 
-    // run_m1_tests();
+    //run_m1_tests();
     run_m2_tests();
     // run_m3_tests();
     // run_m4_tests();

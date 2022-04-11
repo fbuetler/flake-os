@@ -38,7 +38,7 @@ static errval_t rootcn_alloc(void *st, size_t reqsize, struct capref *ret)
  */
 errval_t slot_prealloc_refill(void *this)
 {
-    DEBUG_PRINTF(" slot_prealloc_refill \n ");
+    //DEBUG_PRINTF(" slot_prealloc_refill \n ");
     struct slot_prealloc *sa = this;
     uint8_t refill = !sa->current;
     static bool is_refilling = false;

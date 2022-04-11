@@ -17,6 +17,7 @@
 #include <math.h>
 #include <spawn/spawn.h>
 
+char static_rpc_msg_buf[1<<20];
 
 /**
  * @brief handler for handshake messages
@@ -110,6 +111,7 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
     } else if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
     }
+    debug_printf("in aos_rpc_recv_msg: step 2\n");
 
     if (!capref_is_null(msg_cap)) {
         // alloc for next time
@@ -121,6 +123,7 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         }
     }
 
+    debug_printf("in aos_rpc_recv_msg: step 3\n");
     if (!rpc->is_busy) {
         // setup rpc state with new message and set to busy
 
@@ -156,6 +159,7 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         rpc->recv_bytes += copy_bytes;
     }
 
+
     if (rpc->recv_bytes < rpc->recv_msg->payload_bytes + rpc->recv_msg->header_bytes) {
         goto reregister;
     }
@@ -164,9 +168,13 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
     // rpc->process_msg_func(rpc);
 
 reregister:
+
+    debug_printf("in aos_rpc_recv_msg: reregister\n");
+
     lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
                            MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, rpc));
 
+    debug_printf("done with aos_rpc_recv_msg\n");
     return SYS_ERR_OK;
 }
 
@@ -316,6 +324,30 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 
     return SYS_ERR_OK;
 }
+
+
+errval_t aos_rpc_create_msg_no_pagefault(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type,
+                            size_t payload_size, void *payload, struct capref msg_cap, struct aos_rpc_msg *msg)
+{
+    DEBUG_PRINTF("inside aos_rpc_create_msg_no_pagefault \n");
+    size_t header_size = sizeof(struct aos_rpc_msg);
+    DEBUG_PRINTF("inside aos_rpc create msg, after malloc \n");
+
+    msg->message_type = msg_type;
+    msg->header_bytes = header_size;
+    msg->payload_bytes = payload_size;
+    msg->cap = msg_cap;
+    memcpy(msg->payload, payload, payload_size);
+
+    if (ret_msg) {
+        *ret_msg = msg;
+    }
+
+    DEBUG_PRINTF("finished aos_rpc_create_msg_no_pagefault \n");
+    return SYS_ERR_OK;
+}
+
+
 
 /**
  * @brief helper to create a message that should be sent
@@ -531,16 +563,17 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment,
                              struct capref *ret_cap, size_t *ret_bytes)
 {
+    DEBUG_PRINTF("called aos_rpc_get_ram_cap \n");
     errval_t err;
 
     size_t payload_size = 3 * sizeof(size_t);
-    void *payload = malloc(payload_size);
+    char payload[payload_size];
     ((size_t *)payload)[0] = bytes;
     ((size_t *)payload)[1] = alignment;
     ((struct capref **)payload)[2] = ret_cap;
 
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, RamCapRequest, payload_size, (void *)payload, NULL_CAP);
+    err = aos_rpc_create_msg_no_pagefault(&msg, RamCapRequest, payload_size, (void *)payload, NULL_CAP, (struct aos_rpc_msg*)static_rpc_msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -558,7 +591,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     // debug_print_cap_at_capref(buf1, 256, *ret_cap);
     // DEBUG_PRINTF("%.*s\n", 256, buf1);
 
-    free(msg);
+    DEBUG_PRINTF("finished aos_rpc_get_ram_cap \n");
 
     return SYS_ERR_OK;
 }

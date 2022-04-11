@@ -46,12 +46,14 @@ void *malloc(size_t nbytes)
     nunits = (nbytes + sizeof(Header) - 1) / sizeof(Header) + 1;
 
     MALLOC_LOCK;
+    debug_printf("morecore header_base state is located at: %p\n", &state->header_base);
     if ((prevp = state->header_freep) == NULL) { /* no free list yet */
         state->header_base.s.ptr = state->header_freep = prevp = &state->header_base;
         state->header_base.s.size = 0;
     }
     for (p = prevp->s.ptr;; prevp = p, p = p->s.ptr) {
         if (p->s.size >= nunits) {   /* big enough */
+            debug_printf("malloc has found a block that's big enough!\n");
             if (p->s.size == nunits) /* exactly */
                 prevp->s.ptr = p->s.ptr;
             else { /* allocate tail end */
@@ -85,14 +87,18 @@ void *malloc(size_t nbytes)
             return (void *)(p + 1);
         }
         if (p == state->header_freep) { /* wrapped around free list */
+            debug_printf("malloc: calling morecore nunits=%d\n", nunits);
             if ((p = (Header *)morecore(nunits)) == NULL) {
                 MALLOC_UNLOCK;
                 return NULL; /* none left */
             } else {
             }
+            debug_printf("after calling morecore\n");
         }
     }
+    debug_printf("unlocking malloc\n");
     MALLOC_UNLOCK;
+    debug_printf("done with malloc\n");
 }
 
 /*

@@ -394,9 +394,10 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
 #endif
 
     // print out stuff
-    debug_print_save_area(regs);
-    debug_dump(regs);
-    //debug_call_chain(regs);
+    //debug_print_save_area(regs);
+    //debug_dump(regs);
+    debug_printf("FATAL: printing debug dump!\n");
+    debug_call_chain(regs);
 
     // run something else
     thread_run_disabled(handle);

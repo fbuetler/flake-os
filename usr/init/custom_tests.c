@@ -554,7 +554,9 @@ void run_m1_tests(void)
 
 __attribute__((unused)) static void test_spawn_single_process(void)
 {
+    DEBUG_PRINTF("before malloc \n");
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    DEBUG_PRINTF("after malloc \n");
     domainid_t *pid = malloc(sizeof(domainid_t));
     spawn_load_by_name("hello", si, pid);
 }

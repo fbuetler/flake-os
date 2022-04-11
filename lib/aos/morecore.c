@@ -27,7 +27,7 @@ extern morecore_free_func_t sys_morecore_free;
 // this define makes morecore use an implementation that just has a static
 // 16MB heap.
 // TODO (M4): use a dynamic heap instead,
-// #define USE_STATIC_HEAP
+//#define USE_STATIC_HEAP
 
 #ifdef USE_STATIC_HEAP
 
@@ -109,19 +109,21 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
     // reserve a region of virtual memory for the heap
     size_t aligned_bytes = ROUND_UP(bytes, sizeof(Header));
     void *buf;
-    err = paging_alloc(st->paging_state, &buf, aligned_bytes, 1);
+    err = paging_alloc_region(st->paging_state, VREGION_TYPE_HEAP, &buf, aligned_bytes, 1);
     DEBUG_PRINTF("after paging_alloc in morecore\n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate a virtual memory for heap");
         return NULL;
     }
     DEBUG_PRINTF("before retbytes morecore\n");
+    debug_printf("aligned bytes from morecore alloc: 0x%lx\n", aligned_bytes);
     *retbytes = aligned_bytes;
 
     DEBUG_PRINTF("after retbytes morecore\n");
     // debug_printf("reserved (0x%lx, 0x%lx)\n", buf, *retbytes);
     // mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
 
+    DEBUG_PRINTF("returning addr from morecore_alloc: 0x%zx , &buf: 0x%zx\n", buf, &buf);
     return buf;
 }
 
@@ -152,8 +154,10 @@ errval_t morecore_init(size_t alignment)
     // mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
     st->paging_state = get_current_paging_state();
 
+
     sys_morecore_alloc = morecore_alloc;
     sys_morecore_free = morecore_free;
+
 
     return SYS_ERR_OK;
 }

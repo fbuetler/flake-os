@@ -30,6 +30,7 @@ errval_t mm_tracker_refill(mm_tracker_t *mmt)
         mmt->refill_lock = true;
 
         if (slab_freecount(mmt->slabs) < 32) {
+            debug_printf("mm_tracker_refill called for tracker %p\n", mmt);
             err = slab_default_refill(mmt->slabs);
             if (err_is_fail(err)) {
                 err = err_push(err, LIB_ERR_SLAB_REFILL);
@@ -213,6 +214,7 @@ errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t s
         if (current->type == NodeType_Free && current->size >= (size + alignment_padding)) {
             *retnode = current;
             mmt->head = current;
+            //DEBUG_PRINTF("mm_tracker_get_next_fit at base: 0x%zx \n", current->base);
             return SYS_ERR_OK;
         }
         current = current->next;

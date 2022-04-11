@@ -48,11 +48,17 @@ Header *morecore(unsigned nu)
     // Allocate requested number of pages and insert freelist header
     assert(sys_morecore_alloc);
     up = (Header *)sys_morecore_alloc(nb, &nb);
+    debug_printf("allocated bytes in morecore: 0x%zx \n", nb);
     if (up == NULL) {
         return NULL;
     }
+
+
+    debug_printf("morecore, after calling sys_morecore_alloc, addr: 0x%lx\n", &up);
     assert(nb % sizeof(Header) == 0);
+    DEBUG_PRINTF("after assert \n");
     up->s.size = nb / sizeof(Header);
+    debug_printf("morecore, after setting size \n");
     // Add header to freelist
     __free_locked((void *)(up + 1));
     return get_malloc_freep();

@@ -69,6 +69,8 @@ static void paging_refill(struct paging_state *st)
     if (!paging_lock) {
         paging_lock = 1;
         if (slab_freecount(&st->slab_allocator) < 10) {
+
+            debug_printf("paging_refill called for paging state: %p\n", st);
             assert(err_is_ok(st->slab_allocator.refill_func(&st->slab_allocator)));
         }
         paging_lock = 0;
@@ -79,27 +81,29 @@ static void paging_refill(struct paging_state *st)
  * \brief handler for handling a page fault exception
  *
  * \param type of the exception (should be EXCEPT_PAGEFAULT i.e. 1)
- * \param subtype of the exceptoin (READ (1), WRITE (2), EXECUTE (3))
+ * \param subtype of the exception (READ (1), WRITE (2), EXECUTE (3))
  * \param addr that caused the page fault
  * \param regs current register state
  */
 static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
+    debug_printf("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d ===\n", addr, type, subtype);
     errval_t err;
 
     // TODO recommended
     // * detect NULL pointer dereferences
     // * disallowing any mapping outside the ranges that you defined as valid for heap, stack
     // * add a guard page to the process’ stack
-
+    debug_printf("before getting state \n");
     struct paging_state *st = get_current_paging_state();
+    debug_printf("after getting state \n");
     lvaddr_t vaddr = (lvaddr_t)addr;
 
     mm_tracker_t *vspace_tracker;
     if (vaddr < VREADONLY_OFFSET) {
         err = LIB_ERR_PAGING_MAP_UNUSABLE_VADDR;
-        DEBUG_ERR(err, "vadddr is in the forbidden areas");
+        USER_PANIC_ERR(err, "vadddr is in the forbidden area: %p", (void *)vaddr);
         return;
     } else if (vaddr < VHEAP_OFFSET) {
         vspace_tracker = &st->vreadonly_tracker;
@@ -109,7 +113,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         vspace_tracker = &st->vstack_tracker;
     } else {
         err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
-        DEBUG_ERR(err, "vadddr is way off limits");
+        USER_PANIC_ERR(err, "vadddr is way off limits");
         return;
     }
 
@@ -158,6 +162,8 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         return;
     }
 
+    debug_printf("handled page fault at %p\n", addr);
+
     // TODO track that this frame is part of the heap
     // TODO track vaddr <-> paddr mapping
 }
@@ -181,6 +187,7 @@ static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size
         stack_top = stack_base + stack_size;
     } else {  // use our exception stack region
         stack_base = internal_ex_stack;
+        debug_printf("setting internal ex stack to addr %p\n", stack_base);
         stack_top = stack_base + EXCEPTION_STACK_SIZE;
     }
 
@@ -378,7 +385,7 @@ errval_t paging_init(void)
 
     // give paging slab allocator some memory
     slab_init(&st->slab_allocator, sizeof(struct page_table), pt_slab_default_refill);
-    static uint8_t pt_buf[SLAB_STATIC_SIZE(16, sizeof(struct page_table))];
+    static uint8_t pt_buf[SLAB_STATIC_SIZE(32, sizeof(struct page_table))];
     slab_grow(&st->slab_allocator, pt_buf, sizeof(pt_buf));
 
     // init vspace trackers

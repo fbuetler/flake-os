@@ -213,7 +213,7 @@ static errval_t refill_thread_slabs(struct slab_allocator *slab_allocator)
 
     // allocate for thread slab allocator
     size_t blocksize = sizeof(struct thread) + tls_block_total_len;
-    DEBUG_PRINTF("blocksize: %zu - sizeof thread: %zu", blocksize, sizeof(struct thread));
+    DEBUG_PRINTF("blocksize: %zu - sizeof thread: %zu \n", blocksize, sizeof(struct thread));
 
     void *buf;
     size_t size = SLAB_STATIC_SIZE(16, blocksize);
@@ -434,6 +434,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     }
 
     // init stack
+    DEBUG_PRINTF("inside thread_create_unrunnable. Stack addr: 0x%zx \n", stack);
     newthread->stack = stack;
     newthread->stack_top = (char *)stack + stacksize;
 
@@ -1149,6 +1150,7 @@ static int bootstrap_thread(struct spawn_domain_params *params)
         main_thread(params);
     } else {
         // Start real thread to run main()
+        DEBUG_PRINTF("running main on dynamic thread!\n");
         struct thread *thread = thread_create(main_thread, params);
         assert(thread != NULL);
     }
@@ -1356,6 +1358,7 @@ errval_t thread_set_exception_handler(exception_handler_fn newhandler,
 
     me->exception_handler = newhandler;
 
+    debug_printf("inside thread_set_exception_handler. Stack_base: 0x%zx \n", new_stack_base);
     if (new_stack_base != NULL && new_stack_top != NULL) {
         me->exception_stack = new_stack_base;
         me->exception_stack_top = new_stack_top;
