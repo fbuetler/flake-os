@@ -69,9 +69,9 @@ static void paging_refill(struct paging_state *st)
     if (!paging_lock) {
         paging_lock = 1;
         if (slab_freecount(&st->slab_allocator) < 10) {
-
             debug_printf("paging_refill called for paging state: %p\n", st);
             assert(err_is_ok(st->slab_allocator.refill_func(&st->slab_allocator)));
+            debug_printf("paging_refill done\n");
         }
         paging_lock = 0;
     }
@@ -88,16 +88,16 @@ static void paging_refill(struct paging_state *st)
 static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
-    debug_printf("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d ===\n", addr, type, subtype);
+    debug_printf("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d "
+                 "===\n",
+                 addr, type, subtype);
     errval_t err;
 
     // TODO recommended
     // * detect NULL pointer dereferences
     // * disallowing any mapping outside the ranges that you defined as valid for heap, stack
     // * add a guard page to the process’ stack
-    debug_printf("before getting state \n");
     struct paging_state *st = get_current_paging_state();
-    debug_printf("after getting state \n");
     lvaddr_t vaddr = (lvaddr_t)addr;
 
     mm_tracker_t *vspace_tracker;
@@ -125,34 +125,32 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     lvaddr_t vaddr_aligned = ROUND_DOWN(vaddr, BASE_PAGE_SIZE);
 
     // virtual memory region has to be logically allocated before it can be mapped
-    mmnode_t *allocated_node;
-    err = mm_tracker_find_allocated_node(vspace_tracker, vaddr_aligned, &allocated_node);
-    if (err_is_fail(err)) {
+    bool is_allocated = mm_tracker_is_allocated(vspace_tracker, vaddr_aligned,
+                                                BASE_PAGE_SIZE);
+    if (!is_allocated) {
         // TODO fault?
         debug_printf("unallocated region at %p\n", vaddr);
         USER_PANIC("Unallocated region in segfault");
     }
 
-    size_t frame_size = ROUND_UP(allocated_node->size, BASE_PAGE_SIZE);
-
     // allocate a frame
     struct capref frame;
     size_t allocated_bytes;
-    err = frame_alloc(&frame, frame_size, &allocated_bytes);
+    err = frame_alloc(&frame, BASE_PAGE_SIZE, &allocated_bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate frame");
         return;
     }
 
-    if (allocated_bytes < frame_size) {
+    if (allocated_bytes < BASE_PAGE_SIZE) {
         DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "allocated frame is not big "
                                                      "enough");
         cap_destroy(frame);
         return;
     }
 
-    debug_printf("page fault type %d at addr: 0x%lx\n", subtype, vaddr);
-    // mm_tracker_debug_print(vspace_tracker);
+    // debug_printf("page fault type %d at addr: 0x%lx\n", subtype, vaddr);
+    mm_tracker_debug_print(vspace_tracker);
 
     // install frame at the faulting address
     err = paging_map_fixed_attr(st, vaddr_aligned, frame, allocated_bytes,
@@ -196,6 +194,8 @@ static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size
     err = thread_set_exception_handler(page_fault_exception_handler, &old_handler,
                                        stack_base, stack_top, &old_stack_base,
                                        &old_stack_top);
+    assert(err_is_ok(err));
+    debug_printf("paging excception handler set\n");
     return SYS_ERR_OK;
 }
 
@@ -412,6 +412,9 @@ errval_t paging_init(void)
     return SYS_ERR_OK;
 }
 
+
+static char exception_stack_buf[EXCEPTION_STACK_SIZE];
+
 /**
  * @brief Initializes the paging functionality for the calling thread
  *
@@ -423,8 +426,10 @@ errval_t paging_init_onthread(struct thread *t)
 {
     // TODO (M4):
     //   - setup exception handler for thread `t'.
-    errval_t err;
 
+    debug_printf("paging_init_onthread: start\n");
+
+    /*
     struct capref exception_frame;
     size_t exception_stack_bytes;
     err = frame_alloc(&exception_frame, EXCEPTION_STACK_SIZE, &exception_stack_bytes);
@@ -432,6 +437,7 @@ errval_t paging_init_onthread(struct thread *t)
         DEBUG_ERR(err, "failed to allocate frame");
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
+    debug_printf("paging_init_onthread: allcoated fraem\n");
 
     void *exception_stack_addr;
     err = paging_map_frame_attr(get_current_paging_state(), &exception_stack_addr,
@@ -441,12 +447,19 @@ errval_t paging_init_onthread(struct thread *t)
         DEBUG_ERR(err, "failed to map frame");
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }
+    debug_printf("paging_init_onthread: paged exception stack\n");
+*/
 
-    err = paging_set_exception_handler(exception_stack_addr, exception_stack_bytes);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to set page fault exception handler");
-        return err_push(err, LIB_ERR_PAGING_STATE_INIT);
-    }
+    t->exception_stack = exception_stack_buf;
+    t->exception_stack_top = exception_stack_buf + sizeof(exception_stack_buf);
+    t->exception_handler = page_fault_exception_handler;
+
+    /*err = paging_set_exception_handler(exception_stack_buf,
+    sizeof(exception_stack_buf)); if (err_is_fail(err)) { DEBUG_ERR(err, "failed to set
+    page fault exception handler"); return err_push(err, LIB_ERR_PAGING_STATE_INIT);
+    }*/
+
+    debug_printf("paging_init_onthread: end\n");
 
     return SYS_ERR_OK;
 }
@@ -477,7 +490,6 @@ errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, vo
                              size_t bytes, size_t alignment)
 {
     errval_t err;
-    DEBUG_PRINTF("paging_alloc region called \n");
     mm_tracker_t *vspace_tracker;
     switch (type) {
     case VREGION_TYPE_READONLY:
@@ -802,6 +814,9 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     assert(bytes % BASE_PAGE_SIZE == 0);
     assert(vaddr % BASE_PAGE_SIZE == 0);
 
+
+    debug_printf("mapping to 0x%lx, bytes: 0x%lx \n", vaddr, bytes);
+
     errval_t err;
 
     mm_tracker_t *vspace_tracker;
@@ -823,9 +838,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
 #define DEBUG_PAGING_MAP_FIXED_ATTR
 #ifdef DEBUG_PAGING_MAP_FIXED_ATTR
-    mmnode_t *allocated_node;
-    err = mm_tracker_find_allocated_node(vspace_tracker, vaddr, &allocated_node);
-    assert(err_is_ok(err));
+    assert(mm_tracker_is_allocated(vspace_tracker, vaddr, bytes));
 #endif
 
     struct capability c;

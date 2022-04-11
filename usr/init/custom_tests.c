@@ -907,8 +907,6 @@ aos_process_serial_read_char_request(struct aos_rpc *rpc)
 
 __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
 {
-
-    debug_printf("received rpc message!\n");
     // should only handle incoming messages not initiated by us
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
@@ -1010,7 +1008,7 @@ __attribute__((unused)) static void test_get_number(void)
 void run_m3_tests(void)
 {
     test_spawn_memeater();
-    test_spawn_multiple_memeaters();
+    // test_spawn_multiple_memeaters();
     // test_get_number();
 }
 
@@ -1027,18 +1025,38 @@ __attribute__((unused)) static void test_trigger_page_fault(void)
 
 __attribute__((unused)) static void test_reserve_vspace_region(void)
 {
-    size_t one_mb = 1 << 20;
-    size_t n = 100 * one_mb / sizeof(size_t);
-    size_t *large_arry = malloc(n);
-    large_arry[n / 2] = 27;
-    assert(large_arry[n / 2] == 27);
-    printf("done with reserve vspace region \n ");
+    printf("Access 256MB buffer in the middle.\n");
+    printf("heap size 0x%lx\n", VHEAP_SIZE);
+    size_t bytes = (size_t)1 << 40; // 1 TB
+    size_t len = bytes / sizeof(size_t);
+    debug_printf("test_reserve_vspace_region: before malloc\n");
+    size_t *large_arry = malloc(bytes);
+    debug_printf("general kenobi\n");
+    assert(large_arry);
+    printf("Allocated array on the heap starting at %p with size 0x%lx bytes\n", large_arry, bytes);
+    large_arry[len / 2] = 27;
+    assert(large_arry[len / 2] == 27);
+    printf("done with reserve vspace region\n");
+}
+
+__attribute__((unused)) static void test_page_fault_in_spawnee(void)
+{
+    errval_t err;
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = start_process("selfpaging", si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn selfpaging");
+    }
+    assert(err_is_ok(err));
 }
 
 void run_m4_tests(void)
 {
     // test_trigger_page_fault();
-    test_reserve_vspace_region();
+    // test_reserve_vspace_region();
+    test_page_fault_in_spawnee();
 }
 
 /*

@@ -209,9 +209,11 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return err;
     }
 
+
     // reset the RAM allocator to use ram_alloc_remote
     DEBUG_PRINTF("Changing ram allocator \n");
     ram_alloc_set(NULL);
+
 
     return SYS_ERR_OK;
 }

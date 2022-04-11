@@ -26,7 +26,7 @@ char static_rpc_msg_buf[1<<20];
  */
 static void aos_process_handshake(struct aos_rpc_msg *msg)
 {
-    DEBUG_TRACEF("Handshake ACK\n");
+    debug_printf("Handshake ACK\n");
     free(msg);
 }
 
@@ -83,42 +83,41 @@ static errval_t aos_rpc_recv_msg_handler(void *args)
 {
     errval_t err;
     struct aos_rpc *rpc = (struct aos_rpc *)args;
-    DEBUG_PRINTF("inside aos_rpc_recv_msg_handler \n");
-    err = aos_rpc_recv_msg(rpc);
-    DEBUG_PRINTF("inside aos_rpc_recv_msg_handler, after aos_rpc_recv_msg \n");
+      err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
     }
 
     if (!rpc->is_busy) {
-        DEBUG_PRINTF("inside aos_rpc_recv_msg_handler, before process_msg_func \n");
         rpc->process_msg_func(rpc);
-        DEBUG_PRINTF("inside aos_rpc_recv_msg_handler, after process_msg_func \n");
     }
 
     return SYS_ERR_OK;
 }
 
+
+static char STATIC_RPC_RECV_MSG_BUF[20 * BASE_PAGE_SIZE];
 static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
 {
     errval_t err;
-    DEBUG_PRINTF("inside aos_rpc_recv_msg \n");
     // receive first message
     struct capref msg_cap;
     struct lmp_recv_msg recv_buf = LMP_RECV_MSG_INIT;
 
+    DEBUG_PRINTF("before lmp_chan_recv \n");
     err = lmp_chan_recv(&rpc->chan, &recv_buf, &msg_cap);
     if (err_is_fail(err) && lmp_err_is_transient(err)) {
         goto reregister;
     } else if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
     }
-    debug_printf("in aos_rpc_recv_msg: step 2\n");
 
     if (!capref_is_null(msg_cap)) {
+        DEBUG_PRINTF("reecv capref \n");
         // alloc for next time
         err = lmp_chan_alloc_recv_slot(&rpc->chan);
+        DEBUG_PRINTF("after lmp_chan_alloc_recv_slot \n");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to allocated receive slot");
             err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
@@ -126,8 +125,8 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         }
     }
 
-    debug_printf("in aos_rpc_recv_msg: step 3\n");
     if (!rpc->is_busy) {
+        DEBUG_PRINTF("inside !rpc->is_busy \n");
         // setup rpc state with new message and set to busy
 
         struct aos_rpc_msg *tmp_msg = (struct aos_rpc_msg *)recv_buf.words;
@@ -138,7 +137,9 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         // DEBUG_PRINTF("Received bytes: %zu total_bytes: %zu", recv_bytes, total_bytes);
 
         // allocate space for return message, copy current message already to it
-        rpc->recv_msg = malloc(total_bytes);
+        DEBUG_PRINTF("before malloc in recv msg\n");
+        rpc->recv_msg = (struct aos_rpc_msg *)STATIC_RPC_RECV_MSG_BUF; //malloc(total_bytes);
+        DEBUG_PRINTF("after malloc in recv msg\n");
         if (!rpc->recv_msg) {
             DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg_handler for ret_msg failed "
                          "\n");
@@ -171,13 +172,8 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
     // rpc->process_msg_func(rpc);
 
 reregister:
-
-    debug_printf("in aos_rpc_recv_msg: reregister\n");
-
     lmp_chan_register_recv(&rpc->chan, get_default_waitset(),
                            MKCLOSURE((void (*)(void *))aos_rpc_recv_msg_handler, rpc));
-
-    debug_printf("done with aos_rpc_recv_msg\n");
     return SYS_ERR_OK;
 }
 
@@ -216,6 +212,7 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
 
     child_rpc->chan.local_cap = init_ep_cap;
     child_rpc->chan.remote_cap = memeater_endpoint_cap;
+    init_rpc->chan.remote_cap = memeater_endpoint_cap;
 
     // char buf0[256];
     // debug_print_cap_at_capref(buf0, 256, child_rpc->chan.local_cap);
@@ -331,9 +328,7 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 errval_t aos_rpc_create_msg_no_pagefault(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type,
                             size_t payload_size, void *payload, struct capref msg_cap, struct aos_rpc_msg *msg)
 {
-    DEBUG_PRINTF("inside aos_rpc_create_msg_no_pagefault \n");
     size_t header_size = sizeof(struct aos_rpc_msg);
-    DEBUG_PRINTF("inside aos_rpc create msg, after malloc \n");
 
     msg->message_type = msg_type;
     msg->header_bytes = header_size;
@@ -347,7 +342,6 @@ errval_t aos_rpc_create_msg_no_pagefault(struct aos_rpc_msg **ret_msg, enum aos_
         *ret_msg = msg;
     }
 
-    DEBUG_PRINTF("finished aos_rpc_create_msg_no_pagefault \n");
     return SYS_ERR_OK;
 }
 
@@ -398,7 +392,6 @@ errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type 
  */
 errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 {
-    debug_printf("sending message using aos_rpc: %p\n", rpc);
     errval_t err;
     size_t total_bytes = msg->header_bytes + msg->payload_bytes;
 
@@ -511,7 +504,6 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
-
     // wait for the response message
     while (!lmp_chan_can_recv(&rpc->chan)) {
     }
@@ -524,7 +516,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         return err;
     }
 
-    printf("aos_rpc_call: before receiv_msg\n");
+    printf("aos_rpc_call: after receiv_msg\n");
     return SYS_ERR_OK;
 }
 
@@ -577,6 +569,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
                              struct capref *ret_cap, size_t *ret_bytes)
 {
     DEBUG_PRINTF("called aos_rpc_get_ram_cap \n");
+    DEBUG_PRINTF("######@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     errval_t err;
 
     size_t payload_size = 3 * sizeof(size_t);
@@ -606,6 +599,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     // debug_print_cap_at_capref(buf1, 256, *ret_cap);
     // DEBUG_PRINTF("%.*s\n", 256, buf1);
 
+    DEBUG_PRINTF("############################################@@@@@@@@@@@@@@@@@@\n");
     DEBUG_PRINTF("finished aos_rpc_get_ram_cap \n");
 
     return SYS_ERR_OK;

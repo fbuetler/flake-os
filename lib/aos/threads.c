@@ -224,8 +224,11 @@ static errval_t refill_thread_slabs(struct slab_allocator *slab_allocator)
         goto unwind;
     }
 
+    debug_printf("refill_thread_slabs grow before\n");
     // give frame to paging slab allocator
     slab_grow(slab_allocator, buf, size);
+
+    debug_printf("refill_thread_slabs grow after\n");
 
 unwind:
     thread_slabs_is_refilling = false;
@@ -433,6 +436,9 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
         return NULL;
     }
 
+    stack = staticstack;
+    stacksize = sizeof(staticstack);
+
     // init stack
     DEBUG_PRINTF("inside thread_create_unrunnable. Stack addr: 0x%zx \n", stack);
     newthread->stack = stack;
@@ -455,6 +461,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
                           (lvaddr_t)newthread->stack_top, (lvaddr_t)start_func,
                           (lvaddr_t)arg, 0, 0);
 
+    debug_printf("done with this one as well\n");
     return newthread;
 }
 
@@ -1140,6 +1147,8 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     // Allocate storage region for real threads
     size_t blocksize = sizeof(struct thread) + tls_block_total_len + THREAD_ALIGNMENT;
     slab_init(&thread_slabs, blocksize, refill_thread_slabs);
+    static char sum_bitch[1<<20] = {0};
+    slab_grow(&thread_slabs, sum_bitch, 1<<20);
 
     if (init_domain_global) {
         // run main() on this thread, since we can't allocate

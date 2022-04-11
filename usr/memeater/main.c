@@ -165,6 +165,8 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
 
+    debug_printf("done in memeater!\n");
+    return EXIT_SUCCESS;
     domainid_t pid;
     err = aos_rpc_process_spawn(init_rpc, "hello", disp_get_core_id(), &pid);
     if (err_is_fail(err)) {

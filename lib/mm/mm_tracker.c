@@ -30,7 +30,7 @@ errval_t mm_tracker_refill(mm_tracker_t *mmt)
         mmt->refill_lock = true;
 
         if (slab_freecount(mmt->slabs) < 32) {
-            debug_printf("mm_tracker_refill called for tracker %p\n", mmt);
+            // debug_printf("mm_tracker_refill called for tracker %p\n", mmt);
             err = slab_default_refill(mmt->slabs);
             if (err_is_fail(err)) {
                 err = err_push(err, LIB_ERR_SLAB_REFILL);
@@ -188,9 +188,11 @@ void mm_tracker_debug_print(mm_tracker_t *mmt)
     mmnode_t *curr = mmt->head;
     do {
         if (curr->type == NodeType_Allocated) {
-            DEBUG_PRINTF("Allocated: (%p, %lx)\n", curr->base, curr->size);
+            DEBUG_PRINTF("Allocated: [%p, %p] - 0x%lx\n", curr->base,
+                         curr->base + curr->size, curr->size);
         } else if (curr->type == NodeType_Free) {
-            DEBUG_PRINTF("Free: (%p, %lx)\n", curr->base, curr->size);
+            DEBUG_PRINTF("Free: [%p, %p] - 0x%lx\n", curr->base, curr->base + curr->size,
+                         curr->size);
         } else {
             DEBUG_PRINTF("Type unknown\n");
         }
@@ -214,7 +216,7 @@ errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t s
         if (current->type == NodeType_Free && current->size >= (size + alignment_padding)) {
             *retnode = current;
             mmt->head = current;
-            //DEBUG_PRINTF("mm_tracker_get_next_fit at base: 0x%zx \n", current->base);
+            // DEBUG_PRINTF("mm_tracker_get_next_fit at base: 0x%zx \n", current->base);
             return SYS_ERR_OK;
         }
         current = current->next;
@@ -425,11 +427,28 @@ errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t si
 }
 
 
+bool mm_tracker_is_allocated(mm_tracker_t *mmt, genvaddr_t vaddr, size_t size)
+{
+    assert(mmt->head);
+
+    mmnode_t *curr = mmt->head;
+    do {
+        // search for node that represent the freed region
+        if (curr->base <= vaddr && vaddr + size <= curr->base + curr->size) {
+            return curr->type == NodeType_Allocated;
+        }
+
+        curr = curr->next;
+    } while (curr != mmt->head);
+    mmt->head = curr;
+    return false;
+}
+
+
 errval_t mm_tracker_find_allocated_node(mm_tracker_t *mmt, genpaddr_t memory_base,
                                         mmnode_t **retnode)
 {
     assert(mmt->head);
-    // DEBUG_TRACEF("Memory free request (0x%lx, 0x%lx)\n", memory_base, memory_size);
 
     mmnode_t *curr = mmt->head;
     do {

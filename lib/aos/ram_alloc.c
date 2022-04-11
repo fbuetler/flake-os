@@ -25,6 +25,7 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
 
     struct aos_rpc *memory_rpc = aos_rpc_get_memory_channel();
     if(!memory_rpc) {
+        debug_printf("ERROR: no memory server found!\n");
         abort();
     }
     size_t allocated_size;
