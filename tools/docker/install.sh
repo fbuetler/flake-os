@@ -20,7 +20,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libghc-ghc-paths-dev libghc-parsec3-dev libghc-random-dev\
     libghc-ghc-mtl-dev libghc-async-dev picocom cabal-install freebsd-glue \
     libelf-freebsd-dev git gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-    qemu-efi-aarch64 qemu-system-arm qemu-utils
+    qemu-efi-aarch64 qemu-system-arm qemu-utils gdb gdb-multiarch
 
 
 # install the remaining haskell package
