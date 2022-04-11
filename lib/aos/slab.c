@@ -85,13 +85,17 @@ void slab_grow(struct slab_allocator *slabs, void *buf, size_t buflen)
  */
 void *slab_alloc(struct slab_allocator *slabs)
 {
+    debug_printf("inside slab_alloc \n");
     errval_t err;
     /* find a slab with free blocks */
     struct slab_head *sh;
     for (sh = slabs->slabs; sh != NULL && sh->free == 0; sh = sh->next)
         ;
 
+    debug_printf("inside slab_alloc after loop 1\n");
     if (sh == NULL) {
+        debug_printf("sh != null \n");
+
         /* out of memory. try refill function if we have one */
         if (!slabs->refill_func) {
             return NULL;
@@ -107,15 +111,20 @@ void *slab_alloc(struct slab_allocator *slabs)
                 return NULL;
             }
         }
+    } else {
+        debug_printf("sh != null \n");
     }
 
     /* dequeue top block from freelist */
     assert(sh != NULL);
+    debug_printf("before writing to bh \n");
     struct block_head *bh = sh->blocks;
+    debug_printf("after writing to bh \n");
     assert(bh != NULL);
     sh->blocks = bh->next;
     sh->free--;
 
+    debug_printf("before return of  bh \n");
     return bh;
 }
 
@@ -250,6 +259,7 @@ errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref fr
 {
     // Refill the slot allocator without causing a page fault
     // Hint: you can't just use malloc here...
+    DEBUG_PRINTF("inside slab_refull_ni_pagefault \n");
     return slab_default_refill(slabs);
 }
 
@@ -263,11 +273,13 @@ errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref fr
  */
 errval_t slab_default_refill(struct slab_allocator *slabs)
 {
+    DEBUG_PRINTF("inside slab_default_refill \n");
     return slab_refill_pages(slabs, BASE_PAGE_SIZE);
 }
 
 
 errval_t pt_slab_default_refill(struct slab_allocator *slabs)
 {
+    DEBUG_PRINTF("inside pt_slab_default_refill \n");
     return slab_refill_pages(slabs, 32 * BASE_PAGE_SIZE);
 }

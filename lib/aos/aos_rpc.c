@@ -85,13 +85,16 @@ static errval_t aos_rpc_recv_msg_handler(void *args)
     struct aos_rpc *rpc = (struct aos_rpc *)args;
     DEBUG_PRINTF("inside aos_rpc_recv_msg_handler \n");
     err = aos_rpc_recv_msg(rpc);
+    DEBUG_PRINTF("inside aos_rpc_recv_msg_handler, after aos_rpc_recv_msg \n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
     }
 
     if (!rpc->is_busy) {
+        DEBUG_PRINTF("inside aos_rpc_recv_msg_handler, before process_msg_func \n");
         rpc->process_msg_func(rpc);
+        DEBUG_PRINTF("inside aos_rpc_recv_msg_handler, after process_msg_func \n");
     }
 
     return SYS_ERR_OK;
@@ -264,7 +267,6 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     // struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
     // assert(ep);
     struct lmp_endpoint *ep = &static_ep;
-
     aos_rpc->chan.endpoint = ep;
     err = endpoint_create(256, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
     if (err_is_fail(err)) {
@@ -337,6 +339,8 @@ errval_t aos_rpc_create_msg_no_pagefault(struct aos_rpc_msg **ret_msg, enum aos_
     msg->header_bytes = header_size;
     msg->payload_bytes = payload_size;
     msg->cap = msg_cap;
+
+    debug_printf("before memcpy: payload_size: 0x%zx \n", payload_size);
     memcpy(msg->payload, payload, payload_size);
 
     if (ret_msg) {
@@ -394,6 +398,7 @@ errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type 
  */
 errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 {
+    debug_printf("sending message using aos_rpc: %p\n", rpc);
     errval_t err;
     size_t total_bytes = msg->header_bytes + msg->payload_bytes;
 
@@ -496,8 +501,12 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 
     // send message
     DEBUG_PRINTF("inside aos_rpc_call, before aos_rpc_send_msg \n");
+    DEBUG_PRINTF("channel %p\n", rpc->chan.endpoint);
     err = aos_rpc_send_msg(rpc, msg);
-    DEBUG_PRINTF("inside aos_rpc_call, before aos_rpc_send_msg \n");
+    DEBUG_PRINTF("inside aos_rpc_call, after aos_rpc_send_msg \n");
+    DEBUG_PRINTF("channel after %p\n", rpc->chan.endpoint);
+    //DEBUG_PRINTF("recv_bytes: %d, is_busy: %d \n", rpc->recv_bytes, rpc->is_busy);
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
@@ -507,6 +516,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     while (!lmp_chan_can_recv(&rpc->chan)) {
     }
 
+    printf("aos_rpc_call: before receiv_msg\n");
     // receive message
     err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
@@ -514,6 +524,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         return err;
     }
 
+    printf("aos_rpc_call: before receiv_msg\n");
     return SYS_ERR_OK;
 }
 

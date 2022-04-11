@@ -777,6 +777,8 @@ __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *
 {
     errval_t err;
 
+    debug_printf("received ram cap request!\n");
+
     // read ram request properties
     size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
     size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
@@ -905,6 +907,8 @@ aos_process_serial_read_char_request(struct aos_rpc *rpc)
 
 __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
 {
+
+    debug_printf("received rpc message!\n");
     // should only handle incoming messages not initiated by us
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
@@ -1006,7 +1010,7 @@ __attribute__((unused)) static void test_get_number(void)
 void run_m3_tests(void)
 {
     test_spawn_memeater();
-    // test_spawn_multiple_memeaters();
+    test_spawn_multiple_memeaters();
     // test_get_number();
 }
 
