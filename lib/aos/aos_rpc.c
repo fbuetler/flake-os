@@ -495,7 +495,9 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     errval_t err;
 
     // send message
+    DEBUG_PRINTF("inside aos_rpc_call, before aos_rpc_send_msg \n");
     err = aos_rpc_send_msg(rpc, msg);
+    DEBUG_PRINTF("inside aos_rpc_call, before aos_rpc_send_msg \n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
@@ -579,7 +581,9 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
         return err;
     }
 
+    DEBUG_PRINTF("before doing rpc_call \n");
     err = aos_rpc_call(rpc, msg);
+    DEBUG_PRINTF("after doing rpc_call \n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
