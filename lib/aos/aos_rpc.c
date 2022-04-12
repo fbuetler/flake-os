@@ -111,21 +111,6 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
     }
 
-    if (!capref_is_null(msg_cap)) {
-        DEBUG_PRINTF("recv capref \n");
-        char buf[50];
-        debug_print_capref(buf, 50, msg_cap);
-        debug_printf("%s \n", buf);
-        // alloc for next time
-        err = lmp_chan_alloc_recv_slot(&rpc->chan);
-        DEBUG_PRINTF("after lmp_chan_alloc_recv_slot \n");
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to allocated receive slot");
-            err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
-            goto reregister;
-        }
-    }
-
     if (!rpc->is_busy) {
         DEBUG_PRINTF("inside !rpc->is_busy \n");
         // setup rpc state with new message and set to busy
@@ -164,10 +149,26 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         rpc->recv_bytes += copy_bytes;
     }
 
-
     if (rpc->recv_bytes < rpc->recv_msg->payload_bytes + rpc->recv_msg->header_bytes) {
         goto reregister;
     }
+
+    if (!capref_is_null(msg_cap)) {
+        DEBUG_PRINTF("recv capref x \n");
+        char buf[50];
+        debug_print_capref(buf, 50, msg_cap);
+        debug_printf("%s \n", buf);
+        // alloc for next time
+        err = lmp_chan_alloc_recv_slot(&rpc->chan);
+        DEBUG_PRINTF("after lmp_chan_alloc_recv_slot \n");
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to allocated receive slot");
+            err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+            goto reregister;
+        }
+    }
+
+
 
     rpc->is_busy = false;
     // rpc->process_msg_func(rpc);
@@ -251,6 +252,9 @@ static struct lmp_endpoint static_ep;
 errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 {
     errval_t err;
+
+
+    thread_mutex_init(&ram_mutex);
 
     // initial state
     aos_rpc->is_busy = false;
@@ -507,7 +511,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     }
 
 
-    printf("aos_rpc_call: before receiv_msg\n");
+    debug_printf("aos_rpc_call: before receiv_msg\n");
     // receive message
     err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
@@ -515,7 +519,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         return err;
     }
 
-    printf("aos_rpc_call: after receiv_msg\n");
+    debug_printf("aos_rpc_call: after receiv_msg\n");
     return SYS_ERR_OK;
 }
 

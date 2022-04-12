@@ -16,11 +16,13 @@
 #include <aos/aos_rpc.h>
 #include <aos/core_state.h>
 
+
 /* remote (indirect through a channel) version of ram_alloc, for most domains */
 static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignment)
 {
-    struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
-    thread_mutex_lock(&ram_alloc_state->ram_alloc_lock);
+    debug_printf("in ram_alloc_remote\n");
+    debug_printf("x\n");
+    thread_mutex_lock_nested(&ram_mutex);
     debug_printf("addr of ret inside ram_alloc_remote %p \n", ret);
     if(!ret) {
         debug_printf("ram_alloc_remote, ret capref is NULL \n");
@@ -40,12 +42,12 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
     err = aos_rpc_get_ram_cap(memory_rpc, size, alignment, ret, &allocated_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get remote ram cap");
-        thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
+        thread_mutex_unlock(&ram_mutex);
         return err_push(err, LIB_ERR_RAM_ALLOC_REMOTE);
     }
 
     debug_printf("returning from ram_alloc_remote \n");
-    thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
+    thread_mutex_unlock(&ram_mutex);
     return SYS_ERR_OK;
 }
 

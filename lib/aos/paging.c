@@ -425,9 +425,6 @@ errval_t paging_init(void)
     return SYS_ERR_OK;
 }
 
-
-//static char exception_stack_buf[EXCEPTION_STACK_SIZE];
-
 /**
  * @brief Initializes the paging functionality for the calling thread
  *
