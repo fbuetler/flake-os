@@ -909,9 +909,7 @@ __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
 
     // refill slot allocator 
     struct slot_alloc_state *s = get_slot_alloc_state();
-    debug_printf("rootca free slots: %d\n", single_slot_alloc_freecount(&s->rootca));
     if(single_slot_alloc_freecount(&s->rootca) <= 10){
-        debug_printf("pagefault refilling slot allocator\n");
         root_slot_allocator_refill(NULL, NULL);
     }
 
@@ -1060,11 +1058,25 @@ __attribute__((unused)) static void test_page_fault_in_spawnee(void)
     assert(err_is_ok(err));
 }
 
+__attribute__((unused)) static void test_page_fault_already_handled(void)
+{
+    errval_t err;
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = start_process("selfpaging_already_handled", si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn selfpaging_handled");
+    }
+    assert(err_is_ok(err));
+}
+
 void run_m4_tests(void)
 {
     // test_trigger_page_fault();
     // test_reserve_vspace_region();
-    test_page_fault_in_spawnee();
+    //test_page_fault_in_spawnee();
+    test_page_fault_already_handled();
 }
 
 /*

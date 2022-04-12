@@ -161,6 +161,10 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     err = paging_map_fixed_attr(st, vaddr_aligned, frame, allocated_bytes,
                                 VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
+        if(err == LIB_ERR_PMAP_EXISTING_MAPPING){
+            debug_printf("@@@ handled page fault: was already mapped!\n");
+            goto unlock;
+        }
         DEBUG_ERR(err, "failed to map frame");
         goto unlock;
     }
@@ -883,7 +887,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         //             l3_index);
         if (capcmp(l3_pt->mappings[l3_index], NULL_CAP) == 0) {
             err = LIB_ERR_PMAP_EXISTING_MAPPING;
-            DEBUG_ERR(err, "failed to compare capabilities");
             return err;
         }
 
