@@ -16,6 +16,7 @@
 #include <stdlib.h>
 
 #include <aos/aos.h>
+#include <aos/core_state.h>
 #include <aos/capabilities.h>
 #include <aos/morecore.h>
 #include <aos/paging.h>
@@ -776,6 +777,14 @@ __attribute__((unused)) static void aos_process_string(struct aos_rpc_msg *msg)
 __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *rpc)
 {
     errval_t err;
+
+    // refill slot allocator 
+    struct slot_alloc_state *s = get_slot_alloc_state();
+    debug_printf("rootca free slots: %d\n", single_slot_alloc_freecount(&s->rootca));
+    if(single_slot_alloc_freecount(&s->rootca) <= 10){
+        debug_printf("pagefault refilling slot allocator\n");
+        root_slot_allocator_refill(NULL, NULL);
+    }
 
     // read ram request properties
     size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];

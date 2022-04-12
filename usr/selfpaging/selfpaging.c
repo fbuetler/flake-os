@@ -16,10 +16,11 @@
 static int print_hello(void *arg)
 {
     printf("Hello World!\n");
-    size_t size = 2000 * BASE_PAGE_SIZE;
+    size_t size = 10 * 2000 * BASE_PAGE_SIZE;
     char *buf = malloc(size);
 
     for (size_t offset = 0; offset < size; offset+= BASE_PAGE_SIZE) {
+        debug_printf("starting iteration %d\n", offset/BASE_PAGE_SIZE);
         buf[offset] = 'a';
     }
     debug_printf("done\n");
@@ -29,7 +30,7 @@ static int print_hello(void *arg)
 
 int main(int argc, char *argv[])
 {
-    int N = 10;
+    /*int N = 10;
     struct thread *threads[N];
 
     for(int i = 0; i < N; i++){
@@ -42,6 +43,9 @@ int main(int argc, char *argv[])
     }
 
     debug_printf("done with all threads\n");
+    */
+
+   print_hello(NULL);
 
     return EXIT_SUCCESS;
 }

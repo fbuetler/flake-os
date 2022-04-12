@@ -30,7 +30,7 @@ errval_t mm_tracker_refill(mm_tracker_t *mmt)
         mmt->refill_lock = true;
 
         if (slab_freecount(mmt->slabs) < 32) {
-            // debug_printf("mm_tracker_refill called for tracker %p\n", mmt);
+            //debug_printf("mm_tracker_refill called for tracker %p\n", mmt);
             err = slab_default_refill(mmt->slabs);
             if (err_is_fail(err)) {
                 err = err_push(err, LIB_ERR_SLAB_REFILL);

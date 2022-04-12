@@ -133,6 +133,8 @@ errval_t root_slot_allocator_refill(cn_ram_alloc_func_t myalloc, void *allocst)
         return err_push(err, LIB_ERR_CAP_DESTROY);
     }
 
+    debug_printf("h\n");
+
     // update root slot allocator size and our metadata
     return single_slot_alloc_resize(sca, nslots * 2);
 }
