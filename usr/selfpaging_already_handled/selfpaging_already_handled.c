@@ -44,16 +44,16 @@ static int walk_array(void *arg)
 int main(int argc, char *argv[])
 {
     size_t size = 10 * BASE_PAGE_SIZE;
-    char *mem1 = malloc(size);
+    char *mem = malloc(size);
 
-    mem1[0] = 1;
+    mem[0] = 1;
     
     int N = 2;
     struct thread *threads[N];
 
 
     struct mregion regionUp = {
-        .start = mem1,
+        .start = mem,
         .size = size,
         .moveUpwards = true
     };
@@ -68,6 +68,8 @@ int main(int argc, char *argv[])
         int retval;
         thread_join(threads[i], &retval);
     }
+
+    free(mem);
 
     debug_printf("done with all threads\n");
 
