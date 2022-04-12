@@ -27,6 +27,7 @@
  */
 static errval_t rootcn_alloc(void *st, size_t reqsize, struct capref *ret)
 {
+    debug_printf("allocating a new rootcn\n");
     return mm_alloc(st, reqsize, ret);
 }
 
@@ -252,12 +253,10 @@ errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret)
 /// Requires an instance of range_slot_allocator
 errval_t slot_alloc_dynamic(void *alloc, uint64_t nslots, struct capref *ret)
 {
-    debug_printf("in slot_alloc_dynamic\n");
     return range_slot_alloc(alloc, nslots, ret);
 }
 
 errval_t slot_refill_dynamic(void *alloc)
 {
-    debug_printf("in slot_refill_dynamic\n");
     return range_slot_alloc_refill(alloc, L2_CNODE_SLOTS);
 }

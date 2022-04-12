@@ -85,17 +85,16 @@ static void paging_refill(struct paging_state *st)
  * \param addr that caused the page fault
  * \param regs current register state
  */
-
 static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
 
-    debug_printf("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d "
-                 "===\n",
-                 addr, type, subtype);
+    //debug_printf("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d "
+    //             "===\n",
+    //             addr, type, subtype);
     errval_t err;
 
-    debug_printf("page_fault_exception_handler stack: %p\n", regs->named.stack);
+    //debug_printf("page_fault_exception_handler stack: %p\n", regs->named.stack);
 
     // TODO recommended
     // * detect NULL pointer dereferences
@@ -156,7 +155,6 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         goto unlock;
     }
 
-    // debug_printf("page fault type %d at addr: 0x%lx\n", subtype, vaddr);
     // mm_tracker_debug_print(vspace_tracker);
 
     // install frame at the faulting address
@@ -167,7 +165,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         goto unlock;
     }
 
-    debug_printf("handled page fault at %p\n", addr);
+    //debug_printf("@@@ handled page fault at %p @@@\n", addr);
 
     // TODO track that this frame is part of the heap
     // TODO track vaddr <-> paddr mapping
@@ -818,9 +816,6 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     // * the virtual address is chosen such that it does not overlap
     assert(bytes % BASE_PAGE_SIZE == 0);
     assert(vaddr % BASE_PAGE_SIZE == 0);
-
-
-    debug_printf("mapping to 0x%lx, bytes: 0x%lx \n", vaddr, bytes);
 
     errval_t err;
 

@@ -20,15 +20,11 @@
 /* remote (indirect through a channel) version of ram_alloc, for most domains */
 static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignment)
 {
-    debug_printf("in ram_alloc_remote\n");
-    debug_printf("x\n");
     thread_mutex_lock_nested(&ram_mutex);
-    debug_printf("addr of ret inside ram_alloc_remote %p \n", ret);
     if(!ret) {
         debug_printf("ram_alloc_remote, ret capref is NULL \n");
     }
 
-    debug_printf("called ram_alloc_remote\n");
     // TODO(M3): Implement me!
     errval_t err;
 
@@ -37,8 +33,16 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
         debug_printf("ERROR: no memory server found!\n");
         abort();
     }
+
+    err = lmp_chan_alloc_recv_slot(&memory_rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
+    }
+
+
     size_t allocated_size;
-    debug_printf("addr of ret inside ram_alloc_remote before capp to get_ram_cap %p \n", ret);
     err = aos_rpc_get_ram_cap(memory_rpc, size, alignment, ret, &allocated_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get remote ram cap");
@@ -46,7 +50,6 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
         return err_push(err, LIB_ERR_RAM_ALLOC_REMOTE);
     }
 
-    debug_printf("returning from ram_alloc_remote \n");
     thread_mutex_unlock(&ram_mutex);
     return SYS_ERR_OK;
 }

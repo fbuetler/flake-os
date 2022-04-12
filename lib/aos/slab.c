@@ -264,7 +264,6 @@ errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref fr
  */
 errval_t slab_default_refill(struct slab_allocator *slabs)
 {
-    //DEBUG_PRINTF("inside slab_default_refill \n");
     return slab_refill_pages(slabs, BASE_PAGE_SIZE);
 }
 

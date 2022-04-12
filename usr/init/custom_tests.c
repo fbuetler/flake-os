@@ -777,8 +777,6 @@ __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *
 {
     errval_t err;
 
-    debug_printf("received ram cap request!\n");
-
     // read ram request properties
     size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
     size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];

@@ -42,7 +42,7 @@ morecore_free_func_t sys_morecore_free;
  */
 Header *morecore(unsigned nu)
 {
-    debug_printf("amore core called\n");
+    //debug_printf("amore core called\n");
     Header *up;
     size_t nb = nu * sizeof(Header);
 

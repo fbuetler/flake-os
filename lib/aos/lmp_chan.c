@@ -201,7 +201,6 @@ void lmp_chan_migrate_send(struct lmp_chan *lc, struct waitset *ws)
  */
 errval_t lmp_chan_alloc_recv_slot(struct lmp_chan *lc)
 {
-    debug_printf("starting with lmp_chan_alloc_Recv_slot\n");
     assert(lc != NULL);
     struct capref slot;
 
@@ -209,9 +208,7 @@ errval_t lmp_chan_alloc_recv_slot(struct lmp_chan *lc)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
-
     lmp_chan_set_recv_slot(lc, slot);
-    debug_printf("finished with lmp_chan_alloc_Recv_slot\n");
     return SYS_ERR_OK;
 }
 

@@ -202,6 +202,7 @@ void thread_remove_from_queue(struct thread **queue, struct thread *thread)
 int thread_slabs_is_refilling = false;
 static errval_t refill_thread_slabs(struct slab_allocator *slab_allocator)
 {
+    debug_printf("refilling thread slabs!\n");
     // TODO(M4):
     //   - implement me!
     errval_t err = SYS_ERR_OK;
@@ -1437,7 +1438,6 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
     assert_disabled(thread != NULL);
     assert_disabled(disp_gen->runq != NULL);
 
-    debug_printf("thread_deliver_exception_disabled: IP: %p\n", regs->named.pc);
 
     // can we deliver the exception?
     if (thread->exception_handler == NULL || thread->exception_stack_top == NULL

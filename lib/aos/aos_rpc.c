@@ -103,7 +103,6 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
     struct capref msg_cap;
     struct lmp_recv_msg recv_buf = LMP_RECV_MSG_INIT;
 
-    DEBUG_PRINTF("before lmp_chan_recv \n");
     err = lmp_chan_recv(&rpc->chan, &recv_buf, &msg_cap);
     if (err_is_fail(err) && lmp_err_is_transient(err)) {
         goto reregister;
@@ -111,8 +110,9 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
     }
 
+
+
     if (!rpc->is_busy) {
-        DEBUG_PRINTF("inside !rpc->is_busy \n");
         // setup rpc state with new message and set to busy
 
         struct aos_rpc_msg *tmp_msg = (struct aos_rpc_msg *)recv_buf.words;
@@ -123,9 +123,7 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         // DEBUG_PRINTF("Received bytes: %zu total_bytes: %zu", recv_bytes, total_bytes);
 
         // allocate space for return message, copy current message already to it
-        DEBUG_PRINTF("before malloc in recv msg\n");
         rpc->recv_msg = (struct aos_rpc_msg *)STATIC_RPC_RECV_MSG_BUF; //malloc(total_bytes);
-        DEBUG_PRINTF("after malloc in recv msg\n");
         if (!rpc->recv_msg) {
             DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg_handler for ret_msg failed "
                          "\n");
@@ -154,21 +152,14 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
     }
 
     if (!capref_is_null(msg_cap)) {
-        DEBUG_PRINTF("recv capref x \n");
+        /*DEBUG_PRINTF("recv capref x \n");
         char buf[50];
         debug_print_capref(buf, 50, msg_cap);
         debug_printf("%s \n", buf);
-        // alloc for next time
-        err = lmp_chan_alloc_recv_slot(&rpc->chan);
-        DEBUG_PRINTF("after lmp_chan_alloc_recv_slot \n");
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to allocated receive slot");
-            err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
-            goto reregister;
-        }
+       */
+
+        // TODO chan_alloc_recv needs to be inserted somewhere now!
     }
-
-
 
     rpc->is_busy = false;
     // rpc->process_msg_func(rpc);
@@ -340,7 +331,6 @@ errval_t aos_rpc_create_msg_no_pagefault(struct aos_rpc_msg **ret_msg, enum aos_
     msg->payload_bytes = payload_size;
     msg->cap = msg_cap;
 
-    debug_printf("before memcpy: payload_size: 0x%zx \n", payload_size);
     memcpy(msg->payload, payload, payload_size);
 
     if (ret_msg) {
@@ -365,11 +355,9 @@ errval_t aos_rpc_create_msg_no_pagefault(struct aos_rpc_msg **ret_msg, enum aos_
 errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type,
                             size_t payload_size, void *payload, struct capref msg_cap)
 {
-    DEBUG_PRINTF("inside aos_rpc create msg \n");
     size_t header_size = sizeof(struct aos_rpc_msg);
     struct aos_rpc_msg *msg = malloc(
         ROUND_UP(header_size + payload_size, sizeof(uintptr_t)));
-    DEBUG_PRINTF("inside aos_rpc create msg, after malloc \n");
     if (!msg) {
         DEBUG_ERR(LIB_ERR_MALLOC_FAIL, "failed to allocate memory");
         return LIB_ERR_MALLOC_FAIL;
@@ -498,11 +486,11 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     errval_t err;
 
     // send message
-    DEBUG_PRINTF("inside aos_rpc_call, before aos_rpc_send_msg \n");
-    DEBUG_PRINTF("channel %p\n", rpc->chan.endpoint);
+    //DEBUG_PRINTF("inside aos_rpc_call, before aos_rpc_send_msg \n");
+    //DEBUG_PRINTF("channel %p\n", rpc->chan.endpoint);
     err = aos_rpc_send_msg(rpc, msg);
-    DEBUG_PRINTF("inside aos_rpc_call, after aos_rpc_send_msg \n");
-    DEBUG_PRINTF("channel after %p\n", rpc->chan.endpoint);
+    //DEBUG_PRINTF("inside aos_rpc_call, after aos_rpc_send_msg \n");
+    //DEBUG_PRINTF("channel after %p\n", rpc->chan.endpoint);
     //DEBUG_PRINTF("recv_bytes: %d, is_busy: %d \n", rpc->recv_bytes, rpc->is_busy);
 
     if (err_is_fail(err)) {
@@ -511,15 +499,15 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     }
 
 
-    debug_printf("aos_rpc_call: before receiv_msg\n");
     // receive message
     err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
+        // TODO remove abort
+        abort();
         return err;
     }
 
-    debug_printf("aos_rpc_call: after receiv_msg\n");
     return SYS_ERR_OK;
 }
 
@@ -571,8 +559,6 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment,
                              struct capref *ret_cap, size_t *ret_bytes)
 {
-    DEBUG_PRINTF("called aos_rpc_get_ram_cap \n");
-    DEBUG_PRINTF("######@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
     errval_t err;
 
     size_t payload_size = 3 * sizeof(size_t);
@@ -588,31 +574,26 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
         return err;
     }
 
-    DEBUG_PRINTF("before doing rpc_call \n");
     err = aos_rpc_call(rpc, msg);
-    DEBUG_PRINTF("after doing rpc_call \n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
     }
 
-    DEBUG_PRINTF("before ret_cap access. Addr of retcap: %p\n", ret_cap);
-    DEBUG_PRINTF("addr of rpc_recv_msg %p\n", rpc->recv_msg);
-    DEBUG_PRINTF("addr of &rpc_recv_msg %p\n", &rpc->recv_msg);
-    DEBUG_PRINTF("addr of rpc_recv_msg->cap %p\n", &rpc->recv_msg->cap);
+    //DEBUG_PRINTF("before ret_cap access. Addr of retcap: %p\n", ret_cap);
+    //DEBUG_PRINTF("addr of rpc_recv_msg %p\n", rpc->recv_msg);
+    //DEBUG_PRINTF("addr of &rpc_recv_msg %p\n", &rpc->recv_msg);
+    //DEBUG_PRINTF("addr of rpc_recv_msg->cap %p\n", &rpc->recv_msg->cap);
     /*
     char buf[50];
     debug_print_cap_at_capref(buf, 50, (struct capref)rpc->recv_msg->cap);
     debug_printf("retcap content: %s \n", buf);
     */
     *ret_cap = (struct capref)rpc->recv_msg->cap;
-    DEBUG_PRINTF("after ret_cap access\n");
     // char buf1[256];
     // debug_print_cap_at_capref(buf1, 256, *ret_cap);
     // DEBUG_PRINTF("%.*s\n", 256, buf1);
 
-    DEBUG_PRINTF("############################################@@@@@@@@@@@@@@@@@@\n");
-    DEBUG_PRINTF("finished aos_rpc_get_ram_cap \n");
 
     return SYS_ERR_OK;
 }
