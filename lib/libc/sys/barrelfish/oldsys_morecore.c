@@ -40,7 +40,7 @@ morecore_free_func_t sys_morecore_free;
  * \return Pointer to freelist header of new memory region or NULL on out of
  * memory.
  */
-Header *morecore(unsigned nu)
+Header *morecore(size_t nu)
 {
     //debug_printf("amore core called\n");
     Header *up;

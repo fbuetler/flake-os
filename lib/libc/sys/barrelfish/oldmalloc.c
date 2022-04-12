@@ -42,7 +42,7 @@ void *malloc(size_t nbytes)
     }
     struct morecore_state *state = get_morecore_state();
     Header *p, *prevp;
-    unsigned nunits;
+    size_t nunits;
     nunits = (nbytes + sizeof(Header) - 1) / sizeof(Header) + 1;
 
     MALLOC_LOCK;

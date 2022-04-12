@@ -107,6 +107,10 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
 
     // reserve a region of virtual memory for the heap
     size_t aligned_bytes = ROUND_UP(bytes, sizeof(Header));
+    if (aligned_bytes % sizeof(Header) != 0) {
+        DEBUG_PRINTF("bytes: 0x%lx, aligned_bytes: 0x%lx, sizeof(Header): 0x%lx\n", bytes, aligned_bytes, sizeof(Header));
+        assert(!"round_up sucks");
+    }
     void *buf;
     err = paging_alloc_region(st->paging_state, VREGION_TYPE_HEAP, &buf, aligned_bytes, 1);
     if (err_is_fail(err)) {
