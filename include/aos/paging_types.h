@@ -16,16 +16,41 @@
 #define PAGING_TYPES_H_ 1
 
 #include <aos/solution.h>
+#include <aos/threads.h>
 #include <mm/mm_tracker.h>
+#include "collections/list.h"
+#include <collections/hash_table.h>
 
-#define VADDR_OFFSET ((lvaddr_t)512UL * 1024 * 1024 * 1024)  // 1GB
-#define VREGION_FLAGS_READ 0x01                              // Reading allowed
-#define VREGION_FLAGS_WRITE 0x02                             // Writing allowed
-#define VREGION_FLAGS_EXECUTE 0x04                           // Execute allowed
-#define VREGION_FLAGS_NOCACHE 0x08                           // Caching disabled
-#define VREGION_FLAGS_MPB 0x10                               // Message passing buffer
-#define VREGION_FLAGS_GUARD 0x20                             // Guard page
-#define VREGION_FLAGS_MASK 0x2f  // Mask of all individual VREGION_FLAGS
+
+#define VADDR_OFFSET ((lvaddr_t)512UL * 1024 * 1024 * 1024)  // 512 GB
+#define VADDR_MIN (0x0000000000000000UL)
+#define VADDR_MAX (0xffffffffffffffffUL)
+
+#define VADDR_MIN_USERSPACE (0x0000000000000000UL)
+#define VADDR_MAX_USERSPACE (0x0000ffffffffffffUL)
+
+#define VSTACK_GUARD_PAGE_SIZE (BASE_PAGE_SIZE)  // 4 KB
+#define VSTACK_SIZE (1024UL * 1024UL * 1024UL)   // 1 GB
+
+#define VSTACKS_OFFSET ((lvaddr_t)(VADDR_MAX_USERSPACE - MAX_THREADS * VSTACK_SIZE + 1UL))
+#define VSTACKS_SIZE (MAX_THREADS * VSTACK_SIZE)
+
+#define VHEAP_OFFSET ((lvaddr_t)(2 * VADDR_OFFSET))
+#define VHEAP_SIZE (VSTACKS_OFFSET - VHEAP_OFFSET)
+
+#define VREADONLY_OFFSET ((lvaddr_t)(BASE_PAGE_SIZE))
+#define VREADONLY_SIZE (VHEAP_OFFSET - VREADONLY_OFFSET)
+
+#define VUNUSABLE_OFFSET ((lvaddr_t)0x0LU)
+#define VUNUSABLE_SIZE (VREADONLY_OFFSET - VUNUSABLE_OFFSET)
+
+#define VREGION_FLAGS_READ 0x01     // Reading allowed
+#define VREGION_FLAGS_WRITE 0x02    // Writing allowed
+#define VREGION_FLAGS_EXECUTE 0x04  // Execute allowed
+#define VREGION_FLAGS_NOCACHE 0x08  // Caching disabled
+#define VREGION_FLAGS_MPB 0x10      // Message passing buffer
+#define VREGION_FLAGS_GUARD 0x20    // Guard page
+#define VREGION_FLAGS_MASK 0x2f     // Mask of all individual VREGION_FLAGS
 
 #define VREGION_FLAGS_READ_WRITE (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE)
 #define VREGION_FLAGS_READ_EXECUTE (VREGION_FLAGS_READ | VREGION_FLAGS_EXECUTE)
@@ -49,6 +74,8 @@
 #define L2_IDX(addr) ((uint16_t)((addr & L2_IDX_MASK) >> L2_IDX_OFFSET))
 #define L3_IDX(addr) ((uint16_t)((addr & L3_IDX_MASK) >> L3_IDX_OFFSET))
 
+#define EXCEPTION_STACK_SIZE (16UL * 1024)     // 16 Kb
+#define EXCEPTION_STACK_MIN_SIZE (4UL * 1024)  // 4Kb
 
 typedef int paging_flags_t;
 
@@ -57,18 +84,32 @@ struct page_table {
     struct capref cap;  ///< cap that represent the memory where this page table is stored
     struct page_table *entries[PTABLE_ENTRIES];  ///< the entries of the page table
     struct capref mappings[PTABLE_ENTRIES];      ///< the mapping of the page table
-    uint16_t filled_slots;                       ///< nr of filled slots in this table
+    genpaddr_t paddrs[PTABLE_ENTRIES];
+    uint16_t filled_slots;  ///< nr of filled slots in this table
+};
+
+// struct to be used as the value of vspace_lookup
+struct vaddr_region {
+    genvaddr_t vaddr;
+    gensize_t bytes;
 };
 
 // struct to store the paging status of a process
 struct paging_state {
-    struct slot_allocator
-        *slot_allocator;  ///< Slab allocator used for allocating page tables
-    struct slab_allocator slab_allocator;  ///< Slot allocator for allocating cspac
-    struct page_table root_page_table;     ///< L0 page table
+    struct slot_allocator *slot_allocator;  ///< Slab allocator used for allocating
+                                            ///< page tables
+    struct slab_allocator slab_allocator;   ///< Slot allocator for allocating cspac
+    struct page_table root_page_table;      ///< L0 page table
+    collections_hash_table *vspace_lookup;  ///< Hashmap to lookup the virtual
+                                            ///< address given a physical address
 
-    mm_tracker_t vspace_tracker;                  ///< mm tracker for vspace
+    // heap and stack alloc
+    mm_tracker_t vreadonly_tracker;  ///< mm tracker for vspace
+    mm_tracker_t vheap_tracker;
+    mm_tracker_t vstack_tracker;
     struct slab_allocator vspace_slab_allocator;  ///< Slab allocator for allocating vspace
+
+    struct thread_mutex paging_mutex;
 };
 
 #endif  /// PAGING_TYPES_H_

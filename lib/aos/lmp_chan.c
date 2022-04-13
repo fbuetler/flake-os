@@ -208,7 +208,6 @@ errval_t lmp_chan_alloc_recv_slot(struct lmp_chan *lc)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
-
     lmp_chan_set_recv_slot(lc, slot);
     return SYS_ERR_OK;
 }

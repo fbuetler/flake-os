@@ -70,6 +70,8 @@ errval_t aos_rpc_init(struct aos_rpc *rpc);
 errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type,
                             size_t payload_size, void *payload, struct capref msg_cap);
 
+errval_t aos_rpc_create_msg_no_pagefault(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type msg_type, size_t payload_size, void *payload, struct capref msg_cap, struct aos_rpc_msg *msg);
+
 /**
  * @brief Asynchronously send a message
  */

@@ -16,20 +16,40 @@
 #include <aos/aos_rpc.h>
 #include <aos/core_state.h>
 
+
 /* remote (indirect through a channel) version of ram_alloc, for most domains */
 static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignment)
 {
-    //TODO(M3): Implement me!
+    thread_mutex_lock_nested(&ram_mutex);
+    if(!ret) {
+        DEBUG_PRINTF("ram_alloc_remote, ret capref is NULL \n");
+    }
+
+    // TODO(M3): Implement me!
     errval_t err;
 
     struct aos_rpc *memory_rpc = aos_rpc_get_memory_channel();
+    if(!memory_rpc) {
+        DEBUG_PRINTF("ERROR: no memory server found!\n");
+        abort();
+    }
+
+    err = lmp_chan_alloc_recv_slot(&memory_rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
+    }
+
     size_t allocated_size;
     err = aos_rpc_get_ram_cap(memory_rpc, size, alignment, ret, &allocated_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get remote ram cap");
+        thread_mutex_unlock(&ram_mutex);
         return err_push(err, LIB_ERR_RAM_ALLOC_REMOTE);
     }
 
+    thread_mutex_unlock(&ram_mutex);
     return SYS_ERR_OK;
 }
 
@@ -44,21 +64,23 @@ void ram_set_affinity(uint64_t minbase, uint64_t maxlimit)
 void ram_get_affinity(uint64_t *minbase, uint64_t *maxlimit)
 {
     struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
-    *minbase  = ram_alloc_state->default_minbase;
+    *minbase = ram_alloc_state->default_minbase;
     *maxlimit = ram_alloc_state->default_maxlimit;
 }
 
-#define OBJSPERPAGE_CTE         (1 << (BASE_PAGE_BITS - OBJBITS_CTE))
+#define OBJSPERPAGE_CTE (1 << (BASE_PAGE_BITS - OBJBITS_CTE))
 
 errval_t ram_alloc_fixed(struct capref *ret, size_t size, size_t alignment)
 {
     struct ram_alloc_state *state = get_ram_alloc_state();
 
+    DEBUG_PRINTF("ram alloc fixed size: 0x%lx alignment 0x%lx \n", size, alignment);
+
     if (size == BASE_PAGE_SIZE && alignment <= BASE_PAGE_SIZE) {
         // XXX: Return error if check to see if out of slots
         assert(state->base_capnum < OBJSPERPAGE_CTE);
         ret->cnode = cnode_base;
-        ret->slot  = state->base_capnum++;
+        ret->slot = state->base_capnum++;
         return SYS_ERR_OK;
     } else {
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
@@ -121,12 +143,12 @@ void ram_alloc_init(void)
     /* Initialize the ram_alloc_state */
     struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
     ram_alloc_state->mem_connect_done = false;
-    ram_alloc_state->mem_connect_err  = 0;
+    ram_alloc_state->mem_connect_err = 0;
     thread_mutex_init(&ram_alloc_state->ram_alloc_lock);
-    ram_alloc_state->ram_alloc_func   = NULL;
-    ram_alloc_state->default_minbase  = 0;
+    ram_alloc_state->ram_alloc_func = NULL;
+    ram_alloc_state->default_minbase = 0;
     ram_alloc_state->default_maxlimit = 0;
-    ram_alloc_state->base_capnum      = 0;
+    ram_alloc_state->base_capnum = 0;
 }
 
 /**

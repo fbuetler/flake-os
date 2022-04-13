@@ -23,27 +23,27 @@
 #include <stdio.h>
 
 /// Root CNode
-#define ROOT_CNODE_INIT { \
-    .croot = CPTR_ROOTCN, \
-    .cnode = 0, \
-    .level = CNODE_TYPE_ROOT, }
+#define ROOT_CNODE_INIT                                                                  \
+    {                                                                                    \
+        .croot = CPTR_ROOTCN, .cnode = 0, .level = CNODE_TYPE_ROOT,                      \
+    }
 
 struct cnoderef cnode_root = ROOT_CNODE_INIT;
 
-#define TASK_CNODE_INIT { \
-    .croot = CPTR_ROOTCN, \
-    .cnode = CPTR_TASKCN_BASE, \
-    .level = CNODE_TYPE_OTHER, }
+#define TASK_CNODE_INIT                                                                  \
+    {                                                                                    \
+        .croot = CPTR_ROOTCN, .cnode = CPTR_TASKCN_BASE, .level = CNODE_TYPE_OTHER,      \
+    }
 
-#define PAGE_CNODE_INIT { \
-    .croot = CPTR_ROOTCN, \
-    .cnode = CPTR_PAGECN_BASE, \
-    .level = CNODE_TYPE_OTHER, }
+#define PAGE_CNODE_INIT                                                                  \
+    {                                                                                    \
+        .croot = CPTR_ROOTCN, .cnode = CPTR_PAGECN_BASE, .level = CNODE_TYPE_OTHER,      \
+    }
 
-#define MODULE_CNODE_INIT { \
-    .croot = CPTR_ROOTCN, \
-    .cnode = CPTR_MODULECN_BASE, \
-    .level = CNODE_TYPE_OTHER, }
+#define MODULE_CNODE_INIT                                                                \
+    {                                                                                    \
+        .croot = CPTR_ROOTCN, .cnode = CPTR_MODULECN_BASE, .level = CNODE_TYPE_OTHER,    \
+    }
 
 /// Task CNode
 struct cnoderef cnode_task = TASK_CNODE_INIT;
@@ -68,106 +68,56 @@ struct cnoderef cnode_page = PAGE_CNODE_INIT;
 /// Module CNode
 struct cnoderef cnode_module = MODULE_CNODE_INIT;
 
-struct capref cap_mmstrings = {
-    .cnode = MODULE_CNODE_INIT,
-    .slot = 0
-};
+struct capref cap_mmstrings = { .cnode = MODULE_CNODE_INIT, .slot = 0 };
 
 /// Capability to Root CNode
-struct capref cap_root = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_ROOTCN
-};
+struct capref cap_root = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_ROOTCN };
 
 /// Capability for IRQ table
-struct capref cap_irq = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_IRQ
-};
+struct capref cap_irq = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_IRQ };
 
 /// Capability for endpoint to self
-struct capref cap_selfep = {
-    .cnode = TASK_CNODE_INIT,
-    .slot = TASKCN_SLOT_SELFEP
-};
+struct capref cap_selfep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_SELFEP };
 
 /// Capability for dispatcher
-struct capref cap_dispatcher = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_DISPATCHER
-};
+struct capref cap_dispatcher = { .cnode = TASK_CNODE_INIT,
+                                 .slot = TASKCN_SLOT_DISPATCHER };
 
 /// Capability for dispatcher
-struct capref cap_dispframe = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_DISPFRAME
-};
+struct capref cap_dispframe = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_DISPFRAME };
 
 /// Capability for ArgSpace
-struct capref cap_argcn = {
-    .cnode = ROOT_CNODE_INIT,
-    .slot  = ROOTCN_SLOT_ARGCN
-};
+struct capref cap_argcn = { .cnode = ROOT_CNODE_INIT, .slot = ROOTCN_SLOT_ARGCN };
 
 /// Capability for monitor endpoint
-struct capref cap_monitorep = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_MONITOREP
-};
+struct capref cap_monitorep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_MONITOREP };
 
 /// Capability for bootinfo (only in monitor)
-struct capref cap_bootinfo = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_BOOTINFO
-};
+struct capref cap_bootinfo = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_BOOTINFO };
 
 /// Capability for kernel (only in monitor)
-struct capref cap_kernel = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_KERNELCAP
-};
+struct capref cap_kernel = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_KERNELCAP };
 
 /// Capability for IPI sending (only in monitor)
-struct capref cap_ipi = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_IPI
-};
+struct capref cap_ipi = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_IPI };
 
 /// PerfMon CNode
-struct capref cap_perfmon = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_PERF_MON
-};
+struct capref cap_perfmon = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_PERF_MON };
 
 /// Capability for endpoint to init (only in monitor/mem_serv)
-struct capref cap_initep = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_INITEP
-};
+struct capref cap_initep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_INITEP };
 
 /// Capability to the URPC frame
-struct capref cap_urpc = {
-    .cnode = TASK_CNODE_INIT,
-    .slot = TASKCN_SLOT_MON_URPC
-};
+struct capref cap_urpc = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_MON_URPC };
 
 /// Session ID
-struct capref cap_sessionid = {
-    .cnode = TASK_CNODE_INIT,
-    .slot = TASKCN_SLOT_SESSIONID
-};
+struct capref cap_sessionid = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_SESSIONID };
 
 /// Process manager cap, allows creating domains.
-struct capref cap_procmng = {
-    .cnode = TASK_CNODE_INIT,
-    .slot = TASKCN_SLOT_PROC_MNG
-};
+struct capref cap_procmng = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_PROC_MNG };
 
 /// Domain ID cap.
-struct capref cap_domainid = {
-    .cnode = TASK_CNODE_INIT,
-    .slot = TASKCN_SLOT_DOMAINID
-};
+struct capref cap_domainid = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_DOMAINID };
 
 /// Root PML4 VNode
 struct capref cap_vroot = {
@@ -178,8 +128,8 @@ struct capref cap_vroot = {
 static inline bool backoff(int count)
 {
     // very crude exponential backoff based upon core id
-    int yieldcnt = 2^count * disp_get_core_id();
-    for (int i=0; i<yieldcnt; i++) {
+    int yieldcnt = 2 ^ count * disp_get_core_id();
+    for (int i = 0; i < yieldcnt; i++) {
         thread_yield();
     }
     return true;
@@ -266,16 +216,14 @@ errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offse
     // Address of source capability
     capaddr_t scp_addr = get_cap_addr(src);
 
-    err = invoke_cnode_retype(cap_root, scp_root, scp_addr, offset, new_type,
-                              objsize, count, dcs_addr, dcn_addr, dcn_level,
-                              dest_start.slot);
+    err = invoke_cnode_retype(cap_root, scp_root, scp_addr, offset, new_type, objsize,
+                              count, dcs_addr, dcn_addr, dcn_level, dest_start.slot);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         struct capref src_root = get_croot_capref(src);
         struct capref dest_root = get_croot_capref(dest_start);
-        return cap_retype_remote(src_root, dest_root, scp_addr, offset, new_type,
-                                 objsize, count, dcn_addr, dest_start.slot,
-                                 dcn_level);
+        return cap_retype_remote(src_root, dest_root, scp_addr, offset, new_type, objsize,
+                                 count, dcn_addr, dest_start.slot, dcn_level);
     } else {
         return err;
     }
@@ -303,8 +251,8 @@ errval_t cap_create(struct capref dest, enum objtype type, size_t size)
     capaddr_t dest_cnode_cptr = get_cnode_addr(dest);
     enum cnode_type dest_cnode_level = get_cnode_level(dest);
 
-    err = invoke_cnode_create(cap_root, type, size, dest_cnode_cptr,
-                              dest_cnode_level, dest.slot);
+    err = invoke_cnode_create(cap_root, type, size, dest_cnode_cptr, dest_cnode_level,
+                              dest.slot);
 
     return err;
 }
@@ -393,7 +341,7 @@ errval_t root_cnode_resize(struct capref new, struct capref ret)
 
     assert(get_croot_addr(ret) == CPTR_ROOTCN);
     assert(get_cap_level(ret) == CNODE_TYPE_COUNT);
-    capaddr_t retcn_ptr= get_cnode_addr(ret);
+    capaddr_t retcn_ptr = get_cnode_addr(ret);
 
     return invoke_cnode_resize(cap_root, new_cptr, retcn_ptr, ret.slot);
 }
@@ -410,15 +358,12 @@ errval_t root_cnode_resize(struct capref new, struct capref ret)
  * This function requires that dest refer to an existing but empty slot. It
  * retypes the given memory to a new CNode.
  */
-errval_t cnode_create_from_mem(struct capref dest, struct capref src,
-                               enum objtype cntype, struct cnoderef *cnoderef,
-                               size_t slots)
+errval_t cnode_create_from_mem(struct capref dest, struct capref src, enum objtype cntype,
+                               struct cnoderef *cnoderef, size_t slots)
 {
     errval_t err;
 
-    if (cntype != ObjType_L1CNode &&
-        cntype != ObjType_L2CNode)
-    {
+    if (cntype != ObjType_L1CNode && cntype != ObjType_L2CNode) {
         return LIB_ERR_CNODE_TYPE;
     }
 
@@ -431,7 +376,8 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
 
     // Construct the cnoderef to return
     if (cnoderef != NULL) {
-        enum cnode_type ref_cntype = cntype == ObjType_L1CNode ? CNODE_TYPE_ROOT : CNODE_TYPE_OTHER;
+        enum cnode_type ref_cntype = cntype == ObjType_L1CNode ? CNODE_TYPE_ROOT
+                                                               : CNODE_TYPE_OTHER;
         *cnoderef = build_cnoderef(dest, ref_cntype);
     }
 
@@ -446,19 +392,19 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
  * \param slots Minimum number of slots in created CNode
  * \param retslots If non-NULL, filled in with the  number of slots in created CNode
  */
-errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
-                      cslot_t slots, cslot_t *retslots)
+errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef, cslot_t slots,
+                      cslot_t *retslots)
 {
-    USER_PANIC("cnode_create deprecated; use cnode_create_l1, cnode_create_l2, or cnode_create_foreign_l2: %p %p %p %p\n",
-            __builtin_return_address(0),
+    USER_PANIC("cnode_create deprecated; use cnode_create_l1, cnode_create_l2, or "
+               "cnode_create_foreign_l2: %p %p %p %p\n",
+               __builtin_return_address(0),
 #ifdef __x86_64__
-            __builtin_return_address(1),
-            __builtin_return_address(2),
-            __builtin_return_address(3)
+               __builtin_return_address(1), __builtin_return_address(2),
+               __builtin_return_address(3)
 #else
-            NULL, NULL, NULL
+               NULL, NULL, NULL
 #endif
-            );
+    );
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
@@ -482,11 +428,12 @@ errval_t cnode_create_l2(struct capref *ret_dest, struct cnoderef *cnoderef)
     }
 
     cslot_t retslots;
-    err = cnode_create_raw(*ret_dest, cnoderef, ObjType_L2CNode,
-                           L2_CNODE_SLOTS, &retslots);
+    err = cnode_create_raw(*ret_dest, cnoderef, ObjType_L2CNode, L2_CNODE_SLOTS,
+                           &retslots);
     if (retslots != L2_CNODE_SLOTS) {
-        debug_printf("Unable to create properly sized L2 CNode: got %"PRIuCSLOT" slots instead of %"PRIuCSLOT"\n",
-                retslots, (cslot_t)L2_CNODE_SLOTS);
+        DEBUG_PRINTF("Unable to create properly sized L2 CNode: got %" PRIuCSLOT
+                     " slots instead of %" PRIuCSLOT "\n",
+                     retslots, (cslot_t)L2_CNODE_SLOTS);
     }
     return err;
 }
@@ -503,11 +450,12 @@ errval_t cnode_create_l1(struct capref *ret_dest, struct cnoderef *cnoderef)
     }
 
     cslot_t retslots;
-    err = cnode_create_raw(*ret_dest, cnoderef, ObjType_L1CNode,
-                           L2_CNODE_SLOTS, &retslots);
+    err = cnode_create_raw(*ret_dest, cnoderef, ObjType_L1CNode, L2_CNODE_SLOTS,
+                           &retslots);
     if (retslots != L2_CNODE_SLOTS) {
-        debug_printf("Unable to create initial L1 CNode: got %"PRIuCSLOT" slots instead of %"PRIuCSLOT"\n",
-                retslots, (cslot_t)L2_CNODE_SLOTS);
+        DEBUG_PRINTF("Unable to create initial L1 CNode: got %" PRIuCSLOT
+                     " slots instead of %" PRIuCSLOT "\n",
+                     retslots, (cslot_t)L2_CNODE_SLOTS);
     }
     return err;
 }
@@ -540,8 +488,8 @@ errval_t cnode_create_foreign_l2(struct capref dest_l1, cslot_t dest_slot,
     cslot_t retslots;
     err = cnode_create_raw(dest, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, &retslots);
     if (retslots != L2_CNODE_SLOTS) {
-        debug_printf("Unable to create properly sized foreign CNode: "
-                     "got %"PRIuCSLOT" slots instead of %"PRIuCSLOT"\n",
+        DEBUG_PRINTF("Unable to create properly sized foreign CNode: "
+                     "got %" PRIuCSLOT " slots instead of %" PRIuCSLOT "\n",
                      retslots, (cslot_t)L2_CNODE_SLOTS);
     }
 
@@ -575,15 +523,11 @@ errval_t cnode_create_raw(struct capref dest, struct cnoderef *cnoderef,
 
     assert(slots > 0);
 
-    if (cntype != ObjType_L1CNode &&
-        cntype != ObjType_L2CNode)
-    {
+    if (cntype != ObjType_L1CNode && cntype != ObjType_L2CNode) {
         return LIB_ERR_CNODE_TYPE;
     }
 
-    if (slots < L2_CNODE_SLOTS ||
-        (cntype == ObjType_L2CNode && slots != L2_CNODE_SLOTS))
-    {
+    if (slots < L2_CNODE_SLOTS || (cntype == ObjType_L2CNode && slots != L2_CNODE_SLOTS)) {
         return LIB_ERR_CNODE_SLOTS;
     }
 
@@ -626,8 +570,8 @@ errval_t cnode_create_raw(struct capref dest, struct cnoderef *cnoderef,
  * set the guard value.
  */
 errval_t cnode_create_with_guard(struct capref dest, struct cnoderef *cnoderef,
-                                 cslot_t slots, cslot_t *retslots,
-                                 uint64_t guard, uint8_t guard_size)
+                                 cslot_t slots, cslot_t *retslots, uint64_t guard,
+                                 uint8_t guard_size)
 {
     USER_PANIC("%s: GPT CNodes are deprecated\n", __FUNCTION__);
 }
@@ -697,17 +641,17 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
     struct capref ram;
     err = ram_alloc(&ram, bytes);
     if (err_is_fail(err)) {
-        if (err_no(err) == MM_ERR_NOT_FOUND ||
-            err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
+        if (err_no(err) == MM_ERR_NOT_FOUND
+            || err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
             return err_push(err, LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS);
         }
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
-
     err = cap_retype(dest, ram, 0, ObjType_Frame, bytes, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
+
 
     err = cap_destroy(ram);
     if (err_is_fail(err)) {
@@ -724,14 +668,14 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
 /**
  * \brief Create a dispatcher capability and store it in the slot pointed to
  * by 'dest'
- * 
- * This function requires that dest refers to an existing but empty slot. It 
+ *
+ * This function requires that dest refers to an existing but empty slot. It
  * allocates a new RAM cap, retypes it to one of type ObjType_Dispatcher and
  * stores it at the slot pointed to by the capref struct 'dest'. The intermediate
  * ram cap is then destroyed.
  *
  * \param dest location to place new dispatcher cap
- * 
+ *
  * \return Either SYS_ERR_OK if no error occured or an error
  * indicating what went wrong otherwise.
  */
@@ -766,8 +710,7 @@ errval_t dispatcher_create(struct capref dest)
  * \param retcap  Pointer to capref struct, filled-in with location of cap
  * \param retep   Double pointer to LMP endpoint, filled-in with allocated EP
  */
-errval_t endpoint_create(size_t buflen, struct capref *retcap,
-                         struct lmp_endpoint **retep)
+errval_t endpoint_create(size_t buflen, struct capref *retcap, struct lmp_endpoint **retep)
 {
     errval_t err = slot_alloc(retcap);
     if (err_is_fail(err)) {
@@ -857,8 +800,7 @@ errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr)
         return err;
     }
 
-    if (cap.type != ObjType_L1CNode &&
-        cap.type != ObjType_L2CNode) {
+    if (cap.type != ObjType_L1CNode && cap.type != ObjType_L2CNode) {
         return LIB_ERR_NOT_CNODE;
     }
 

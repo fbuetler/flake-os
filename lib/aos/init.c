@@ -43,7 +43,7 @@ void libc_exit(int);
 __weak_reference(libc_exit, _exit);
 void libc_exit(int status)
 {
-    debug_printf("libc exit NYI!\n");
+    DEBUG_PRINTF("libc exit NYI!\n");
     thread_exit(status);
     // If we're not dead by now, we wait
     while (1) {
@@ -120,10 +120,11 @@ __attribute__((__used__)) static size_t terminal_read(char *buf, size_t len)
 
 __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t len)
 {
-    debug_printf("Terminal read NYI!\n");
+    DEBUG_PRINTF("Terminal read NYI!\n");
     return 0;
 }
 
+static struct aos_rpc rpc;
 
 /* Set libc function pointers */
 void barrelfish_libc_glue_init(void)
@@ -133,7 +134,7 @@ void barrelfish_libc_glue_init(void)
     // TODO: change these to use the user-space serial driver if possible
     // TODO: set these functions
     _libc_terminal_read_func = dummy_terminal_read;
-    _libc_terminal_write_func = terminal_write;
+    _libc_terminal_write_func = syscall_terminal_write;
     _libc_exit_func = libc_exit;
     _libc_assert_func = libc_assert;
     /* morecore func is setup by morecore_init() */
@@ -199,15 +200,20 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return SYS_ERR_OK;
     }
 
-    struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
-    err = aos_rpc_init(rpc);
+    DEBUG_PRINTF("before malloc in init.c \n");
+    // struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
+    err = aos_rpc_init(&rpc);
+    DEBUG_PRINTF("After aos_rpc_init.c \n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init rpc");
         return err;
     }
 
+
     // reset the RAM allocator to use ram_alloc_remote
+    DEBUG_PRINTF("Changing ram allocator \n");
     ram_alloc_set(NULL);
+
 
     return SYS_ERR_OK;
 }

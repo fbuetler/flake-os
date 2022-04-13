@@ -67,14 +67,14 @@ void check_notificators_disabled(dispatcher_handle_t handle)
     do {
         if (n->can_read(n->object)) {
             if (waitset_chan_is_registered(&n->ready_to_read)) {
-                // debug_printf("triggering\n");
+                // DEBUG_PRINTF("triggering\n");
                 errval_t err = waitset_chan_trigger_disabled(&n->ready_to_read, handle);
                 assert(err_is_ok(err)); // should not fail
             }
         }
         if (n->can_write(n->object)) {
             if (waitset_chan_is_registered(&n->ready_to_write)) {
-                // debug_printf("triggering\n");
+                // DEBUG_PRINTF("triggering\n");
                 errval_t err = waitset_chan_trigger_disabled(&n->ready_to_write, handle);
                 assert(err_is_ok(err)); // should not fail
             }

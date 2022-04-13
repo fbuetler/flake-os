@@ -24,7 +24,7 @@
 #include <aos/thread_sync.h>
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish_kpi/capabilities.h>
-#include <barrelfish_kpi/init.h> // for CNODE_SLOTS_*
+#include <barrelfish_kpi/init.h>  // for CNODE_SLOTS_*
 
 struct morecore_state {
     struct thread_mutex mutex;
@@ -32,6 +32,7 @@ struct morecore_state {
     Header *header_freep;
     // for "real" morecore (lib/aos/morecore.c)
     // TODO: add some state here if needed.
+    struct paging_state *paging_state;
     // for "static" morecore (see lib/aos/static_morecore.c)
     char *freep;
 };
@@ -52,13 +53,13 @@ struct slot_alloc_state {
 
     struct single_slot_allocator top;
     struct slot_allocator_list head;
-    struct slot_allocator_list extra; // for 2level cspace
+    struct slot_allocator_list extra;  // for 2level cspace
     struct slot_allocator_list reserve;
 
-    char     top_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
-    char    head_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
+    char top_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
+    char head_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
     char reserve_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
-    char    root_buf[SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS)];
+    char root_buf[SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS)];
 
     struct single_slot_allocator rootca;
 };
@@ -70,7 +71,6 @@ struct aos_chan;
 struct mem_rpc_client;
 struct spawn_rpc_client;
 struct paging_state;
-
 
 
 struct core_state_generic {

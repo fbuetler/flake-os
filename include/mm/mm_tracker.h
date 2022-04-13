@@ -65,6 +65,7 @@ errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node,
 errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size, mmnode_t **retnode);
 errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size, mmnode_t **retnode);
 
+bool mm_tracker_is_allocated(mm_tracker_t *mmt, genvaddr_t vaddr, size_t size);
 errval_t mm_tracker_find_allocated_node(mm_tracker_t *mmt, genpaddr_t memory_base,
                                         mmnode_t **retnode);
 #endif

@@ -18,8 +18,8 @@ build: Dockerfile install.sh entrypoint.sh
 	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
 
 publish: build
-	docker tag $(IMAGE_NAME):20.04-lts-aos $(DOCKER_HUB_USER)/$(IMAGE_NAME):$(IMAGE_TAG)
-	docker tag $(IMAGE_NAME):20.04-lts-aos $(DOCKER_HUB_USER)/$(IMAGE_NAME):latest
+	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(DOCKER_HUB_USER)/$(IMAGE_NAME):$(IMAGE_TAG)
+	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(DOCKER_HUB_USER)/$(IMAGE_NAME):latest
 	docker push $(DOCKER_HUB_USER)/$(IMAGE_NAME):$(IMAGE_TAG)
 
 test:

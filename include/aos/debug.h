@@ -51,18 +51,20 @@ void debug_err(const char *file, const char *func, int line, errval_t err,
 void user_panic_fn(const char *file, const char *func, int line, const char *msg, ...)
     __attribute__((noreturn));
 
+//#define NDEBUG
 #ifdef NDEBUG
 #    define DEBUG_PRINTF(fmt...) ((void)0)
 #    define DEBUG_ERR(err, msg...) ((void)0)
 #    define HERE ((void)0)
+#    define DEBUG_TRACEF(fmt...) ((void)0)
 #else
 #    define DEBUG_PRINTF(fmt...) debug_printf(fmt);
 #    define DEBUG_TRACEF(fmt...) debug_tracef(fmt);
 #    define DEBUG_ERR(err, msg...) debug_err(__FILE__, __func__, __LINE__, err, msg)
 #    include <aos/dispatch.h>
 #    define HERE                                                                         \
-        fprintf(stderr, "Disp %.*s.%u: %s, %s, %u\n", DISP_NAME_LEN, disp_name(),        \
-                disp_get_core_id(), __FILE__, __func__, __LINE__)
+        fprintf(stderr, "Disp %.*s.%u.%u: %s, %s, %u\n", DISP_NAME_LEN, disp_name(),        \
+                disp_get_core_id(), thread_get_id(thread_self()), __FILE__, __func__, __LINE__)
 #endif
 
 /**

@@ -18,7 +18,7 @@
 #include <assert.h>
 #include <sys/cdefs.h>
 
-#include <aos/caddr.h> // for struct capref.
+#include <aos/caddr.h>  // for struct capref.
 #include <aos/thread_sync.h>
 #include <barrelfish_kpi/registers_arch.h>
 #include <barrelfish_kpi/dispatcher_handle.h>
@@ -30,7 +30,11 @@ __BEGIN_DECLS
 typedef int (*thread_func_t)(void *);
 
 /// Default size of a thread's stack
-#define THREADS_DEFAULT_STACK_BYTES     (64 * 1024)
+#define THREADS_DEFAULT_STACK_BYTES (64 * 1024)
+
+/// Maximum number of threads in a domain, used to size VM region for thread structures
+// there is no point having MAX_THREADS > LDT_NENTRIES on x86 (see ldt.c)
+#define MAX_THREADS 256
 
 struct thread *thread_create(thread_func_t start_func, void *data);
 struct thread *thread_create_varstack(thread_func_t start_func, void *arg,
@@ -85,7 +89,7 @@ void thread_get_outgoing_token(uint32_t *token);
 
 /// Set/get a local trigger for currently processed event channel
 void thread_set_local_trigger(struct waitset_chanstate *trigger);
-struct waitset_chanstate * thread_get_local_trigger(void);
+struct waitset_chanstate *thread_get_local_trigger(void);
 
 struct flounder_rpc_context;
 
@@ -106,10 +110,11 @@ extern void thread_once_internal(thread_once_t *control, void (*func)(void));
  * \param control Control word - should be initialized with THREAD_ONCE_INIT.
  * \param func Callback to be invoked.
  */
-static inline void thread_once(thread_once_t *control, void (*func)(void)) {
+static inline void thread_once(thread_once_t *control, void (*func)(void))
+{
     assert(control != NULL);
     assert(func != NULL);
-    thread_once_t x = *control; // unprotected access
+    thread_once_t x = *control;  // unprotected access
     if (x > thread_once_local_epoch) {
         thread_once_internal(control, func);
     }

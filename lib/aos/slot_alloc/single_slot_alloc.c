@@ -36,7 +36,7 @@ static errval_t salloc(struct slot_allocator *ca, struct capref *ret)
 #if 0
     char buf[256];
     debug_print_capref(buf, 256, *ret);
-    debug_printf("%p->salloc: ret = %.*s\n", ca, 256, buf);
+    DEBUG_PRINTF("%p->salloc: ret = %.*s\n", ca, 256, buf);
 #endif
 
     // Decrement space
@@ -171,7 +171,7 @@ errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
 
 
     if (newslotcount <= this->a.nslots) {
-        debug_printf("%s: newcount = %"PRIuCSLOT", currcount = %"PRIuCSLOT"\n",
+        DEBUG_PRINTF("%s: newcount = %"PRIuCSLOT", currcount = %"PRIuCSLOT"\n",
                 __FUNCTION__, newslotcount, this->a.nslots);
         return SYS_ERR_OK;
     }
@@ -182,11 +182,15 @@ errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
 
     // Refill slab allocator
     size_t bufgrow = SINGLE_SLOT_ALLOC_BUFLEN(grow);
+
+    slab_refill_no_pagefault(&this->slab, NULL_CAP, bufgrow);
+    /*debug_printf("befreoee\n");
     void *buf = malloc(bufgrow);
+    debug_printf("after\n...");
     if (!buf) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    slab_grow(&this->slab, buf, bufgrow);
+    slab_grow(&this->slab, buf, bufgrow);*/
 
     // Update free slot metadata
     err = free_slots(this, this->a.nslots, grow, &this->a.mutex);
@@ -224,7 +228,7 @@ errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,
         #if !defined(__arm__) && !defined(__aarch64__) 
         size_t buflen_proper = SINGLE_SLOT_ALLOC_BUFLEN(nslots);
         if (buflen != buflen_proper) {
-            debug_printf("******* FIXME: %s buflen=%zu != buflen_proper=%zu"
+            DEBUG_PRINTF("******* FIXME: %s buflen=%zu != buflen_proper=%zu"
                          "call stack: %p %p\n",
                          __FUNCTION__, buflen, buflen_proper,
                          __builtin_return_address(0),
