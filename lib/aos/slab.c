@@ -249,7 +249,8 @@ errval_t slab_refill_no_pagefault(struct slab_allocator *slabs, struct capref fr
 {
     // Refill the slot allocator without causing a page fault
     // Hint: you can't just use malloc here...
-    return slab_default_refill(slabs);
+    //return slab_default_refill(slabs);
+    return slab_refill_pages(slabs, ROUND_UP(minbytes, BASE_PAGE_SIZE));
 }
 
 /**

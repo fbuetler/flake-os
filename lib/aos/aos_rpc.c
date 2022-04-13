@@ -572,16 +572,17 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
         DEBUG_ERR(err, "failed to allocated receive slot");
         err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
         abort();
-    }
+    }  
 
-    size_t payload_size = 3 * sizeof(size_t);
+    size_t payload_size = 2 * sizeof(size_t);
     char payload[payload_size];
     ((size_t *)payload)[0] = bytes;
     ((size_t *)payload)[1] = alignment;
-    ((struct capref **)payload)[2] = ret_cap;
 
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg_no_pagefault(&msg, RamCapRequest, payload_size, (void *)payload, NULL_CAP, (struct aos_rpc_msg*)static_rpc_msg_buf);
+
+    char buf[AOS_RPC_MSG_SIZE(payload_size)];
+    err = aos_rpc_create_msg_no_pagefault(&msg, RamCapRequest, payload_size, (void *)payload, NULL_CAP, (struct aos_rpc_msg*)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;

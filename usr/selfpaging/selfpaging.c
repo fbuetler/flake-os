@@ -16,7 +16,7 @@
 static int print_hello(void *arg)
 {
     printf("Hello World!\n");
-    size_t size = 200 * BASE_PAGE_SIZE;
+    size_t size = 250 * BASE_PAGE_SIZE;
     char *buf = malloc(size);
 
     for (size_t offset = 0; offset < size; offset+= BASE_PAGE_SIZE) {

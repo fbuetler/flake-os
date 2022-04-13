@@ -781,7 +781,6 @@ __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *
     // read ram request properties
     size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
     size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
-
     // alloc ram
     struct capref ram_cap;
     err = ram_alloc_aligned(&ram_cap, bytes, alignment);

@@ -101,7 +101,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     // * disallowing any mapping outside the ranges that you defined as valid for heap, stack
     // * add a guard page to the process’ stack
     struct paging_state *st = get_current_paging_state();
-    thread_mutex_lock(&st->paging_mutex);
+    thread_mutex_lock_nested(&st->paging_mutex);
 
     lvaddr_t vaddr = (lvaddr_t)addr;
 
@@ -440,6 +440,7 @@ errval_t paging_init_onthread(struct thread *t)
 
     DEBUG_PRINTF("paging_init_onthread: start\n");
 
+    thread_mutex_lock(&get_current_paging_state()->paging_mutex);
     
     struct capref exception_frame;
     size_t exception_stack_bytes;
@@ -467,6 +468,7 @@ errval_t paging_init_onthread(struct thread *t)
 
     DEBUG_PRINTF("paging_init_onthread: end\n");
 
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
     return SYS_ERR_OK;
 }
 
