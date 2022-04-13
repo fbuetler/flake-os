@@ -1046,13 +1046,22 @@ __attribute__((unused)) static void test_reserve_vspace_region(void)
     printf("heap size 0x%lx\n", VHEAP_SIZE);
     size_t bytes = (size_t)1 << 40; // 1 TB
     size_t len = bytes / sizeof(size_t);
-    DEBUG_PRINTF("test_reserve_vspace_region: before malloc\n");
     size_t *large_arry = malloc(bytes);
-    DEBUG_PRINTF("general kenobi\n");
     assert(large_arry);
     printf("Allocated array on the heap starting at %p with size 0x%lx bytes\n", large_arry, bytes);
-    large_arry[len / 2] = 27;
-    assert(large_arry[len / 2] == 27);
+    printf("Accessing at the beginning.\n");
+    large_arry[0] = 42;
+    assert(large_arry[0] == 42);
+    printf("Accessing in the middle.\n");
+    large_arry[len / 2] = 69;
+    assert(large_arry[len / 2] == 69);
+    printf("Accessing at the end.\n");
+    large_arry[len - 1] = 420;
+    assert(large_arry[len - 1] == 420);
+    
+    printf("Freeing the memory.\n");
+    free(large_arry);
+    
     printf("done with reserve vspace region\n");
 }
 
@@ -1087,8 +1096,11 @@ void run_m4_tests(void)
     // test_trigger_page_fault();
      test_reserve_vspace_region();
     test_page_fault_in_spawnee();
-    test_page_fault_already_handled();
+    //test_page_fault_already_handled();
+     
+    printf("Completed %s\n", __func__);
 }
+
 
 /*
     M5 TEST START
