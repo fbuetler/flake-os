@@ -21,19 +21,6 @@
 #include "collections/list.h"
 #include <collections/hash_table.h>
 
-/*
-    vspace layout:
-
-        high addr
-            stacks (in total MAX_THREADS)
-                stack
-                stack guard page
-            heap
-            readonly (binary, args)
-            unusuable
-        low addr
-*/
-
 
 #define VADDR_OFFSET ((lvaddr_t)512UL * 1024 * 1024 * 1024)  // 512 GB
 #define VADDR_MIN (0x0000000000000000UL)
@@ -106,21 +93,6 @@ struct vaddr_region {
     genvaddr_t vaddr;
     gensize_t bytes;
 };
-
-/*
-paddr -> (vaddr, page size): hashmaps
-
-lookup(paddr):
-    vaddr, size = lookup(ROUND_DOWN(paddr, BASE_PAGESIZE))
-    vaddr, size = lookup(ROUND_DOWN(paddr, Super_PAGESIZE))
-    vaddr, size = lookup(ROUND_DOWN(paddr, Super_duper_PAGESIZE))
-
-put(paddr, vaddr, size):
-    store
-
-<XXXXX><----><----->
-                x
-*/
 
 // struct to store the paging status of a process
 struct paging_state {

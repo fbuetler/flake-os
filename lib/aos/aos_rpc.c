@@ -252,11 +252,10 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 
     // MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
-    DEBUG_PRINTF("DEBUG POINT A \n");
+
     /* create local endpoint */
     lmp_chan_init(&aos_rpc->chan);
 
-    DEBUG_PRINTF("DEBUG POINT B \n");
     // struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
     // assert(ep);
     struct lmp_endpoint *ep = &static_ep;
@@ -268,7 +267,6 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     }
     aos_rpc->chan.buflen_words = 256;
 
-    DEBUG_PRINTF("before set_init_rpc inside aos_rpc_init \n");
     /* set remote endpoint to init's endpoint */
     aos_rpc->chan.remote_cap = cap_initep;
     set_init_rpc(aos_rpc);
@@ -280,32 +278,20 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
         return err;
     }
 
-    DEBUG_PRINTF("debug step 2 \n");
     err = aos_rpc_register_recv(aos_rpc, aos_rpc_process_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not register recv handler in child \n");
         return err;
     }
 
-    DEBUG_PRINTF("debug step 3 \n");
 
-    DEBUG_PRINTF("getting waitset\n ");
     get_default_waitset();
-    DEBUG_PRINTF("finished getting waitset \n");
 
     err = event_dispatch(get_default_waitset());
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Error in event dispatch\n");
         abort();
     }
-
-    DEBUG_PRINTF("debug step 4 \n");
-    // char buf0[256];
-    // debug_print_cap_at_capref(buf0, 256, aos_rpc->chan.local_cap);
-    // DEBUG_PRINTF("local: %.*s\n", 256, buf0);
-    // char buf1[256];
-    // debug_print_cap_at_capref(buf1, 256, aos_rpc->chan.remote_cap);
-    // DEBUG_PRINTF("remote: %.*s\n", 256, buf1);
 
     /* initialize init RPC client with lmp channel */
 
@@ -566,7 +552,6 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
                              struct capref *ret_cap, size_t *ret_bytes)
 {
 
-    DEBUG_PRINTF("ram cap\n");
     errval_t err = lmp_chan_alloc_recv_slot(&rpc->chan);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated receive slot");
@@ -594,21 +579,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
         return err_push(err, LIB_ERR_RPC_SEND);
     }
 
-    //DEBUG_PRINTF("before ret_cap access. Addr of retcap: %p\n", ret_cap);
-    //DEBUG_PRINTF("addr of rpc_recv_msg %p\n", rpc->recv_msg);
-    //DEBUG_PRINTF("addr of &rpc_recv_msg %p\n", &rpc->recv_msg);
-    //DEBUG_PRINTF("addr of rpc_recv_msg->cap %p\n", &rpc->recv_msg->cap);
-    /*
-    char buf[50];
-    debug_print_cap_at_capref(buf, 50, (struct capref)rpc->recv_msg->cap);
-    DEBUG_PRINTF("retcap content: %s \n", buf);
-    */
     *ret_cap = (struct capref)rpc->recv_msg->cap;
-    // char buf1[256];
-    // debug_print_cap_at_capref(buf1, 256, *ret_cap);
-    // DEBUG_PRINTF("%.*s\n", 256, buf1);
-
-    DEBUG_PRINTF("got a ram cap\n");
 
     return SYS_ERR_OK;
 }
