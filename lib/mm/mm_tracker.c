@@ -21,7 +21,7 @@ void mm_tracker_init(mm_tracker_t *mmt, struct slab_allocator *slabs)
  *
  * @param mmt Memory Tracker
  *
- * @note Necessary is when there are less than 16 slabs remaining.
+ * @note Necessary is when there are less than 32 slabs remaining.
  */
 errval_t mm_tracker_refill(mm_tracker_t *mmt)
 {
@@ -29,7 +29,8 @@ errval_t mm_tracker_refill(mm_tracker_t *mmt)
     if (!mmt->refill_lock) {
         mmt->refill_lock = true;
 
-        if (slab_freecount(mmt->slabs) < 16) {
+        if (slab_freecount(mmt->slabs) < 32) {
+            //DEBUG_PRINTF("mm_tracker_refill called for tracker %p\n", mmt);
             err = slab_default_refill(mmt->slabs);
             if (err_is_fail(err)) {
                 err = err_push(err, LIB_ERR_SLAB_REFILL);
@@ -150,7 +151,7 @@ void mm_tracker_node_merge(struct mm_tracker *mmt, mmnode_t *left_split)
     if (left_split->type == NodeType_Free && right_split->type == NodeType_Free) {
         assert(left_split->base + left_split->size == right_split->base);
 
-        debug_printf("Coalescing blocks at: %lx and %lx\n", left_split->base,
+        DEBUG_TRACEF("Coalescing blocks at: %lx and %lx\n", left_split->base,
                      right_split->base);
 
         // resize left split
@@ -175,28 +176,30 @@ void mm_tracker_node_merge(struct mm_tracker *mmt, mmnode_t *left_split)
  */
 void mm_tracker_debug_print(mm_tracker_t *mmt)
 {
-    DEBUG_TRACEF("===\n");
-    DEBUG_TRACEF("Current state:\n");
-    DEBUG_TRACEF("Tracker pointer: %p\n", mmt);
+    DEBUG_PRINTF("===\n");
+    DEBUG_PRINTF("Current state:\n");
+    DEBUG_PRINTF("Tracker pointer: %p\n", mmt);
     if (mmt->head == NULL) {
-        DEBUG_TRACEF("none");
-        DEBUG_TRACEF("\n\n");
+        DEBUG_PRINTF("none");
+        DEBUG_PRINTF("\n\n");
         return;
     }
-    DEBUG_TRACEF("Head at %p\n", mmt->head->base);
+    DEBUG_PRINTF("Head at %p\n", mmt->head->base);
     mmnode_t *curr = mmt->head;
     do {
         if (curr->type == NodeType_Allocated) {
-            DEBUG_TRACEF("Allocated: (%p, %lx)\n", curr->base, curr->size);
+            DEBUG_PRINTF("Allocated: [%p, %p] - 0x%lx\n", curr->base,
+                         curr->base + curr->size, curr->size);
         } else if (curr->type == NodeType_Free) {
-            DEBUG_TRACEF("Free: (%p, %lx)\n", curr->base, curr->size);
+            DEBUG_PRINTF("Free: [%p, %p] - 0x%lx\n", curr->base, curr->base + curr->size,
+                         curr->size);
         } else {
-            DEBUG_TRACEF("Type unknown\n");
+            DEBUG_PRINTF("Type unknown\n");
         }
 
         curr = curr->next;
     } while (curr != mmt->head);
-    DEBUG_TRACEF("===\n");
+    DEBUG_PRINTF("===\n");
 }
 
 errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t size,
@@ -213,6 +216,7 @@ errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t s
         if (current->type == NodeType_Free && current->size >= (size + alignment_padding)) {
             *retnode = current;
             mmt->head = current;
+            // DEBUG_PRINTF("mm_tracker_get_next_fit at base: 0x%zx \n", current->base);
             return SYS_ERR_OK;
         }
         current = current->next;
@@ -255,7 +259,7 @@ errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size,
 
     assert(addr != 0);
 
-    DEBUG_PRINTF("couldnt find %lx %lx\n", addr, size);
+    DEBUG_PRINTF("mm_tracker: Couldnt find node at 0x%lx with size 0x%lx B\n", addr, size);
 
     return MM_ERR_NOT_FOUND;
 }
@@ -423,11 +427,28 @@ errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t si
 }
 
 
+bool mm_tracker_is_allocated(mm_tracker_t *mmt, genvaddr_t vaddr, size_t size)
+{
+    assert(mmt->head);
+
+    mmnode_t *curr = mmt->head;
+    do {
+        // search for node that represent the freed region
+        if (curr->base <= vaddr && vaddr + size <= curr->base + curr->size) {
+            return curr->type == NodeType_Allocated;
+        }
+
+        curr = curr->next;
+    } while (curr != mmt->head);
+    mmt->head = curr;
+    return false;
+}
+
+
 errval_t mm_tracker_find_allocated_node(mm_tracker_t *mmt, genpaddr_t memory_base,
                                         mmnode_t **retnode)
 {
     assert(mmt->head);
-    // DEBUG_TRACEF("Memory free request (0x%lx, 0x%lx)\n", memory_base, memory_size);
 
     mmnode_t *curr = mmt->head;
     do {

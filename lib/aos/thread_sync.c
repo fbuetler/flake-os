@@ -161,6 +161,7 @@ void thread_mutex_lock(struct thread_mutex *mutex)
 
     acquire_spinlock(&mutex->lock);
     if (mutex->locked > 0) {
+
         thread_block_and_release_spinlock_disabled(handle, &mutex->queue,
                                                    &mutex->lock);
     } else {

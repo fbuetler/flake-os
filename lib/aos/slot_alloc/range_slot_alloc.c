@@ -235,7 +235,7 @@ errval_t range_slot_alloc_init(struct range_slot_allocator *ret,
     errval_t err;
 
     if (nslots != L2_CNODE_SLOTS) {
-        debug_printf("WARNING: %s called with nslots=%"PRIuCSLOT"\n",
+        DEBUG_PRINTF("WARNING: %s called with nslots=%"PRIuCSLOT"\n",
                 __FUNCTION__, nslots);
         nslots = L2_CNODE_SLOTS;
     }

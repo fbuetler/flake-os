@@ -16,6 +16,7 @@
 #include <stdlib.h>
 
 #include <aos/aos.h>
+#include <aos/core_state.h>
 #include <aos/capabilities.h>
 #include <aos/morecore.h>
 #include <aos/paging.h>
@@ -539,7 +540,6 @@ void run_m1_tests(void)
     test_vtable_mapping_size(1 * BASE_PAGE_SIZE);
     test_vtable_mapping_size(2 * BASE_PAGE_SIZE);
     test_vtable_mapping_size(8 * BASE_PAGE_SIZE);
-    mm_tracker_debug_print(&get_current_paging_state()->vspace_tracker);
     test_vtable_mapping_size(64 * BASE_PAGE_SIZE);
 
     // allocate then deallocate, 5000 times
@@ -555,7 +555,9 @@ void run_m1_tests(void)
 
 __attribute__((unused)) static void test_spawn_single_process(void)
 {
+    DEBUG_PRINTF("before malloc \n");
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    DEBUG_PRINTF("after malloc \n");
     domainid_t *pid = malloc(sizeof(domainid_t));
     spawn_load_by_name("hello", si, pid);
 }
@@ -721,6 +723,7 @@ void run_m2_tests(void)
 {
     // spawn processes
     test_spawn_single_process();
+    return;
     test_spawn_multiple_processes(2);
     // test_spawn_multiple_processes(4);
     // test_spawn_multiple_processes(5);
@@ -763,12 +766,12 @@ __attribute__((unused)) static errval_t start_process(char *cmd, struct spawninf
 
 __attribute__((unused)) static void aos_process_number(struct aos_rpc_msg *msg)
 {
-    debug_printf("received number: %d\n", *((uint64_t *)msg->payload));
+    DEBUG_PRINTF("received number: %d\n", *((uint64_t *)msg->payload));
 }
 
 __attribute__((unused)) static void aos_process_string(struct aos_rpc_msg *msg)
 {
-    debug_printf("received string: %s\n", msg->payload);
+    DEBUG_PRINTF("received string: %s\n", msg->payload);
 }
 
 __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *rpc)
@@ -787,10 +790,18 @@ __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *
         return;
     }
 
+    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
+    }
+
     // create response with ram cap
     size_t payload_size = 0;
     struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, RamCapResponse, payload_size, NULL, ram_cap);
+    char buf[sizeof(struct aos_rpc_msg)];
+    err = aos_rpc_create_msg_no_pagefault(&reply, RamCapResponse, payload_size, NULL, ram_cap, (struct aos_rpc_msg*)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return;
@@ -805,6 +816,7 @@ __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
+
 }
 
 __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rpc)
@@ -821,7 +833,7 @@ __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rp
         DEBUG_ERR(err, "failed to start spawn process");
         return;
     }
-    debug_printf("spawned process with PID %d\n", pid);
+    DEBUG_PRINTF("spawned process with PID %d\n", pid);
 
     size_t payload_size = sizeof(domainid_t);
     void *payload = malloc(payload_size);
@@ -835,6 +847,7 @@ __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rp
         return;
     }
 
+    DEBUG_PRINTF("sending back!\n");
     err = aos_rpc_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
@@ -903,6 +916,13 @@ aos_process_serial_read_char_request(struct aos_rpc *rpc)
 
 __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
 {
+
+    // refill slot allocator 
+    struct slot_alloc_state *s = get_slot_alloc_state();
+    if(single_slot_alloc_freecount(&s->rootca) <= 10){
+        root_slot_allocator_refill(NULL, NULL);
+    }
+
     // should only handle incoming messages not initiated by us
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
@@ -928,6 +948,7 @@ __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
         printf("received unknown message type\n");
         break;
     }
+    DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
     // TODO: free msg
     return SYS_ERR_OK;
 }
@@ -1004,7 +1025,7 @@ __attribute__((unused)) static void test_get_number(void)
 void run_m3_tests(void)
 {
     test_spawn_memeater();
-    // test_spawn_multiple_memeaters();
+    //test_spawn_multiple_memeaters();
     // test_get_number();
 }
 
@@ -1012,7 +1033,74 @@ void run_m3_tests(void)
     M4 TEST START
 */
 
-void run_m4_tests(void) { }
+__attribute__((unused)) static void test_trigger_page_fault(void)
+{
+    int volatile *addr = (int *)0xfffffffffff0;  // last virtual address of user space
+    *addr = 3;
+    printf("%d\n", *addr);
+}
+
+__attribute__((unused)) static void test_reserve_vspace_region(void)
+{
+    printf("Access 256MB buffer in the middle.\n");
+    printf("heap size 0x%lx\n", VHEAP_SIZE);
+    size_t bytes = (size_t)1 << 40; // 1 TB
+    size_t len = bytes / sizeof(size_t);
+    size_t *large_arry = malloc(bytes);
+    assert(large_arry);
+    printf("Allocated array on the heap starting at %p with size 0x%lx bytes\n", large_arry, bytes);
+    printf("Accessing at the beginning.\n");
+    large_arry[0] = 42;
+    assert(large_arry[0] == 42);
+    printf("Accessing in the middle.\n");
+    large_arry[len / 2] = 69;
+    assert(large_arry[len / 2] == 69);
+    printf("Accessing at the end.\n");
+    large_arry[len - 1] = 420;
+    assert(large_arry[len - 1] == 420);
+    
+    printf("Freeing the memory.\n");
+    free(large_arry);
+    
+    printf("done with reserve vspace region\n");
+}
+
+__attribute__((unused)) static void test_page_fault_in_spawnee(void)
+{
+    errval_t err;
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = start_process("selfpaging", si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn selfpaging");
+    }
+    assert(err_is_ok(err));
+}
+
+__attribute__((unused)) static void test_page_fault_already_handled(void)
+{
+    errval_t err;
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = start_process("selfpaging_already_handled", si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn selfpaging_handled");
+    }
+    assert(err_is_ok(err));
+}
+
+void run_m4_tests(void)
+{
+    // test_trigger_page_fault();
+     test_reserve_vspace_region();
+    test_page_fault_in_spawnee();
+    //test_page_fault_already_handled();
+     
+    printf("Completed %s\n", __func__);
+}
+
 
 /*
     M5 TEST START

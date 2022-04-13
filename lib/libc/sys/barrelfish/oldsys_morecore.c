@@ -40,8 +40,9 @@ morecore_free_func_t sys_morecore_free;
  * \return Pointer to freelist header of new memory region or NULL on out of
  * memory.
  */
-Header *morecore(unsigned nu)
+Header *morecore(size_t nu)
 {
+    //debug_printf("amore core called\n");
     Header *up;
     size_t nb = nu * sizeof(Header);
 
@@ -51,7 +52,9 @@ Header *morecore(unsigned nu)
     if (up == NULL) {
         return NULL;
     }
+
     assert(nb % sizeof(Header) == 0);
+    //DEBUG_PRINTF("after assert \n");
     up->s.size = nb / sizeof(Header);
     // Add header to freelist
     __free_locked((void *)(up + 1));

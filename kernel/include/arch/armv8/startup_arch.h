@@ -28,9 +28,9 @@
                                VMSAv8_64_L3_BUFFERABLE | \
                                VMSAv8_64_L3_USR_RW)
 
-#define INIT_L0_SIZE          ARMv8_L0_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
-#define INIT_L1_SIZE          ARMv8_L1_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
-#define INIT_L2_SIZE          ARMv8_L2_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
+#define INIT_L0_SIZE          (1)
+#define INIT_L1_SIZE          ARMv8_L0_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
+#define INIT_L2_SIZE          ARMv8_L1_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
 #define INIT_L3_SIZE          ARMv8_L2_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
 
 void create_module_caps(struct spawn_state *st);

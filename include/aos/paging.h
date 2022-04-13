@@ -27,33 +27,42 @@ struct paging_state;
 
 struct thread;
 errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
-        struct capref pdir, struct slot_allocator * ca);
+                           struct capref pdir, struct slot_allocator *ca);
 errval_t paging_init_state_foreign(struct paging_state *st, lvaddr_t start_vaddr,
-        struct capref pdir, struct slot_allocator * ca);
+                                   struct capref pdir, struct slot_allocator *ca);
 /// initialize self-paging module
 errval_t paging_init(void);
 
 errval_t paging_init_onthread(struct thread *t);
 
+enum vregion_type {
+    VREGION_TYPE_NULL = 0,
+    VREGION_TYPE_READONLY,
+    VREGION_TYPE_HEAP,
+    VREGION_TYPE_STACK,
+};
 
 /**
  * \brief Find a bit of free virtual address space that is large enough to
  *        accomodate a buffer of size `bytes`.
  */
-errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes,
-                      size_t alignment);
+errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t alignment);
+
+errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, void **buf,
+                             size_t bytes, size_t alignment);
 
 /**
  * Functions to map a user provided frame.
  */
 /// Map user provided frame with given flags while allocating VA space for it
-errval_t paging_map_frame_attr(struct paging_state *st, void **buf,
-                               size_t bytes, struct capref frame,
-                               int flags);
+errval_t paging_map_frame_attr(struct paging_state *st, void **buf, size_t bytes,
+                               struct capref frame, int flags);
+errval_t paging_map_frame_attr_region(struct paging_state *st, enum vregion_type type,
+                                      void **buf, size_t bytes, struct capref frame,
+                                      int flags);
 /// Map user provided frame at user provided VA with given flags.
 errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
                                struct capref frame, size_t bytes, int flags);
-
 
 
 /**
@@ -72,10 +81,11 @@ errval_t paging_unmap(struct paging_state *st, const void *region);
  * @param[in]  bytes   the number of bytes to map.
  * @param[in]  frame   the frame capability to be mapped
  *
- * @return Either SYS_ERR_OK if no error occured or an error indicating what went wrong otherwise.
+ * @return Either SYS_ERR_OK if no error occured or an error indicating what went wrong
+ * otherwise.
  */
-static inline errval_t paging_map_frame(struct paging_state *st, void **buf,
-                                        size_t bytes, struct capref frame)
+static inline errval_t paging_map_frame(struct paging_state *st, void **buf, size_t bytes,
+                                        struct capref frame)
 {
     return paging_map_frame_attr(st, buf, bytes, frame, VREGION_FLAGS_READ_WRITE);
 }
@@ -85,13 +95,15 @@ static inline errval_t frame_identify(struct capref frame, struct frame_identity
 
 
 /**
- * \brief Finds a free virtual address and maps the supplied frame in full at the allocated address
+ * \brief Finds a free virtual address and maps the supplied frame in full at the
+ * allocated address
  *
  * @param[in]  st      the paging state to create the mapping in
  * @param[out] buf     returns the virtual address at which this frame has been mapped.
  * @param[in]  frame   the frame capability to be mapped
  *
- * @return Either SYS_ERR_OK if no error occured or an error indicating what went wrong otherwise.
+ * @return Either SYS_ERR_OK if no error occured or an error indicating what went wrong
+ * otherwise.
  */
 static inline errval_t paging_map_frame_complete(struct paging_state *st, void **buf,
                                                  struct capref frame)
@@ -99,7 +111,7 @@ static inline errval_t paging_map_frame_complete(struct paging_state *st, void *
     errval_t err;
     struct frame_identity id;
     err = frame_identify(frame, &id);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         return err;
     }
 
@@ -122,8 +134,9 @@ static inline errval_t paging_map_fixed(struct paging_state *st, lvaddr_t vaddr,
     return paging_map_fixed_attr(st, vaddr, frame, bytes, VREGION_FLAGS_READ_WRITE);
 }
 
-static inline lvaddr_t paging_genvaddr_to_lvaddr(genvaddr_t genvaddr) {
-    return (lvaddr_t) genvaddr;
+static inline lvaddr_t paging_genvaddr_to_lvaddr(genvaddr_t genvaddr)
+{
+    return (lvaddr_t)genvaddr;
 }
 
-#endif // LIBBARRELFISH_PAGING_H
+#endif  // LIBBARRELFISH_PAGING_H

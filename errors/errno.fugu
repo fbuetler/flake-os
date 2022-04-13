@@ -455,6 +455,9 @@ errors libaos LIB_ERR_ {
     failure PAGING_STATE_INIT       "Error in paging_state_init()",
     failure PAGING_UNMAP            "Error in paging_unmap()",
     failure PAGING_PT_UNMAP_SLOT    "Error in paging_pt_unmap_slot()",
+
+    failure PAGING_MAP_UNUSABLE_VADDR "Attempted to map to unusable vaddr",
+    failure PAGING_MAP_INVALID_VADDR  "Attempted to map to invalid vaddr",
 };
 
 // errors in Flounder-generated bindings

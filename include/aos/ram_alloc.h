@@ -35,6 +35,9 @@ void ram_set_affinity(uint64_t minbase, uint64_t maxlimit);
 void ram_get_affinity(uint64_t *minbase, uint64_t *maxlimit);
 void ram_alloc_init(void);
 
+
+struct thread_mutex ram_mutex;
+
 __END_DECLS
 
 #endif // BARRELFISH_RAM_ALLOC_H

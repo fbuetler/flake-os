@@ -11,25 +11,29 @@
 ##########################################################################
 
 # set the docker image to use
-BF_DOCKER=achreto/barrelfish-aos:20.04-lts
+#BF_DOCKER=achreto/barrelfish-aos:20.04-lts
+BF_DOCKER=aos
 
 # assume the source directory is the current directory
-BF_SOURCE=$(readlink -f `git rev-parse --show-toplevel`)
+BF_SOURCE=$(readlink -f $(git rev-parse --show-toplevel))
 
 # we set the build directory to the source directory to avoid path problems
-BF_BUILD=$BF_SOURCE/../build
-
+BF_BUILD=$BF_SOURCE/build
 
 # pull the docker image if we don't have it yet.
-docker pull $BF_DOCKER
+#docker pull $BF_DOCKER
 
 # make sure the build directory exists
 mkdir -p $BF_BUILD
 
 # run the command in the docker image with the same userid to avoid
 # permission problems later.
-docker run -u $(id -u) -i -t \
-    --mount type=bind,source=$BF_SOURCE,target=/source \
-    --mount type=bind,source=$BF_BUILD,target=/build \
-    --privileged \
-    $BF_DOCKER
+if [[ -e "$(readlink -- /dev/colibri-otg)" ]]; then
+    echo "Colibri board is connected"
+    DEVICE_ARGS="--device=/dev/colibri-otg"
+else
+    echo "No board connected"
+    DEVICE_ARGS=""
+fi
+
+docker run -u $(id -u) -t -i --mount type=bind,source=$BF_SOURCE,target=/source $DEVICE_ARGS $BF_DOCKER "$@"

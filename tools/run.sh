@@ -20,9 +20,6 @@ BF_SOURCE=$(readlink -f `git rev-parse --show-toplevel`)
 BF_BUILD=$BF_SOURCE/build
 
 
-# pull the docker image if we don't have it yet.
-docker pull $BF_DOCKER
-
 # make sure the build directory exists
 mkdir -p $BF_BUILD
 

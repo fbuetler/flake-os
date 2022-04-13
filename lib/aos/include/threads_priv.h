@@ -95,6 +95,9 @@ static inline bool havework_disabled(dispatcher_handle_t handle)
 {
     struct dispatcher_generic *disp = get_dispatcher_generic(handle);
     return disp->runq != NULL
+#ifdef CONFIG_INTERCONNECT_DRIVER_LMP
+            || disp->lmp_send_events_list != NULL
+#endif
             || disp->polled_channels != NULL
             || disp->notificators != NULL
             ;

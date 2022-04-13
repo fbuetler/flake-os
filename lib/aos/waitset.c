@@ -326,7 +326,7 @@ errval_t get_next_event_disabled(struct waitset *ws,
 {
     struct waitset_chanstate * chan;
 
-// debug_printf("%s: %p %p %p %p\n", __func__, __builtin_return_address(0), __builtin_return_address(1), __builtin_return_address(2), __builtin_return_address(3));
+// DEBUG_PRINTF("%s: %p %p %p %p\n", __func__, __builtin_return_address(0), __builtin_return_address(1), __builtin_return_address(2), __builtin_return_address(3));
     for (;;) {
         chan = get_pending_event_disabled(ws, waitfor, waitfor2); // get our event
         if (chan) {
@@ -340,11 +340,13 @@ errval_t get_next_event_disabled(struct waitset *ws,
                 waitset_chan_deregister_disabled(chan, handle);
             }
             wake_up_other_thread(handle, ws);
-    // debug_printf("%s.%d: %p\n", __func__, __LINE__, retclosure->handler);
+    // DEBUG_PRINTF("%s.%d: %p\n", __func__, __LINE__, retclosure->handler);
             return SYS_ERR_OK;
         }
         chan = ws->pending; // check a pending queue
         if (!chan) { // if nothing then wait
+            //printf("!chan :(\n");
+            //printf("for id: %p\n", &ws->waiting_threads);
             thread_block_disabled(handle, &ws->waiting_threads);
             disp_disable();
         } else { // something but it's not our event

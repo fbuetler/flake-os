@@ -59,6 +59,7 @@ void spawn_init(void)
                                           .dispatcher_handle = 0 };
 }
 
+
 /**
  * @brief maps the given module to the parents vspace
  *
@@ -255,6 +256,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     }
 
     // init paging state
+    // TODO: use proper slot allocator from child
     err = paging_init_state_foreign(&si->paging_state, 0, parent_l0_pt,
                                     get_default_slot_allocator());
     if (err_is_fail(err)) {
@@ -323,13 +325,15 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t
 
     DEBUG_TRACEF("Mapping into parent vspace\n");
     // map memory into parent vspace
-    err = paging_map_frame_attr(get_current_paging_state(), ret, allocated_frame_size,
-                                segment_frame, VREGION_FLAGS_READ_WRITE);
+    void *allocated_frame_addr_parent;
+    err = paging_map_frame_attr(get_current_paging_state(), &allocated_frame_addr_parent,
+                                allocated_frame_size, segment_frame,
+                                VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map segment frame into parent vspace");
         return err_push(err, ELF_ERR_ALLOCATE);
     }
-    *ret += base_offset;
+    *ret = allocated_frame_addr_parent + base_offset;
     DEBUG_TRACEF("ELF allocate callback addr: 0x%lx\n", *ret);
 
     // map memory in child vspace
@@ -345,6 +349,15 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size, uint32_t
     }
     if (flags & PF_R) {
         child_flags |= VREGION_FLAGS_READ;
+    }
+
+    mmnode_t *allocated_node;
+    err = mm_tracker_alloc_range(&paging_state->vreadonly_tracker, base,
+                                 allocated_frame_size, &allocated_node);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "mm_tracker_alloc_range failed");
+        err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
+        return err;
     }
 
     err = paging_map_fixed_attr(paging_state, base, segment_frame, allocated_frame_size,
@@ -434,9 +447,9 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
     DEBUG_TRACEF("mapping dispatcher frame into child vspace\n");
     // map dispatcher frame into child process
     void *dispatcher_frame_addr_child;
-    err = paging_map_frame_attr(&si->paging_state, &dispatcher_frame_addr_child,
-                                DISPATCHER_FRAME_SIZE, si->dispatcher_frame_cap,
-                                VREGION_FLAGS_READ_WRITE);
+    err = paging_map_frame_attr_region(
+        &si->paging_state, VREGION_TYPE_READONLY, &dispatcher_frame_addr_child,
+        DISPATCHER_FRAME_SIZE, si->dispatcher_frame_cap, VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map dispatcher frame into childs vspace");
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_NEW);
@@ -519,8 +532,9 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     DEBUG_TRACEF("Map arguments frame in childs vspace\n");
     // map args frame into childs vspace
     void *args_frame_addr_child;
-    err = paging_map_frame_attr(&si->paging_state, &args_frame_addr_child, ARGS_SIZE,
-                                si->args_frame_cap, VREGION_FLAGS_READ_WRITE);
+    err = paging_map_frame_attr_region(&si->paging_state, VREGION_TYPE_READONLY,
+                                       &args_frame_addr_child, ARGS_SIZE,
+                                       si->args_frame_cap, VREGION_FLAGS_READ);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map args frame into childs vspace");
         return err_push(err, SPAWN_ERR_MAP_ARGSPG_TO_NEW);
@@ -559,6 +573,13 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     arch_registers_state_t *enabled_area = dispatcher_get_enabled_save_area(
         si->dispatcher_handle);
     registers_set_param(enabled_area, (uint64_t)args_frame_addr_child);
+
+    // unmap frame from parent
+    err = paging_unmap(get_current_paging_state(), args_frame_addr_parent);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to unmap frame");
+        return err_push(err, ELF_ERR_ALLOCATE);
+    }
 
     return SYS_ERR_OK;
 }
@@ -681,6 +702,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
     }
 
+    DEBUG_TRACEF("Get free PID\n");
     err = spawn_get_free_pid(pid);
     if (err_is_fail(err)) {
         // TODO out of PIDs, maybe kill a process?
@@ -688,9 +710,11 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return LIB_ERR_SHOULD_NOT_GET_HERE;
     }
 
+    DEBUG_TRACEF("Add process\n");
     si->pid = *pid;
     spawn_add_process(si);
 
+    DEBUG_TRACEF("Setup channel to child\n");
     // setup lmp channel via handshake to child
     err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si->rpc);
     if (err_is_fail(err)) {
@@ -698,6 +722,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err;
     }
 
+    DEBUG_TRACEF("Spawn complete\n");
     return SYS_ERR_OK;
 }
 
@@ -731,7 +756,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     struct mem_region *module_location;
     module_location = multiboot_find_module(bi, binary_name);
     if (module_location == NULL) {
-        debug_printf("Spawn dispatcher: failed to find module location\n");
+        DEBUG_PRINTF("Spawn dispatcher: failed to find module location\n");
         return SPAWN_ERR_FIND_MODULE;
     }
 
@@ -741,7 +766,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // get argc/argv from multiboot command line
     const char *cmd_opts = multiboot_module_opts(module_location);
     if (cmd_opts == NULL) {
-        debug_printf("Spawn dispatcher: failed to load arguments\n");
+        DEBUG_PRINTF("Spawn dispatcher: failed to load arguments\n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
     int argc;
@@ -749,7 +774,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // argv stores an array of argument
     char **argv = make_argv(cmd_opts, &argc, &argv_str);
     if (argv == NULL) {
-        debug_printf("Spawn dispatcher: failed to make argv\n");
+        DEBUG_PRINTF("Spawn dispatcher: failed to make argv\n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
 
@@ -757,7 +782,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // spawn multiboot image
     err = spawn_load_argv(argc, argv, si, pid);
     if (err_is_fail(err)) {
-        debug_printf("Spawn dispatcher: failed to spawn a new dispatcher\n");
+        DEBUG_PRINTF("Spawn dispatcher: failed to spawn a new dispatcher\n");
         return err;
     }
 

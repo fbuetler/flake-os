@@ -24,6 +24,16 @@ int main(int argc, char *argv[])
     for (int i = 0; i < argc; i++) {
         printf("arg %d: %s\n", i, argv[i]);
     }
+    printf("argument variable: (%p, %s)\n", argv, argv[0]);
+
+    int stack_var = 27;
+    printf("stack variable: (%p, %d)\n", &stack_var, stack_var);
+
+    int *heap_variable = malloc(sizeof(int));
+    *heap_variable = 42;
+    printf("heap variable: (%p, %d)\n", &heap_variable, *heap_variable);
+
+    DEBUG_PRINTF("hello terminated\n");
 
     return EXIT_SUCCESS;
 }

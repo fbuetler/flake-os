@@ -19,6 +19,7 @@
 #include <aos/static_assert.h>
 
 enum pi_arch {
+    PI_ARCH_UNKNOWN,
     PI_ARCH_X86,
     PI_ARCH_ARMV7A,
     PI_ARCH_ARMV8A,
