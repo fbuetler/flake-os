@@ -190,8 +190,6 @@ static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size
 {
     errval_t err;
 
-    DEBUG_PRINTF("!!! inside paging_set_exception_handler !!!!\n");
-
     char *stack_top = NULL;
     if (stack_base && stack_size >= EXCEPTION_STACK_MIN_SIZE) {
         stack_top = stack_base + stack_size;
@@ -206,8 +204,11 @@ static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size
     err = thread_set_exception_handler(page_fault_exception_handler, &old_handler,
                                        stack_base, stack_top, &old_stack_base,
                                        &old_stack_top);
-    assert(err_is_ok(err));
-    DEBUG_PRINTF("paging excception handler set\n");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to set paging exception handler\n");
+        return err_push(err, LIB_ERR_PAGING_STATE_INIT);
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -437,9 +438,6 @@ errval_t paging_init_onthread(struct thread *t)
 {
     // TODO (M4):
     //   - setup exception handler for thread `t'.
-
-    DEBUG_PRINTF("paging_init_onthread: start\n");
-
     
     struct capref exception_frame;
     size_t exception_stack_bytes;
@@ -448,7 +446,6 @@ errval_t paging_init_onthread(struct thread *t)
         DEBUG_ERR(err, "failed to allocate frame");
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
-    DEBUG_PRINTF("paging_init_onthread: allcoated fraem\n");
 
     void *exception_stack_addr;
     err = paging_map_frame_attr(get_current_paging_state(), &exception_stack_addr,
@@ -458,14 +455,10 @@ errval_t paging_init_onthread(struct thread *t)
         DEBUG_ERR(err, "failed to map frame");
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }
-    DEBUG_PRINTF("paging_init_onthread: paged exception stack\n");
 
     t->exception_stack = exception_stack_addr;
     t->exception_stack_top = exception_stack_addr + exception_stack_bytes;
-    DEBUG_PRINTF("exstack is set to : 0x%lx - 0x%lx\n", t->exception_stack, t->exception_stack_top);
     t->exception_handler = page_fault_exception_handler;
-
-    DEBUG_PRINTF("paging_init_onthread: end\n");
 
     return SYS_ERR_OK;
 }

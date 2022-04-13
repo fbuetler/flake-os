@@ -370,16 +370,12 @@ static void free_thread(struct thread *thread)
 struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
                                         size_t stacksize)
 {
-    DEBUG_PRINTF("child thread spinlock\n");
     // allocate space for TCB + initial TLS data
     // no mutex as it may deadlock: see comment for thread_slabs_spinlock
     // thread_mutex_lock(&thread_slabs_mutex);
     acquire_spinlock(&thread_slabs_spinlock);
-    DEBUG_PRINTF("aquired spinlock \n");
     void *space = slab_alloc(&thread_slabs);
-    DEBUG_PRINTF("after slab allocation\n");
     release_spinlock(&thread_slabs_spinlock);
-    DEBUG_PRINTF("after spinlock \n");
     // thread_mutex_unlock(&thread_slabs_mutex);
     if (space == NULL) {
         return NULL;
@@ -439,12 +435,11 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     }
 
     // init stack
-    DEBUG_PRINTF("inside thread_create_unrunnable. Stack addr: 0x%zx \n", stack);
     newthread->stack = stack;
     newthread->stack_top = (char *)stack + stacksize;
-
+    /*
     DEBUG_PRINTF("reserved stack: (0x%lx, 0x%lx)\n", newthread->stack,
-                 newthread->stack_top);
+                 newthread->stack_top); */
 
     // waste space for alignment, if malloc gave us an unaligned stack
     newthread->stack_top = (char *)newthread->stack_top
@@ -1365,7 +1360,6 @@ errval_t thread_set_exception_handler(exception_handler_fn newhandler,
 
     me->exception_handler = newhandler;
 
-    DEBUG_PRINTF("inside thread_set_exception_handler. Stack_base: 0x%zx \n", new_stack_base);
     if (new_stack_base != NULL && new_stack_top != NULL) {
         me->exception_stack = new_stack_base;
         me->exception_stack_top = new_stack_top;
