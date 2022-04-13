@@ -947,7 +947,7 @@ __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
         printf("received unknown message type\n");
         break;
     }
-    DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
+    //DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
     // TODO: free msg
     return SYS_ERR_OK;
 }

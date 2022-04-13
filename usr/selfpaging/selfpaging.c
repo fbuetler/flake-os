@@ -15,15 +15,15 @@
 
 static int print_hello(void *arg)
 {
-    printf("Hello World!\n");
-    size_t size = 25 * BASE_PAGE_SIZE;
+    //printf("Hello World!\n");
+    size_t size = 50 * BASE_PAGE_SIZE;
     char *buf = malloc(size);
 
     for (size_t offset = 0; offset < size; offset+= BASE_PAGE_SIZE) {
-        DEBUG_PRINTF("starting iteration %d\n", offset/BASE_PAGE_SIZE);
+        debug_printf("starting iteration %d\n", offset/BASE_PAGE_SIZE);
         buf[offset] = 'a';
     }
-    DEBUG_PRINTF("done\n");
+    //DEBUG_PRINTF("done\n");
 
     return 0;
 }
