@@ -27,7 +27,7 @@
  */
 static errval_t rootcn_alloc(void *st, size_t reqsize, struct capref *ret)
 {
-    debug_printf("allocating a new rootcn\n");
+    DEBUG_PRINTF("allocating a new rootcn\n");
     return mm_alloc(st, reqsize, ret);
 }
 
@@ -135,7 +135,7 @@ errval_t slot_alloc_prealloc(void *inst, uint64_t nslots, struct capref *ret)
     /* Check if enough space */
     if (this->meta[this->current].free < nslots) {
         /*
-        debug_printf("slot_prealloc: switching cnodes %d->%d\n",
+        DEBUG_PRINTF("slot_prealloc: switching cnodes %d->%d\n",
                 this->current, !this->current);
         */
         // Allocate from next cnode
@@ -181,7 +181,7 @@ errval_t slot_prealloc_init(struct slot_prealloc *this, struct capref initial_cn
 
     assert(initial_space == L2_CNODE_SLOTS);
     if (initial_space != L2_CNODE_SLOTS) {
-        debug_printf("Initial CNode for 2 level preallocating slot allocator needs to be "
+        DEBUG_PRINTF("Initial CNode for 2 level preallocating slot allocator needs to be "
                      "16kB");
         return LIB_ERR_SLOT_ALLOC_INIT;
     }

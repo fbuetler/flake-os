@@ -22,7 +22,7 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
 {
     thread_mutex_lock_nested(&ram_mutex);
     if(!ret) {
-        debug_printf("ram_alloc_remote, ret capref is NULL \n");
+        DEBUG_PRINTF("ram_alloc_remote, ret capref is NULL \n");
     }
 
     // TODO(M3): Implement me!
@@ -30,7 +30,7 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
 
     struct aos_rpc *memory_rpc = aos_rpc_get_memory_channel();
     if(!memory_rpc) {
-        debug_printf("ERROR: no memory server found!\n");
+        DEBUG_PRINTF("ERROR: no memory server found!\n");
         abort();
     }
 

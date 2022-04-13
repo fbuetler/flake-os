@@ -20,10 +20,10 @@ static int print_hello(void *arg)
     char *buf = malloc(size);
 
     for (size_t offset = 0; offset < size; offset+= BASE_PAGE_SIZE) {
-        debug_printf("starting iteration %d\n", offset/BASE_PAGE_SIZE);
+        DEBUG_PRINTF("starting iteration %d\n", offset/BASE_PAGE_SIZE);
         buf[offset] = 'a';
     }
-    debug_printf("done\n");
+    DEBUG_PRINTF("done\n");
 
     return 0;
 }
@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
         thread_join(threads[i], &retval);
     }
 
-    debug_printf("done with all threads\n");
+    DEBUG_PRINTF("done with all threads\n");
 
 
     return EXIT_SUCCESS;

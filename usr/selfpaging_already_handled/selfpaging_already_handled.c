@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 
     free(mem);
 
-    debug_printf("done with all threads\n");
+    DEBUG_PRINTF("done with all threads\n");
 
 
     return EXIT_SUCCESS;

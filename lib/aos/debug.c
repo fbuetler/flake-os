@@ -131,7 +131,7 @@ void debug_tracef(const char *fmt, ...)
     if (true) {  // guard to enable/disable tracing
         return;
     }
-    debug_printf(fmt);
+    DEBUG_PRINTF(fmt);
 }
 
 /**
@@ -376,7 +376,7 @@ static void walk_cspace_l2(struct capref l2cnode)
     struct capability cap;
     struct cnoderef cnode = build_cnoderef(l2cnode, 1);
 
-    debug_printf("  Printing L2 CNode at L1 slot=%d\n", l2cnode.slot);
+    DEBUG_PRINTF("  Printing L2 CNode at L1 slot=%d\n", l2cnode.slot);
 
     for (int i = 0; i < L2_CNODE_SLOTS; i++) {
         struct capref pos = { .cnode = cnode, .slot = i };
@@ -400,7 +400,7 @@ static void walk_cspace_l2(struct capref l2cnode)
         assert(prpos < sizeof(buf));
         prpos += debug_print_cap(&buf[prpos], sizeof(buf) - prpos, &cap);
         assert(prpos < sizeof(buf));
-        debug_printf("    %s\n", buf);
+        DEBUG_PRINTF("    %s\n", buf);
     }
 }
 
@@ -426,7 +426,7 @@ void debug_cspace(struct capref root)
     assert(err_is_ok(err));
 
     int l1slots = c1size / sizeof(struct capability);
-    debug_printf("Printing L1 CNode (slots=%u)\n", l1slots);
+    DEBUG_PRINTF("Printing L1 CNode (slots=%u)\n", l1slots);
     for (int slot = 0; slot < l1slots; slot++) {
         struct cnoderef cnode = build_cnoderef(root, 0);
         struct capref pos = { .cnode = cnode, .slot = slot };
@@ -470,7 +470,7 @@ int debug_print_cnoderef(char *buf, size_t len, struct cnoderef cnode)
 
 void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr, lvaddr_t point)
 {
-    debug_printf("Dumping memory in range 0x%" PRIxLVADDR " to 0x%" PRIxLVADDR ":\n",
+    DEBUG_PRINTF("Dumping memory in range 0x%" PRIxLVADDR " to 0x%" PRIxLVADDR ":\n",
                  start_addr, end_addr);
 
     for (uintptr_t *p = (void *)start_addr; (uintptr_t)p < end_addr; p++) {
@@ -481,7 +481,7 @@ void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr, lvaddr_t point)
             bufpos += snprintf(&buf[bufpos], sizeof(buf) - bufpos, "%02x ", bytes[i]);
             assert(bufpos < sizeof(buf));
         }
-        debug_printf("%p: %.*s %*" PRIxPTR "%s\n", p, (int)sizeof(buf), buf,
+        DEBUG_PRINTF("%p: %.*s %*" PRIxPTR "%s\n", p, (int)sizeof(buf), buf,
                      (int)sizeof(uintptr_t) * 2, *p,
                      p == (uintptr_t *)point ? " <== We are here" : "");
     }

@@ -27,7 +27,7 @@ char static_rpc_msg_buf[1<<20];
  */
 static void aos_process_handshake(struct aos_rpc_msg *msg)
 {
-    debug_printf("Handshake ACK\n");
+    DEBUG_PRINTF("Handshake ACK\n");
 }
 
 /**
@@ -155,7 +155,7 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
         /*DEBUG_PRINTF("recv capref x \n");
         char buf[50];
         debug_print_capref(buf, 50, msg_cap);
-        debug_printf("%s \n", buf);
+        DEBUG_PRINTF("%s \n", buf);
        */
 
         // TODO chan_alloc_recv needs to be inserted somewhere now!
@@ -566,7 +566,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
                              struct capref *ret_cap, size_t *ret_bytes)
 {
 
-    debug_printf("ram cap\n");
+    DEBUG_PRINTF("ram cap\n");
     errval_t err = lmp_chan_alloc_recv_slot(&rpc->chan);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated receive slot");
@@ -600,14 +600,14 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     /*
     char buf[50];
     debug_print_cap_at_capref(buf, 50, (struct capref)rpc->recv_msg->cap);
-    debug_printf("retcap content: %s \n", buf);
+    DEBUG_PRINTF("retcap content: %s \n", buf);
     */
     *ret_cap = (struct capref)rpc->recv_msg->cap;
     // char buf1[256];
     // debug_print_cap_at_capref(buf1, 256, *ret_cap);
     // DEBUG_PRINTF("%.*s\n", 256, buf1);
 
-    debug_printf("got a ram cap\n");
+    DEBUG_PRINTF("got a ram cap\n");
 
     return SYS_ERR_OK;
 }
@@ -686,7 +686,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
         return err;
     }
 
-    debug_printf("spawning...\n");
+    DEBUG_PRINTF("spawning...\n");
 
     err = aos_rpc_call(rpc, msg);
     if (err_is_fail(err)) {

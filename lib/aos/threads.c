@@ -202,7 +202,7 @@ void thread_remove_from_queue(struct thread **queue, struct thread *thread)
 int thread_slabs_is_refilling = false;
 static errval_t refill_thread_slabs(struct slab_allocator *slab_allocator)
 {
-    debug_printf("refilling thread slabs!\n");
+    DEBUG_PRINTF("refilling thread slabs!\n");
     // TODO(M4):
     //   - implement me!
     errval_t err = SYS_ERR_OK;
@@ -225,11 +225,11 @@ static errval_t refill_thread_slabs(struct slab_allocator *slab_allocator)
         goto unwind;
     }
 
-    debug_printf("refill_thread_slabs grow before\n");
+    DEBUG_PRINTF("refill_thread_slabs grow before\n");
     // give frame to paging slab allocator
     slab_grow(slab_allocator, buf, size);
 
-    debug_printf("refill_thread_slabs grow after\n");
+    DEBUG_PRINTF("refill_thread_slabs grow after\n");
 
 unwind:
     thread_slabs_is_refilling = false;
@@ -1365,7 +1365,7 @@ errval_t thread_set_exception_handler(exception_handler_fn newhandler,
 
     me->exception_handler = newhandler;
 
-    debug_printf("inside thread_set_exception_handler. Stack_base: 0x%zx \n", new_stack_base);
+    DEBUG_PRINTF("inside thread_set_exception_handler. Stack_base: 0x%zx \n", new_stack_base);
     if (new_stack_base != NULL && new_stack_top != NULL) {
         me->exception_stack = new_stack_base;
         me->exception_stack_top = new_stack_top;

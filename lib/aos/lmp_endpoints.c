@@ -114,7 +114,7 @@ errval_t lmp_endpoint_create_in_slot(size_t buflen, struct capref dest,
 
     uintptr_t epoffset = (uintptr_t)&ep->k - (uintptr_t)curdispatcher();
 
-    // debug_printf("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n", __FUNCTION__, epoffset, buflen);
+    // DEBUG_PRINTF("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n", __FUNCTION__, epoffset, buflen);
 
     // mint new badged cap from our existing reply endpoint
     return cap_mint(dest, cap_selfep, epoffset, buflen);
@@ -128,7 +128,7 @@ errval_t lmp_endpoint_create_in_slot(size_t buflen, struct capref dest,
  */
 void lmp_endpoint_set_recv_slot(struct lmp_endpoint *ep, struct capref slot)
 {
-    // debug_printf("%s: recv_cspace = %"PRIxCADDR", recv_cptr = %"PRIxCADDR"\n",
+    // DEBUG_PRINTF("%s: recv_cspace = %"PRIxCADDR", recv_cptr = %"PRIxCADDR"\n",
     //        __FUNCTION__, get_croot_addr(slot), get_cap_addr(slot));
     ep->k.recv_cspc = get_croot_addr(slot);
     ep->k.recv_cptr = get_cap_addr(slot);
@@ -394,7 +394,7 @@ errval_t lmp_endpoint_recv(struct lmp_endpoint *ep, struct lmp_recv_buf *buf,
     /* check for space in the user's buffer */
     if (header.x.length > buf->buflen) {
         disp_enable(handle);
-        debug_printf("lmp_endpoint_recv: recv buf (%zu words @ %p) overflow"
+        DEBUG_PRINTF("lmp_endpoint_recv: recv buf (%zu words @ %p) overflow"
                      " by pending message (%u words @ %"PRIu32")."
                      " delivered=%"PRIu32" consumed=%"PRIu32" len=%"PRIu32"\n",
                      buf->buflen, &buf, header.x.length, pos,

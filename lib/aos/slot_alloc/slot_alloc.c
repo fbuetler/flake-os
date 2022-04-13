@@ -61,7 +61,7 @@ errval_t slot_alloc_root(struct capref *ret)
     // the multi slot allocator might need a root cnode slot as well if it's
     // just about to run out of slots and root_slot_allocator_refill calls
     // into slot_alloc().
-    //debug_printf("Slot refilling %d \n", state->rootca.refilling);
+    //DEBUG_PRINTF("Slot refilling %d \n", state->rootca.refilling);
     if ((rootcn_free == 2) && !state->rootca.refilling) {
         state->rootca.refilling = true;
         err = root_slot_allocator_refill(NULL, NULL);
@@ -133,7 +133,7 @@ errval_t root_slot_allocator_refill(cn_ram_alloc_func_t myalloc, void *allocst)
         return err_push(err, LIB_ERR_CAP_DESTROY);
     }
 
-    debug_printf("h\n");
+    DEBUG_PRINTF("h\n");
 
     // update root slot allocator size and our metadata
     return single_slot_alloc_resize(sca, nslots * 2);

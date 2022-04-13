@@ -64,7 +64,7 @@ errval_t mm_add(struct mm *mm, struct capref cap)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get the frame info\n");
     }
-    debug_printf("Size of memory chunk %" PRIu64 " KB\n", c.u.ram.bytes / 1024);
+    DEBUG_PRINTF("Size of memory chunk %" PRIu64 " KB\n", c.u.ram.bytes / 1024);
 
     size_t memory_base = c.u.ram.base;
     size_t memory_size = c.u.ram.bytes;
@@ -196,7 +196,7 @@ static errval_t mm_partial_free(struct mm *mm, mmnode_t **node, size_t memory_ba
     errval_t err;
 
     if ((*node)->base == memory_base) {
-        debug_printf("Partial memory free request: left aligned\n");
+        DEBUG_PRINTF("Partial memory free request: left aligned\n");
         size_t offset = memory_size;
         mmnode_t *left_split, *right_split;
         err = node_split(mm, *node, offset, &left_split, &right_split);
@@ -209,7 +209,7 @@ static errval_t mm_partial_free(struct mm *mm, mmnode_t **node, size_t memory_ba
         right_split->type = NodeType_Allocated;
         *node = left_split;
     } else if ((*node)->base + (*node)->size - memory_size == memory_base) {
-        debug_printf("Partial memory free request: right aligned\n");
+        DEBUG_PRINTF("Partial memory free request: right aligned\n");
         size_t offset = memory_base - (*node)->base;
         mmnode_t *left_split, *right_split;
         err = node_split(mm, *node, offset, &left_split, &right_split);
@@ -222,7 +222,7 @@ static errval_t mm_partial_free(struct mm *mm, mmnode_t **node, size_t memory_ba
         right_split->type = NodeType_Free;
         *node = right_split;
     } else {
-        debug_printf("Partial memory free request: middle aligned\n");
+        DEBUG_PRINTF("Partial memory free request: middle aligned\n");
         size_t left_offset = memory_base - (*node)->base;
         size_t right_offset = memory_base + memory_size - (*node)->base - left_offset;
         mmnode_t *left_split, *middle_split, *right_split;

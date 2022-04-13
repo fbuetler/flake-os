@@ -43,7 +43,7 @@ void libc_exit(int);
 __weak_reference(libc_exit, _exit);
 void libc_exit(int status)
 {
-    debug_printf("libc exit NYI!\n");
+    DEBUG_PRINTF("libc exit NYI!\n");
     thread_exit(status);
     // If we're not dead by now, we wait
     while (1) {
@@ -120,7 +120,7 @@ __attribute__((__used__)) static size_t terminal_read(char *buf, size_t len)
 
 __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t len)
 {
-    debug_printf("Terminal read NYI!\n");
+    DEBUG_PRINTF("Terminal read NYI!\n");
     return 0;
 }
 

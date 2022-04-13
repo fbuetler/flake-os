@@ -756,7 +756,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     struct mem_region *module_location;
     module_location = multiboot_find_module(bi, binary_name);
     if (module_location == NULL) {
-        debug_printf("Spawn dispatcher: failed to find module location\n");
+        DEBUG_PRINTF("Spawn dispatcher: failed to find module location\n");
         return SPAWN_ERR_FIND_MODULE;
     }
 
@@ -766,7 +766,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // get argc/argv from multiboot command line
     const char *cmd_opts = multiboot_module_opts(module_location);
     if (cmd_opts == NULL) {
-        debug_printf("Spawn dispatcher: failed to load arguments\n");
+        DEBUG_PRINTF("Spawn dispatcher: failed to load arguments\n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
     int argc;
@@ -774,7 +774,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // argv stores an array of argument
     char **argv = make_argv(cmd_opts, &argc, &argv_str);
     if (argv == NULL) {
-        debug_printf("Spawn dispatcher: failed to make argv\n");
+        DEBUG_PRINTF("Spawn dispatcher: failed to make argv\n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
 
@@ -782,7 +782,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // spawn multiboot image
     err = spawn_load_argv(argc, argv, si, pid);
     if (err_is_fail(err)) {
-        debug_printf("Spawn dispatcher: failed to spawn a new dispatcher\n");
+        DEBUG_PRINTF("Spawn dispatcher: failed to spawn a new dispatcher\n");
         return err;
     }
 

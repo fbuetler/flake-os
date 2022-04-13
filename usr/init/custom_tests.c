@@ -766,12 +766,12 @@ __attribute__((unused)) static errval_t start_process(char *cmd, struct spawninf
 
 __attribute__((unused)) static void aos_process_number(struct aos_rpc_msg *msg)
 {
-    debug_printf("received number: %d\n", *((uint64_t *)msg->payload));
+    DEBUG_PRINTF("received number: %d\n", *((uint64_t *)msg->payload));
 }
 
 __attribute__((unused)) static void aos_process_string(struct aos_rpc_msg *msg)
 {
-    debug_printf("received string: %s\n", msg->payload);
+    DEBUG_PRINTF("received string: %s\n", msg->payload);
 }
 
 __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *rpc)
@@ -833,7 +833,7 @@ __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rp
         DEBUG_ERR(err, "failed to start spawn process");
         return;
     }
-    debug_printf("spawned process with PID %d\n", pid);
+    DEBUG_PRINTF("spawned process with PID %d\n", pid);
 
     size_t payload_size = sizeof(domainid_t);
     void *payload = malloc(payload_size);
@@ -847,7 +847,7 @@ __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rp
         return;
     }
 
-    debug_printf("sending back!\n");
+    DEBUG_PRINTF("sending back!\n");
     err = aos_rpc_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
@@ -948,7 +948,7 @@ __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
         printf("received unknown message type\n");
         break;
     }
-    debug_printf("init handled message of type: %d\n", msg_type);
+    DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
     // TODO: free msg
     return SYS_ERR_OK;
 }
@@ -1046,9 +1046,9 @@ __attribute__((unused)) static void test_reserve_vspace_region(void)
     printf("heap size 0x%lx\n", VHEAP_SIZE);
     size_t bytes = (size_t)1 << 40; // 1 TB
     size_t len = bytes / sizeof(size_t);
-    debug_printf("test_reserve_vspace_region: before malloc\n");
+    DEBUG_PRINTF("test_reserve_vspace_region: before malloc\n");
     size_t *large_arry = malloc(bytes);
-    debug_printf("general kenobi\n");
+    DEBUG_PRINTF("general kenobi\n");
     assert(large_arry);
     printf("Allocated array on the heap starting at %p with size 0x%lx bytes\n", large_arry, bytes);
     large_arry[len / 2] = 27;
@@ -1085,9 +1085,9 @@ __attribute__((unused)) static void test_page_fault_already_handled(void)
 void run_m4_tests(void)
 {
     // test_trigger_page_fault();
-    // test_reserve_vspace_region();
+     test_reserve_vspace_region();
     test_page_fault_in_spawnee();
-    //test_page_fault_already_handled();
+    test_page_fault_already_handled();
 }
 
 /*

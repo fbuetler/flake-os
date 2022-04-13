@@ -69,8 +69,8 @@ static int bsp_main(int argc, char *argv[])
 
     //run_m1_tests();
     //run_m2_tests();
-    run_m3_tests();
-    //run_m4_tests();
+    //run_m3_tests();
+    run_m4_tests();
 
 
     // TODO: Spawn system processes, boot second core etc. here
@@ -78,7 +78,7 @@ static int bsp_main(int argc, char *argv[])
     // Grading
     grading_test_late();
 
-    debug_printf("Message handler loop\n");
+    DEBUG_PRINTF("Message handler loop\n");
     struct waitset *default_ws = get_default_waitset();
     while (true) {
         err = event_dispatch(default_ws);
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
         platform = "UNKNOWN";
     }
 
-    debug_printf("init domain starting on core %" PRIuCOREID " (%s), invoked as:",
+    DEBUG_PRINTF("init domain starting on core %" PRIuCOREID " (%s), invoked as:",
                  my_core_id, platform);
     for (int i = 0; i < argc; i++) {
         printf(" %s", argv[i]);

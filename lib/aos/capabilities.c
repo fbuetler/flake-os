@@ -431,7 +431,7 @@ errval_t cnode_create_l2(struct capref *ret_dest, struct cnoderef *cnoderef)
     err = cnode_create_raw(*ret_dest, cnoderef, ObjType_L2CNode, L2_CNODE_SLOTS,
                            &retslots);
     if (retslots != L2_CNODE_SLOTS) {
-        debug_printf("Unable to create properly sized L2 CNode: got %" PRIuCSLOT
+        DEBUG_PRINTF("Unable to create properly sized L2 CNode: got %" PRIuCSLOT
                      " slots instead of %" PRIuCSLOT "\n",
                      retslots, (cslot_t)L2_CNODE_SLOTS);
     }
@@ -453,7 +453,7 @@ errval_t cnode_create_l1(struct capref *ret_dest, struct cnoderef *cnoderef)
     err = cnode_create_raw(*ret_dest, cnoderef, ObjType_L1CNode, L2_CNODE_SLOTS,
                            &retslots);
     if (retslots != L2_CNODE_SLOTS) {
-        debug_printf("Unable to create initial L1 CNode: got %" PRIuCSLOT
+        DEBUG_PRINTF("Unable to create initial L1 CNode: got %" PRIuCSLOT
                      " slots instead of %" PRIuCSLOT "\n",
                      retslots, (cslot_t)L2_CNODE_SLOTS);
     }
@@ -488,7 +488,7 @@ errval_t cnode_create_foreign_l2(struct capref dest_l1, cslot_t dest_slot,
     cslot_t retslots;
     err = cnode_create_raw(dest, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, &retslots);
     if (retslots != L2_CNODE_SLOTS) {
-        debug_printf("Unable to create properly sized foreign CNode: "
+        DEBUG_PRINTF("Unable to create properly sized foreign CNode: "
                      "got %" PRIuCSLOT " slots instead of %" PRIuCSLOT "\n",
                      retslots, (cslot_t)L2_CNODE_SLOTS);
     }
