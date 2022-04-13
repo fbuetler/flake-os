@@ -97,9 +97,7 @@ void *slab_alloc(struct slab_allocator *slabs)
         if (!slabs->refill_func) {
             return NULL;
         } else {
-            debug_printf("33");
             err = slabs->refill_func(slabs);
-            debug_printf("44\n");
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "slab refill_func failed");
                 return NULL;

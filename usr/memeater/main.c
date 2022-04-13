@@ -43,6 +43,7 @@ static errval_t request_and_map_memory(void)
 
     debug_printf("obtaining cap of %" PRIu32 " bytes...\n", BASE_PAGE_SIZE);
 
+  
     struct capref cap1;
     err = aos_rpc_get_ram_cap(mem_rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
     if (err_is_fail(err)) {
@@ -88,9 +89,12 @@ static errval_t request_and_map_memory(void)
         return err;
     }
 
+    debug_printf("before frame_identify\n");
     err = frame_identify(cap2, &id);
     assert(err_is_ok(err));
 
+
+    debug_printf("before paging it\n");
     void *buf2;
     err = paging_map_frame(pstate, &buf2, LARGE_PAGE_SIZE, cap2);
     if (err_is_fail(err)) {
@@ -165,8 +169,7 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
 
-    debug_printf("done in memeater!\n");
-    return EXIT_SUCCESS;
+    debug_printf("spawning hello\n");
     domainid_t pid;
     err = aos_rpc_process_spawn(init_rpc, "hello", disp_get_core_id(), &pid);
     if (err_is_fail(err)) {
