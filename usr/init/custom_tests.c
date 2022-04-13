@@ -1043,7 +1043,7 @@ __attribute__((unused)) static void test_reserve_vspace_region(void)
 {
     printf("Access 256MB buffer in the middle.\n");
     printf("heap size 0x%lx\n", VHEAP_SIZE);
-    size_t bytes = (size_t)1 << 40; // 1 TB
+    size_t bytes = (size_t)1 << 36; // 1 TB
     size_t len = bytes / sizeof(size_t);
     size_t *large_arry = malloc(bytes);
     assert(large_arry);
@@ -1093,8 +1093,8 @@ __attribute__((unused)) static void test_page_fault_already_handled(void)
 void run_m4_tests(void)
 {
     // test_trigger_page_fault();
-     test_reserve_vspace_region();
-    test_page_fault_in_spawnee();
+    test_reserve_vspace_region();
+    //test_page_fault_in_spawnee();
     //test_page_fault_already_handled();
      
     printf("Completed %s\n", __func__);

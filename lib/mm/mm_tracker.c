@@ -205,6 +205,9 @@ void mm_tracker_debug_print(mm_tracker_t *mmt)
 errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t size,
                                  size_t alignment)
 {
+
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
+
     assert(mmt != NULL);
     assert(retnode != NULL);
 
@@ -217,6 +220,7 @@ errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t s
             *retnode = current;
             mmt->head = current;
             // DEBUG_PRINTF("mm_tracker_get_next_fit at base: 0x%zx \n", current->base);
+            thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
             return SYS_ERR_OK;
         }
         current = current->next;

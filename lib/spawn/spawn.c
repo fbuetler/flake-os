@@ -575,11 +575,11 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     registers_set_param(enabled_area, (uint64_t)args_frame_addr_child);
 
     // unmap frame from parent
-    err = paging_unmap(get_current_paging_state(), args_frame_addr_parent);
+    /*err = paging_unmap(get_current_paging_state(), args_frame_addr_parent);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to unmap frame");
         return err_push(err, ELF_ERR_ALLOCATE);
-    }
+    }*/
 
     return SYS_ERR_OK;
 }

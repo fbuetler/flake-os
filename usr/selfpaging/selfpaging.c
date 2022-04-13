@@ -28,6 +28,7 @@ static int print_hello(void *arg)
     return 0;
 }
 
+__attribute__((unused))
 static int stack_test(void *arg)
 {
     printf("Hello World from thread %lu!\n", thread_id());
@@ -47,11 +48,13 @@ int main(int argc, char *argv[])
 {
     int N = 50;
     struct thread *threads[N];
+    printf("Inside main from selfpaging!\n");
 
     for(int i = 0; i < N; i++){
         threads[i] = thread_create(print_hello, NULL);
     }
 
+    /*
     for(int i = 0; i < N; i++){
         int retval;
         thread_join(threads[i], &retval);
@@ -68,6 +71,7 @@ int main(int argc, char *argv[])
         thread_join(threads[i], &retval);
     }
 
+    */
     DEBUG_PRINTF("done with all threads\n");
 
     return EXIT_SUCCESS;

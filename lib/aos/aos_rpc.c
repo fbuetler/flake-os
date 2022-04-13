@@ -472,6 +472,7 @@ errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_m
 
 errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 {
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
     errval_t err;
 
     // send message
@@ -499,6 +500,8 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         abort();
         return err;
     }
+
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
 
     return SYS_ERR_OK;
 }

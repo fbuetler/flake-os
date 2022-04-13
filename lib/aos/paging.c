@@ -31,17 +31,21 @@ static struct paging_state current;
  */
 static errval_t pt_alloc(struct paging_state *st, enum objtype type, struct capref *ret)
 {
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
     errval_t err;
     err = st->slot_allocator->alloc(st->slot_allocator, ret);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "slot_alloc failed");
         return err;
     }
     err = vnode_create(*ret, type);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "vnode_create failed");
         return err;
     }
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
     return SYS_ERR_OK;
 }
 
@@ -87,9 +91,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
 
-    //DEBUG_PRINTF("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d , PC: %lx "
-    //             "===\n",
-    //             addr, type, subtype, regs->named.pc);
+    //DEBUG_PRINTF("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d , PC: %lx ===\n", addr, type, subtype, regs->named.pc);
     errval_t err;
 
     //DEBUG_PRINTF("page_fault_exception_handler stack: %p\n", regs->named.stack);
@@ -186,6 +188,7 @@ static char internal_ex_stack[EXCEPTION_STACK_SIZE];
  */
 static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size)
 {
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
     errval_t err;
 
     char *stack_top = NULL;
@@ -204,9 +207,10 @@ static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size
                                        &old_stack_top);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to set paging exception handler\n");
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         return err_push(err, LIB_ERR_PAGING_STATE_INIT);
     }
-
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
     return SYS_ERR_OK;
 }
 
@@ -371,6 +375,8 @@ errval_t paging_init_state_foreign(struct paging_state *st, lvaddr_t start_vaddr
         return err_push(err, LIB_ERR_PAGING_STATE_INIT);
     }
 
+    thread_mutex_init(&st->paging_mutex);
+
     return SYS_ERR_OK;
 }
 
@@ -492,6 +498,7 @@ errval_t paging_alloc(struct paging_state *st, void **buf, size_t bytes, size_t 
 errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, void **buf,
                              size_t bytes, size_t alignment)
 {
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
     errval_t err;
     mm_tracker_t *vspace_tracker;
     switch (type) {
@@ -505,6 +512,7 @@ errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, vo
         vspace_tracker = &st->vstack_tracker;
         break;
     default:
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
         DEBUG_ERR(err, "failed to use correct vspace");
         return err;
@@ -516,6 +524,7 @@ errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, vo
     mmnode_t *vspace_region;
     err = mm_tracker_get_next_fit(vspace_tracker, &vspace_region, bytes, alignment);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to find free page");
         return err_push(err, MM_ERR_FIND_NODE);
     }
@@ -524,6 +533,7 @@ errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, vo
     err = mm_tracker_alloc_range(vspace_tracker, vspace_region->base, bytes,
                                  &allocated_node);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "mm_tracker_alloc_range failed");
         err = err_push(err, MM_ERR_MMT_ALLOC_RANGE);
         return err;
@@ -534,6 +544,7 @@ errval_t paging_alloc_region(struct paging_state *st, enum vregion_type type, vo
         *buf = (void *)vspace_region->base;
     }
 
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
     return SYS_ERR_OK;
 }
 
@@ -570,6 +581,7 @@ errval_t paging_map_frame_attr_region(struct paging_state *st, enum vregion_type
                                       void **buf, size_t bytes, struct capref frame,
                                       int flags)
 {
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
     errval_t err;
 
     mm_tracker_t *vspace_tracker;
@@ -585,6 +597,7 @@ errval_t paging_map_frame_attr_region(struct paging_state *st, enum vregion_type
         break;
     default:
         err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to use correct vspace");
         return err;
     }
@@ -598,27 +611,34 @@ errval_t paging_map_frame_attr_region(struct paging_state *st, enum vregion_type
     DEBUG_TRACEF("Map frame to free addr: allocate virtual memory\n");
     err = paging_alloc_region(st, type, buf, bytes, 1);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to allocate a virtual memory");
         return err_push(err, LIB_ERR_PAGING_MAP_FIXED);
     }
 
     err = paging_map_fixed_attr(st, (lvaddr_t)*buf, frame, bytes, flags);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to map frame");
         return err_push(err, LIB_ERR_PAGING_MAP_FIXED);
     }
+
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
 
     return SYS_ERR_OK;
 }
 
 static errval_t paging_get_or_create_pt(struct paging_state *st,
                                         struct page_table *parent_pt,
-                                        size_t parent_pt_index, enum objtype pt_type,
+                                        size_t parent_pt_index , enum objtype pt_type,
                                         struct page_table **pt)
-{
+{ 
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
+
     errval_t err;
     *pt = (parent_pt->entries)[parent_pt_index];
     if (*pt != NULL) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         return SYS_ERR_OK;
     }
 
@@ -627,6 +647,7 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
     // no need to allocate a slot as this is done in pt_alloc
     err = pt_alloc(st, pt_type, &pt_cap);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to allocate page table");
         return err;
     }
@@ -637,6 +658,7 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
     // allocate slot for capability
     err = st->slot_allocator->alloc(st->slot_allocator, &pt_mapping_cap);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "slot_alloc failed");
         return err;
     }
@@ -650,13 +672,16 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
             *pt = parent_pt->entries[parent_pt_index];
             err = cap_destroy(pt_cap);
             if (err_is_fail(err)) {
+                thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
                 DEBUG_ERR(err, "couldn't destroy cap");
                 return err;
             }
+            thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
             return SYS_ERR_OK;
         }
-
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to map page table");
+        printf("pt type: %d, pt index: %d for thread: %d \n", pt_type, parent_pt_index, thread_id());
         return err;
     }
 
@@ -678,6 +703,7 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
     // reflect mapping in datastructure
     *pt = slab_alloc(&st->slab_allocator);
     if (*pt == NULL) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
     (*pt)->cap = pt_cap;
@@ -690,8 +716,16 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
     parent_pt->entries[parent_pt_index] = *pt;
     parent_pt->mappings[parent_pt_index] = pt_mapping_cap;
     parent_pt->filled_slots++;
-
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
     return SYS_ERR_OK;
+}
+
+static bool paging_get(struct page_table *parent_pt, size_t parent_pt_index, struct page_table **pt) {
+   *pt = (parent_pt->entries)[parent_pt_index];
+   if(pt != NULL) {
+       return true;
+   }
+   return false;
 }
 
 
@@ -700,11 +734,13 @@ static errval_t paging_walk_pt(struct paging_state *st, struct page_table **l0_p
                                struct page_table **l3_pt, size_t l0_index,
                                size_t l1_index, size_t l2_index)
 {
+    thread_mutex_lock_nested(&st->paging_mutex);
     errval_t err;
     // DEBUG_TRACEF("Map frame to fixed addr: Get/create L1 page table\n");
     *l1_pt = NULL;
     err = paging_get_or_create_pt(st, *l0_pt, l0_index, ObjType_VNode_AARCH64_l1, l1_pt);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&st->paging_mutex);
         DEBUG_ERR(err, "failed to get/create l1 page table");
         err = err_push(err, LIB_ERR_PMAP_MAP);
         return err;
@@ -714,6 +750,7 @@ static errval_t paging_walk_pt(struct paging_state *st, struct page_table **l0_p
     *l2_pt = NULL;
     err = paging_get_or_create_pt(st, *l1_pt, l1_index, ObjType_VNode_AARCH64_l2, l2_pt);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&st->paging_mutex);
         DEBUG_ERR(err, "failed to get/create l2 page table");
         err = err_push(err, LIB_ERR_PMAP_MAP);
         return err;
@@ -723,11 +760,47 @@ static errval_t paging_walk_pt(struct paging_state *st, struct page_table **l0_p
     *l3_pt = NULL;
     err = paging_get_or_create_pt(st, *l2_pt, l2_index, ObjType_VNode_AARCH64_l3, l3_pt);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&st->paging_mutex);
         DEBUG_ERR(err, "failed to get/create l3 page table");
         err = err_push(err, LIB_ERR_PMAP_MAP);
         return err;
     }
 
+    thread_mutex_unlock(&st->paging_mutex);
+    return SYS_ERR_OK;
+}
+
+
+static errval_t paging_walk_pt_if_exists(struct paging_state *st, struct page_table **l0_pt,
+                               struct page_table **l1_pt, struct page_table **l2_pt,
+                               struct page_table **l3_pt, size_t l0_index,
+                               size_t l1_index, size_t l2_index)
+{
+    thread_mutex_lock_nested(&st->paging_mutex);
+    errval_t err = SYS_ERR_OK;
+    // DEBUG_TRACEF("Map frame to fixed addr: Get/create L1 page table\n");
+    if(!paging_get(*l0_pt, l0_index, l1_pt)){
+        DEBUG_ERR(err, "failed to get/create l1 page table");
+        err = err_push(err, LIB_ERR_PMAP_MAP);
+        goto end;
+    }
+
+    // DEBUG_TRACEF("Map frame to fixed addr: Get/create L2 page table\n");
+    if(paging_get(*l1_pt, l1_index, l2_pt)){
+        DEBUG_ERR(err, "failed to get/create l2 page table");
+        err = err_push(err, LIB_ERR_PMAP_MAP);
+        goto end;
+    }
+
+    // DEBUG_TRACEF("Map frame to fixed addr: Get/create L3 page table\n");
+    if(!paging_get(*l2_pt, l2_index, l3_pt)){
+        DEBUG_ERR(err, "failed to get/create l3 page table");
+        err = err_push(err, LIB_ERR_PMAP_MAP);
+        goto end;
+    }
+
+end:
+    thread_mutex_unlock(&st->paging_mutex);
     return SYS_ERR_OK;
 }
 
@@ -815,6 +888,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     // based on assumptions:
     // * the frame you are trying to map always fits inside a single L3 page-table
     // * the virtual address is chosen such that it does not overlap
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
     assert(bytes % BASE_PAGE_SIZE == 0);
     assert(vaddr % BASE_PAGE_SIZE == 0);
 
@@ -823,6 +897,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     mm_tracker_t *vspace_tracker;
     if (vaddr < VREADONLY_OFFSET) {
         err = LIB_ERR_PAGING_MAP_UNUSABLE_VADDR;
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "vadddr is in the forbidden areas");
         return err;
     } else if (vaddr < VHEAP_OFFSET) {
@@ -832,6 +907,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     } else if (vaddr < VADDR_MAX_USERSPACE) {
         vspace_tracker = &st->vstack_tracker;
     } else {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
         DEBUG_ERR(err, "vadddr is way of limits");
         return err;
@@ -845,6 +921,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     struct capability c;
     err = cap_direct_identify(frame_cap, &c);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to identify capability");
         return err_push(err, LIB_ERR_CAP_IDENTIFY);
     }
@@ -929,7 +1006,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
     // mm_tracker_debug_print(&st->vspace_tracker);
     // DEBUG_TRACEF("Map frame to fixed addr: Mapped frame\n");
-
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
     return SYS_ERR_OK;
 }
 
@@ -979,6 +1056,8 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
                     => if l2 empty: delete l2
                         => if l1 empty: delete l1
     */
+   
+   printf("!!!! PAGING UNMAP CALLED !!!! from thread: %d\n", thread_id());
     errval_t err;
 
     lvaddr_t vaddr = (lvaddr_t)region;
@@ -1031,7 +1110,7 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
         // get l1, l2, l3 levels
 
         if (do_recompute) {
-            err = paging_walk_pt(st, &l0_pt, &l1_pt, &l2_pt, &l3_pt, l0_index, l1_index,
+            err = paging_walk_pt_if_exists(st, &l0_pt, &l1_pt, &l2_pt, &l3_pt, l0_index, l1_index,
                                  l2_index);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to walk page table while unmapping");
@@ -1045,40 +1124,46 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
             do_recompute = false;
         }
 
-        genvaddr_t paddr = l3_pt->paddrs[l3_index];
-        paging_vspace_lookup_delete_entry(st, paddr);
+        if(l3_pt){
+            genvaddr_t paddr = l3_pt->paddrs[l3_index];
+            //paging_vspace_lookup_delete_entry(st, paddr);
 
-        // free the frame slot manually
-        err = cap_destroy(l3_pt->mappings[l3_index]);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_CAP_DESTROY);
-        }
-
-        l3_pt->mappings[l3_index] = NULL_CAP;
-        l3_pt->filled_slots--;
-
-        if (l3_pt->filled_slots == 0) {
-            err = paging_pt_unmap_slot(st, l2_pt, l2_index);
-            if (err_is_fail(err)) {
-                DEBUG_PRINTF("Failed to unmap l3 page table at l2 index %x\n", l2_index);
-                return err_push(err, LIB_ERR_PAGING_PT_UNMAP_SLOT);
-            }
-            if (l2_pt->filled_slots == 0) {
-                err = paging_pt_unmap_slot(st, l1_pt, l1_index);
+            if(!capcmp(l3_pt->mappings[l3_index], NULL_CAP)){
+                // free the frame slot manually
+                err = cap_destroy(l3_pt->mappings[l3_index]);
                 if (err_is_fail(err)) {
-                    DEBUG_PRINTF("Failed to unmap l2 page table at l1 index %x\n",
-                                 l1_index);
+                    return err_push(err, LIB_ERR_CAP_DESTROY);
+                }
+
+                l3_pt->mappings[l3_index] = NULL_CAP;
+                l3_pt->filled_slots--;
+            }
+
+            if (l3_pt->filled_slots == 0) {
+                err = paging_pt_unmap_slot(st, l2_pt, l2_index);
+                if (err_is_fail(err)) {
+                    DEBUG_PRINTF("Failed to unmap l3 page table at l2 index %x\n", l2_index);
                     return err_push(err, LIB_ERR_PAGING_PT_UNMAP_SLOT);
                 }
+            }
+        }
 
-                if (l1_pt->filled_slots == 0) {
-                    err = paging_pt_unmap_slot(st, l0_pt, l0_index);
-                    if (err_is_fail(err)) {
-                        DEBUG_PRINTF("Failed to unmap l1 page table at l0 index %x\n",
-                                     l0_index);
-                        return err_push(err, LIB_ERR_PAGING_PT_UNMAP_SLOT);
-                    }
-                }
+        
+        if (l2_pt && l2_pt->filled_slots == 0) {
+            err = paging_pt_unmap_slot(st, l1_pt, l1_index);
+            if (err_is_fail(err)) {
+                DEBUG_PRINTF("Failed to unmap l2 page table at l1 index %x\n",
+                                l1_index);
+                return err_push(err, LIB_ERR_PAGING_PT_UNMAP_SLOT);
+            }
+        }
+        
+        if (l1_pt && l1_pt->filled_slots == 0) {
+            err = paging_pt_unmap_slot(st, l0_pt, l0_index);
+            if (err_is_fail(err)) {
+                DEBUG_PRINTF("Failed to unmap l1 page table at l0 index %x\n",
+                                l0_index);
+                return err_push(err, LIB_ERR_PAGING_PT_UNMAP_SLOT);
             }
         }
         current_vaddr += BASE_PAGE_SIZE;

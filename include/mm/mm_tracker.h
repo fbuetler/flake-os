@@ -5,6 +5,7 @@
 #include <sys/cdefs.h>
 #include <errors/errno.h>
 #include <aos/types.h>
+#include <aos/domain.h>
 
 // forward declarations
 struct slab_allocator;

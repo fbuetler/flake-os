@@ -342,7 +342,7 @@ static void free_thread(struct thread *thread)
     ldt_free_segment(thread->thread_seg_selector);
 #endif
 
-    paging_unmap(get_current_paging_state(), thread->stack);
+    //paging_unmap(get_current_paging_state(), thread->stack);
     //free(thread->stack);
     if (thread->tls_dtv != NULL) {
         free(thread->tls_dtv);

@@ -20,7 +20,7 @@
 /* remote (indirect through a channel) version of ram_alloc, for most domains */
 static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignment)
 {
-    thread_mutex_lock_nested(&ram_mutex);
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
     if(!ret) {
         DEBUG_PRINTF("ram_alloc_remote, ret capref is NULL \n");
     }
@@ -30,12 +30,14 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
 
     struct aos_rpc *memory_rpc = aos_rpc_get_memory_channel();
     if(!memory_rpc) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_PRINTF("ERROR: no memory server found!\n");
         abort();
     }
 
     err = lmp_chan_alloc_recv_slot(&memory_rpc->chan);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to allocated receive slot");
         err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
         abort();
@@ -45,11 +47,11 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
     err = aos_rpc_get_ram_cap(memory_rpc, size, alignment, ret, &allocated_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get remote ram cap");
-        thread_mutex_unlock(&ram_mutex);
+        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         return err_push(err, LIB_ERR_RAM_ALLOC_REMOTE);
     }
 
-    thread_mutex_unlock(&ram_mutex);
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
     return SYS_ERR_OK;
 }
 
