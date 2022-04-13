@@ -36,5 +36,4 @@ else
     DEVICE_ARGS=""
 fi
 
-docker run -u $(id -u) -t -i \
-    --mount type=bind,source=$BF_SOURCE,target=/source $DEVICE_ARGS $BF_DOCKER "$@"
+docker run -u $(id -u) -t -i --mount type=bind,source=$BF_SOURCE,target=/source $DEVICE_ARGS $BF_DOCKER "$@"
