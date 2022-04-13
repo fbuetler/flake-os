@@ -73,6 +73,7 @@ void lesscore(void)
     // Not implemented
 
 #else
+    printf("inside lesscore \n");
     struct morecore_state *state = get_morecore_state();
     genvaddr_t gvaddr =
         vregion_get_base_addr(&state->mmu_state.vregion)

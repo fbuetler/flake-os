@@ -1059,10 +1059,25 @@ __attribute__((unused)) static void test_reserve_vspace_region(void)
     assert(large_arry[len - 1] == 420);
     
     printf("Freeing the memory.\n");
-    free(large_arry);
-    
+    //free(large_arry);
+
+    printf("buffer is at %p\n", large_arry);
+    printf("before\n");
+    mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
+
+    paging_unmap(get_current_paging_state(), (char *)large_arry - 0x20);
+    printf("after\n");
+    mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
+
     printf("done with reserve vspace region\n");
 }
+
+__attribute__((unused)) static void test_morecore_free(void)
+{
+   lesscore();
+}
+
+
 
 __attribute__((unused)) static void test_page_fault_in_spawnee(void)
 {
@@ -1093,9 +1108,9 @@ __attribute__((unused)) static void test_page_fault_already_handled(void)
 void run_m4_tests(void)
 {
     // test_trigger_page_fault();
-    test_reserve_vspace_region();
+    //test_reserve_vspace_region();
     //test_page_fault_in_spawnee();
-    //test_page_fault_already_handled();
+    test_page_fault_already_handled();
      
     printf("Completed %s\n", __func__);
 }

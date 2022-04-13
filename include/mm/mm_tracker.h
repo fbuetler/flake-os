@@ -25,7 +25,7 @@ typedef struct mm_tracker {
 #include "slot_alloc.h"
 
 
-enum nodetype { NodeType_Free, NodeType_Allocated };
+enum nodetype { NodeType_Free, NodeType_Allocated, NodeType_Mapped };
 
 struct capinfo {
     struct capref cap;  ///< Capability reference
@@ -53,20 +53,28 @@ errval_t mm_tracker_node_split(mm_tracker_t *mmt, mmnode_t *node, size_t offset,
 void mm_tracker_node_merge(struct mm_tracker *mmt, mmnode_t *left_split);
 
 errval_t mm_tracker_get_next_fit(mm_tracker_t *mmt, mmnode_t **retnode, size_t size,
-                                 size_t alignment);
+                                enum nodetype type, size_t alignment);
 
 void mm_tracker_destroy(mm_tracker_t *mmt);
 
+errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size, enum nodetype type, mmnode_t **retnode);
+
 errval_t mm_tracker_free(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t memory_size);
+errval_t mm_tracker_unmap(mm_tracker_t *mmt, genpaddr_t memory_base, gensize_t memory_size);
 
 errval_t mm_tracker_alloc_slice(mm_tracker_t *mmt, mmnode_t *node, 
                             size_t size, size_t offset, 
                             mmnode_t **retleft, mmnode_t **allocated_node, mmnode_t **retright);
 
-errval_t mm_tracker_get_node_at(mm_tracker_t *mmt, genpaddr_t addr, size_t size, mmnode_t **retnode);
 errval_t mm_tracker_alloc_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size, mmnode_t **retnode);
+errval_t mm_tracker_map_range(mm_tracker_t *mmt, genpaddr_t base, gensize_t size, mmnode_t **retnode);
 
 bool mm_tracker_is_allocated(mm_tracker_t *mmt, genvaddr_t vaddr, size_t size);
+bool mm_tracker_is_mapped(mm_tracker_t *mmt, genvaddr_t vaddr, size_t size);
+
 errval_t mm_tracker_find_allocated_node(mm_tracker_t *mmt, genpaddr_t memory_base,
                                         mmnode_t **retnode);
+errval_t mm_tracker_find_mapped_node(mm_tracker_t *mmt, genpaddr_t memory_base,
+                                        mmnode_t **retnode);
+
 #endif
