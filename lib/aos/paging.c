@@ -69,9 +69,7 @@ static void paging_refill(struct paging_state *st)
     if (!paging_lock) {
         paging_lock = 1;
         if (slab_freecount(&st->slab_allocator) < 10) {
-            DEBUG_PRINTF("paging_refill called for paging state: %p\n", st);
             assert(err_is_ok(st->slab_allocator.refill_func(&st->slab_allocator)));
-            DEBUG_PRINTF("paging_refill done\n");
         }
         paging_lock = 0;
     }
@@ -89,9 +87,9 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
 
-    DEBUG_PRINTF("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d , PC: %lx "
-                 "===\n",
-                 addr, type, subtype, regs->named.pc);
+    //DEBUG_PRINTF("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d , PC: %lx "
+    //             "===\n",
+    //             addr, type, subtype, regs->named.pc);
     errval_t err;
 
     //DEBUG_PRINTF("page_fault_exception_handler stack: %p\n", regs->named.stack);
@@ -172,7 +170,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     // TODO track that this frame is part of the heap
     // TODO track vaddr <-> paddr mapping
 unlock:
-    DEBUG_PRINTF("@@@ handled page fault at %p @@@\n", addr);
+    //DEBUG_PRINTF("@@@ handled page fault at %p @@@\n", addr);
     thread_mutex_unlock(&st->paging_mutex);
 }
 
@@ -439,9 +437,9 @@ errval_t paging_init_onthread(struct thread *t)
     // TODO (M4):
     //   - setup exception handler for thread `t'.
 
-    DEBUG_PRINTF("paging_init_onthread: start\n");
+    //DEBUG_PRINTF("paging_init_onthread: start\n");
 
-    
+    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
     struct capref exception_frame;
     size_t exception_stack_bytes;
     errval_t err = frame_alloc(&exception_frame, EXCEPTION_STACK_SIZE, &exception_stack_bytes);
@@ -463,8 +461,9 @@ errval_t paging_init_onthread(struct thread *t)
     t->exception_stack_top = exception_stack_addr + exception_stack_bytes;
     t->exception_handler = page_fault_exception_handler;
 
-    DEBUG_PRINTF("paging_init_onthread: end\n");
+    //DEBUG_PRINTF("paging_init_onthread: end\n");
 
+    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
     return SYS_ERR_OK;
 }
 
