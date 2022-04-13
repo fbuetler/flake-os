@@ -130,7 +130,7 @@ static void morecore_free(void *base, size_t bytes)
     struct morecore_state *st = get_morecore_state();
     DEBUG_PRINTF("Inside morecore_free\n");
 
-    err = paging_unmap(st->paging_state, base);
+    err = paging_unmap(st->paging_state, (char *)base - 0x20);
     if (err_is_fail(err)) {
         if (err == MM_ERR_MMT_FIND_ALLOCATED_NODE) {
             return;
