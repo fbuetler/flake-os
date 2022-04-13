@@ -69,8 +69,8 @@ static int bsp_main(int argc, char *argv[])
 
     //run_m1_tests();
     //run_m2_tests();
-    //run_m3_tests();
-    run_m4_tests();
+    run_m3_tests();
+    //run_m4_tests();
 
 
     // TODO: Spawn system processes, boot second core etc. here

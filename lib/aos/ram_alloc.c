@@ -41,7 +41,6 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
         abort();
     }
 
-
     size_t allocated_size;
     err = aos_rpc_get_ram_cap(memory_rpc, size, alignment, ret, &allocated_size);
     if (err_is_fail(err)) {

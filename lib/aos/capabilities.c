@@ -647,11 +647,11 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
         }
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
-
     err = cap_retype(dest, ram, 0, ObjType_Frame, bytes, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
+
 
     err = cap_destroy(ram);
     if (err_is_fail(err)) {

@@ -49,7 +49,7 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
     }
 
     /* If no more slots left, grow */
-    if (ca->space == 0) {
+    if (ca->space <= 10) {
         ca->space = ca->nslots;
         /* Pull in the reserve */
         mca->reserve->next = mca->head;
@@ -87,6 +87,7 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
 
         // Buffers
         void *buf = slab_alloc(&mca->slab);
+
         if (!buf) { /* Grow slab */
             // Allocate slot out of the list
             mca->a.space--;
@@ -121,6 +122,7 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
         // Allocator
         err = single_slot_alloc_init_raw(&mca->reserve->a, cap, cnode,
                                          mca->a.nslots, buf, bufsize);
+
         if (err_is_fail(err)) {
             thread_mutex_unlock(&ca->mutex);
             return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT_RAW);

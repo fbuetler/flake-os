@@ -460,7 +460,6 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
                           (lvaddr_t)newthread->stack_top, (lvaddr_t)start_func,
                           (lvaddr_t)arg, 0, 0);
 
-    debug_printf("done with this one as well\n");
     return newthread;
 }
 

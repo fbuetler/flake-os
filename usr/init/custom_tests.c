@@ -790,10 +790,18 @@ __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *
         return;
     }
 
+    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
+    }
+
     // create response with ram cap
     size_t payload_size = 0;
     struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, RamCapResponse, payload_size, NULL, ram_cap);
+    char buf[sizeof(struct aos_rpc_msg)];
+    err = aos_rpc_create_msg_no_pagefault(&reply, RamCapResponse, payload_size, NULL, ram_cap, (struct aos_rpc_msg*)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return;
@@ -808,6 +816,7 @@ __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
+
 }
 
 __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rpc)
@@ -838,6 +847,7 @@ __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rp
         return;
     }
 
+    debug_printf("sending back!\n");
     err = aos_rpc_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
@@ -938,6 +948,7 @@ __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
         printf("received unknown message type\n");
         break;
     }
+    debug_printf("init handled message of type: %d\n", msg_type);
     // TODO: free msg
     return SYS_ERR_OK;
 }
@@ -1014,7 +1025,7 @@ __attribute__((unused)) static void test_get_number(void)
 void run_m3_tests(void)
 {
     test_spawn_memeater();
-    // test_spawn_multiple_memeaters();
+    //test_spawn_multiple_memeaters();
     // test_get_number();
 }
 
@@ -1075,8 +1086,8 @@ void run_m4_tests(void)
 {
     // test_trigger_page_fault();
     // test_reserve_vspace_region();
-    //test_page_fault_in_spawnee();
-    test_page_fault_already_handled();
+    test_page_fault_in_spawnee();
+    //test_page_fault_already_handled();
 }
 
 /*

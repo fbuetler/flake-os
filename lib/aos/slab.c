@@ -97,7 +97,9 @@ void *slab_alloc(struct slab_allocator *slabs)
         if (!slabs->refill_func) {
             return NULL;
         } else {
+            debug_printf("33");
             err = slabs->refill_func(slabs);
+            debug_printf("44\n");
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "slab refill_func failed");
                 return NULL;
@@ -191,8 +193,6 @@ static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
     errval_t err;
 
     struct paging_state *st = get_current_paging_state();
-
-    DEBUG_TRACEF("Slab refill: alloc frame\n");
 
     struct capref frame_cap;
     size_t allocated_bytes;

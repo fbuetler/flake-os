@@ -33,5 +33,7 @@ int main(int argc, char *argv[])
     *heap_variable = 42;
     printf("heap variable: (%p, %d)\n", &heap_variable, *heap_variable);
 
+    debug_printf("hello terminated\n");
+
     return EXIT_SUCCESS;
 }

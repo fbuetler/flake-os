@@ -17,6 +17,7 @@
 #include <math.h>
 #include <spawn/spawn.h>
 
+#define AOS_RPC_MSG_SIZE(payload_size) (sizeof(struct aos_rpc_msg) + (payload_size))
 char static_rpc_msg_buf[1<<20];
 
 /**
@@ -27,7 +28,6 @@ char static_rpc_msg_buf[1<<20];
 static void aos_process_handshake(struct aos_rpc_msg *msg)
 {
     debug_printf("Handshake ACK\n");
-    free(msg);
 }
 
 /**
@@ -333,6 +333,7 @@ errval_t aos_rpc_create_msg_no_pagefault(struct aos_rpc_msg **ret_msg, enum aos_
 
     memcpy(msg->payload, payload, payload_size);
 
+
     if (ret_msg) {
         *ret_msg = msg;
     }
@@ -386,6 +387,7 @@ errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type 
 errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 {
     errval_t err;
+
     size_t total_bytes = msg->header_bytes + msg->payload_bytes;
 
     uint64_t *buf = (uint64_t *)msg;
@@ -414,6 +416,7 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         buf += 4;
         transferred_size += 4 * sizeof(uint64_t);
     }
+
 
     size_t remaining;
     if (transferred_size >= total_bytes)
@@ -498,6 +501,9 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
         return err;
     }
 
+    // wait for the response message
+    while (!lmp_chan_can_recv(&rpc->chan)) {
+    }
 
     // receive message
     err = aos_rpc_recv_msg(rpc);
@@ -515,7 +521,9 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
 {
     errval_t err;
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, SendNumber, sizeof(num), (void *)&num, NULL_CAP);
+
+    char msg_buf[AOS_RPC_MSG_SIZE(sizeof(uintptr_t))];
+    err = aos_rpc_create_msg_no_pagefault(&msg, SendNumber, sizeof(num), (void *)&num, NULL_CAP, (struct aos_rpc_msg *)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -526,8 +534,6 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
     }
-
-    free(msg);
 
     return SYS_ERR_OK;
 }
@@ -559,7 +565,14 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment,
                              struct capref *ret_cap, size_t *ret_bytes)
 {
-    errval_t err;
+
+    debug_printf("ram cap\n");
+    errval_t err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
+    }
 
     size_t payload_size = 3 * sizeof(size_t);
     char payload[payload_size];
@@ -594,6 +607,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     // debug_print_cap_at_capref(buf1, 256, *ret_cap);
     // DEBUG_PRINTF("%.*s\n", 256, buf1);
 
+    debug_printf("got a ram cap\n");
 
     return SYS_ERR_OK;
 }
@@ -606,8 +620,11 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
     errval_t err;
 
     size_t payload_size = 0;
+
+    char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
+
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, SerialReadChar, payload_size, NULL, NULL_CAP);
+    err = aos_rpc_create_msg_no_pagefault(&msg, SerialReadChar, payload_size, NULL, NULL_CAP, (struct aos_rpc_msg*)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -636,13 +653,16 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
     void *payload = malloc(payload_size);
     ((char *)payload)[0] = c;
 
+    char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
+
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, SerialWriteChar, payload_size, (void *)payload,
-                             NULL_CAP);
+    err = aos_rpc_create_msg_no_pagefault(&msg, SerialWriteChar, payload_size, (void *)payload,
+                             NULL_CAP, (struct aos_rpc_msg*)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
+
     err = aos_rpc_call(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
@@ -665,6 +685,8 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
+
+    debug_printf("spawning...\n");
 
     err = aos_rpc_call(rpc, msg);
     if (err_is_fail(err)) {

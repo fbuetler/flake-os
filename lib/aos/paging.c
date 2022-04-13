@@ -89,9 +89,9 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
 
-    //debug_printf("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d "
-    //             "===\n",
-    //             addr, type, subtype);
+    debug_printf("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d , PC: %lx "
+                 "===\n",
+                 addr, type, subtype, regs->named.pc);
     errval_t err;
 
     //debug_printf("page_fault_exception_handler stack: %p\n", regs->named.stack);
@@ -147,7 +147,6 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         goto unlock;
     }
 
-
     if (allocated_bytes < BASE_PAGE_SIZE) {
         DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "allocated frame is not big "
                                                      "enough");
@@ -156,6 +155,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     }
 
     // mm_tracker_debug_print(vspace_tracker);
+
 
     // install frame at the faulting address
     err = paging_map_fixed_attr(st, vaddr_aligned, frame, allocated_bytes,
@@ -169,11 +169,10 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         goto unlock;
     }
 
-    //debug_printf("@@@ handled page fault at %p @@@\n", addr);
-
     // TODO track that this frame is part of the heap
     // TODO track vaddr <-> paddr mapping
 unlock:
+    debug_printf("@@@ handled page fault at %p @@@\n", addr);
     thread_mutex_unlock(&st->paging_mutex);
 }
 
@@ -745,6 +744,7 @@ static errval_t paging_walk_pt(struct paging_state *st, struct page_table **l0_p
  * @param bytes Bytes in region (Value 2)
  * @return errval_t
  */
+__attribute__((unused))
 static errval_t paging_vspace_lookup_insert_entry(struct paging_state *st,
                                                   genpaddr_t paddr, genvaddr_t vaddr,
                                                   size_t bytes)
@@ -861,6 +861,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
     struct page_table *l3_pt;
     bool do_recompute = true;
 
+
     // DEBUG_TRACEF("Map frame to fixed addr: Update page tables\n");
     while (allocated_bytes < bytes) {
         // DEBUG_TRACEF("Map frame to fixed addr: Virtual address 0x%lx\n", vaddr);
@@ -899,6 +900,7 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
 
         err = vnode_map(l3_pt->cap, frame_cap, l3_index, flags, allocated_bytes, 1,
                         frame_mapping_cap);
+
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to map page table");
             return err_push(err, LIB_ERR_VNODE_MAP);
@@ -908,11 +910,11 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
         l3_pt->paddrs[l3_index] = paddr;
         l3_pt->filled_slots++;
 
-        err = paging_vspace_lookup_insert_entry(st, paddr, vaddr, BASE_PAGE_SIZE);
+        /*err = paging_vspace_lookup_insert_entry(st, paddr, vaddr, BASE_PAGE_SIZE);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to update vspace lookup");
             return err;
-        }
+        }*/
 
         paddr += BASE_PAGE_SIZE;
         vaddr += BASE_PAGE_SIZE;
