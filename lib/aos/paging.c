@@ -441,7 +441,6 @@ errval_t paging_init_onthread(struct thread *t)
 
     DEBUG_PRINTF("paging_init_onthread: start\n");
 
-    thread_mutex_lock(&get_current_paging_state()->paging_mutex);
     
     struct capref exception_frame;
     size_t exception_stack_bytes;
@@ -466,7 +465,6 @@ errval_t paging_init_onthread(struct thread *t)
 
     DEBUG_PRINTF("paging_init_onthread: end\n");
 
-    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
     return SYS_ERR_OK;
 }
 

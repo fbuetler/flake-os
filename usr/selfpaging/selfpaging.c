@@ -16,7 +16,7 @@
 static int print_hello(void *arg)
 {
     printf("Hello World!\n");
-    size_t size = 250 * BASE_PAGE_SIZE;
+    size_t size = 25 * BASE_PAGE_SIZE;
     char *buf = malloc(size);
 
     for (size_t offset = 0; offset < size; offset+= BASE_PAGE_SIZE) {
@@ -30,7 +30,7 @@ static int print_hello(void *arg)
 
 int main(int argc, char *argv[])
 {
-    int N = 20;
+    int N = 50;
     struct thread *threads[N];
 
     for(int i = 0; i < N; i++){
