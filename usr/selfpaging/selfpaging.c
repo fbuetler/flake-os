@@ -15,15 +15,30 @@
 
 static int print_hello(void *arg)
 {
-    //printf("Hello World!\n");
+    printf("Hello World from thread %lu!\n", thread_id());
+
     size_t size = 50 * BASE_PAGE_SIZE;
     char *buf = malloc(size);
 
     for (size_t offset = 0; offset < size; offset+= BASE_PAGE_SIZE) {
-        debug_printf("starting iteration %d\n", offset/BASE_PAGE_SIZE);
         buf[offset] = 'a';
     }
-    //DEBUG_PRINTF("done\n");
+    printf("Done in thread %lu \n", thread_id());
+
+    return 0;
+}
+
+static int stack_test(void *arg)
+{
+    printf("Hello World from thread %lu!\n", thread_id());
+
+    size_t size = 50 * BASE_PAGE_SIZE;
+    char buf[size];
+
+    for (size_t offset = 0; offset < size; offset+= BASE_PAGE_SIZE) {
+        buf[offset] = 'a';
+    }
+    printf("Done in thread %lu \n", thread_id());
 
     return 0;
 }
@@ -44,6 +59,16 @@ int main(int argc, char *argv[])
 
     DEBUG_PRINTF("done with all threads\n");
 
+    for(int i = 0; i < N; i++){
+        threads[i] = thread_create(stack_test, NULL);
+    }
+
+    for(int i = 0; i < N; i++){
+        int retval;
+        thread_join(threads[i], &retval);
+    }
+
+    DEBUG_PRINTF("done with all threads\n");
 
     return EXIT_SUCCESS;
 }
