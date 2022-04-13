@@ -28,13 +28,13 @@ mkdir -p $BF_BUILD
 
 # run the command in the docker image with the same userid to avoid
 # permission problems later.
-if [[ -f /dev/colibri-otg ]]; then
-    docker run -u $(id -u) -i -t \
-        --mount type=bind,source=$BF_SOURCE,target=/source \
-        --device=/dev/colibri-otg \
-        $BF_DOCKER
+if [[ -e "$(readlink -- /dev/colibri-otg)" ]]; then
+    echo "Colibri board is connected"
+    DEVICE_ARGS="--device=/dev/colibri-otg"
 else
-    docker run -u $(id -u) -i -t \
-        --mount type=bind,source=$BF_SOURCE,target=/source \
-        $BF_DOCKER
+    echo "No board connected"
+    DEVICE_ARGS=""
 fi
+
+docker run -u $(id -u) -t -i \
+    --mount type=bind,source=$BF_SOURCE,target=/source $DEVICE_ARGS $BF_DOCKER "$@"
