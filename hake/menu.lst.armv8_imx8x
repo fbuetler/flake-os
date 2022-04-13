@@ -6,4 +6,8 @@ bootdriver  /armv8/sbin/boot_armv8_generic
 cpudriver /armv8/sbin/cpu_imx8x
 module  /armv8/sbin/init
 module /armv8/sbin/hello -c test
+module  /armv8/sbin/infinite_print
+module  /armv8/sbin/memeater
+module  /armv8/sbin/selfpaging
+module  /armv8/sbin/selfpaging_already_handled
 
