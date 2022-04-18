@@ -11,11 +11,6 @@
 
 extern struct bootinfo *bi;
 
-struct mem_info {
-    size_t                size;      // Size in bytes of the memory region
-    void                  *buf;      // Address where the region is currently mapped
-    lpaddr_t              phys_base; // Physical base address   
-};
 
 /**
  * Load a ELF image into memory.
@@ -212,6 +207,7 @@ errval_t load_binaries(genvaddr_t binary, struct mem_info *mem, genvaddr_t entry
     return SYS_ERR_OK;
 }
 
+__attribute__((__used__))
 errval_t relocate_drivers(genvaddr_t binary, struct mem_info *mem_info) {
     // - Relocate the boot and CPU driver. The boot driver runs with a 1:1
     //   VA->PA mapping. The CPU driver is expected to be loaded at the
@@ -222,32 +218,32 @@ errval_t relocate_drivers(genvaddr_t binary, struct mem_info *mem_info) {
 }
 
 __attribute__((__used__))
-errval_t allocate_page_core_data() {
+errval_t allocate_page_core_data(void) {
     // - Allocate a page for the core data struct
     return SYS_ERR_OK;
 }
 
 __attribute__((__used__))
-errval_t allocate_stack_memory() {
+errval_t allocate_stack_memory(void) {
     // - Allocate stack memory for the new cpu driver (at least 16 pages)
     return SYS_ERR_OK;
 }
 
 __attribute__((__used__))
-errval_t get_cpu_entrypoint() {
+errval_t get_cpu_entrypoint(void) {
     // - Find the CPU driver entry point. Look for the symbol "arch_init". Put
     //   the address in the core data struct.
     return SYS_ERR_OK;
 }
 
 __attribute__((__used__))
-errval_t get_boot_entrypoint() {
+errval_t get_boot_entrypoint(void) {
     // - Find the boot driver entry point. Look for the symbol "boot_entry_psci"
     return SYS_ERR_OK;
 };
 
 __attribute__((__used__))
-errval_t flush_cache() {
+errval_t flush_cache(void) {
     // - Flush the cache.
 
     // use functions from cache.h
@@ -298,9 +294,12 @@ errval_t coreboot(coreid_t mpid,
 
     // - Fill in the core data struct, for a description, see the definition
     //   in include/target/aarch64/barrelfish_kpi/arm_core_data.h
+
+    /*
     struct armv8_core_data core_data = {
         ARMV8_BOOTMAGIC_PSCI,
     };
+     */
 
 
     //err = get_cpu_entrypoint();

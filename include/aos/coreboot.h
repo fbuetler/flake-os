@@ -16,6 +16,7 @@
 #define LIBBARRELFISH_COREBOOT_H
 
 #include <sys/cdefs.h>
+#include "types.h"
 
 __BEGIN_DECLS
 
@@ -35,6 +36,22 @@ errval_t coreboot(coreid_t mpid,
         const char *init,
         struct frame_identity urpc_frame_id);
 
+struct mem_info {
+    size_t                size;      // Size in bytes of the memory region
+    void                  *buf;      // Address where the region is currently mapped
+    lpaddr_t              phys_base; // Physical base address
+};
+
+
+errval_t allocate_page_core_data(void);
+errval_t allocate_stack_memory(void);
+errval_t get_cpu_entrypoint(void);
+errval_t get_boot_entrypoint(void);
+errval_t flush_cache(void);
+errval_t spawn_core(hwid_t core_id, enum cpu_type cpu_type, genpaddr_t entry, genpaddr_t context, uint64_t psci_use_hvc);
+errval_t relocate_drivers(genvaddr_t binary, struct mem_info *mem_info);
+errval_t load_binaries(genvaddr_t binary, struct mem_info *mem, genvaddr_t entry_point, genvaddr_t *reloc_entry_point);
+errval_t get_kcb(struct capref *kcb_cap);
 
 __END_DECLS
 
