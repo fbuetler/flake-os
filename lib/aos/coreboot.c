@@ -6,6 +6,7 @@
 #include <barrelfish_kpi/arm_core_data.h>
 #include <aos/kernel_cap_invocations.h>
 #include <aos/cache.h>
+#include <spawn/spawn.h>
 
 #define ARMv8_KERNEL_OFFSET 0xffff000000000000
 
@@ -279,12 +280,25 @@ errval_t coreboot(coreid_t mpid,
     errval_t err;
 
     struct capref kcb_cap;
+    err = slot_alloc(&kcb_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not allocate slot for kcb cap\n");
+        return err;
+    }
+
     err = get_kcb(&kcb_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not fetch KCB cap\n");
+        return err;
     }
 
-    //err = load_binaries();
+    /*
+    err = load_binaries(binary, mem, entry_point, reloc_entry_point);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not load binaries in coreboot \n");
+        return err;
+    }
+     */
 
     //err = relocate_drivers();
 
