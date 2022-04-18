@@ -24,6 +24,7 @@
 #include <mm/mm.h>
 #include <grading.h>
 #include <spawn/spawn.h>
+#include <aos/coreboot.h>
 
 #include "mem_alloc.h"
 #include "custom_tests.h"
@@ -70,8 +71,11 @@ static int bsp_main(int argc, char *argv[])
     //run_m1_tests();
     //run_m2_tests();
     //run_m3_tests();
-    run_m4_tests();
+    //run_m4_tests();
 
+    // ToDo: urpc_frame_id
+    struct frame_identity urpc_frame_id;
+    coreboot(1, "boot_armv8_generic", "cpu_imx8x", "init", urpc_frame_id);
 
     // TODO: Spawn system processes, boot second core etc. here
 

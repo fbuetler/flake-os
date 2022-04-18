@@ -183,7 +183,93 @@ relocate_elf(genvaddr_t binary, struct mem_info *mem, lvaddr_t load_offset)
     return SYS_ERR_OK;
 }
 
+__attribute__((__used__))
+errval_t get_kcb(struct capref *kcb_cap) {
+    // - Get a new KCB by retyping a RAM cap to ObjType_KernelControlBlock.
+    //   Note that it should at least OBJSIZE_KCB, and it should also be aligned
+    //   to a multiple of 16k.
 
+    errval_t err;
+    struct capref ram_cap;
+    err = ram_alloc_aligned(&ram_cap,OBJSIZE_KCB, 4*BASE_PAGE_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not allocate ramcap for KCB \n");
+    }
+
+    err = cap_retype(*kcb_cap, ram_cap, 0, ObjType_KernelControlBlock, OBJSIZE_KCB, 1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not retype KCB cap\n");
+    }
+
+    return SYS_ERR_OK;
+}
+
+__attribute__((__used__))
+errval_t load_binaries(genvaddr_t binary, struct mem_info *mem, genvaddr_t entry_point, genvaddr_t *reloc_entry_point) {
+    // - Get and load the CPU and boot driver binary.
+    errval_t err;
+    err = load_elf_binary(binary, mem, entry_point, reloc_entry_point);
+    return SYS_ERR_OK;
+}
+
+errval_t relocate_drivers(genvaddr_t binary, struct mem_info *mem_info) {
+    // - Relocate the boot and CPU driver. The boot driver runs with a 1:1
+    //   VA->PA mapping. The CPU driver is expected to be loaded at the
+    //   high virtual address space, at offset ARMV8_KERNEL_OFFSET.
+    errval_t err;
+    err = relocate_elf(binary, mem_info, ARMv8_KERNEL_OFFSET);
+    return SYS_ERR_OK;
+}
+
+__attribute__((__used__))
+errval_t allocate_page_core_data() {
+    // - Allocate a page for the core data struct
+    return SYS_ERR_OK;
+}
+
+__attribute__((__used__))
+errval_t allocate_stack_memory() {
+    // - Allocate stack memory for the new cpu driver (at least 16 pages)
+    return SYS_ERR_OK;
+}
+
+__attribute__((__used__))
+errval_t get_cpu_entrypoint() {
+    // - Find the CPU driver entry point. Look for the symbol "arch_init". Put
+    //   the address in the core data struct.
+    return SYS_ERR_OK;
+}
+
+__attribute__((__used__))
+errval_t get_boot_entrypoint() {
+    // - Find the boot driver entry point. Look for the symbol "boot_entry_psci"
+    return SYS_ERR_OK;
+};
+
+__attribute__((__used__))
+errval_t flush_cache() {
+    // - Flush the cache.
+
+    // use functions from cache.h
+    // if inv means invalidate, then these should be the correct functions:
+
+    /*
+    arm64_idcache_wbinv_range();
+    arm64_dcache_wbinv_range();
+    arm64_dcache_inv_range();
+     */
+    return SYS_ERR_OK;
+}
+
+__attribute__((__used__))
+errval_t spawn_core(hwid_t core_id, enum cpu_type cpu_type, genpaddr_t entry, genpaddr_t context, uint64_t psci_use_hvc) {
+    // - Call the invoke_monitor_spawn_core with the entry point
+    //   of the boot driver and pass the (physical, of course) address of the
+    //   boot struct as argument.
+    errval_t err;
+    err = invoke_monitor_spawn_core(core_id, cpu_type, entry, context, psci_use_hvc);
+    return SYS_ERR_OK;
+}
 
 errval_t coreboot(coreid_t mpid,
         const char *boot_driver,
@@ -191,26 +277,39 @@ errval_t coreboot(coreid_t mpid,
         const char *init,
         struct frame_identity urpc_frame_id)
 {
-
     // Implement me!
-    // - Get a new KCB by retyping a RAM cap to ObjType_KernelControlBlock.
-    //   Note that it should at least OBJSIZE_KCB, and it should also be aligned 
-    //   to a multiple of 16k.
-    // - Get and load the CPU and boot driver binary.
-    // - Relocate the boot and CPU driver. The boot driver runs with a 1:1
-    //   VA->PA mapping. The CPU driver is expected to be loaded at the 
-    //   high virtual address space, at offset ARMV8_KERNEL_OFFSET.
-    // - Allocate a page for the core data struct
-    // - Allocate stack memory for the new cpu driver (at least 16 pages)
+    printf("Inside coreboot!! \n");
+
+    errval_t err;
+
+    struct capref kcb_cap;
+    err = get_kcb(&kcb_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not fetch KCB cap\n");
+    }
+
+    //err = load_binaries();
+
+    //err = relocate_drivers();
+
+    //err = allocate_page_core_data();
+
+    //err = allocate_stack_memory();
+
     // - Fill in the core data struct, for a description, see the definition
     //   in include/target/aarch64/barrelfish_kpi/arm_core_data.h
-    // - Find the CPU driver entry point. Look for the symbol "arch_init". Put
-    //   the address in the core data struct. 
-    // - Find the boot driver entry point. Look for the symbol "boot_entry_psci"
-    // - Flush the cache.
-    // - Call the invoke_monitor_spawn_core with the entry point 
-    //   of the boot driver and pass the (physical, of course) address of the 
-    //   boot struct as argument.
+    struct armv8_core_data core_data = {
+        ARMV8_BOOTMAGIC_PSCI,
+    };
+
+
+    //err = get_cpu_entrypoint();
+
+    //err = get_boot_entrypoint();
+
+    //err = flush_cache();
+
+    //err = spawn_core();
 
     return SYS_ERR_OK;
 
