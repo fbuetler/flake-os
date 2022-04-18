@@ -76,4 +76,6 @@ errval_t spawn_kill_process(domainid_t pid);
 
 errval_t spawn_free(struct spawninfo *si);
 
+errval_t spawn_map_module(struct mem_region *module, size_t *retsize, lvaddr_t *retaddr);
+
 #endif /* _INIT_SPAWN_H_ */

@@ -111,6 +111,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         USER_PANIC_ERR(err, "vadddr is in the forbidden area: %p", (void *)vaddr);
         return;
     } else if (vaddr < VHEAP_OFFSET) {
+        mm_tracker_debug_print(&st->vheap_tracker);
         vspace_tracker = &st->vreadonly_tracker;
     } else if (vaddr < VSTACKS_OFFSET) {
         vspace_tracker = &st->vheap_tracker;

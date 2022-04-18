@@ -68,7 +68,7 @@ void spawn_init(void)
  * @param retaddr the base address of the frame holding the module
  * @return errval_t
  */
-static errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
+errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
                                  lvaddr_t *retaddr)
 {
     errval_t err;

@@ -201,10 +201,41 @@ errval_t get_kcb(struct capref *kcb_cap) {
 }
 
 __attribute__((__used__))
-errval_t load_binaries(genvaddr_t binary, struct mem_info *mem, genvaddr_t entry_point, genvaddr_t *reloc_entry_point) {
+errval_t load_binaries(const char* boot_driver, const char* cpu_driver) {
     // - Get and load the CPU and boot driver binary.
     errval_t err;
-    err = load_elf_binary(binary, mem, entry_point, reloc_entry_point);
+
+    printf("finding cpu module\n");
+    struct bootinfo bootinfo_cpu_driver;
+    struct mem_region *module_location_cpu;
+    module_location_cpu = multiboot_find_module(&bootinfo_cpu_driver, cpu_driver);
+    if (module_location_cpu == NULL) {
+        printf("Could not find cpu driver module \n");
+        return SYS_ERR_KCB_NOT_FOUND;
+    }
+
+    /*
+    struct bootinfo bootinfo_bootloader;
+    struct mem_region *module_location_boot;
+    module_location_boot = multiboot_find_module(&bootinfo_bootloader, boot_driver);
+    if (module_location_boot == NULL) {
+        printf("Could not find boot driver module \n");
+        return SYS_ERR_KCB_NOT_FOUND;
+    }
+     */
+
+    printf("mapping cpu module\n");
+    size_t retsize_cpu;
+    size_t retaddr_cpu;
+    err = spawn_map_module(module_location_cpu, &retsize_cpu, &retaddr_cpu);
+    if (err_is_fail(err)) {
+        printf("Could not map cpu module\n");
+        return SYS_ERR_KCB_NOT_FOUND;
+    }
+
+
+
+    //err = load_elf_binary(binary, mem, entry_point, reloc_entry_point);
     return SYS_ERR_OK;
 }
 
@@ -292,13 +323,12 @@ errval_t coreboot(coreid_t mpid,
         return err;
     }
 
-    /*
-    err = load_binaries(binary, mem, entry_point, reloc_entry_point);
+    printf("loading binaries \n");
+    err = load_binaries(boot_driver, cpu_driver);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not load binaries in coreboot \n");
         return err;
     }
-     */
 
     //err = relocate_drivers();
 

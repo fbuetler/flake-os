@@ -75,7 +75,7 @@ static int bsp_main(int argc, char *argv[])
 
     // ToDo: urpc_frame_id
     struct frame_identity urpc_frame_id;
-    coreboot(1, "boot_armv8_generic", "cpu_imx8x", "init", urpc_frame_id);
+    coreboot(1, "boot_armv8_generic", "cpu_a57_qemu",  "init", urpc_frame_id);
 
     // TODO: Spawn system processes, boot second core etc. here
 
