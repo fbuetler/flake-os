@@ -205,26 +205,22 @@ errval_t load_binaries(const char* boot_driver, const char* cpu_driver) {
     // - Get and load the CPU and boot driver binary.
     errval_t err;
 
-    printf("finding cpu module\n");
-    struct bootinfo bootinfo_cpu_driver;
     struct mem_region *module_location_cpu;
-    module_location_cpu = multiboot_find_module(&bootinfo_cpu_driver, cpu_driver);
+    module_location_cpu = multiboot_find_module(bi, cpu_driver);
     if (module_location_cpu == NULL) {
         printf("Could not find cpu driver module \n");
         return SYS_ERR_KCB_NOT_FOUND;
     }
 
     /*
-    struct bootinfo bootinfo_bootloader;
     struct mem_region *module_location_boot;
-    module_location_boot = multiboot_find_module(&bootinfo_bootloader, boot_driver);
+    module_location_boot = multiboot_find_module(boot_driver);
     if (module_location_boot == NULL) {
         printf("Could not find boot driver module \n");
         return SYS_ERR_KCB_NOT_FOUND;
     }
      */
 
-    printf("mapping cpu module\n");
     size_t retsize_cpu;
     size_t retaddr_cpu;
     err = spawn_map_module(module_location_cpu, &retsize_cpu, &retaddr_cpu);

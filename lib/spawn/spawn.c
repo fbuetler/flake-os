@@ -936,7 +936,7 @@ errval_t spawn_free(struct spawninfo *si)
 
     err = cap_destroy(si->args_frame_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to destroy argumentes frame cap");
+        DEBUG_ERR(err, "failed to destroy arguments frame cap");
     }
 
     return SYS_ERR_OK;
