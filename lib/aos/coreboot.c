@@ -178,7 +178,7 @@ relocate_elf(genvaddr_t binary, struct mem_info *mem, lvaddr_t load_offset)
     return SYS_ERR_OK;
 }
 
-static errval_t get_kcb(struct capref *kcb_cap)
+static errval_t get_kcb(genpaddr_t *kcb_base)
 {
     // - Get a new KCB by retyping a RAM cap to ObjType_KernelControlBlock.
     //   Note that it should at least OBJSIZE_KCB, and it should also be aligned
@@ -192,17 +192,26 @@ static errval_t get_kcb(struct capref *kcb_cap)
         return err;
     }
 
-    err = slot_alloc(kcb_cap);
+    struct capref kcb_cap;
+    err = slot_alloc(&kcb_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not allocate slot for kcb cap\n");
         return err;
     }
 
-    err = cap_retype(*kcb_cap, ram_cap, 0, ObjType_KernelControlBlock, OBJSIZE_KCB, 1);
+    err = cap_retype(kcb_cap, ram_cap, 0, ObjType_KernelControlBlock, OBJSIZE_KCB, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not retype KCB cap");
         return err;
     }
+
+    struct capability c;
+    err = invoke_cap_identify(kcb_cap, &c);
+    if (err_is_fail(err)) {
+        debug_printf("failed to get physcal address of cap ref\n");
+    }
+
+    *kcb_base = (genpaddr_t)c.u.kernelcontrolblock.kcb;
 
     return SYS_ERR_OK;
 }
@@ -224,7 +233,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
     }
 
     DEBUG_PRINTF("Mapping module\n");
-    lvaddr_t elf_vaddr;
+    genvaddr_t elf_vaddr;
     size_t elf_size;
     err = spawn_map_module(driver_mem_region, &elf_size, (void *)&elf_vaddr);
     if (err_is_fail(err)) {
@@ -232,6 +241,9 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
         return err;
     }
 
+    // - Find the CPU driver entry point. Look for the symbol "arch_init". Put
+    //   the address in the core data struct.
+    // - Find the boot driver entry point. Look for the symbol "boot_entry_psci"
     DEBUG_PRINTF("Finding entry symbol in ELF binary\n");
     uintptr_t symbol_index = 0;
     struct Elf64_Sym *driver_init_location = elf64_find_symbol_by_name(
@@ -291,50 +303,144 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
     return SYS_ERR_OK;
 }
 
-__attribute__((__used__)) static errval_t allocate_page_core_data(void)
+static errval_t allocate_memory(size_t size, genpaddr_t *retbase, size_t *retsize)
 {
-    // - Allocate a page for the core data struct
+    errval_t err;
+
+    struct capref ram_cap;
+    err = ram_alloc_aligned(&ram_cap, size, BASE_PAGE_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate ram cap");
+        return err;
+    }
+
+    struct capability c;
+    err = invoke_cap_identify(ram_cap, &c);
+    if (err_is_fail(err)) {
+        debug_printf("failed to get physcal address of cap ref\n");
+    }
+
+    *retbase = c.u.ram.base;
+    *retsize = c.u.ram.bytes;
+
     return SYS_ERR_OK;
 }
 
-__attribute__((__used__)) static errval_t allocate_stack_memory(void)
+static errval_t allocate_stack(genpaddr_t *retbase, size_t *retsize)
 {
     // - Allocate stack memory for the new cpu driver (at least 16 pages)
+    return allocate_memory(16 * BASE_PAGE_SIZE, retbase, retsize);
+}
+
+static errval_t load_init(const char *init, genvaddr_t *init_base, size_t *init_size)
+{
+    errval_t err;
+
+    DEBUG_PRINTF("Loading init\n");
+    struct mem_region *init_mem_region = multiboot_find_module(bi, init);
+    if (init_mem_region == NULL) {
+        err = SYS_ERR_KCB_NOT_FOUND;
+        DEBUG_ERR(err, "Could not find init module");
+        return err;
+    }
+
+    DEBUG_PRINTF("Mapping init\n");
+    genvaddr_t elf_vaddr;
+    size_t elf_size;
+    err = spawn_map_module(init_mem_region, &elf_size, (void *)&elf_vaddr);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not map init module");
+        return err;
+    }
+
+    *init_base = elf_vaddr;
+    *init_size = elf_size;
+
+    return SYS_ERR_OK;
+}
+static errval_t allocate_initial_memory(size_t init_size, genpaddr_t *retbase,
+                                        size_t *retsize)
+{
+    size_t size = ROUND_UP(init_size, BASE_PAGE_SIZE)
+                  + ARMV8_CORE_DATA_PAGES * BASE_PAGE_SIZE;
+    return allocate_memory(size, retbase, retsize);
+}
+
+static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
+                               genpaddr_t cpu_driver_entry, genpaddr_t memory_base,
+                               size_t memory_size, struct frame_identity urpc_frame_id,
+                               genpaddr_t init_base, size_t init_size, genpaddr_t kcb,
+                               coreid_t mpid, genpaddr_t *retbase, size_t *retsize)
+{
+    errval_t err;
+
+    // - Allocate a page for the core data struct
+    struct capref frame_cap;
+    size_t allocated_bytes;
+    err = frame_alloc(&frame_cap, BASE_PAGE_SIZE, &allocated_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate frame");
+        return err;
+    }
+
+    if (allocated_bytes != BASE_PAGE_SIZE) {
+        err = LIB_ERR_FRAME_ALLOC;
+        DEBUG_ERR(err, "failed to allocate a frame of the required size");
+        return err;
+    }
+
+    // - Fill in the core data struct, for a description, see the definition
+    //   in include/target/aarch64/barrelfish_kpi/arm_core_data.h
+    struct armv8_core_data *core_data;
+    err = paging_map_frame_complete(get_current_paging_state(), (void **)&core_data,
+                                    frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map core data");
+        return err;
+    }
+
+    core_data->boot_magic = ARMV8_BOOTMAGIC_PSCI;
+
+    core_data->cpu_driver_stack = stack_base;
+    core_data->cpu_driver_stack_limit = stack_base + stack_size;
+
+    core_data->cpu_driver_entry = cpu_driver_entry;
+    memset(core_data->cpu_driver_cmdline, 0, sizeof(core_data->cpu_driver_cmdline));
+
+    core_data->memory = (struct armv8_coredata_memreg) {
+        .base = memory_base,
+        .length = memory_size,
+    };
+    core_data->urpc_frame = (struct armv8_coredata_memreg) {
+        .base = urpc_frame_id.base,
+        .length = urpc_frame_id.bytes,
+    };
+    core_data->monitor_binary = (struct armv8_coredata_memreg) {
+        .base = init_base,
+        .length = init_size,
+    };
+    core_data->kcb = kcb;
+
+    core_data->src_core_id = disp_get_core_id();
+    core_data->dst_core_id = mpid;
+    core_data->src_arch_id = disp_get_core_id();
+    core_data->dst_arch_id = mpid;
+
+    *retbase = (genpaddr_t)core_data;
+    *retsize = sizeof(*core_data);
+
     return SYS_ERR_OK;
 }
 
-__attribute__((__used__)) static errval_t get_cpu_entrypoint(void)
-{
-    // - Find the CPU driver entry point. Look for the symbol "arch_init". Put
-    //   the address in the core data struct.
-    return SYS_ERR_OK;
-}
-
-__attribute__((__used__)) static errval_t get_boot_entrypoint(void)
-{
-    // - Find the boot driver entry point. Look for the symbol "boot_entry_psci"
-    return SYS_ERR_OK;
-};
-
-__attribute__((__used__)) static errval_t flush_cache(void)
+static void flush_cache(vm_offset_t base, vm_size_t size)
 {
     // - Flush the cache.
-
-    // use functions from cache.h
-    // if inv means invalidate, then these should be the correct functions:
-
-    /*
-    arm64_idcache_wbinv_range();
-    arm64_dcache_wbinv_range();
-    arm64_dcache_inv_range();
-     */
-    return SYS_ERR_OK;
+    arm64_dcache_wbinv_range(base, size);
+    return;
 }
 
-__attribute__((__used__)) static errval_t spawn_core(hwid_t core_id,
-                                                     enum cpu_type cpu_type,
-                                                     genpaddr_t entry, genpaddr_t context,
-                                                     uint64_t psci_use_hvc)
+static errval_t spawn_core(hwid_t core_id, enum cpu_type cpu_type, genpaddr_t entry,
+                           genpaddr_t context, uint64_t psci_use_hvc)
 {
     // - Call the invoke_monitor_spawn_core with the entry point
     //   of the boot driver and pass the (physical, of course) address of the
@@ -351,14 +457,11 @@ __attribute__((__used__)) static errval_t spawn_core(hwid_t core_id,
 errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver,
                   const char *init, struct frame_identity urpc_frame_id)
 {
-    // Implement me!
-    DEBUG_PRINTF("Inside coreboot!! \n");
-
     errval_t err;
 
-    struct capref kcb_cap;
     DEBUG_PRINTF("Creating Kernel Control Block\n");
-    err = get_kcb(&kcb_cap);
+    genpaddr_t kcb_base;
+    err = get_kcb(&kcb_base);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not fetch KCB cap\n");
         return err;
@@ -374,7 +477,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
         return err;
     }
 
-    DEBUG_PRINTF("loading cpu driver\n");
+    DEBUG_PRINTF("Loading cpu driver\n");
     struct mem_info cpu_driver_mem_info;
     genpaddr_t cpu_driver_entry;
     err = load_and_relocate_driver(cpu_driver, "arch_init", ARMv8_KERNEL_OFFSET,
@@ -384,29 +487,56 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
         return err;
     }
 
-    USER_PANIC("there we go");
+    DEBUG_PRINTF("Allocate kernel stack\n");
+    genpaddr_t stack_base;
+    size_t stack_size;
+    err = allocate_stack(&stack_base, &stack_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate kernel stack");
+        return err;
+    }
 
-    // err = allocate_page_core_data();
+    DEBUG_PRINTF("Loading init\n");
+    genvaddr_t init_base;
+    size_t init_size;
+    err = load_init(init, &init_base, &init_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to load init");
+        return err;
+    }
 
-    // err = allocate_stack_memory();
+    DEBUG_PRINTF("Allocate kernel memory\n");
+    genpaddr_t memory_base;
+    size_t memory_size;
+    err = allocate_initial_memory(init_size, &memory_base, &memory_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate kernel memory");
+        return err;
+    }
 
-    // - Fill in the core data struct, for a description, see the definition
-    //   in include/target/aarch64/barrelfish_kpi/arm_core_data.h
+    DEBUG_PRINTF("Initalizing core data\n");
+    genpaddr_t core_data_base;
+    size_t core_data_size;
+    err = init_core_data(stack_base, stack_size, cpu_driver_entry, memory_base,
+                         memory_size, urpc_frame_id, init_base, init_size, kcb_base, mpid,
+                         &core_data_base, &core_data_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to initialize core data");
+        return err;
+    }
 
-    /*
-    struct armv8_core_data core_data = {
-        ARMV8_BOOTMAGIC_PSCI,
-    };
-     */
+    DEBUG_PRINTF("Flushing the cache\n");
+    flush_cache((vm_offset_t)boot_driver_mem_info.buf,
+                (vm_size_t)boot_driver_mem_info.size);
+    flush_cache((vm_offset_t)cpu_driver_mem_info.buf, (vm_size_t)cpu_driver_mem_info.size);
+    flush_cache((vm_offset_t)core_data_base, (vm_size_t)core_data_size);
 
+    DEBUG_PRINTF("Spawning a core\n");
+    err = spawn_core(mpid, CPU_ARM8, boot_driver_entry, (uint64_t)core_data_base, true);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn a core");
+        return err;
+    }
 
-    // err = get_cpu_entrypoint();
-
-    // err = get_boot_entrypoint();
-
-    // err = flush_cache();
-
-    // err = spawn_core(hwid_t core_id, CPU_ARM8, genpaddr_t entry, genpaddr_t
-    // context, true);
     return SYS_ERR_OK;
 }
