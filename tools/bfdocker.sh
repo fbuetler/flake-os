@@ -14,7 +14,7 @@
 BF_DOCKER=achreto/barrelfish-aos:20.04-lts
 
 # assume the source directory is the current directory
-BF_SOURCE=$(greadlink -f $(git rev-parse --show-toplevel))
+BF_SOURCE=$(readlink -f $(git rev-parse --show-toplevel))
 
 # we set the build directory to the source directory to avoid path problems
 BF_BUILD=$BF_SOURCE/build
