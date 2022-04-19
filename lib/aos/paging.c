@@ -682,7 +682,7 @@ static errval_t paging_get_or_create_pt(struct paging_state *st,
         }
         thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to map page table");
-        printf("pt type: %d, pt index: %d for thread: %d \n", pt_type, parent_pt_index, thread_id());
+        DEBUG_PRINTF("pt type: %d, pt index: %d for thread: %d \n", pt_type, parent_pt_index, thread_id());
         return err;
     }
 

@@ -182,12 +182,14 @@ __attribute__((__used__)) errval_t get_kcb(struct capref *kcb_cap)
     struct capref ram_cap;
     err = ram_alloc_aligned(&ram_cap, OBJSIZE_KCB, 4 * BASE_PAGE_SIZE);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can not allocate ramcap for KCB \n");
+        DEBUG_ERR(err, "Can not allocate ramcap for KCB");
+        return err;
     }
 
     err = cap_retype(*kcb_cap, ram_cap, 0, ObjType_KernelControlBlock, OBJSIZE_KCB, 1);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can not retype KCB cap\n");
+        DEBUG_ERR(err, "Can not retype KCB cap");
+        return err;
     }
 
     return SYS_ERR_OK;
@@ -202,48 +204,59 @@ __attribute__((__used__)) errval_t load_binaries(const char *boot_driver,
     struct mem_region *module_location_cpu;
     module_location_cpu = multiboot_find_module(bi, cpu_driver);
     if (module_location_cpu == NULL) {
-        printf("Could not find cpu driver module \n");
-        return SYS_ERR_KCB_NOT_FOUND;
+        err = SYS_ERR_KCB_NOT_FOUND;
+        DEBUG_ERR(err, "Could not find cpu driver module");
+        return err;
     }
-
 
     struct mem_region *module_location_boot;
     module_location_boot = multiboot_find_module(bi, boot_driver);
-    if (module_location_boot == NULL) {
-        printf("Could not find boot driver module \n");
-        return SYS_ERR_KCB_NOT_FOUND;
+    if (!module_location_boot) {
+        err = SYS_ERR_KCB_NOT_FOUND;
+        DEBUG_ERR(err, "Could not find boot driver module");
+        return err;
     }
 
-    printf("done loading binaries\n");
+    DEBUG_PRINTF("done loading binaries\n");
 
     size_t retsize_cpu;
     size_t retaddr_cpu;
     err = spawn_map_module(module_location_cpu, &retsize_cpu, &retaddr_cpu);
     if (err_is_fail(err)) {
-        printf("Could not map cpu module\n");
-        return SYS_ERR_KCB_NOT_FOUND;
+        err = SYS_ERR_KCB_NOT_FOUND;
+        DEBUG_ERR(err, "Could not map cpu module");
+        return err;
     }
 
-    printf("done mapping module \n");
-    struct mem_info mem;
-    mem.buf = (void *)retaddr_cpu;
-    mem.size = retsize_cpu;
-    // ToDo: assign mem.phys_base
+    DEBUG_PRINTF("done mapping module\n");
+
+    struct mem_info mem = {
+        .buf = (void *)retaddr_cpu,
+        .size = retsize_cpu,
+    };
+    // TODO: assign mem.phys_base
+
     genvaddr_t reloc_entry_point_cpu;
     // look for cpu: arch_init, boot: boot_entry_psci
     uintptr_t *index = 0;
     struct Elf64_Sym *cpu_init_location = elf64_find_symbol_by_name(
         retaddr_cpu, retsize_cpu, "arch_init", 0, STT_FUNC, index);
+    if (!cpu_init_location) {
+        err = SYS_ERR_KCB_NOT_FOUND;
+        DEBUG_ERR(err, "Failed to find arch_init symbol in ELF binary");
+        return err;
+    }
 
-    printf("done finding entrypoint \n");
+    DEBUG_PRINTF("done finding entrypoint\n");
     err = load_elf_binary(retaddr_cpu, &mem, cpu_init_location->st_value,
                           &reloc_entry_point_cpu);
     if (err_is_fail(err)) {
-        printf("Could not load cpu driver elf\n");
-        return SYS_ERR_KCB_NOT_FOUND;
+        err = SYS_ERR_KCB_NOT_FOUND;
+        DEBUG_ERR(err, "Could not load cpu driver elf");
+        return err;
     }
 
-    printf("done loading elf\n");
+    DEBUG_PRINTF("done loading elf\n");
     return SYS_ERR_OK;
 }
 
@@ -314,7 +327,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
                   const char *init, struct frame_identity urpc_frame_id)
 {
     // Implement me!
-    printf("Inside coreboot!! \n");
+    DEBUG_PRINTF("Inside coreboot!! \n");
 
     errval_t err;
 
@@ -325,13 +338,14 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
         return err;
     }
 
+    DEBUG_PRINTF("Creating Kernel Control Block\n");
     err = get_kcb(&kcb_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not fetch KCB cap\n");
         return err;
     }
 
-    printf("loading binaries \n");
+    DEBUG_PRINTF("loading binaries\n");
     err = load_binaries(boot_driver, cpu_driver);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not load binaries in coreboot \n");
