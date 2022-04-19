@@ -12,7 +12,6 @@
 
 extern struct bootinfo *bi;
 
-
 /**
  * Load a ELF image into memory.
  *
@@ -212,14 +211,15 @@ errval_t load_binaries(const char* boot_driver, const char* cpu_driver) {
         return SYS_ERR_KCB_NOT_FOUND;
     }
 
-    /*
+
     struct mem_region *module_location_boot;
-    module_location_boot = multiboot_find_module(boot_driver);
+    module_location_boot = multiboot_find_module(bi, boot_driver);
     if (module_location_boot == NULL) {
         printf("Could not find boot driver module \n");
         return SYS_ERR_KCB_NOT_FOUND;
     }
-     */
+
+    printf("done loading binaries\n");
 
     size_t retsize_cpu;
     size_t retaddr_cpu;
@@ -229,9 +229,24 @@ errval_t load_binaries(const char* boot_driver, const char* cpu_driver) {
         return SYS_ERR_KCB_NOT_FOUND;
     }
 
+    printf("done mapping module \n");
+    struct mem_info mem;
+    mem.buf = (void *)retaddr_cpu;
+    mem.size = retsize_cpu;
+    // ToDo: assign mem.phys_base
+    genvaddr_t reloc_entry_point_cpu;
+    // look for cpu: arch_init, boot: boot_entry_psci
+    uintptr_t * index = 0;
+    struct Elf64_Sym *cpu_init_location = elf64_find_symbol_by_name(retaddr_cpu, retsize_cpu, "arch_init", 0, STT_FUNC, index);
 
+    printf("done finding entrypoint \n");
+    err = load_elf_binary(retaddr_cpu, &mem, cpu_init_location->st_value, &reloc_entry_point_cpu);
+    if (err_is_fail(err)) {
+        printf("Could not load cpu driver elf\n");
+        return SYS_ERR_KCB_NOT_FOUND;
+    }
 
-    //err = load_elf_binary(binary, mem, entry_point, reloc_entry_point);
+    printf("done loading elf\n");
     return SYS_ERR_OK;
 }
 
