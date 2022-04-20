@@ -112,6 +112,14 @@ static int bsp_main(int argc, char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to boot core");
     }
+    err = boot_core(2);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to boot core");
+    }
+    err = boot_core(3);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to boot core");
+    }
 
     // Grading
     grading_test_late();
@@ -136,7 +144,7 @@ static int app_main(int argc, char *argv[])
     // - grading_setup_app_init(..);
     // - grading_test_early();
     // - grading_test_late();
-    DEBUG_PRINTF("hello from another core :)\n");
+    DEBUG_PRINTF("hello from core %d :)\n", disp_get_core_id());
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
