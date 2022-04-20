@@ -206,12 +206,12 @@ static errval_t get_kcb(genpaddr_t *kcb_base)
     }
 
     struct capability c;
-    err = invoke_cap_identify(kcb_cap, &c);
+    err = invoke_cap_identify(ram_cap, &c);
     if (err_is_fail(err)) {
-        debug_printf("failed to get physcal address of cap ref\n");
+        debug_printf("failed to identify cap ref\n");
     }
 
-    *kcb_base = (genpaddr_t)c.u.kernelcontrolblock.kcb;
+    *kcb_base = c.u.ram.base;
 
     return SYS_ERR_OK;
 }
@@ -226,7 +226,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
 
     DEBUG_PRINTF("Loading module\n");
     struct mem_region *driver_mem_region = multiboot_find_module(bi, driver);
-    if (driver_mem_region == NULL) {
+    if (!driver_mem_region) {
         err = SYS_ERR_KCB_NOT_FOUND;
         DEBUG_ERR(err, "Could not find driver module");
         return err;
@@ -246,9 +246,9 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
     // - Find the boot driver entry point. Look for the symbol "boot_entry_psci"
     DEBUG_PRINTF("Finding entry symbol in ELF binary\n");
     uintptr_t symbol_index = 0;
-    struct Elf64_Sym *driver_init_location = elf64_find_symbol_by_name(
+    struct Elf64_Sym *elf_entry_symbol = elf64_find_symbol_by_name(
         (genvaddr_t)elf_vaddr, elf_size, entry_symbol, 0, STT_FUNC, &symbol_index);
-    if (!driver_init_location) {
+    if (!elf_entry_symbol) {
         err = SYS_ERR_KCB_NOT_FOUND;
         DEBUG_ERR(err, "Failed to find entry symbol in ELF binary");
         return err;
@@ -282,7 +282,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
     DEBUG_PRINTF("Loading ELF binary\n");
     genpaddr_t driver_entry_point;
     err = load_elf_binary((genvaddr_t)elf_vaddr, driver_mem_info,
-                          driver_init_location->st_value, &driver_entry_point);
+                          elf_entry_symbol->st_value, &driver_entry_point);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to load driver ELF binary");
         return err;
@@ -332,6 +332,8 @@ static errval_t allocate_stack(genpaddr_t *retbase, size_t *retsize)
     return allocate_memory(16 * BASE_PAGE_SIZE, retbase, retsize);
 }
 
+// this should load the monitor
+// in our case the monitor is provided by init
 static errval_t load_init(const char *init, genvaddr_t *init_base, size_t *init_size)
 {
     errval_t err;
@@ -346,15 +348,14 @@ static errval_t load_init(const char *init, genvaddr_t *init_base, size_t *init_
 
     DEBUG_PRINTF("Mapping init\n");
     genvaddr_t elf_vaddr;
-    size_t elf_size;
-    err = spawn_map_module(init_mem_region, &elf_size, (void *)&elf_vaddr);
+    err = spawn_map_module(init_mem_region, NULL, (void *)&elf_vaddr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not map init module");
         return err;
     }
 
     *init_base = elf_vaddr;
-    *init_size = elf_size;
+    *init_size = elf_virtual_size(elf_vaddr);
 
     return SYS_ERR_OK;
 }
@@ -401,8 +402,8 @@ static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
 
     core_data->boot_magic = ARMV8_BOOTMAGIC_PSCI;
 
-    core_data->cpu_driver_stack = stack_base;
-    core_data->cpu_driver_stack_limit = stack_base + stack_size;
+    core_data->cpu_driver_stack = stack_base + stack_size;
+    core_data->cpu_driver_stack_limit = stack_base;
 
     core_data->cpu_driver_entry = cpu_driver_entry;
     memset(core_data->cpu_driver_cmdline, 0, sizeof(core_data->cpu_driver_cmdline));
@@ -530,6 +531,19 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
                 (vm_size_t)boot_driver_mem_info.size);
     flush_cache((vm_offset_t)cpu_driver_mem_info.buf, (vm_size_t)cpu_driver_mem_info.size);
     flush_cache((vm_offset_t)core_data_base, (vm_size_t)core_data_size);
+
+    struct armv8_core_data *core_data = (struct armv8_core_data *)core_data_base;
+    DEBUG_PRINTF("coredata:\nboot magic: 0x%lx\nstack: 0x%lx\nstack limit: 0x%lx\nboot "
+                 "driver entry: 0x%lx\ncpu driver entry: 0x%lx\ncmd line: '%s'\nmemory: "
+                 "[0x%lx, 0x%lx]\nurpc frame: [0x%lx, 0x%lx]\nmonitor: [0x%lx, "
+                 "0x%lx]\nkcb: 0x%lx\nsrc core id: %d\ndest core id: %d\n",
+                 core_data->boot_magic, core_data->cpu_driver_stack,
+                 core_data->cpu_driver_stack_limit, boot_driver_entry,
+                 core_data->cpu_driver_entry, core_data->cpu_driver_cmdline,
+                 core_data->memory.base, core_data->memory.length,
+                 core_data->urpc_frame.base, core_data->urpc_frame.length,
+                 core_data->monitor_binary.base, core_data->monitor_binary.length,
+                 core_data->kcb, core_data->src_core_id, core_data->dst_core_id);
 
     DEBUG_PRINTF("Spawning a core\n");
     err = spawn_core(mpid, CPU_ARM8, boot_driver_entry, (uint64_t)core_data_base, true);

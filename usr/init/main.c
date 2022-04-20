@@ -35,6 +35,40 @@ struct bootinfo *bi;
 coreid_t my_core_id;
 struct platform_info platform_info;
 
+static errval_t boot_core(coreid_t core_id)
+{
+    errval_t err;
+
+    const char *boot_driver = "boot_armv8_generic";
+    const char *cpu_diver = "cpu_a57_qemu";
+    const char *init = "init";
+
+    struct capref frame_cap;
+    size_t allocated_bytes;
+    err = frame_alloc(&frame_cap, BASE_PAGE_SIZE, &allocated_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate frame");
+        return err;
+    }
+
+    if (allocated_bytes != BASE_PAGE_SIZE) {
+        err = LIB_ERR_FRAME_ALLOC;
+        DEBUG_ERR(err, "failed to allocate frame of the requested size");
+        return err;
+    }
+
+    struct frame_identity urpc_frame_id;
+    err = frame_identify(frame_cap, &urpc_frame_id);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to identify frame");
+        return err;
+    }
+
+    coreboot(core_id, boot_driver, cpu_diver, init, urpc_frame_id);
+
+    return SYS_ERR_OK;
+}
+
 static int bsp_main(int argc, char *argv[])
 {
     errval_t err;
@@ -73,11 +107,11 @@ static int bsp_main(int argc, char *argv[])
     // run_m3_tests();
     // run_m4_tests();
 
-    // ToDo: urpc_frame_id
-    struct frame_identity urpc_frame_id;
-    coreboot(1, "boot_armv8_generic", "cpu_a57_qemu", "init", urpc_frame_id);
-
     // TODO: Spawn system processes, boot second core etc. here
+    err = boot_core(1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to boot core");
+    }
 
     // Grading
     grading_test_late();
