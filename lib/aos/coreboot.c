@@ -427,7 +427,13 @@ static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
     core_data->src_arch_id = disp_get_core_id();
     core_data->dst_arch_id = mpid;
 
-    *retbase = (genpaddr_t)core_data;
+    struct capability c;
+    err = invoke_cap_identify(frame_cap, &c);
+    if (err_is_fail(err)) {
+        debug_printf("Failed to get physcal address of cap ref\n");
+    }
+
+    *retbase = (genpaddr_t)c.u.frame.base;
     *retsize = sizeof(*core_data);
 
     DEBUG_PRINTF("VALUES\ncoredata:\nboot magic: 0x%lx\nstack: 0x%lx\nstack limit: "
@@ -560,7 +566,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
     flush_cache((vm_offset_t)core_data_base, (vm_size_t)core_data_size);
 
     DEBUG_PRINTF("Spawning a core\n");
-    err = spawn_core(mpid, CPU_ARM8, boot_driver_entry, (uint64_t)core_data_base, true);
+    err = spawn_core(mpid, CPU_ARM8, boot_driver_entry, core_data_base, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn a core");
         return err;
