@@ -430,12 +430,39 @@ static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
     *retbase = (genpaddr_t)core_data;
     *retsize = sizeof(*core_data);
 
+    DEBUG_PRINTF("VALUES\ncoredata:\nboot magic: 0x%lx\nstack: 0x%lx\nstack limit: "
+                 "0x%lx\ncpu driver entry: 0x%lx\ncmd line: "
+                 "'%s'\nroot page table: 0x%lx\nmemory: [0x%lx, 0x%lx]\nurpc frame: "
+                 "[0x%lx, 0x%lx]\nmonitor: "
+                 "[0x%lx, 0x%lx]\nkcb: 0x%lx\nsrc core id: %d\ndest core id: %d\n",
+                 core_data->boot_magic, core_data->cpu_driver_stack,
+                 core_data->cpu_driver_stack_limit, core_data->cpu_driver_entry,
+                 core_data->cpu_driver_cmdline, core_data->page_table_root,
+                 core_data->memory.base, core_data->memory.length,
+                 core_data->urpc_frame.base, core_data->urpc_frame.length,
+                 core_data->monitor_binary.base, core_data->monitor_binary.length,
+                 core_data->kcb, core_data->src_core_id, core_data->dst_core_id);
+
+    DEBUG_PRINTF("ADDRESSES\ncoredata: 0x%lx\nboot magic: 0x%lx\ncpu driver stack: "
+                 "0x%lx\ncpu driver stack limit: 0x%lx\ncpu "
+                 "driver entry: 0x%lx\ncpu driver cmdline: 0x%lx\nroot page "
+                 "table:0x%lx\nmemory: 0x%lx\n"
+                 "urpc frame: 0x%lx\nmonitor: 0x%lx\nkcb: 0x%lx\nsrc core id: "
+                 "0x%lx\ndst core id: 0x%lx\n",
+                 core_data, &core_data->boot_magic, &core_data->cpu_driver_stack,
+                 &core_data->cpu_driver_stack_limit, &core_data->cpu_driver_entry,
+                 &core_data->cpu_driver_cmdline, &core_data->page_table_root,
+                 &core_data->memory, &core_data->urpc_frame, &core_data->monitor_binary,
+                 &core_data->kcb, &core_data->src_core_id, &core_data->dst_core_id);
+
+
     return SYS_ERR_OK;
 }
 
 static void flush_cache(vm_offset_t base, vm_size_t size)
 {
     // - Flush the cache.
+    DEBUG_PRINTF("Invalidate cache (with writebacke): [0x%lx, 0x%lx]\n", base, size);
     arm64_dcache_wbinv_range(base, size);
     return;
 }
@@ -531,19 +558,6 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
                 (vm_size_t)boot_driver_mem_info.size);
     flush_cache((vm_offset_t)cpu_driver_mem_info.buf, (vm_size_t)cpu_driver_mem_info.size);
     flush_cache((vm_offset_t)core_data_base, (vm_size_t)core_data_size);
-
-    struct armv8_core_data *core_data = (struct armv8_core_data *)core_data_base;
-    DEBUG_PRINTF("coredata:\nboot magic: 0x%lx\nstack: 0x%lx\nstack limit: 0x%lx\nboot "
-                 "driver entry: 0x%lx\ncpu driver entry: 0x%lx\ncmd line: '%s'\nmemory: "
-                 "[0x%lx, 0x%lx]\nurpc frame: [0x%lx, 0x%lx]\nmonitor: [0x%lx, "
-                 "0x%lx]\nkcb: 0x%lx\nsrc core id: %d\ndest core id: %d\n",
-                 core_data->boot_magic, core_data->cpu_driver_stack,
-                 core_data->cpu_driver_stack_limit, boot_driver_entry,
-                 core_data->cpu_driver_entry, core_data->cpu_driver_cmdline,
-                 core_data->memory.base, core_data->memory.length,
-                 core_data->urpc_frame.base, core_data->urpc_frame.length,
-                 core_data->monitor_binary.base, core_data->monitor_binary.length,
-                 core_data->kcb, core_data->src_core_id, core_data->dst_core_id);
 
     DEBUG_PRINTF("Spawning a core\n");
     err = spawn_core(mpid, CPU_ARM8, boot_driver_entry, (uint64_t)core_data_base, true);
