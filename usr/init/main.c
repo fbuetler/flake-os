@@ -136,6 +136,7 @@ static int app_main(int argc, char *argv[])
     // - grading_setup_app_init(..);
     // - grading_test_early();
     // - grading_test_late();
+    DEBUG_PRINTF("hello from another core :)\n");
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 

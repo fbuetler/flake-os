@@ -178,6 +178,44 @@ relocate_elf(genvaddr_t binary, struct mem_info *mem, lvaddr_t load_offset)
     return SYS_ERR_OK;
 }
 
+static errval_t get_phys_addr(struct capref cap, genpaddr_t *retaddr, size_t *retsize)
+{
+    errval_t err;
+
+    struct capability c;
+    err = invoke_cap_identify(cap, &c);
+    if (err_is_fail(err)) {
+        err = LIB_ERR_CAP_IDENTIFY;
+        DEBUG_ERR(err, "failed to identify cap ref\n");
+        return err;
+    }
+
+    genpaddr_t addr;
+    size_t size;
+    switch (c.type) {
+    case ObjType_Frame:
+        addr = c.u.frame.base;
+        size = c.u.frame.bytes;
+        break;
+    case ObjType_RAM:
+        addr = c.u.ram.base;
+        size = c.u.ram.bytes;
+        break;
+    default:
+        return LIB_ERR_SHOULD_NOT_GET_HERE;
+    }
+
+    if (retaddr) {
+        *retaddr = addr;
+    }
+
+    if (retsize) {
+        *retsize = size;
+    }
+
+    return SYS_ERR_OK;
+}
+
 static errval_t get_kcb(genpaddr_t *kcb_base)
 {
     // - Get a new KCB by retyping a RAM cap to ObjType_KernelControlBlock.
@@ -205,13 +243,7 @@ static errval_t get_kcb(genpaddr_t *kcb_base)
         return err;
     }
 
-    struct capability c;
-    err = invoke_cap_identify(ram_cap, &c);
-    if (err_is_fail(err)) {
-        debug_printf("failed to identify cap ref\n");
-    }
-
-    *kcb_base = c.u.ram.base;
+    get_phys_addr(ram_cap, kcb_base, NULL);
 
     return SYS_ERR_OK;
 }
@@ -272,12 +304,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
     }
 
     DEBUG_PRINTF("Reading frame physical address\n");
-    struct capability c;
-    err = invoke_cap_identify(frame_cap, &c);
-    if (err_is_fail(err)) {
-        debug_printf("Failed to get physcal address of cap ref\n");
-    }
-    driver_mem_info->phys_base = c.u.frame.base;
+    get_phys_addr(frame_cap, &driver_mem_info->phys_base, NULL);
 
     DEBUG_PRINTF("Loading ELF binary\n");
     genpaddr_t driver_entry_point;
@@ -314,14 +341,7 @@ static errval_t allocate_memory(size_t size, genpaddr_t *retbase, size_t *retsiz
         return err;
     }
 
-    struct capability c;
-    err = invoke_cap_identify(ram_cap, &c);
-    if (err_is_fail(err)) {
-        debug_printf("failed to get physcal address of cap ref\n");
-    }
-
-    *retbase = c.u.ram.base;
-    *retsize = c.u.ram.bytes;
+    get_phys_addr(ram_cap, retbase, retsize);
 
     return SYS_ERR_OK;
 }
@@ -334,7 +354,8 @@ static errval_t allocate_stack(genpaddr_t *retbase, size_t *retsize)
 
 // this should load the monitor
 // in our case the monitor is provided by init
-static errval_t load_init(const char *init, genvaddr_t *init_base, size_t *init_size)
+static errval_t load_init(const char *init, genvaddr_t *init_base, size_t *init_size,
+                          size_t *init_virtual_size)
 {
     errval_t err;
 
@@ -354,8 +375,9 @@ static errval_t load_init(const char *init, genvaddr_t *init_base, size_t *init_
         return err;
     }
 
-    *init_base = elf_vaddr;
-    *init_size = elf_virtual_size(elf_vaddr);
+    *init_base = init_mem_region->mr_base;
+    *init_size = init_mem_region->mrmod_size;
+    *init_virtual_size = elf_virtual_size(elf_vaddr);
 
     return SYS_ERR_OK;
 }
@@ -427,14 +449,7 @@ static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
     core_data->src_arch_id = disp_get_core_id();
     core_data->dst_arch_id = mpid;
 
-    struct capability c;
-    err = invoke_cap_identify(frame_cap, &c);
-    if (err_is_fail(err)) {
-        debug_printf("Failed to get physcal address of cap ref\n");
-    }
-
-    *retbase = (genpaddr_t)c.u.frame.base;
-    *retsize = sizeof(*core_data);
+    get_phys_addr(frame_cap, retbase, retsize);
 
     DEBUG_PRINTF("VALUES\ncoredata:\nboot magic: 0x%lx\nstack: 0x%lx\nstack limit: "
                  "0x%lx\ncpu driver entry: 0x%lx\ncmd line: "
@@ -531,9 +546,10 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
     }
 
     DEBUG_PRINTF("Loading init\n");
-    genvaddr_t init_base;
+    genpaddr_t init_base;
     size_t init_size;
-    err = load_init(init, &init_base, &init_size);
+    size_t init_virtual_size;
+    err = load_init(init, &init_base, &init_size, &init_virtual_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to load init");
         return err;
@@ -542,7 +558,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
     DEBUG_PRINTF("Allocate kernel memory\n");
     genpaddr_t memory_base;
     size_t memory_size;
-    err = allocate_initial_memory(init_size, &memory_base, &memory_size);
+    err = allocate_initial_memory(init_virtual_size, &memory_base, &memory_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate kernel memory");
         return err;
