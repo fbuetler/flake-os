@@ -31,6 +31,7 @@
 
 #include "mem_alloc.h"
 #include "custom_tests.h"
+#include "icc.h"
 
 
 struct bootinfo *bi;
@@ -75,13 +76,37 @@ static errval_t boot_core(coreid_t core_id)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map urpc frame");
     }
-    debug_printf("%d\n", *(int *)urpc);
-    *((int *)urpc) = 27;
-    debug_printf("%d\n", *(int *)urpc);
+
+    struct icc icc;
+    icc_initialize(&icc, urpc, urpc + ICC_SECTION_BYTES);
+
+    char *payload = "ciao";
+    struct icc_msg *msg = malloc(ICC_MSG_BYTES);
+    msg->message_type = IccSpawnRequest;
+    msg->header_bytes = sizeof(struct icc_msg);
+    msg->payload_bytes = sizeof(payload);
+    debug_printf("0x%lx\n", msg->payload);
+    debug_printf("0x%lx\n", payload);
+    debug_printf("0x%lx\n", msg->payload_bytes);
+    memcpy(msg->payload, &payload, msg->payload_bytes);
+    debug_printf("size %d\n", sizeof(msg));
+    // TODO size is 8 but should be 64
+
+    err = icc_send(&icc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err;
+    }
 
     barrelfish_usleep(100000);
 
-    debug_printf("%d\n", *(int *)urpc);
+    // err = icc_receive(&icc, &msg);
+    // if (err_is_fail(err)) {
+    //     DEBUG_ERR(err, "failed to receive message");
+    //     return err;
+    // }
+
+    // debug_printf("received: %s\n", msg.payload);
 
     return SYS_ERR_OK;
 }
@@ -166,9 +191,18 @@ static int app_main(int argc, char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map urpc frame");
     }
-    debug_printf("%d\n", *(int *)urpc);
-    *((int *)urpc) = 42;
-    debug_printf("%d\n", *(int *)urpc);
+
+    struct icc icc;
+    icc_initialize(&icc, urpc + ICC_SECTION_BYTES, urpc);
+
+    struct icc_msg *msg = malloc(ICC_MSG_BYTES);
+    err = icc_receive(&icc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive message");
+        return err;
+    }
+
+    debug_printf("received: %s\n", msg->payload);
 
     grading_test_late();
 
