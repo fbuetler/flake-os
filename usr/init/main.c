@@ -26,6 +26,8 @@
 #include <spawn/spawn.h>
 #include <aos/coreboot.h>
 
+#include <barrelfish_kpi/startup_arm.h>
+
 #include "mem_alloc.h"
 #include "custom_tests.h"
 
@@ -65,6 +67,16 @@ static errval_t boot_core(coreid_t core_id)
     }
 
     coreboot(core_id, boot_driver, cpu_diver, init, urpc_frame_id);
+
+    // communicate with other core over shared memory
+    void *urpc;
+    err = paging_map_frame_complete(get_current_paging_state(), &urpc, frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map urpc frame");
+    }
+    debug_printf("%d\n", *(int *)urpc);
+    *((int *)urpc) = 27;
+    debug_printf("%d\n", *(int *)urpc);
 
     return SYS_ERR_OK;
 }
@@ -112,14 +124,14 @@ static int bsp_main(int argc, char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to boot core");
     }
-    err = boot_core(2);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to boot core");
-    }
-    err = boot_core(3);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to boot core");
-    }
+    // err = boot_core(2);
+    // if (err_is_fail(err)) {
+    //     DEBUG_ERR(err, "failed to boot core");
+    // }
+    // err = boot_core(3);
+    // if (err_is_fail(err)) {
+    //     DEBUG_ERR(err, "failed to boot core");
+    // }
 
     // Grading
     grading_test_late();
@@ -144,8 +156,36 @@ static int app_main(int argc, char *argv[])
     // - grading_setup_app_init(..);
     // - grading_test_early();
     // - grading_test_late();
+    errval_t err;
+
+    grading_setup_app_init(bi);
+
+    grading_test_early();
+
     DEBUG_PRINTF("hello from core %d :)\n", disp_get_core_id());
-    return LIB_ERR_NOT_IMPLEMENTED;
+
+    void *urpc;
+    err = paging_map_frame_complete(get_current_paging_state(), &urpc, cap_urpc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map urpc frame");
+    }
+    debug_printf("%d\n", *(int *)urpc);
+    *((int *)urpc) = 42;
+    debug_printf("%d\n", *(int *)urpc);
+
+    grading_test_late();
+
+    DEBUG_PRINTF("Message handler loop\n");
+    struct waitset *default_ws = get_default_waitset();
+    while (true) {
+        err = event_dispatch(default_ws);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            abort();
+        }
+    }
+
+    return EXIT_SUCCESS;
 }
 
 int main(int argc, char *argv[])
