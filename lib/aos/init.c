@@ -26,6 +26,7 @@
 #include <aos/systime.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <aos/aos_rpc.h>
+#include <spawn/spawn.h>
 
 #include "threads_priv.h"
 #include "init.h"
@@ -197,6 +198,18 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
             DEBUG_ERR(err, "failed to retype self endpoint of init");
             return err_push(err, SPAWN_ERR_CREATE_SELFEP);
         }
+
+        // setup endpoint of init
+        lmp_chan_init(&init_spawninfo.rpc.chan);
+
+        err = lmp_endpoint_create_in_slot(512, cap_initep,
+                                          &init_spawninfo.rpc.chan.endpoint);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed create endpoint in init process");
+            abort();
+        }
+        init_spawninfo.rpc.chan.buflen_words = 256;
+
         return SYS_ERR_OK;
     }
 

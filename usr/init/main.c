@@ -109,16 +109,6 @@ static int bsp_main(int argc, char *argv[])
 
     spawn_init();
 
-    // setup endpoint of init
-    lmp_chan_init(&init_spawninfo.rpc.chan);
-
-    err = lmp_endpoint_create_in_slot(512, cap_initep, &init_spawninfo.rpc.chan.endpoint);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed create endpoint in init process");
-        abort();
-    }
-    init_spawninfo.rpc.chan.buflen_words = 256;
-
     // run_m1_tests();
     // run_m2_tests();
     // run_m3_tests();
@@ -137,6 +127,8 @@ static int bsp_main(int argc, char *argv[])
     // if (err_is_fail(err)) {
     //     DEBUG_ERR(err, "failed to boot core");
     // }
+
+    run_m5_tests();
 
     // Grading
     grading_test_late();

@@ -18,11 +18,17 @@
 #include <stdio.h>
 #include <aos/aos.h>
 
+// M1: physical memory management
 void run_m1_tests(void);
+// M2: paging (aka virtual memory) & process spawning
 void run_m2_tests(void);
+// M3: inter process communication
 void run_m3_tests(void);
+// M4: self paging
 void run_m4_tests(void);
+// M5: core spawing & simple inter core communication
 void run_m5_tests(void);
+// M6:
 void run_m6_tests(void);
 
 #endif /* _INIT_CUSTOM_E2E_TESTS_H_ */

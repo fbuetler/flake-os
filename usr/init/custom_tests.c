@@ -547,6 +547,8 @@ void run_m1_tests(void)
 
     // long test: allocate lots of single pages
     test_many_single_pages_allocated(40000);
+
+    printf("Completed %s\n", __func__);
 }
 
 /*
@@ -723,7 +725,6 @@ void run_m2_tests(void)
 {
     // spawn processes
     test_spawn_single_process();
-    return;
     test_spawn_multiple_processes(2);
     // test_spawn_multiple_processes(4);
     // test_spawn_multiple_processes(5);
@@ -733,6 +734,8 @@ void run_m2_tests(void)
     test_spawn_and_kill_single_process();
     // test_spawn_and_kill_multiple_process(2);
     test_spawn_and_kill_multiple_process(20);
+
+    printf("Completed %s\n", __func__);
 }
 
 /*
@@ -800,7 +803,8 @@ __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *
     size_t payload_size = 0;
     struct aos_rpc_msg *reply;
     char buf[sizeof(struct aos_rpc_msg)];
-    err = aos_rpc_create_msg_no_pagefault(&reply, RamCapResponse, payload_size, NULL, ram_cap, (struct aos_rpc_msg*)buf);
+    err = aos_rpc_create_msg_no_pagefault(&reply, RamCapResponse, payload_size, NULL,
+                                          ram_cap, (struct aos_rpc_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return;
@@ -815,7 +819,6 @@ __attribute__((unused)) static void aos_process_ram_cap_request(struct aos_rpc *
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
-
 }
 
 __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rpc)
@@ -915,10 +918,9 @@ aos_process_serial_read_char_request(struct aos_rpc *rpc)
 
 __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
 {
-
-    // refill slot allocator 
+    // refill slot allocator
     struct slot_alloc_state *s = get_slot_alloc_state();
-    if(single_slot_alloc_freecount(&s->rootca) <= 10){
+    if (single_slot_alloc_freecount(&s->rootca) <= 10) {
         root_slot_allocator_refill(NULL, NULL);
     }
 
@@ -947,8 +949,8 @@ __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc)
         printf("received unknown message type\n");
         break;
     }
-    //DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
-    // TODO: free msg
+    // DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
+    //  TODO: free msg
     return SYS_ERR_OK;
 }
 
@@ -1024,8 +1026,10 @@ __attribute__((unused)) static void test_get_number(void)
 void run_m3_tests(void)
 {
     test_spawn_memeater();
-    //test_spawn_multiple_memeaters();
+    // test_spawn_multiple_memeaters();
     // test_get_number();
+
+    printf("Completed %s\n", __func__);
 }
 
 /*
@@ -1043,11 +1047,12 @@ __attribute__((unused)) static void test_reserve_vspace_region(void)
 {
     printf("Access 256MB buffer in the middle.\n");
     printf("heap size 0x%lx\n", VHEAP_SIZE);
-    size_t bytes = (size_t)1 << 36; // 1 TB
+    size_t bytes = (size_t)1 << 36;  // 1 TB
     size_t len = bytes / sizeof(size_t);
     size_t *large_arry = malloc(bytes);
     assert(large_arry);
-    printf("Allocated array on the heap starting at %p with size 0x%lx bytes\n", large_arry, bytes);
+    printf("Allocated array on the heap starting at %p with size 0x%lx bytes\n",
+           large_arry, bytes);
     printf("Accessing at the beginning.\n");
     large_arry[0] = 42;
     assert(large_arry[0] == 42);
@@ -1057,9 +1062,9 @@ __attribute__((unused)) static void test_reserve_vspace_region(void)
     printf("Accessing at the end.\n");
     large_arry[len - 1] = 420;
     assert(large_arry[len - 1] == 420);
-    
+
     printf("Freeing the memory.\n");
-    //free(large_arry);
+    // free(large_arry);
 
     printf("buffer is at %p\n", large_arry);
     printf("before\n");
@@ -1074,9 +1079,8 @@ __attribute__((unused)) static void test_reserve_vspace_region(void)
 
 __attribute__((unused)) static void test_morecore_free(void)
 {
-   lesscore();
+    lesscore();
 }
-
 
 
 __attribute__((unused)) static void test_page_fault_in_spawnee(void)
@@ -1108,10 +1112,10 @@ __attribute__((unused)) static void test_page_fault_already_handled(void)
 void run_m4_tests(void)
 {
     // test_trigger_page_fault();
-    //test_reserve_vspace_region();
-    //test_page_fault_in_spawnee();
+    test_reserve_vspace_region();
+    test_page_fault_in_spawnee();
     test_page_fault_already_handled();
-     
+
     printf("Completed %s\n", __func__);
 }
 
@@ -1120,7 +1124,10 @@ void run_m4_tests(void)
     M5 TEST START
 */
 
-void run_m5_tests(void) { }
+void run_m5_tests(void)
+{
+    printf("Completed %s\n", __func__);
+}
 
 /*
     M6 TEST START
