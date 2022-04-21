@@ -72,9 +72,11 @@ struct cnoderef {
     enum cnode_type level;
 } __attribute__((packed));
 
-#define NULL_CNODE (struct cnoderef){ \
-    /*croot*/ 0, /*cnode*/ 0, \
-    /*level*/ CNODE_TYPE_ROOT  }
+#define NULL_CNODE                                                                       \
+    (struct cnoderef)                                                                    \
+    {                                                                                    \
+        /*croot*/ 0, /*cnode*/ 0, /*level*/ CNODE_TYPE_ROOT                              \
+    }
 
 /**
  * \brief User-level representation of a capability and its CSpace address
@@ -85,7 +87,11 @@ struct capref {
     cslot_t slot;
 };
 
-#define NULL_CAP (struct capref){ /*cnode*/ NULL_CNODE, /*slot*/ 0 }
+#define NULL_CAP                                                                         \
+    (struct capref)                                                                      \
+    { /*cnode*/                                                                          \
+        NULL_CNODE, /*slot*/ 0                                                           \
+    }
 
 static inline bool cnoderef_is_null(struct cnoderef cnoderef)
 {
@@ -98,14 +104,13 @@ static inline bool capref_is_null(struct capref capref)
 }
 
 /* well-known cnodes */
-extern struct cnoderef cnode_root, cnode_task, cnode_base, cnode_super,
-                       cnode_page, cnode_module;
+extern struct cnoderef cnode_root, cnode_task, cnode_base, cnode_super, cnode_page,
+    cnode_module;
 
 /* well-known capabilities */
-extern struct capref cap_root, cap_monitorep, cap_irq, cap_io, cap_dispatcher,
-                     cap_selfep, cap_kernel, cap_initep, cap_perfmon, cap_dispframe,
-                     cap_sessionid, cap_ipi, cap_vroot, cap_argcn, cap_procmng,
-                     cap_domainid, cap_bootinfo, cap_mmstrings;
+extern struct capref cap_root, cap_monitorep, cap_irq, cap_io, cap_dispatcher, cap_selfep,
+    cap_kernel, cap_initep, cap_perfmon, cap_dispframe, cap_sessionid, cap_ipi, cap_vroot,
+    cap_argcn, cap_procmng, cap_domainid, cap_bootinfo, cap_mmstrings;
 
 /**
  * \brief Returns the depth in the CSpace address of a cap
@@ -126,14 +131,14 @@ static inline capaddr_t get_cap_addr(struct capref cap)
 {
     if (!capref_is_null(cap)) {
         switch (cap.cnode.level) {
-            case CNODE_TYPE_ROOT:
-                return cap.slot << L2_CNODE_BITS;
-            // capref is in L2 CNode
-            case CNODE_TYPE_OTHER:
-                return cap.cnode.cnode | cap.slot;
-            default:
-                assert(!"invalid level");
-                return 0x0;
+        case CNODE_TYPE_ROOT:
+            return cap.slot << L2_CNODE_BITS;
+        // capref is in L2 CNode
+        case CNODE_TYPE_OTHER:
+            return cap.cnode.cnode | cap.slot;
+        default:
+            assert(!"invalid level");
+            return 0x0;
         }
     }
     return 0;
@@ -154,13 +159,13 @@ static inline uint8_t get_cnode_level(struct capref cap)
 static inline capaddr_t get_cnode_addr(struct capref cap)
 {
     switch (cap.cnode.level) {
-        case CNODE_TYPE_ROOT:
-            return cap.cnode.croot;
-        case CNODE_TYPE_OTHER:
-            return cap.cnode.cnode;
-        default:
-            assert(!"unknown cnoderef type");
-            return 0x0;
+    case CNODE_TYPE_ROOT:
+        return cap.cnode.croot;
+    case CNODE_TYPE_OTHER:
+        return cap.cnode.cnode;
+    default:
+        assert(!"unknown cnoderef type");
+        return 0x0;
     }
 }
 
@@ -213,42 +218,41 @@ static inline bool capcmp(struct capref c1, struct capref c2)
  * \brief Creates a new #cnoderef struct, performing address calculations.
  * XXX: TODO remove size_bits from signature
  */
-static inline struct cnoderef build_cnoderef(struct capref cap,
-                                             enum cnode_type cntype)
+static inline struct cnoderef build_cnoderef(struct capref cap, enum cnode_type cntype)
 {
     assert(cntype < CNODE_TYPE_COUNT);
 
     struct cnoderef cnode = NULL_CNODE;
-    switch(get_cnode_level(cap)) {
-        // L2 cnode in our root cnode
+    switch (get_cnode_level(cap)) {
+    // L2 cnode in our root cnode
+    case CNODE_TYPE_ROOT:
+        // cannot make cnoderef from non-invokable capref.
+        assert(cap.cnode.croot == CPTR_ROOTCN);
+        cnode.croot = CPTR_ROOTCN;
+        cnode.cnode = get_cap_addr(cap);
+        cnode.level = cntype;
+        break;
+    // CNode for another cspace
+    case CNODE_TYPE_OTHER:
+        cnode.level = cntype;
+        switch (cntype) {
+        // creating a cnoderef to a root cnode for another cspace
         case CNODE_TYPE_ROOT:
-            // cannot make cnoderef from non-invokable capref.
-            assert(cap.cnode.croot == CPTR_ROOTCN);
-            cnode.croot = CPTR_ROOTCN;
-            cnode.cnode = get_cap_addr(cap);
-            cnode.level = cntype;
+            cnode.croot = get_cap_addr(cap);
+            cnode.cnode = 0;
             break;
-        // CNode for another cspace
         case CNODE_TYPE_OTHER:
-            cnode.level = cntype;
-            switch (cntype) {
-                // creating a cnoderef to a root cnode for another cspace
-                case CNODE_TYPE_ROOT:
-                    cnode.croot = get_cap_addr(cap);
-                    cnode.cnode = 0;
-                    break;
-                case CNODE_TYPE_OTHER:
-                    cnode.croot = get_croot_addr(cap);
-                    cnode.cnode = get_cap_addr(cap);
-                    break;
-                default:
-                    assert(!"build_cnoderef: provided cntype invalid");
-                    return NULL_CNODE;
-            }
+            cnode.croot = get_croot_addr(cap);
+            cnode.cnode = get_cap_addr(cap);
             break;
         default:
-            assert(!"cap level not valid");
+            assert(!"build_cnoderef: provided cntype invalid");
             return NULL_CNODE;
+        }
+        break;
+    default:
+        assert(!"cap level not valid");
+        return NULL_CNODE;
     }
     return cnode;
 }
