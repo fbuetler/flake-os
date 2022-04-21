@@ -21,7 +21,7 @@
 static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignment)
 {
     thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
-    if(!ret) {
+    if (!ret) {
         DEBUG_PRINTF("ram_alloc_remote, ret capref is NULL \n");
     }
 
@@ -29,7 +29,7 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
     errval_t err;
 
     struct aos_rpc *memory_rpc = aos_rpc_get_memory_channel();
-    if(!memory_rpc) {
+    if (!memory_rpc) {
         thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_PRINTF("ERROR: no memory server found!\n");
         abort();
@@ -76,7 +76,7 @@ errval_t ram_alloc_fixed(struct capref *ret, size_t size, size_t alignment)
 {
     struct ram_alloc_state *state = get_ram_alloc_state();
 
-    DEBUG_PRINTF("ram alloc fixed size: 0x%lx alignment 0x%lx \n", size, alignment);
+    // DEBUG_PRINTF("ram alloc fixed size: 0x%lx alignment 0x%lx \n", size, alignment);
 
     if (size == BASE_PAGE_SIZE && alignment <= BASE_PAGE_SIZE) {
         // XXX: Return error if check to see if out of slots

@@ -27,6 +27,7 @@
 #include <aos/coreboot.h>
 
 #include <barrelfish_kpi/startup_arm.h>
+#include <aos/deferred.h>
 
 #include "mem_alloc.h"
 #include "custom_tests.h"
@@ -76,6 +77,10 @@ static errval_t boot_core(coreid_t core_id)
     }
     debug_printf("%d\n", *(int *)urpc);
     *((int *)urpc) = 27;
+    debug_printf("%d\n", *(int *)urpc);
+
+    barrelfish_usleep(100000);
+
     debug_printf("%d\n", *(int *)urpc);
 
     return SYS_ERR_OK;
