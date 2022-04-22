@@ -77,9 +77,11 @@ static errval_t boot_core(coreid_t core_id)
         DEBUG_ERR(err, "failed to map urpc frame");
     }
 
+    // init channel
     struct icc icc;
     icc_initialize(&icc, urpc, urpc + ICC_SECTION_BYTES);
 
+    // send
     char *payload = "ciao";
     struct icc_msg *msg;
     icc_create_msg(&msg, IccSpawnRequest, payload, strlen(payload));
@@ -90,15 +92,20 @@ static errval_t boot_core(coreid_t core_id)
         return err;
     }
 
-    barrelfish_usleep(100000);
+    debug_printf("sent: %s\n", msg->payload);
 
-    // err = icc_receive(&icc, &msg);
-    // if (err_is_fail(err)) {
-    //     DEBUG_ERR(err, "failed to receive message");
-    //     return err;
-    // }
+    // TODO do polling
+    barrelfish_usleep(1000000);
 
-    // debug_printf("received: %s\n", msg.payload);
+    // receive
+    msg = malloc(ICC_MSG_BYTES);
+    err = icc_receive(&icc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive message");
+        return err;
+    }
+
+    debug_printf("received: %s\n", msg->payload);
 
     return SYS_ERR_OK;
 }
@@ -184,9 +191,11 @@ static int app_main(int argc, char *argv[])
         DEBUG_ERR(err, "failed to map urpc frame");
     }
 
+    // init channel
     struct icc icc;
     icc_initialize(&icc, urpc + ICC_SECTION_BYTES, urpc);
 
+    // receive
     struct icc_msg *msg = malloc(ICC_MSG_BYTES);
     err = icc_receive(&icc, msg);
     if (err_is_fail(err)) {
@@ -195,6 +204,18 @@ static int app_main(int argc, char *argv[])
     }
 
     debug_printf("received: %s\n", msg->payload);
+
+    // responde
+    char *payload = "bello";
+    icc_create_msg(&msg, IccSpawnRequest, payload, strlen(payload));
+
+    err = icc_send(&icc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err;
+    }
+
+    debug_printf("sent: %s\n", msg->payload);
 
     grading_test_late();
 

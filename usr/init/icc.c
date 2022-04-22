@@ -67,9 +67,13 @@ errval_t icc_send(struct icc *icc, struct icc_msg *msg)
         return err;
     }
 
+    dmb();  // ensure that we checked the above condition before copying
+
     msg->msg_state = MessageSent;
     memcpy(entry, msg, ICC_MSG_BYTES);
     icc->send_next = (icc->send_next + 1) % ICC_MESSAGES_ENTRIES;
+
+    dmb();  // ensure that the message state is consistent
 
     // icc_debug_print(icc);
 
@@ -95,8 +99,12 @@ errval_t icc_receive(struct icc *icc, struct icc_msg *msg)
         return err;
     }
 
+    dmb();  // ensure that we checked the above conition before copying
+
     memcpy(msg, entry, ICC_MSG_BYTES);
     icc->recv_next = (icc->recv_next + 1) % ICC_MESSAGES_ENTRIES;
+
+    dmb();  // ensure that the message state is consistent
 
     thread_mutex_unlock(icc->recv_mutex);
     return SYS_ERR_OK;
