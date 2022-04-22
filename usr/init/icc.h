@@ -27,50 +27,53 @@
 
 #define ICC_SHARED_MEM_BYTES BASE_PAGE_SIZE
 #define ICC_SECTION_BYTES (ICC_SHARED_MEM_BYTES / 2)
-#define ICC_MSG_BYTES CACHE_LINE_SIZE
+
+#define ICC_MSG_BYTES 64  // CACHE_LINE_SIZE
 
 #define ICC_METADATA_OFFSET 0
 #define ICC_METADATA_BYTES ICC_MSG_BYTES
 #define ICC_METADATA_MUTEX_OFFSET 0
 #define ICC_METADATA_MUTEX_BYTES (sizeof(struct thread_mutex))
-#define ICC_METADATA_PRODUCER_OFFSET                                                     \
-    (ICC_METADATA_MUTEX_OFFSET + ICC_METADATA_MUTEX_BYTES)
-#define ICC_METADATA_PRODUCER_BYTES (sizeof(uint64_t *))
-#define ICC_METADATA_CONSUMER_OFFSET                                                     \
-    (ICC_METADATA_PRODUCER_OFFSET + ICC_METADATA_PRODUCER_BYTES)
-#define ICC_METADATA_CONSUMER_BYTES (sizeof(uint64_t *))
 
 #define ICC_MESSAGES_OFFSET (ICC_METADATA_OFFSET + ICC_METADATA_BYTES)
 #define ICC_MESSAGES_BYTES (ICC_SECTION_BYTES - ICC_METADATA_BYTES)
 
-#define ICC_NEXT(base, head)                                                             \
-    (base + ((head - base + (ICC_MSG_BYTES / sizeof(uint64_t))) % ICC_MESSAGES_BYTES))
+#define ICC_MESSAGES_ENTRIES (ICC_MESSAGES_BYTES / ICC_MSG_BYTES)
 
 enum icc_msg_type {
     IccSpawnRequest = 1,
     IccSpawnResponse = 2,
 };
 
-struct icc_msg {
-    uint16_t header_bytes;
-    uint16_t payload_bytes;
-    enum icc_msg_type message_type;
-    char payload[0];
+enum icc_msg_state {
+    MessageCreated = 1,
+    MessageSent = 2,
+    MessageReceived = 3,
 };
 
+struct icc_msg {
+    enum icc_msg_type msg_type;
+    enum icc_msg_state msg_state;
+    char payload[];
+};
+
+#define ICC_MSG_HEADER_BYTES (sizeof(struct icc_msg))
+#define ICC_MSG_PAYLOAD_BYTES (ICC_MSG_BYTES - ICC_MSG_HEADER_BYTES)
+
 struct icc {
-    uint64_t *send_base;   // start of the send secion
-    uint64_t **send_head;  // sent
-    uint64_t **send_tail;  // read by the receiver
+    uint64_t *send_base;  // start of the send secion
+    uint64_t send_next;   // next send entry
     struct thread_mutex *send_mutex;
 
-    uint64_t *recv_base;   // start of the receive section
-    uint64_t **recv_head;  // sent by the sender
-    uint64_t **recv_tail;  // read
+    uint64_t *recv_base;  // start of the receive section
+    uint64_t recv_next;   // next recv entry
     struct thread_mutex *recv_mutex;
 };
 
+void icc_debug_print(struct icc *icc);
 errval_t icc_initialize(struct icc *icc, void *send_mem, void *recv_mem);
+errval_t icc_create_msg(struct icc_msg **retmsg, enum icc_msg_type type, char *payload,
+                        size_t len);
 errval_t icc_send(struct icc *icc, struct icc_msg *msg);
 errval_t icc_receive(struct icc *icc, struct icc_msg *msg);
 
