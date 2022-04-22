@@ -1192,6 +1192,35 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
     return SYS_ERR_OK;
 }
 
+errval_t paging_vaddr_to_paddr(struct paging_state *st, genvaddr_t vaddr,
+                               genpaddr_t *retpaddr)
+{
+    errval_t err;
+
+    struct page_table *l0_pt = &st->root_page_table;
+    struct page_table *l1_pt = NULL;
+    struct page_table *l2_pt = NULL;
+    struct page_table *l3_pt = NULL;
+
+    size_t l0_index = L0_IDX(vaddr);
+    size_t l1_index = L1_IDX(vaddr);
+    size_t l2_index = L2_IDX(vaddr);
+    size_t l3_index = L3_IDX(vaddr);
+
+    err = paging_walk_pt_if_exists(st, &l0_pt, &l1_pt, &l2_pt, &l3_pt, l0_index, l1_index,
+                                   l2_index);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to walk page table");
+        return err;
+    }
+
+    if (retpaddr) {
+        *retpaddr = l3_pt->paddrs[l3_index];
+    }
+
+    return SYS_ERR_OK;
+}
+
 
 /*
 6.7 - Design the Address Space Layout

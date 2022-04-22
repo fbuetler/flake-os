@@ -72,6 +72,8 @@ errval_t paging_map_fixed_attr(struct paging_state *st, lvaddr_t vaddr,
  */
 errval_t paging_unmap(struct paging_state *st, const void *region);
 
+errval_t paging_vaddr_to_paddr(struct paging_state *st, genvaddr_t vaddr,
+                               genpaddr_t *retpaddr);
 
 /**
  * \brief Finds a free virtual address and maps `bytes` of the supplied frame at the address
