@@ -27,7 +27,7 @@
 
 #define ICC_SHARED_MEM_BYTES BASE_PAGE_SIZE
 #define ICC_SECTION_BYTES (ICC_SHARED_MEM_BYTES / 2)
-#define ICC_MSG_BYTES 64
+#define ICC_MSG_BYTES CACHE_LINE_SIZE
 
 #define ICC_METADATA_OFFSET 0
 #define ICC_METADATA_BYTES ICC_MSG_BYTES
@@ -43,7 +43,8 @@
 #define ICC_MESSAGES_OFFSET (ICC_METADATA_OFFSET + ICC_METADATA_BYTES)
 #define ICC_MESSAGES_BYTES (ICC_SECTION_BYTES - ICC_METADATA_BYTES)
 
-#define ICC_NEXT(base, head) (base + ((head - base + ICC_MSG_BYTES) % ICC_MESSAGES_BYTES))
+#define ICC_NEXT(base, head)                                                             \
+    (base + ((head - base + (ICC_MSG_BYTES / sizeof(uint64_t))) % ICC_MESSAGES_BYTES))
 
 enum icc_msg_type {
     IccSpawnRequest = 1,

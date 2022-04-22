@@ -80,17 +80,15 @@ static errval_t boot_core(coreid_t core_id)
     struct icc icc;
     icc_initialize(&icc, urpc, urpc + ICC_SECTION_BYTES);
 
-    char *payload = "ciao";
+    char *payload = "hei|hei|hei|hei|hei|hei|hei|hei|hei|hei|hei|hei|hei|hei|";
     struct icc_msg *msg = malloc(ICC_MSG_BYTES);
     msg->message_type = IccSpawnRequest;
     msg->header_bytes = sizeof(struct icc_msg);
-    msg->payload_bytes = sizeof(payload);
-    debug_printf("0x%lx\n", msg->payload);
-    debug_printf("0x%lx\n", payload);
-    debug_printf("0x%lx\n", msg->payload_bytes);
-    memcpy(msg->payload, &payload, msg->payload_bytes);
-    debug_printf("size %d\n", sizeof(msg));
-    // TODO size is 8 but should be 64
+    msg->payload_bytes = strlen(payload);
+    memcpy(msg->payload, payload, msg->payload_bytes);
+
+    debug_printf("payload size %d\n", msg->payload_bytes);
+    debug_printf("msg size %d\n", msg->header_bytes + msg->payload_bytes);
 
     err = icc_send(&icc, msg);
     if (err_is_fail(err)) {
