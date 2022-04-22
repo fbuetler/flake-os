@@ -21,6 +21,7 @@
 #include <aos/paging.h>
 #include <aos/waitset.h>
 #include <aos/aos_rpc.h>
+#include <aos/ump_chan.h>
 #include <mm/mm.h>
 #include <grading.h>
 #include <spawn/spawn.h>
@@ -31,7 +32,6 @@
 
 #include "mem_alloc.h"
 #include "custom_tests.h"
-#include "icc.h"
 
 
 struct bootinfo *bi;
@@ -78,15 +78,15 @@ static errval_t boot_core(coreid_t core_id)
     }
 
     // init channel
-    struct icc icc;
-    icc_initialize(&icc, urpc, urpc + ICC_SECTION_BYTES);
+    struct ump_chan ump;
+    ump_initialize(&ump, urpc, urpc + UMP_SECTION_BYTES);
 
     // send
     char *payload = "ciao";
-    struct icc_msg *msg;
-    icc_create_msg(&msg, IccSpawnRequest, payload, strlen(payload));
+    struct ump_msg *msg;
+    ump_create_msg(&msg, UmpSpawnRequest, payload, strlen(payload));
 
-    err = icc_send(&icc, msg);
+    err = ump_send(&ump, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
@@ -98,8 +98,8 @@ static errval_t boot_core(coreid_t core_id)
     barrelfish_usleep(1000000);
 
     // receive
-    msg = malloc(ICC_MSG_BYTES);
-    err = icc_receive(&icc, msg);
+    msg = malloc(UMP_MSG_BYTES);
+    err = ump_receive(&ump, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
@@ -192,12 +192,12 @@ static int app_main(int argc, char *argv[])
     }
 
     // init channel
-    struct icc icc;
-    icc_initialize(&icc, urpc + ICC_SECTION_BYTES, urpc);
+    struct ump_chan ump;
+    ump_initialize(&ump, urpc + UMP_SECTION_BYTES, urpc);
 
     // receive
-    struct icc_msg *msg = malloc(ICC_MSG_BYTES);
-    err = icc_receive(&icc, msg);
+    struct ump_msg *msg = malloc(UMP_MSG_BYTES);
+    err = ump_receive(&ump, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
@@ -207,9 +207,9 @@ static int app_main(int argc, char *argv[])
 
     // responde
     char *payload = "bello";
-    icc_create_msg(&msg, IccSpawnRequest, payload, strlen(payload));
+    ump_create_msg(&msg, UmpSpawnRequest, payload, strlen(payload));
 
-    err = icc_send(&icc, msg);
+    err = ump_send(&ump, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;

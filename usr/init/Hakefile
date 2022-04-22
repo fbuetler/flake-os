@@ -18,7 +18,6 @@
                         "distops/invocations.c",
                         "main.c",
                         "mem_alloc.c",
-                        "icc.c",
                         "custom_tests.c"
                       ],
                       addLinkFlags = [ "-e _start_init"], -- this is only needed for init
