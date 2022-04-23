@@ -70,7 +70,7 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
                             + ump->send_next * UMP_MESSAGES_BYTES;
     volatile enum ump_msg_state *state = &entry->msg_state;
 
-    if (*state == MessageReceived) {
+    if (*state == MessageSent) {
         err = LIB_ERR_UMP_CHAN_FULL;
         DEBUG_ERR(err, "send queue is full");
         thread_mutex_unlock(ump->send_mutex);
@@ -111,6 +111,7 @@ errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg)
 
     dmb();  // ensure that we checked the above conition before copying
 
+    entry->msg_state = MessageReceived;
     memcpy(msg, entry, UMP_MSG_BYTES);
     ump->recv_next = (ump->recv_next + 1) % UMP_MESSAGES_ENTRIES;
 

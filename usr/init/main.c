@@ -187,6 +187,8 @@ static errval_t init_app_core(void)
     struct ump_chan ump;
     ump_initialize(&ump, urpc, false);
 
+    // TODO forge caps from boot info and initial ram received over the urpc frame
+
     // receive
     struct ump_msg *msg = malloc(UMP_MSG_BYTES);
     err = ump_receive(&ump, msg);
