@@ -17,8 +17,18 @@ void ump_debug_print(struct ump_chan *ump)
     }
 }
 
-errval_t ump_initialize(struct ump_chan *ump, void *send_mem, void *recv_mem)
+errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
 {
+    void *send_mem;
+    void *recv_mem;
+    if (is_primary) {
+        send_mem = shared_mem;
+        recv_mem = shared_mem + UMP_SECTION_BYTES;
+    } else {
+        send_mem = shared_mem + UMP_SECTION_BYTES;
+        recv_mem = shared_mem;
+    }
+
     ump->send_base = send_mem + UMP_MESSAGES_OFFSET;
     ump->send_mutex = send_mem + UMP_METADATA_MUTEX_OFFSET;
     ump->send_next = 0;

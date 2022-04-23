@@ -68,6 +68,8 @@ static errval_t boot_core(coreid_t core_id)
         return err;
     }
 
+    // TODO send boot info and some initial ram over the urpc frame
+
     coreboot(core_id, boot_driver, cpu_diver, init, urpc_frame_id);
 
     // communicate with other core over shared memory
@@ -79,7 +81,7 @@ static errval_t boot_core(coreid_t core_id)
 
     // init channel
     struct ump_chan ump;
-    ump_initialize(&ump, urpc, urpc + UMP_SECTION_BYTES);
+    ump_initialize(&ump, urpc, true);
 
     // send
     char *payload = "ciao";
@@ -170,30 +172,20 @@ static int bsp_main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-static int app_main(int argc, char *argv[])
+static errval_t init_app_core(void)
 {
-    // Implement me in Milestone 5
-    // Remember to call
-    // - grading_setup_app_init(..);
-    // - grading_test_early();
-    // - grading_test_late();
     errval_t err;
-
-    grading_setup_app_init(bi);
-
-    grading_test_early();
-
-    DEBUG_PRINTF("hello from core %d :)\n", disp_get_core_id());
 
     void *urpc;
     err = paging_map_frame_complete(get_current_paging_state(), &urpc, cap_urpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map urpc frame");
+        return err;
     }
 
     // init channel
     struct ump_chan ump;
-    ump_initialize(&ump, urpc + UMP_SECTION_BYTES, urpc);
+    ump_initialize(&ump, urpc, false);
 
     // receive
     struct ump_msg *msg = malloc(UMP_MSG_BYTES);
@@ -216,6 +208,30 @@ static int app_main(int argc, char *argv[])
     }
 
     debug_printf("sent: %s\n", msg->payload);
+
+    return SYS_ERR_OK;
+}
+
+static int app_main(int argc, char *argv[])
+{
+    // Implement me in Milestone 5
+    // Remember to call
+    // - grading_setup_app_init(..);
+    // - grading_test_early();
+    // - grading_test_late();
+    errval_t err;
+
+    grading_setup_app_init(bi);
+
+    grading_test_early();
+
+    DEBUG_PRINTF("hello from core %d :)\n", disp_get_core_id());
+
+    err = init_app_core();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to init app core");
+        abort();
+    }
 
     grading_test_late();
 

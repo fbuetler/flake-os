@@ -71,7 +71,7 @@ struct ump_chan {
 };
 
 void ump_debug_print(struct ump_chan *ump);
-errval_t ump_initialize(struct ump_chan *ump, void *send_mem, void *recv_mem);
+errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary);
 errval_t ump_create_msg(struct ump_msg **retmsg, enum ump_msg_type type, char *payload,
                         size_t len);
 errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg);
