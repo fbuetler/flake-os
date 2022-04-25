@@ -253,7 +253,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
     // - Get and load the CPU and boot driver binary.
     errval_t err;
 
-    // DEBUG_PRINTF("Loading module\n");
+    DEBUG_PRINTF("Loading module\n");
     struct mem_region *driver_mem_region = multiboot_find_module(bi, driver);
     if (!driver_mem_region) {
         err = SYS_ERR_KCB_NOT_FOUND;
@@ -261,7 +261,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
         return err;
     }
 
-    // DEBUG_PRINTF("Mapping module\n");
+    DEBUG_PRINTF("Mapping module\n");
     genvaddr_t elf_vaddr;
     size_t elf_size;
     err = spawn_map_module(driver_mem_region, &elf_size, (void *)&elf_vaddr);
@@ -273,7 +273,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
     // - Find the CPU driver entry point. Look for the symbol "arch_init". Put
     //   the address in the core data struct.
     // - Find the boot driver entry point. Look for the symbol "boot_entry_psci"
-    // DEBUG_PRINTF("Finding entry symbol in ELF binary\n");
+    DEBUG_PRINTF("Finding entry symbol in ELF binary\n");
     uintptr_t symbol_index = 0;
     struct Elf64_Sym *elf_entry_symbol = elf64_find_symbol_by_name(
         (genvaddr_t)elf_vaddr, elf_size, entry_symbol, 0, STT_FUNC, &symbol_index);
@@ -283,7 +283,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
         return err;
     }
 
-    // DEBUG_PRINTF("Allocating frame\n");
+    DEBUG_PRINTF("Allocating frame\n");
     size_t elf_vsize = elf_virtual_size((lvaddr_t)elf_vaddr);
     struct capref frame_cap;
     err = frame_alloc(&frame_cap, elf_vsize, &driver_mem_info->size);
@@ -292,7 +292,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
 
-    // DEBUG_PRINTF("Mapping frame\n");
+    DEBUG_PRINTF("Mapping frame\n");
     err = paging_map_frame(get_current_paging_state(), &driver_mem_info->buf,
                            driver_mem_info->size, frame_cap);
     if (err_is_fail(err)) {
@@ -300,10 +300,10 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
 
-    // DEBUG_PRINTF("Reading frame physical address\n");
+    DEBUG_PRINTF("Reading frame physical address\n");
     get_phys_addr(frame_cap, &driver_mem_info->phys_base, NULL);
 
-    // DEBUG_PRINTF("Loading ELF binary\n");
+    DEBUG_PRINTF("Loading ELF binary\n");
     genpaddr_t driver_entry_point;
     err = load_elf_binary((genvaddr_t)elf_vaddr, driver_mem_info,
                           elf_entry_symbol->st_value, &driver_entry_point);
@@ -315,7 +315,7 @@ static errval_t load_and_relocate_driver(const char *driver, const char *entry_s
     // - Relocate the boot and CPU driver. The boot driver runs with a 1:1
     //   VA->PA mapping. The CPU driver is expected to be loaded at the
     //   high virtual address space, at offset ARMV8_KERNEL_OFFSET.
-    // DEBUG_PRINTF("Relocating ELF binary\n");
+    DEBUG_PRINTF("Relocating ELF binary\n");
     err = relocate_elf((genvaddr_t)elf_vaddr, driver_mem_info, load_offset);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to relocate cpu elf binary");
@@ -390,7 +390,7 @@ static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
                                genpaddr_t cpu_driver_entry, genpaddr_t memory_base,
                                size_t memory_size, struct frame_identity urpc_frame_id,
                                genpaddr_t init_base, size_t init_size, genpaddr_t kcb,
-                               coreid_t mpid, genpaddr_t *retbase, size_t *retsize)
+                               coreid_t mpid, genpaddr_t *retbase, size_t *retsize, lvaddr_t *retvoffset)
 {
     errval_t err;
 
@@ -418,6 +418,8 @@ static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
         DEBUG_ERR(err, "failed to map core data");
         return err;
     }
+
+    *retvoffset = (lvaddr_t) &core_data;
 
     core_data->boot_magic = ARMV8_BOOTMAGIC_PSCI;
 
@@ -481,7 +483,7 @@ static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
 static void flush_cache(vm_offset_t base, vm_size_t size)
 {
     // - Flush the cache.
-    // DEBUG_PRINTF("Invalidate cache (with writebacke): [0x%lx, 0x%lx]\n", base, size);
+    DEBUG_PRINTF("Invalidate cache (with writeback): [0x%lx, 0x%lx]\n", base, size);
     arm64_dcache_wbinv_range(base, size);
     return;
 }
@@ -506,7 +508,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
 {
     errval_t err;
 
-    // DEBUG_PRINTF("Creating Kernel Control Block\n");
+    DEBUG_PRINTF("Creating Kernel Control Block\n");
     genpaddr_t kcb_base;
     err = get_kcb(&kcb_base);
     if (err_is_fail(err)) {
@@ -514,7 +516,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
         return err;
     }
 
-    // DEBUG_PRINTF("Loading boot driver\n");
+    DEBUG_PRINTF("Loading boot driver\n");
     struct mem_info boot_driver_mem_info;
     genpaddr_t boot_driver_entry;
     err = load_and_relocate_driver(boot_driver, "boot_entry_psci", 0,
@@ -524,7 +526,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
         return err;
     }
 
-    // DEBUG_PRINTF("Loading cpu driver\n");
+    DEBUG_PRINTF("Loading cpu driver\n");
     struct mem_info cpu_driver_mem_info;
     genpaddr_t cpu_driver_entry;
     err = load_and_relocate_driver(cpu_driver, "arch_init", ARMv8_KERNEL_OFFSET,
@@ -534,7 +536,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
         return err;
     }
 
-    // DEBUG_PRINTF("Allocate kernel stack\n");
+    DEBUG_PRINTF("Allocate kernel stack\n");
     genpaddr_t stack_base;
     size_t stack_size;
     err = allocate_stack(&stack_base, &stack_size);
@@ -543,7 +545,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
         return err;
     }
 
-    // DEBUG_PRINTF("Loading init\n");
+    DEBUG_PRINTF("Loading init\n");
     genpaddr_t init_base;
     size_t init_size;
     size_t init_virtual_size;
@@ -553,7 +555,7 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
         return err;
     }
 
-    // DEBUG_PRINTF("Allocate kernel memory\n");
+    DEBUG_PRINTF("Allocate kernel memory\n");
     genpaddr_t memory_base;
     size_t memory_size;
     err = allocate_initial_memory(init_virtual_size, &memory_base, &memory_size);
@@ -562,24 +564,26 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
         return err;
     }
 
-    // DEBUG_PRINTF("Initalizing core data\n");
+    DEBUG_PRINTF("Initalizing core data\n");
     genpaddr_t core_data_base;
+    lvaddr_t core_data_voffset;
     size_t core_data_size;
     err = init_core_data(stack_base, stack_size, cpu_driver_entry, memory_base,
                          memory_size, urpc_frame_id, init_base, init_size, kcb_base, mpid,
-                         &core_data_base, &core_data_size);
+                         &core_data_base, &core_data_size, &core_data_voffset);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to initialize core data");
         return err;
     }
 
-    // DEBUG_PRINTF("Flushing the cache\n");
+    DEBUG_PRINTF("Flushing the cache\n");
+    dmb();
     flush_cache((vm_offset_t)boot_driver_mem_info.buf,
                 (vm_size_t)boot_driver_mem_info.size);
     flush_cache((vm_offset_t)cpu_driver_mem_info.buf, (vm_size_t)cpu_driver_mem_info.size);
-    flush_cache((vm_offset_t)core_data_base, (vm_size_t)core_data_size);
+    flush_cache((vm_offset_t)core_data_voffset, (vm_size_t)core_data_size);
 
-    // DEBUG_PRINTF("Spawning a core\n");
+    DEBUG_PRINTF("Spawning a core\n");
     err = spawn_core(mpid, CPU_ARM8, boot_driver_entry, core_data_base, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn a core");

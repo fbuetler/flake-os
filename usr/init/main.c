@@ -44,7 +44,17 @@ static errval_t boot_core(coreid_t core_id)
     errval_t err;
 
     const char *boot_driver = "boot_armv8_generic";
-    const char *cpu_diver = "cpu_a57_qemu";
+    const char *cpu_driver;
+    switch (platform_info.platform) {
+    case PI_PLATFORM_QEMU:
+        cpu_driver = "cpu_a57_qemu";
+        break;
+    case PI_PLATFORM_IMX8X:
+        cpu_driver = "cpu_imx8x";
+        break;
+    default:
+        return LIB_ERR_NOT_IMPLEMENTED;
+    }
     const char *init = "init";
 
     struct capref frame_cap;
@@ -70,7 +80,7 @@ static errval_t boot_core(coreid_t core_id)
 
     // TODO send boot info and some initial ram over the urpc frame
 
-    coreboot(core_id, boot_driver, cpu_diver, init, urpc_frame_id);
+    coreboot(core_id, boot_driver, cpu_driver, init, urpc_frame_id);
 
     // communicate with other core over shared memory
     void *urpc;

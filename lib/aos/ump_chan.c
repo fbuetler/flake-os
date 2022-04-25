@@ -100,7 +100,7 @@ errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg)
     volatile enum ump_msg_state *state = &entry->msg_state;
 
     while (*state != UmpMessageSent) {
-        dmb();  // ensure that we checked the above conition before locking and copying
+        dmb();  // ensure that we checked the above condition before copying and every check
     }
 
     // ensure that later instructions are only fetched after this point to ensure
