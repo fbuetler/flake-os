@@ -96,9 +96,6 @@ static errval_t boot_core(coreid_t core_id)
 
     debug_printf("sent: %s\n", msg->payload);
 
-    // TODO do polling
-    barrelfish_usleep(1000000);
-
     // receive
     msg = malloc(UMP_MSG_BYTES);
     err = ump_receive(&ump, msg);
@@ -199,7 +196,7 @@ static errval_t init_app_core(void)
 
     debug_printf("received: %s\n", msg->payload);
 
-    // responde
+    // respond
     char *payload = "bello";
     ump_create_msg(&msg, UmpSpawnRequest, payload, strlen(payload));
 

@@ -51,7 +51,7 @@ errval_t ump_create_msg(struct ump_msg **retmsg, enum ump_msg_type type, char *p
                         size_t len)
 {
     struct ump_msg *msg = calloc(UMP_MSG_BYTES, 1);
-    msg->msg_state = MessageCreated;
+    msg->msg_state = UmpMessageCreated;
 
     msg->msg_type = type;
     memcpy(msg->payload, payload, len);
@@ -70,7 +70,7 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
                             + ump->send_next * UMP_MESSAGES_BYTES;
     volatile enum ump_msg_state *state = &entry->msg_state;
 
-    if (*state == MessageSent) {
+    if (*state == UmpMessageReceived) {
         err = LIB_ERR_UMP_CHAN_FULL;
         DEBUG_ERR(err, "send queue is full");
         thread_mutex_unlock(ump->send_mutex);
@@ -79,7 +79,7 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
 
     dmb();  // ensure that we checked the above condition before copying
 
-    msg->msg_state = MessageSent;
+    msg->msg_state = UmpMessageSent;
     memcpy(entry, msg, UMP_MSG_BYTES);
     ump->send_next = (ump->send_next + 1) % UMP_MESSAGES_ENTRIES;
 
@@ -93,25 +93,24 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
 
 errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg)
 {
-    errval_t err;
-    thread_mutex_lock(ump->recv_mutex);
-
     // ump_debug_print(ump);
 
     struct ump_msg *entry = (struct ump_msg *)ump->recv_base
                             + ump->recv_next * UMP_MESSAGES_BYTES;
     volatile enum ump_msg_state *state = &entry->msg_state;
 
-    if (*state != MessageSent) {
-        err = LIB_ERR_UMP_BUFSIZE_INVALID;
-        DEBUG_ERR(err, "recv queue is empty");
-        thread_mutex_unlock(ump->recv_mutex);
-        return err;
+    while (*state != UmpMessageSent) {
+        dmb();  // ensure that we checked the above conition before locking and copying
     }
 
-    dmb();  // ensure that we checked the above conition before copying
+    // ensure that later instructions are only fetched after this point to ensure
+    // synchornization with the unlocking of the sending core.
+    rdtscp();
 
-    entry->msg_state = MessageReceived;
+    // only lock once the message was actually sent
+    thread_mutex_lock(ump->recv_mutex);
+
+    entry->msg_state = UmpMessageReceived;
     memcpy(msg, entry, UMP_MSG_BYTES);
     ump->recv_next = (ump->recv_next + 1) % UMP_MESSAGES_ENTRIES;
 

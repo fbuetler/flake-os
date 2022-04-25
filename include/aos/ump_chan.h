@@ -46,9 +46,9 @@ enum ump_msg_type {
 };
 
 enum ump_msg_state {
-    MessageCreated = 1,
-    MessageSent = 2,
-    MessageReceived = 3,
+    UmpMessageCreated = 1,
+    UmpMessageSent = 2,
+    UmpMessageReceived = 3,
 };
 
 struct ump_msg {
