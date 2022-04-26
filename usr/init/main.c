@@ -357,6 +357,11 @@ static errval_t init_app_core(void)
     }
     debug_printf("sent: %s\n", payload);
 
+    DEBUG_PRINTF("Spawn hello in core 1\n");
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    spawn_load_by_name("hello", si, pid);
+
     return SYS_ERR_OK;
 }
 
