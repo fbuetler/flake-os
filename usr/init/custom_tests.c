@@ -780,13 +780,19 @@ static void ump_receive_listener(struct ump_chan *chan){
             case UmpSpawn:
             {
                 char *cmd = payload;
-                DEBUG_PRINTF("received spawn request for: %s\n", cmd);
+                DEBUG_PRINTF("received ump spawn request for: %s\n", cmd);
                 struct spawninfo *info = malloc(sizeof(struct spawninfo));
                 domainid_t pid = 0;
                 err = start_process(cmd, info, &pid); 
                 if(err_is_fail(err)){
-                    DEBUG_PRINTF("failed to start process: %s\n", cmd);
+                    DEBUG_PRINTF("failed to start process over ump: %s\n", cmd);
                 }
+
+                err = ump_send(chan, UmpSpawnResponse, (char *)&pid, sizeof(domainid_t));
+                if(err_is_fail(err)){
+                    DEBUG_PRINTF("failed to respond to spawn request!\n");
+                }
+
                 continue;
 
             }
@@ -872,17 +878,41 @@ __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rp
 {
     errval_t err;
 
-    char *module = rpc->recv_msg->payload;
+    coreid_t *destination_core_ptr = (coreid_t *)rpc->recv_msg->payload;
+    coreid_t destination_core = *destination_core_ptr;
 
-    struct spawninfo *info = malloc(sizeof(struct spawninfo));
+    char *module = (char *)(destination_core_ptr + 1);
+
     domainid_t pid = 0;
 
-    err = start_process(module, info, &pid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to start spawn process");
-        return;
+    if(destination_core != disp_get_core_id()){
+        // send UMP request to destination core; spawn process there
+        DEBUG_PRINTF("destination_core: %d\n", destination_core);
+        err = ump_send(&ump_chans[destination_core], UmpSpawn, "hello", strlen("hello"));
+        assert(err_is_ok(err));
+
+        // get response!
+        enum ump_msg_type type;
+        char *payload;
+        size_t len;
+        err = ump_receive(&ump_chans[1], &type, &payload, &len);
+        assert(err_is_ok(err));
+        assert(type == UmpSpawnResponse);
+
+        pid = *(domainid_t *)payload;
+        DEBUG_PRINTF("launched process; PID is: %d\n", *(size_t *)payload);
+
+    }else{
+        // spawn request on this core
+        struct spawninfo *info = malloc(sizeof(struct spawninfo));
+
+        err = start_process(module, info, &pid);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to start spawn process");
+            return;
+        }
+        DEBUG_PRINTF("spawned process with PID %d\n", pid);
     }
-    DEBUG_PRINTF("spawned process with PID %d\n", pid);
 
     size_t payload_size = sizeof(domainid_t);
     void *payload = malloc(payload_size);
@@ -890,7 +920,7 @@ __attribute__((unused)) static void aos_process_spawn_request(struct aos_rpc *rp
 
     struct aos_rpc_msg *reply;
     err = aos_rpc_create_msg(&reply, SpawnResponse, payload_size, (void *)payload,
-                             NULL_CAP);
+                            NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return;
@@ -1171,21 +1201,35 @@ void run_m4_tests(void)
     M5 TEST START
 */
 
+__attribute__((unused))
+static void test_ump_spawn(void){
+    errval_t err = ump_send(&ump_chans[1], UmpSpawn, "memeater", strlen("memeater"));
+    assert(err_is_ok(err));
+
+    // get response!
+    enum ump_msg_type type;
+    char *payload;
+    size_t len;
+    err = ump_receive(&ump_chans[1], &type, &payload, &len);
+    assert(err_is_ok(err));
+    assert(type == UmpSpawnResponse);
+    printf("launched process; PID is: %d\n", *(size_t *)payload);
+
+    printf("Completed %s\n", __func__);
+}
+
 void run_m5_tests_bsp(void)
 {
     // test_spawn_single_process();
 
     // send spawn request:
 
-    errval_t err = ump_send(&ump_chans[1], UmpSpawn, "hello", strlen("hello"));
-    assert(err_is_ok(err));
+    test_spawn_memeater();
 
-    printf("Completed %s\n", __func__);
 }
 
 void run_m5_tests_app(void)
 {
-
     //ump_receive_listener(&ump_chans[0]);
 
     //test_spawn_single_process();

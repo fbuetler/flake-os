@@ -653,9 +653,18 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     // TODO (M5): implement spawn new process rpc
     errval_t err;
 
-    size_t payload_size = strlen(cmdline) + 1;
+    size_t cmdline_len = strlen(cmdline);
+    size_t payload_size = sizeof(coreid_t) + cmdline_len + 1;
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, SpawnRequest, payload_size, (void *)cmdline, NULL_CAP);
+    char *payload = (char *)malloc(payload_size);
+    if(!payload){
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    *(coreid_t*)payload = core;
+    memcpy(payload + sizeof(coreid_t), cmdline, cmdline_len +1);
+    err = aos_rpc_create_msg(&msg, SpawnRequest, payload_size, (void *)payload, NULL_CAP);
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -666,6 +675,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     err = aos_rpc_call(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
+        free(payload);
         return err;
     }
 
@@ -673,6 +683,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     DEBUG_PRINTF("spawned process with PID %d\n", assigned_pid);
     *newpid = assigned_pid;
     free(msg);
+    free(payload);
 
     return SYS_ERR_OK;
 }
