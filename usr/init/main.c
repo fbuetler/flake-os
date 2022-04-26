@@ -130,6 +130,22 @@ static errval_t boot_core(coreid_t core_id)
         return err;
     }
 
+    // Send multiboot module string area
+    DEBUG_PRINTF("Send mm strings\n");
+    struct ump_mem_msg mmstrings_region;
+    err = get_phys_addr(cap_mmstrings, &mmstrings_region.base, &mmstrings_region.bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get physical address");
+        return err;
+    }
+
+    err = ump_send(&ump, UmpSendMMStrings, (char *)&mmstrings_region,
+                   sizeof(mmstrings_region));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send mm strings to other core");
+        return err;
+    }
+
     // Ping Pong
     DEBUG_PRINTF("Send ping\n");
     char *payload = "ciao";
@@ -303,6 +319,24 @@ static errval_t init_app_core(void)
                 return err;
             }
         }
+    }
+
+    // Receive multiboot module string area
+    DEBUG_PRINTF("Receive mm strings\n");
+    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive mm strings");
+        return err;
+    }
+
+    assert(msg_type == UmpSendMMStrings);
+    struct ump_mem_msg *mmstring_region = (struct ump_mem_msg *)payload;
+
+    err = frame_forge(cap_mmstrings, mmstring_region->base, mmstring_region->bytes,
+                      disp_get_current_core_id());
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to force mmstring frame");
+        return err;
     }
 
     // Ping Pong

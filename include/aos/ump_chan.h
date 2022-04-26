@@ -47,6 +47,7 @@ enum ump_msg_type {
     UmpSpawn = 3,
     UmpSendMem = 4,
     UmpSendBootinfo = 5,
+    UmpSendMMStrings = 6,
 };
 
 enum ump_msg_state {
