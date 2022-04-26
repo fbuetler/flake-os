@@ -130,8 +130,8 @@ static errval_t boot_core(coreid_t core_id)
     }
 
     // init channel
-    struct ump_chan ump;
-    ump_initialize(&ump, urpc, true);
+    struct ump_chan *ump = &ump_chans[core_id];
+    ump_initialize(ump, urpc, true);
 
     // Send Memory Almosen
     DEBUG_PRINTF("Send initial memory\n");
@@ -142,7 +142,7 @@ static errval_t boot_core(coreid_t core_id)
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = send_cap(&ump, UmpSendMem, mem_cap);
+    err = send_cap(ump, UmpSendMem, mem_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send mem cap");
         return err;
@@ -150,7 +150,7 @@ static errval_t boot_core(coreid_t core_id)
 
     // Send boot info
     DEBUG_PRINTF("Send boot info\n");
-    err = send_cap(&ump, UmpSendBootinfo, cap_bootinfo);
+    err = send_cap(ump, UmpSendBootinfo, cap_bootinfo);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send boot info cap");
         return err;
@@ -158,7 +158,7 @@ static errval_t boot_core(coreid_t core_id)
 
     // Send multiboot module string area
     DEBUG_PRINTF("Send mm strings\n");
-    err = send_cap(&ump, UmpSendMMStrings, cap_mmstrings);
+    err = send_cap(ump, UmpSendMMStrings, cap_mmstrings);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send mm strings cap");
         return err;
@@ -166,6 +166,8 @@ static errval_t boot_core(coreid_t core_id)
 
     return SYS_ERR_OK;
 }
+
+
 
 static int bsp_main(int argc, char *argv[])
 {
@@ -238,14 +240,14 @@ static errval_t init_app_core(void)
         return err;
     }
 
-    // init channel
-    struct ump_chan ump;
-    ump_initialize(&ump, urpc, false);
+    // init channel to core0
+    struct ump_chan *ump = &ump_chans[0];
+    ump_initialize(ump, urpc, false);
 
     // Receive memory almosen
     DEBUG_PRINTF("Receive initial memory\n");
     struct ump_mem_msg *memory_region;
-    err = recv_cap(&ump, UmpSendMem, &memory_region);
+    err = recv_cap(ump, UmpSendMem, &memory_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err;
@@ -276,7 +278,7 @@ static errval_t init_app_core(void)
     // Receive boot info
     DEBUG_PRINTF("Receive boot info\n");
     struct ump_mem_msg *bootinfo_region;
-    err = recv_cap(&ump, UmpSendBootinfo, &bootinfo_region);
+    err = recv_cap(ump, UmpSendBootinfo, &bootinfo_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err;
@@ -314,7 +316,7 @@ static errval_t init_app_core(void)
     // Receive multiboot module string area
     DEBUG_PRINTF("Receive mm strings\n");
     struct ump_mem_msg *mmstring_region;
-    err = recv_cap(&ump, UmpSendMMStrings, &mmstring_region);
+    err = recv_cap(ump, UmpSendMMStrings, &mmstring_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err;
@@ -349,7 +351,10 @@ static int app_main(int argc, char *argv[])
 
     grading_test_early();
 
+    struct thread *ump_listener_thread = run_ump_listener_thread();
+
     run_m5_tests_app();
+
 
     grading_test_late();
 
@@ -362,6 +367,10 @@ static int app_main(int argc, char *argv[])
             abort();
         }
     }
+
+
+    int ump_listener_retval;
+    thread_join(ump_listener_thread, &ump_listener_retval);
 
     return EXIT_SUCCESS;
 }

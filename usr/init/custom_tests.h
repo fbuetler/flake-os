@@ -18,6 +18,12 @@
 #include <stdio.h>
 #include <aos/aos.h>
 
+
+// TODO how do we know how many cores exist in total?
+struct ump_chan ump_chans[4];
+
+struct thread *run_ump_listener_thread(void);
+
 // M1: physical memory management
 void run_m1_tests(void);
 // M2: paging (aka virtual memory) & process spawning

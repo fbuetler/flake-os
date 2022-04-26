@@ -24,6 +24,7 @@
 #include <aos/aos_rpc.h>
 #include <mm/mm.h>
 #include <spawn/spawn.h>
+#include <aos/ump_chan.h>
 
 #include "custom_tests.h"
 #include "mem_alloc.h"
@@ -743,8 +744,7 @@ void run_m2_tests(void)
 // forward declared
 __attribute__((unused)) static errval_t init_process_msg(struct aos_rpc *rpc);
 
-__attribute__((unused)) static errval_t start_process(char *cmd, struct spawninfo *si,
-                                                      domainid_t *pid)
+static errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid)
 {
     errval_t err;
 
@@ -763,6 +763,55 @@ __attribute__((unused)) static errval_t start_process(char *cmd, struct spawninf
     }
 
     return SYS_ERR_OK;
+}
+
+__attribute__((unused))
+static void ump_receive_listener(struct ump_chan *chan){
+    enum ump_msg_type type;
+    char *payload;
+    size_t len;
+    while(1){
+        errval_t err = ump_receive(chan, &type, &payload, &len);
+        if(err_is_fail(err)){
+            assert(!"couldn't receive ump message in receive listener\n");
+        }
+
+        switch(type){
+            case UmpSpawn:
+            {
+                char *cmd = payload;
+                DEBUG_PRINTF("received spawn request for: %s\n", cmd);
+                struct spawninfo *info = malloc(sizeof(struct spawninfo));
+                domainid_t pid = 0;
+                err = start_process(cmd, info, &pid); 
+                if(err_is_fail(err)){
+                    DEBUG_PRINTF("failed to start process: %s\n", cmd);
+                }
+                continue;
+
+            }
+            default:
+            {
+                assert(!"unknown type message received in ump receive listener\n");
+                return;
+            }
+        }
+
+    }
+}
+
+static int ump_receive_listener_thread_func(void *arg){
+    struct ump_chan *chan = (struct ump_chan *)arg; 
+
+    ump_receive_listener(chan);
+
+    return 0;
+}
+
+struct thread *run_ump_listener_thread(void){
+    struct ump_chan *chan = &ump_chans[0];
+    struct thread *t = thread_create(ump_receive_listener_thread_func, (void *)chan);
+    return t;
 }
 
 __attribute__((unused)) static void aos_process_number(struct aos_rpc_msg *msg)
@@ -1125,12 +1174,21 @@ void run_m4_tests(void)
 void run_m5_tests_bsp(void)
 {
     // test_spawn_single_process();
+
+    // send spawn request:
+
+    errval_t err = ump_send(&ump_chans[1], UmpSpawn, "hello", strlen("hello"));
+    assert(err_is_ok(err));
+
     printf("Completed %s\n", __func__);
 }
 
 void run_m5_tests_app(void)
 {
-    test_spawn_single_process();
+
+    //ump_receive_listener(&ump_chans[0]);
+
+    //test_spawn_single_process();
     printf("Completed %s\n", __func__);
 }
 
