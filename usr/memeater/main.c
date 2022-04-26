@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
 
     DEBUG_PRINTF("spawning hello\n");
     domainid_t pid;
-    err = aos_rpc_process_spawn(init_rpc, "hello", disp_get_core_id(), &pid);
+    err = aos_rpc_process_spawn(init_rpc, "hello", 1, &pid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not spawn process\n");
     }
