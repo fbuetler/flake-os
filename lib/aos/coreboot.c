@@ -175,43 +175,6 @@ static errval_t relocate_elf(genvaddr_t binary, struct mem_info *mem, lvaddr_t l
     return SYS_ERR_OK;
 }
 
-static errval_t get_phys_addr(struct capref cap, genpaddr_t *retaddr, size_t *retsize)
-{
-    errval_t err;
-
-    struct capability c;
-    err = invoke_cap_identify(cap, &c);
-    if (err_is_fail(err)) {
-        err = LIB_ERR_CAP_IDENTIFY;
-        DEBUG_ERR(err, "failed to identify cap ref\n");
-        return err;
-    }
-
-    genpaddr_t addr;
-    size_t size;
-    switch (c.type) {
-    case ObjType_Frame:
-        addr = c.u.frame.base;
-        size = c.u.frame.bytes;
-        break;
-    case ObjType_RAM:
-        addr = c.u.ram.base;
-        size = c.u.ram.bytes;
-        break;
-    default:
-        return LIB_ERR_SHOULD_NOT_GET_HERE;
-    }
-
-    if (retaddr) {
-        *retaddr = addr;
-    }
-
-    if (retsize) {
-        *retsize = size;
-    }
-
-    return SYS_ERR_OK;
-}
 
 static errval_t get_kcb(genpaddr_t *kcb_base)
 {

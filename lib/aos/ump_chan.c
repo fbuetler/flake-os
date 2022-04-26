@@ -29,6 +29,8 @@ errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
         recv_mem = shared_mem;
     }
 
+    thread_mutex_init(&ump->chan_mutex);
+
     ump->send_base = send_mem + UMP_MESSAGES_OFFSET;
     ump->send_mutex = send_mem + UMP_METADATA_MUTEX_OFFSET;
     ump->send_next = 0;
@@ -47,18 +49,45 @@ errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
     return SYS_ERR_OK;
 }
 
-errval_t ump_create_msg(struct ump_msg **retmsg, enum ump_msg_type type, char *payload,
-                        size_t len)
+/**
+ * Populate ump_msg struct on the stack
+ */
+void ump_create_msg(struct ump_msg *msg, enum ump_msg_type type, char *payload,
+                        size_t len, bool is_last)
 {
-    struct ump_msg *msg = calloc(UMP_MSG_BYTES, 1);
-    msg->msg_state = UmpMessageCreated;
+    msg->header.msg_state = UmpMessageCreated;
+    msg->header.last = is_last;
 
-    msg->msg_type = type;
+    msg->header.msg_type = type;
     memcpy(msg->payload, payload, len);
+}
 
-    *retmsg = msg;
 
-    return SYS_ERR_OK;
+__attribute__((unused))
+static errval_t ump_send_payload(struct ump_chan *chan, enum ump_msg_type type, char *payload, size_t len){
+    thread_mutex_lock(&chan->chan_mutex);
+    errval_t err = SYS_ERR_OK;
+    size_t offset = 0;
+
+    struct ump_msg msg;
+    while(offset < len){
+        size_t current_payload_len = MIN(len - offset, UMP_MSG_PAYLOAD_BYTES);
+        size_t current_offset = offset;
+        offset += current_payload_len;
+
+        ump_create_msg(&msg, type, payload + current_offset, current_payload_len, offset==len);
+
+        err = ump_send(chan, &msg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to send message");
+            err = LIB_ERR_UMP_SEND;
+            goto unlock;
+        }
+    }
+
+unlock:
+    thread_mutex_unlock(&chan->chan_mutex);
+    return err;
 }
 
 errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
@@ -66,9 +95,8 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
     errval_t err;
     thread_mutex_lock(ump->send_mutex);
 
-    struct ump_msg *entry = (struct ump_msg *)ump->send_base
-                            + ump->send_next * UMP_MESSAGES_BYTES;
-    volatile enum ump_msg_state *state = &entry->msg_state;
+    struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
+    volatile enum ump_msg_state *state = &entry->header.msg_state;
 
     if (*state == UmpMessageReceived) {
         err = LIB_ERR_UMP_CHAN_FULL;
@@ -79,7 +107,7 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
 
     dmb();  // ensure that we checked the above condition before copying
 
-    msg->msg_state = UmpMessageSent;
+    msg->header.msg_state = UmpMessageSent;
     memcpy(entry, msg, UMP_MSG_BYTES);
     ump->send_next = (ump->send_next + 1) % UMP_MESSAGES_ENTRIES;
 
@@ -87,17 +115,20 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
 
     // ump_debug_print(ump);
 
+    rdtscp(); // barrier spam
     thread_mutex_unlock(ump->send_mutex);
+    dmb(); // barrier spam
+    rdtscp(); // barrier spam
     return SYS_ERR_OK;
 }
+
 
 errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg)
 {
     // ump_debug_print(ump);
 
-    struct ump_msg *entry = (struct ump_msg *)ump->recv_base
-                            + ump->recv_next * UMP_MESSAGES_BYTES;
-    volatile enum ump_msg_state *state = &entry->msg_state;
+    struct ump_msg *entry = (struct ump_msg *)ump->recv_base + ump->recv_next;
+    volatile enum ump_msg_state *state = &entry->header.msg_state;
 
     while (*state != UmpMessageSent) {
         dmb();  // ensure that we checked the above condition before copying and every check
@@ -108,9 +139,13 @@ errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg)
     rdtscp();
 
     // only lock once the message was actually sent
+    dmb(); // barrier spam
     thread_mutex_lock(ump->recv_mutex);
+    dmb(); // barrier spam
 
-    entry->msg_state = UmpMessageReceived;
+    rdtscp();
+    entry->header.msg_state = UmpMessageReceived;
+    assert(sizeof(struct ump_msg) == UMP_MSG_BYTES);
     memcpy(msg, entry, UMP_MSG_BYTES);
     ump->recv_next = (ump->recv_next + 1) % UMP_MESSAGES_ENTRIES;
 

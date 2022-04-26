@@ -244,6 +244,10 @@ static inline errval_t frame_identify(struct capref frame, struct frame_identity
 }
 
 
+errval_t get_phys_addr(struct capref cap, genpaddr_t *retaddr, size_t *retsize);
+
+
 __END_DECLS
+
 
 #endif //INCLUDEBARRELFISH_CAPABILITIES_H

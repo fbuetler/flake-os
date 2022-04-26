@@ -26,6 +26,7 @@
 #include <grading.h>
 #include <spawn/spawn.h>
 #include <aos/coreboot.h>
+#include <aos/kernel_cap_invocations.h>
 
 #include <barrelfish_kpi/startup_arm.h>
 #include <aos/deferred.h>
@@ -93,28 +94,46 @@ static errval_t boot_core(coreid_t core_id)
     struct ump_chan ump;
     ump_initialize(&ump, urpc, true);
 
-    // send
-    char *payload = "ciao";
-    struct ump_msg *msg;
-    ump_create_msg(&msg, UmpSpawnRequest, payload, strlen(payload));
+    // Memory Almosen
+    struct capref mem_cap;
+    err = ram_alloc(&mem_cap, BIT(29));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "We are memory poor\n");
+        return err_push(err, LIB_ERR_RAM_ALLOC);
+    }
 
-    err = ump_send(&ump, msg);
+    struct ump_mem_msg mem_region;
+    err = get_phys_addr(mem_cap, &mem_region.base, &mem_region.bytes);
+    struct ump_msg msg;
+    ump_create_msg(&msg, UmpSendMem, (char *)&mem_region, sizeof(mem_region), true);
+
+    // send
+    err = ump_send(&ump, &msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send memory to other core");
+        return err;
+    }
+
+
+    char *payload = "ciao";
+    ump_create_msg(&msg, UmpSpawnRequest, payload, strlen(payload), true);
+
+    err = ump_send(&ump, &msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
 
-    debug_printf("sent: %s\n", msg->payload);
+    debug_printf("sent: %s\n", msg.payload);
 
     // receive
-    msg = malloc(UMP_MSG_BYTES);
-    err = ump_receive(&ump, msg);
+    err = ump_receive(&ump, &msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
     }
 
-    debug_printf("received: %s\n", msg->payload);
+    debug_printf("received: %s\n", msg.payload);
 
     return SYS_ERR_OK;
 }
@@ -195,28 +214,53 @@ static errval_t init_app_core(void)
     ump_initialize(&ump, urpc, false);
 
     // TODO forge caps from boot info and initial ram received over the urpc frame
+    // receive memory almosen
+    struct ump_msg msg;
+    err = ump_receive(&ump, &msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "we are not worthy to receive memory");
+        return err_push(err, LIB_ERR_UMP_RECV);
+    }
+    
+    assert(msg.header.msg_type == UmpSendMem);
+    struct ump_mem_msg *memory_region = (struct ump_mem_msg *)&msg.payload;
+
+    struct capref mem_cap = {
+        .cnode = cnode_super,
+        .slot = 0
+    };
+
+    err = ram_forge(mem_cap, memory_region->base, memory_region->bytes, disp_get_core_id());
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error forging cap \n");
+    }
+
+    err = initialize_ram_alloc_from_cap(mem_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to initialize memory allocator from passed mem cap");
+        return err;
+    }
 
     // receive
-    struct ump_msg *msg = malloc(UMP_MSG_BYTES);
-    err = ump_receive(&ump, msg);
+    err = ump_receive(&ump, &msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
     }
 
-    debug_printf("received: %s\n", msg->payload);
+    debug_printf("received: %s\n", msg.payload);
 
     // respond
     char *payload = "bello";
-    ump_create_msg(&msg, UmpSpawnRequest, payload, strlen(payload));
+    ump_create_msg(&msg, UmpSpawnRequest, payload, strlen(payload), true);
 
-    err = ump_send(&ump, msg);
+    err = ump_send(&ump, &msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
 
-    debug_printf("sent: %s\n", msg->payload);
+    debug_printf("sent: %s\n", msg.payload);
 
     return SYS_ERR_OK;
 }

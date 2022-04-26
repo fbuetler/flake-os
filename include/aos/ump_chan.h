@@ -43,6 +43,8 @@
 enum ump_msg_type {
     UmpSpawnRequest = 1,
     UmpSpawnResponse = 2,
+    UmpSendMem = 3,
+    UmpSendMemResponse = 4,
 };
 
 enum ump_msg_state {
@@ -51,16 +53,28 @@ enum ump_msg_state {
     UmpMessageReceived = 3,
 };
 
-struct ump_msg {
+struct ump_msg_header{
     enum ump_msg_type msg_type;
     enum ump_msg_state msg_state;
-    char payload[];
+    bool last;
 };
 
-#define UMP_MSG_HEADER_BYTES (sizeof(struct ump_msg))
+#define UMP_MSG_HEADER_BYTES (sizeof(struct ump_msg_header))
 #define UMP_MSG_PAYLOAD_BYTES (UMP_MSG_BYTES - UMP_MSG_HEADER_BYTES)
 
+struct ump_mem_msg {
+    genpaddr_t base;
+    gensize_t bytes;
+};
+struct ump_msg {
+    struct ump_msg_header header;
+    char payload[UMP_MSG_PAYLOAD_BYTES];
+};
+
+
 struct ump_chan {
+    struct thread_mutex chan_mutex; // to lock the process of sending split up messages
+
     uint64_t *send_base;  // start of the send secion
     uint64_t send_next;   // next send entry
     struct thread_mutex *send_mutex;
@@ -72,8 +86,8 @@ struct ump_chan {
 
 void ump_debug_print(struct ump_chan *ump);
 errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary);
-errval_t ump_create_msg(struct ump_msg **retmsg, enum ump_msg_type type, char *payload,
-                        size_t len);
+void ump_create_msg(struct ump_msg *msg, enum ump_msg_type type, char *payload,
+                        size_t len, bool is_last);
 errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg);
 errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg);
 

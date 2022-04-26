@@ -111,3 +111,46 @@ errval_t initialize_ram_alloc(void)
 
     return SYS_ERR_OK;
 }
+
+errval_t initialize_ram_alloc_from_cap(struct capref mem_cap)
+{
+    errval_t err;
+
+    err = initialize_ram_allocator();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // Walk bootinfo and add all RAM caps to allocator handed to us by the kernel
+    uint64_t mem_avail = 0;
+
+    struct capability c;
+    err = cap_direct_identify(mem_cap, &c);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get the frame info\n");
+    }
+
+    // some santity checks
+    assert(c.type == ObjType_RAM);
+
+    err = mm_add(&aos_mm, mem_cap);
+    if (err_is_ok(err)) {
+        mem_avail += c.u.ram.bytes;
+    } else {
+        DEBUG_ERR(err, "Warning: adding RAM region (%p/%zu) FAILED",
+                  c.u.ram.base, c.u.ram.bytes);
+    }
+
+    DEBUG_PRINTF("Added %" PRIu64 " MB of physical memory.\n", mem_avail / 1024 / 1024);
+
+    // Finally, we can initialize the generic RAM allocator to use our local allocator
+    err = ram_alloc_set(aos_ram_alloc_aligned);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_RAM_ALLOC_SET);
+    }
+
+    // Grading
+    grading_test_mm(&aos_mm);
+
+    return SYS_ERR_OK;
+}
