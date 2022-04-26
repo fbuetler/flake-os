@@ -357,7 +357,7 @@ static errval_t init_app_core(void)
     }
     debug_printf("sent: %s\n", payload);
 
-    DEBUG_PRINTF("Spawn hello in core 1\n");
+    DEBUG_PRINTF("Spawn hello on core 1\n");
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
     spawn_load_by_name("hello", si, pid);
@@ -377,8 +377,6 @@ static int app_main(int argc, char *argv[])
     grading_setup_app_init(bi);
 
     grading_test_early();
-
-    DEBUG_PRINTF("hello from core %d :)\n", disp_get_core_id());
 
     err = init_app_core();
     if (err_is_fail(err)) {
