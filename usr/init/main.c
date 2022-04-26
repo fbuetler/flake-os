@@ -221,16 +221,14 @@ static errval_t init_app_core(void)
         DEBUG_ERR(err, "we are not worthy to receive memory");
         return err_push(err, LIB_ERR_UMP_RECV);
     }
-    
+
     assert(msg.header.msg_type == UmpSendMem);
     struct ump_mem_msg *memory_region = (struct ump_mem_msg *)&msg.payload;
 
-    struct capref mem_cap = {
-        .cnode = cnode_super,
-        .slot = 0
-    };
+    struct capref mem_cap = { .cnode = cnode_super, .slot = 0 };
 
-    err = ram_forge(mem_cap, memory_region->base, memory_region->bytes, disp_get_core_id());
+    err = ram_forge(mem_cap, memory_region->base, memory_region->bytes,
+                    disp_get_core_id());
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error forging cap \n");
     }

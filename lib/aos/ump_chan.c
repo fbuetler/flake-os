@@ -53,7 +53,7 @@ errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
  * Populate ump_msg struct on the stack
  */
 void ump_create_msg(struct ump_msg *msg, enum ump_msg_type type, char *payload,
-                        size_t len, bool is_last)
+                    size_t len, bool is_last)
 {
     msg->header.msg_state = UmpMessageCreated;
     msg->header.last = is_last;
@@ -63,19 +63,21 @@ void ump_create_msg(struct ump_msg *msg, enum ump_msg_type type, char *payload,
 }
 
 
-__attribute__((unused))
-static errval_t ump_send_payload(struct ump_chan *chan, enum ump_msg_type type, char *payload, size_t len){
+__attribute__((unused)) static errval_t
+ump_send_payload(struct ump_chan *chan, enum ump_msg_type type, char *payload, size_t len)
+{
     thread_mutex_lock(&chan->chan_mutex);
     errval_t err = SYS_ERR_OK;
     size_t offset = 0;
 
     struct ump_msg msg;
-    while(offset < len){
+    while (offset < len) {
         size_t current_payload_len = MIN(len - offset, UMP_MSG_PAYLOAD_BYTES);
         size_t current_offset = offset;
         offset += current_payload_len;
 
-        ump_create_msg(&msg, type, payload + current_offset, current_payload_len, offset==len);
+        ump_create_msg(&msg, type, payload + current_offset, current_payload_len,
+                       offset == len);
 
         err = ump_send(chan, &msg);
         if (err_is_fail(err)) {
@@ -115,10 +117,10 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
 
     // ump_debug_print(ump);
 
-    rdtscp(); // barrier spam
+    rdtscp();  // barrier spam
     thread_mutex_unlock(ump->send_mutex);
-    dmb(); // barrier spam
-    rdtscp(); // barrier spam
+    dmb();     // barrier spam
+    rdtscp();  // barrier spam
     return SYS_ERR_OK;
 }
 
@@ -139,9 +141,9 @@ errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg)
     rdtscp();
 
     // only lock once the message was actually sent
-    dmb(); // barrier spam
+    dmb();  // barrier spam
     thread_mutex_lock(ump->recv_mutex);
-    dmb(); // barrier spam
+    dmb();  // barrier spam
 
     rdtscp();
     entry->header.msg_state = UmpMessageReceived;

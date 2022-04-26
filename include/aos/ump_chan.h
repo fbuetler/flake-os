@@ -53,7 +53,7 @@ enum ump_msg_state {
     UmpMessageReceived = 3,
 };
 
-struct ump_msg_header{
+struct ump_msg_header {
     enum ump_msg_type msg_type;
     enum ump_msg_state msg_state;
     bool last;
@@ -73,7 +73,7 @@ struct ump_msg {
 
 
 struct ump_chan {
-    struct thread_mutex chan_mutex; // to lock the process of sending split up messages
+    struct thread_mutex chan_mutex;  // to lock the process of sending split up messages
 
     uint64_t *send_base;  // start of the send secion
     uint64_t send_next;   // next send entry
@@ -87,7 +87,7 @@ struct ump_chan {
 void ump_debug_print(struct ump_chan *ump);
 errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary);
 void ump_create_msg(struct ump_msg *msg, enum ump_msg_type type, char *payload,
-                        size_t len, bool is_last);
+                    size_t len, bool is_last);
 errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg);
 errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg);
 

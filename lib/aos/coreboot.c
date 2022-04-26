@@ -353,7 +353,8 @@ static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
                                genpaddr_t cpu_driver_entry, genpaddr_t memory_base,
                                size_t memory_size, struct frame_identity urpc_frame_id,
                                genpaddr_t init_base, size_t init_size, genpaddr_t kcb,
-                               coreid_t mpid, genpaddr_t *retbase, size_t *retsize, lvaddr_t *retvoffset)
+                               coreid_t mpid, genpaddr_t *retbase, size_t *retsize,
+                               lvaddr_t *retvoffset)
 {
     errval_t err;
 
@@ -382,7 +383,7 @@ static errval_t init_core_data(genpaddr_t stack_base, size_t stack_size,
         return err;
     }
 
-    *retvoffset = (lvaddr_t) &core_data;
+    *retvoffset = (lvaddr_t)&core_data;
 
     core_data->boot_magic = ARMV8_BOOTMAGIC_PSCI;
 
@@ -540,12 +541,12 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
     }
 
     DEBUG_PRINTF("Flushing the cache\n");
-    dmb(); // make sure we wrote everything
+    dmb();  // make sure we wrote everything
     flush_cache((vm_offset_t)boot_driver_mem_info.buf,
                 (vm_size_t)boot_driver_mem_info.size);
     flush_cache((vm_offset_t)cpu_driver_mem_info.buf, (vm_size_t)cpu_driver_mem_info.size);
     flush_cache((vm_offset_t)core_data_voffset, (vm_size_t)core_data_size);
-    dmb(); // make sure everything is flushed before we spawn the core
+    dmb();  // make sure everything is flushed before we spawn the core
 
     DEBUG_PRINTF("Spawning a core\n");
     err = spawn_core(mpid, CPU_ARM8, boot_driver_entry, core_data_base, false);
