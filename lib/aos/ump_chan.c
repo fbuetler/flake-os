@@ -90,7 +90,6 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     return SYS_ERR_OK;
 }
 
-
 errval_t ump_send(struct ump_chan *chan, enum ump_msg_type type, char *payload, size_t len)
 {
     errval_t err;
