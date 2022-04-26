@@ -1130,7 +1130,7 @@ void run_m5_tests_bsp(void)
 
 void run_m5_tests_app(void)
 {
-    test_spawn_single_process();
+    // test_spawn_single_process();
     printf("Completed %s\n", __func__);
 }
 

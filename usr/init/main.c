@@ -164,6 +164,15 @@ static errval_t boot_core(coreid_t core_id)
         return err;
     }
 
+    // Send spawn request
+    DEBUG_PRINTF("Spawn hello on remote core");
+    char *process_name = "hello";
+    err = ump_send(&ump, UmpSpawn, process_name, strlen(process_name));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn process on remote core");
+        return err;
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -324,6 +333,26 @@ static errval_t init_app_core(void)
                       disp_get_current_core_id());
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to force mmstring frame");
+        return err;
+    }
+
+    // Receive spawn request
+    DEBUG_PRINTF("Spawn hello on core");
+    enum ump_msg_type msg_type;
+    char *process_name;
+    size_t process_name_len;
+    err = ump_receive(&ump, &msg_type, &process_name, &process_name_len);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive message");
+        return err;
+    }
+
+    assert(msg_type = UmpSpawn);
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = spawn_load_by_name(process_name, si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn process");
         return err;
     }
 
