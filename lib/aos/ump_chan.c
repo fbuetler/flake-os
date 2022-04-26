@@ -4,14 +4,14 @@ void ump_debug_print(struct ump_chan *ump)
 {
     DEBUG_PRINTF("Send:\nbase: 0x%lx\nnext: %d\n", ump->send_base, ump->send_next);
     DEBUG_PRINTF("SEND MEMORY DUMP:\n");
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 32; i++) {
         DEBUG_PRINTF("%d: [0x%lx, 0x%lx]\n", i, ump->send_base - 8 + i,
                      *(ump->send_base - 8 + i));
     }
 
     DEBUG_PRINTF("Receive:\nbase: 0x%lx\nnext: %d\n", ump->recv_base, ump->recv_next);
     DEBUG_PRINTF("RECEIVE MEMORY DUMP:\n");
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 32; i++) {
         DEBUG_PRINTF("%d: [0x%lx, 0x%lx]\n", i, ump->recv_base - 8 + i,
                      *(ump->recv_base - 8 + i));
     }
@@ -28,8 +28,6 @@ errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
         send_mem = shared_mem + UMP_SECTION_BYTES;
         recv_mem = shared_mem;
     }
-
-    thread_mutex_init(&ump->chan_mutex);
 
     ump->send_base = send_mem + UMP_MESSAGES_OFFSET;
     ump->send_mutex = send_mem + UMP_METADATA_MUTEX_OFFSET;
@@ -52,50 +50,19 @@ errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
 /**
  * Populate ump_msg struct on the stack
  */
-void ump_create_msg(struct ump_msg *msg, enum ump_msg_type type, char *payload,
-                    size_t len, bool is_last)
+static void ump_create_msg(struct ump_msg *msg, enum ump_msg_type type, char *payload,
+                           size_t len, bool is_last)
 {
     msg->header.msg_state = UmpMessageCreated;
-    msg->header.last = is_last;
-
     msg->header.msg_type = type;
+    msg->header.last = is_last;
+    msg->header.len = len;
     memcpy(msg->payload, payload, len);
 }
 
-
-__attribute__((unused)) static errval_t
-ump_send_payload(struct ump_chan *chan, enum ump_msg_type type, char *payload, size_t len)
-{
-    thread_mutex_lock(&chan->chan_mutex);
-    errval_t err = SYS_ERR_OK;
-    size_t offset = 0;
-
-    struct ump_msg msg;
-    while (offset < len) {
-        size_t current_payload_len = MIN(len - offset, UMP_MSG_PAYLOAD_BYTES);
-        size_t current_offset = offset;
-        offset += current_payload_len;
-
-        ump_create_msg(&msg, type, payload + current_offset, current_payload_len,
-                       offset == len);
-
-        err = ump_send(chan, &msg);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Failed to send message");
-            err = LIB_ERR_UMP_SEND;
-            goto unlock;
-        }
-    }
-
-unlock:
-    thread_mutex_unlock(&chan->chan_mutex);
-    return err;
-}
-
-errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
+static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
 {
     errval_t err;
-    thread_mutex_lock(ump->send_mutex);
 
     struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
     volatile enum ump_msg_state *state = &entry->header.msg_state;
@@ -103,7 +70,6 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
     if (*state == UmpMessageReceived) {
         err = LIB_ERR_UMP_CHAN_FULL;
         DEBUG_ERR(err, "send queue is full");
-        thread_mutex_unlock(ump->send_mutex);
         return err;
     }
 
@@ -118,14 +84,45 @@ errval_t ump_send(struct ump_chan *ump, struct ump_msg *msg)
     // ump_debug_print(ump);
 
     rdtscp();  // barrier spam
-    thread_mutex_unlock(ump->send_mutex);
-    dmb();     // barrier spam
-    rdtscp();  // barrier spam
     return SYS_ERR_OK;
 }
 
 
-errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg)
+errval_t ump_send(struct ump_chan *chan, enum ump_msg_type type, char *payload, size_t len)
+{
+    thread_mutex_lock(chan->send_mutex);
+    errval_t err = SYS_ERR_OK;
+    size_t offset = 0;
+
+    if (len > UMP_MSG_MAX_BYTES) {
+        err = LIB_ERR_UMP_SEND;
+        DEBUG_ERR(err, "Message size exceeded max allowed size");
+        goto unlock;
+    }
+
+    struct ump_msg msg;
+    while (offset < len) {
+        size_t current_payload_len = MIN(len - offset, UMP_MSG_PAYLOAD_BYTES);
+        size_t current_offset = offset;
+        offset += current_payload_len;
+
+        ump_create_msg(&msg, type, payload + current_offset, current_payload_len,
+                       offset >= len);
+
+        err = ump_send_msg(chan, &msg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to send message");
+            err = err_push(err, LIB_ERR_UMP_SEND);
+            goto unlock;
+        }
+    }
+
+unlock:
+    thread_mutex_unlock(chan->send_mutex);
+    return err;
+}
+
+static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
 {
     // ump_debug_print(ump);
 
@@ -154,5 +151,41 @@ errval_t ump_receive(struct ump_chan *ump, struct ump_msg *msg)
     dmb();  // ensure that the message state is consistent
 
     thread_mutex_unlock(ump->recv_mutex);
+    return SYS_ERR_OK;
+}
+
+errval_t ump_receive(struct ump_chan *ump, enum ump_msg_type *rettype, char **retpayload,
+                     size_t *retlen)
+{
+    errval_t err;
+
+    size_t offset = 0;
+    char *tmp_payload = malloc(UMP_MSG_MAX_BYTES);
+
+    enum ump_msg_type msg_type;
+    bool is_last = false;
+    while (!is_last) {
+        struct ump_msg msg;
+        err = ump_receive_msg(ump, &msg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to receive message");
+            return err_push(err, LIB_ERR_UMP_RECV);
+        }
+
+        memcpy(tmp_payload + offset, &msg.payload, msg.header.len);
+
+        offset += msg.header.len;
+        is_last = msg.header.last;
+        msg_type = msg.header.msg_type;
+    }
+
+    char *payload = malloc(offset);
+    memcpy(payload, tmp_payload, offset);
+    free(tmp_payload);
+
+    *rettype = msg_type;
+    *retpayload = payload;
+    *retlen = offset;
+
     return SYS_ERR_OK;
 }

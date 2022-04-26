@@ -79,7 +79,7 @@ static errval_t boot_core(coreid_t core_id)
         return err;
     }
 
-    // TODO send boot info and some initial ram over the urpc frame
+    // TODO send boot info
 
     coreboot(core_id, boot_driver, cpu_driver, init, urpc_frame_id);
 
@@ -104,11 +104,9 @@ static errval_t boot_core(coreid_t core_id)
 
     struct ump_mem_msg mem_region;
     err = get_phys_addr(mem_cap, &mem_region.base, &mem_region.bytes);
-    struct ump_msg msg;
-    ump_create_msg(&msg, UmpSendMem, (char *)&mem_region, sizeof(mem_region), true);
 
     // send
-    err = ump_send(&ump, &msg);
+    ump_send(&ump, UmpSendMem, (char *)&mem_region, sizeof(mem_region));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send memory to other core");
         return err;
@@ -116,24 +114,24 @@ static errval_t boot_core(coreid_t core_id)
 
 
     char *payload = "ciao";
-    ump_create_msg(&msg, UmpSpawnRequest, payload, strlen(payload), true);
-
-    err = ump_send(&ump, &msg);
+    ump_send(&ump, UmpSpawnRequest, payload, strlen(payload));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
 
-    debug_printf("sent: %s\n", msg.payload);
+    debug_printf("sent: %s\n", payload);
 
     // receive
-    err = ump_receive(&ump, &msg);
+    enum ump_msg_type msg_type;
+    size_t payload_len;
+    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
     }
 
-    debug_printf("received: %s\n", msg.payload);
+    debug_printf("received: %s\n", payload);
 
     return SYS_ERR_OK;
 }
@@ -213,17 +211,20 @@ static errval_t init_app_core(void)
     struct ump_chan ump;
     ump_initialize(&ump, urpc, false);
 
-    // TODO forge caps from boot info and initial ram received over the urpc frame
+    // TODO forge caps from bootinfo received over the urpc frame
+
     // receive memory almosen
-    struct ump_msg msg;
-    err = ump_receive(&ump, &msg);
+    enum ump_msg_type msg_type;
+    char *payload;
+    size_t payload_len;
+    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "we are not worthy to receive memory");
         return err_push(err, LIB_ERR_UMP_RECV);
     }
 
-    assert(msg.header.msg_type == UmpSendMem);
-    struct ump_mem_msg *memory_region = (struct ump_mem_msg *)&msg.payload;
+    assert(msg_type == UmpSendMem);
+    struct ump_mem_msg *memory_region = (struct ump_mem_msg *)payload;
 
     struct capref mem_cap = { .cnode = cnode_super, .slot = 0 };
 
@@ -240,25 +241,23 @@ static errval_t init_app_core(void)
     }
 
     // receive
-    err = ump_receive(&ump, &msg);
+    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
     }
 
-    debug_printf("received: %s\n", msg.payload);
+    debug_printf("received: %s\n", payload);
 
     // respond
-    char *payload = "bello";
-    ump_create_msg(&msg, UmpSpawnRequest, payload, strlen(payload), true);
-
-    err = ump_send(&ump, &msg);
+    payload = "bello";
+    ump_send(&ump, UmpSpawnRequest, payload, strlen(payload));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
 
-    debug_printf("sent: %s\n", msg.payload);
+    debug_printf("sent: %s\n", payload);
 
     return SYS_ERR_OK;
 }
