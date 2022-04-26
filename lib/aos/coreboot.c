@@ -577,11 +577,12 @@ errval_t coreboot(coreid_t mpid, const char *boot_driver, const char *cpu_driver
     }
 
     DEBUG_PRINTF("Flushing the cache\n");
-    dmb();
+    dmb(); // make sure we wrote everything
     flush_cache((vm_offset_t)boot_driver_mem_info.buf,
                 (vm_size_t)boot_driver_mem_info.size);
     flush_cache((vm_offset_t)cpu_driver_mem_info.buf, (vm_size_t)cpu_driver_mem_info.size);
     flush_cache((vm_offset_t)core_data_voffset, (vm_size_t)core_data_size);
+    dmb(); // make sure everything is flushed before we spawn the core
 
     DEBUG_PRINTF("Spawning a core\n");
     err = spawn_core(mpid, CPU_ARM8, boot_driver_entry, core_data_base, false);
