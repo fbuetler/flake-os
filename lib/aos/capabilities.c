@@ -838,6 +838,10 @@ errval_t get_phys_addr(struct capref cap, genpaddr_t *retaddr, size_t *retsize)
         addr = c.u.ram.base;
         size = c.u.ram.bytes;
         break;
+    case ObjType_DevFrame:
+        addr = c.u.devframe.base;
+        size = c.u.devframe.bytes;
+        break;
     default:
         return LIB_ERR_SHOULD_NOT_GET_HERE;
     }

@@ -79,8 +79,6 @@ static errval_t boot_core(coreid_t core_id)
         return err;
     }
 
-    // TODO send boot info
-
     coreboot(core_id, boot_driver, cpu_driver, init, urpc_frame_id);
 
     // communicate with other core over shared memory
@@ -94,7 +92,8 @@ static errval_t boot_core(coreid_t core_id)
     struct ump_chan ump;
     ump_initialize(&ump, urpc, true);
 
-    // Memory Almosen
+    // Send Memory Almosen
+    DEBUG_PRINTF("Send initial memory\n");
     struct capref mem_cap;
     err = ram_alloc(&mem_cap, BIT(29));
     if (err_is_fail(err)) {
@@ -104,25 +103,44 @@ static errval_t boot_core(coreid_t core_id)
 
     struct ump_mem_msg mem_region;
     err = get_phys_addr(mem_cap, &mem_region.base, &mem_region.bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get physical address");
+        return err;
+    }
 
-    // send
-    ump_send(&ump, UmpSendMem, (char *)&mem_region, sizeof(mem_region));
+    err = ump_send(&ump, UmpSendMem, (char *)&mem_region, sizeof(mem_region));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send memory to other core");
         return err;
     }
 
+    // Send boot info
+    DEBUG_PRINTF("Send boot info\n");
+    struct ump_mem_msg bootinfo_region;
+    err = get_phys_addr(cap_bootinfo, &bootinfo_region.base, &bootinfo_region.bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get physical address");
+        return err;
+    }
 
+    err = ump_send(&ump, UmpSendBootinfo, (char *)&bootinfo_region,
+                   sizeof(bootinfo_region));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send bootinfo to other core");
+        return err;
+    }
+
+    // Ping Pong
+    DEBUG_PRINTF("Send ping\n");
     char *payload = "ciao";
-    ump_send(&ump, UmpSpawnRequest, payload, strlen(payload));
+    ump_send(&ump, UmpPing, payload, strlen(payload));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
-
     debug_printf("sent: %s\n", payload);
 
-    // receive
+    DEBUG_PRINTF("Receive pong\n");
     enum ump_msg_type msg_type;
     size_t payload_len;
     err = ump_receive(&ump, &msg_type, &payload, &payload_len);
@@ -130,7 +148,6 @@ static errval_t boot_core(coreid_t core_id)
         DEBUG_ERR(err, "failed to receive message");
         return err;
     }
-
     debug_printf("received: %s\n", payload);
 
     return SYS_ERR_OK;
@@ -211,9 +228,8 @@ static errval_t init_app_core(void)
     struct ump_chan ump;
     ump_initialize(&ump, urpc, false);
 
-    // TODO forge caps from bootinfo received over the urpc frame
-
-    // receive memory almosen
+    // Receive memory almosen
+    DEBUG_PRINTF("Receive initial memory\n");
     enum ump_msg_type msg_type;
     char *payload;
     size_t payload_len;
@@ -229,9 +245,10 @@ static errval_t init_app_core(void)
     struct capref mem_cap = { .cnode = cnode_super, .slot = 0 };
 
     err = ram_forge(mem_cap, memory_region->base, memory_region->bytes,
-                    disp_get_core_id());
+                    disp_get_current_core_id());
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error forging cap \n");
+        return err;
     }
 
     err = initialize_ram_alloc_from_cap(mem_cap);
@@ -240,23 +257,70 @@ static errval_t init_app_core(void)
         return err;
     }
 
-    // receive
+    // create the module cnode (for boot modules and mm_strings)
+    struct capref module_cnode = { .cnode = cnode_root, .slot = ROOTCN_SLOT_MODULECN };
+    err = cnode_create_raw(module_cnode, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create module cnode");
+        return err;
+    }
+
+    // Receive boot info
+    DEBUG_PRINTF("Receive boot info\n");
+    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive bootinfo");
+        return err;
+    }
+
+    assert(msg_type = UmpSendBootinfo);
+    struct ump_mem_msg *bootinfo_region = (struct ump_mem_msg *)payload;
+
+    err = frame_forge(cap_bootinfo, bootinfo_region->base, bootinfo_region->bytes,
+                      disp_get_current_core_id());
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to forge frame");
+        return err;
+    }
+
+    err = paging_map_frame_complete(get_current_paging_state(), (void **)&bi,
+                                    cap_bootinfo);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map bootinfo frame");
+        return err;
+    }
+    assert(bi != NULL);
+
+    for (int i = 0; i < bi->regions_length; ++i) {
+        if (bi->regions[i].mr_type == RegionType_Module) {
+            struct capref module_cap = { .cnode = cnode_module,
+                                         .slot = bi->regions[i].mrmod_slot };
+            err = frame_forge(module_cap, bi->regions[i].mr_base,
+                              ROUND_UP(bi->regions[i].mrmod_size, BASE_PAGE_SIZE),
+                              disp_get_current_core_id());
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed tp forge module frame");
+                return err;
+            }
+        }
+    }
+
+    // Ping Pong
+    DEBUG_PRINTF("Receive ping\n");
     err = ump_receive(&ump, &msg_type, &payload, &payload_len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
     }
-
     debug_printf("received: %s\n", payload);
 
-    // respond
+    DEBUG_PRINTF("Send pong\n");
     payload = "bello";
-    ump_send(&ump, UmpSpawnRequest, payload, strlen(payload));
+    ump_send(&ump, UmpPong, payload, strlen(payload));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
-
     debug_printf("sent: %s\n", payload);
 
     return SYS_ERR_OK;

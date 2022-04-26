@@ -42,10 +42,11 @@
 #define UMP_MESSAGES_ENTRIES (UMP_MESSAGES_BYTES / UMP_MSG_BYTES)
 
 enum ump_msg_type {
-    UmpSpawnRequest = 1,
-    UmpSpawnResponse = 2,
-    UmpSendMem = 3,
-    UmpSendMemResponse = 4,
+    UmpPing = 1,
+    UmpPong = 2,
+    UmpSpawn = 3,
+    UmpSendMem = 4,
+    UmpSendBootinfo = 5,
 };
 
 enum ump_msg_state {
