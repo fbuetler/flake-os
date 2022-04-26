@@ -40,6 +40,47 @@ struct bootinfo *bi;
 coreid_t my_core_id;
 struct platform_info platform_info;
 
+static errval_t send_cap(struct ump_chan *ump, enum ump_msg_type msg_type,
+                         struct capref cap)
+{
+    errval_t err;
+
+    struct ump_mem_msg region;
+    err = get_phys_addr(cap, &region.base, &region.bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get physical address");
+        return err;
+    }
+
+    err = ump_send(ump, msg_type, (char *)&region, sizeof(region));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send cap to other core");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t recv_cap(struct ump_chan *ump, enum ump_msg_type expected_msg_type,
+                         struct ump_mem_msg **mem_msg)
+{
+    errval_t err;
+
+    enum ump_msg_type msg_type;
+    char *payload;
+    size_t payload_len;
+    err = ump_receive(ump, &msg_type, &payload, &payload_len);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive cap");
+        return err_push(err, LIB_ERR_UMP_RECV);
+    }
+
+    assert(msg_type == expected_msg_type);
+    *mem_msg = (struct ump_mem_msg *)payload;
+
+    return SYS_ERR_OK;
+}
+
 static errval_t boot_core(coreid_t core_id)
 {
     errval_t err;
@@ -101,70 +142,27 @@ static errval_t boot_core(coreid_t core_id)
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    struct ump_mem_msg mem_region;
-    err = get_phys_addr(mem_cap, &mem_region.base, &mem_region.bytes);
+    err = send_cap(&ump, UmpSendMem, mem_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to get physical address");
-        return err;
-    }
-
-    err = ump_send(&ump, UmpSendMem, (char *)&mem_region, sizeof(mem_region));
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send memory to other core");
+        DEBUG_ERR(err, "failed to send mem cap");
         return err;
     }
 
     // Send boot info
     DEBUG_PRINTF("Send boot info\n");
-    struct ump_mem_msg bootinfo_region;
-    err = get_phys_addr(cap_bootinfo, &bootinfo_region.base, &bootinfo_region.bytes);
+    err = send_cap(&ump, UmpSendBootinfo, cap_bootinfo);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to get physical address");
-        return err;
-    }
-
-    err = ump_send(&ump, UmpSendBootinfo, (char *)&bootinfo_region,
-                   sizeof(bootinfo_region));
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send bootinfo to other core");
+        DEBUG_ERR(err, "failed to send boot info cap");
         return err;
     }
 
     // Send multiboot module string area
     DEBUG_PRINTF("Send mm strings\n");
-    struct ump_mem_msg mmstrings_region;
-    err = get_phys_addr(cap_mmstrings, &mmstrings_region.base, &mmstrings_region.bytes);
+    err = send_cap(&ump, UmpSendMMStrings, cap_mmstrings);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to get physical address");
+        DEBUG_ERR(err, "failed to send mm strings cap");
         return err;
     }
-
-    err = ump_send(&ump, UmpSendMMStrings, (char *)&mmstrings_region,
-                   sizeof(mmstrings_region));
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send mm strings to other core");
-        return err;
-    }
-
-    // Ping Pong
-    DEBUG_PRINTF("Send ping\n");
-    char *payload = "ciao";
-    ump_send(&ump, UmpPing, payload, strlen(payload));
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send message");
-        return err;
-    }
-    debug_printf("sent: %s\n", payload);
-
-    DEBUG_PRINTF("Receive pong\n");
-    enum ump_msg_type msg_type;
-    size_t payload_len;
-    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to receive message");
-        return err;
-    }
-    debug_printf("received: %s\n", payload);
 
     return SYS_ERR_OK;
 }
@@ -246,20 +244,14 @@ static errval_t init_app_core(void)
 
     // Receive memory almosen
     DEBUG_PRINTF("Receive initial memory\n");
-    enum ump_msg_type msg_type;
-    char *payload;
-    size_t payload_len;
-    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
+    struct ump_mem_msg *memory_region;
+    err = recv_cap(&ump, UmpSendMem, &memory_region);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "we are not worthy to receive memory");
-        return err_push(err, LIB_ERR_UMP_RECV);
+        DEBUG_ERR(err, "failed to receive cap");
+        return err;
     }
 
-    assert(msg_type == UmpSendMem);
-    struct ump_mem_msg *memory_region = (struct ump_mem_msg *)payload;
-
     struct capref mem_cap = { .cnode = cnode_super, .slot = 0 };
-
     err = ram_forge(mem_cap, memory_region->base, memory_region->bytes,
                     disp_get_current_core_id());
     if (err_is_fail(err)) {
@@ -283,14 +275,12 @@ static errval_t init_app_core(void)
 
     // Receive boot info
     DEBUG_PRINTF("Receive boot info\n");
-    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
+    struct ump_mem_msg *bootinfo_region;
+    err = recv_cap(&ump, UmpSendBootinfo, &bootinfo_region);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to receive bootinfo");
+        DEBUG_ERR(err, "failed to receive cap");
         return err;
     }
-
-    assert(msg_type = UmpSendBootinfo);
-    struct ump_mem_msg *bootinfo_region = (struct ump_mem_msg *)payload;
 
     err = frame_forge(cap_bootinfo, bootinfo_region->base, bootinfo_region->bytes,
                       disp_get_current_core_id());
@@ -323,14 +313,12 @@ static errval_t init_app_core(void)
 
     // Receive multiboot module string area
     DEBUG_PRINTF("Receive mm strings\n");
-    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
+    struct ump_mem_msg *mmstring_region;
+    err = recv_cap(&ump, UmpSendMMStrings, &mmstring_region);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to receive mm strings");
+        DEBUG_ERR(err, "failed to receive cap");
         return err;
     }
-
-    assert(msg_type == UmpSendMMStrings);
-    struct ump_mem_msg *mmstring_region = (struct ump_mem_msg *)payload;
 
     err = frame_forge(cap_mmstrings, mmstring_region->base, mmstring_region->bytes,
                       disp_get_current_core_id());
@@ -339,24 +327,7 @@ static errval_t init_app_core(void)
         return err;
     }
 
-    // Ping Pong
-    DEBUG_PRINTF("Receive ping\n");
-    err = ump_receive(&ump, &msg_type, &payload, &payload_len);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to receive message");
-        return err;
-    }
-    debug_printf("received: %s\n", payload);
-
-    DEBUG_PRINTF("Send pong\n");
-    payload = "bello";
-    ump_send(&ump, UmpPong, payload, strlen(payload));
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send message");
-        return err;
-    }
-    debug_printf("sent: %s\n", payload);
-
+    // Spawn a test process
     DEBUG_PRINTF("Spawn hello on core 1\n");
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
@@ -374,15 +345,15 @@ static int app_main(int argc, char *argv[])
     // - grading_test_late();
     errval_t err;
 
-    grading_setup_app_init(bi);
-
-    grading_test_early();
-
     err = init_app_core();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init app core");
         abort();
     }
+
+    grading_setup_app_init(bi);
+
+    grading_test_early();
 
     grading_test_late();
 
