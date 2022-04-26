@@ -557,9 +557,7 @@ void run_m1_tests(void)
 
 __attribute__((unused)) static void test_spawn_single_process(void)
 {
-    DEBUG_PRINTF("before malloc \n");
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
-    DEBUG_PRINTF("after malloc \n");
     domainid_t *pid = malloc(sizeof(domainid_t));
     spawn_load_by_name("hello", si, pid);
 }
@@ -1124,8 +1122,15 @@ void run_m4_tests(void)
     M5 TEST START
 */
 
-void run_m5_tests(void)
+void run_m5_tests_bsp(void)
 {
+    // test_spawn_single_process();
+    printf("Completed %s\n", __func__);
+}
+
+void run_m5_tests_app(void)
+{
+    test_spawn_single_process();
     printf("Completed %s\n", __func__);
 }
 
