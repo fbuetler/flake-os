@@ -67,7 +67,7 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
     volatile enum ump_msg_state *state = &entry->header.msg_state;
 
-    if (*state == UmpMessageReceived) {
+    if (*state == UmpMessageSent) {
         err = LIB_ERR_UMP_CHAN_FULL;
         DEBUG_ERR(err, "send queue is full");
         return err;
@@ -75,29 +75,30 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
 
     dmb();  // ensure that we checked the above condition before copying
 
-    msg->header.msg_state = UmpMessageSent;
     memcpy(entry, msg, UMP_MSG_BYTES);
+
+    dmb();  // ensure that the message is written to memory before logically mark it as sent
+
+    entry->header.msg_state = UmpMessageSent;
     ump->send_next = (ump->send_next + 1) % UMP_MESSAGES_ENTRIES;
 
     dmb();  // ensure that the message state is consistent
 
-    // ump_debug_print(ump);
-
     rdtscp();  // barrier spam
+
     return SYS_ERR_OK;
 }
 
 
 errval_t ump_send(struct ump_chan *chan, enum ump_msg_type type, char *payload, size_t len)
 {
-    thread_mutex_lock(chan->send_mutex);
-    errval_t err = SYS_ERR_OK;
+    errval_t err;
     size_t offset = 0;
 
     if (len > UMP_MSG_MAX_BYTES) {
         err = LIB_ERR_UMP_SEND;
         DEBUG_ERR(err, "Message size exceeded max allowed size");
-        goto unlock;
+        return err;
     }
 
     struct ump_msg msg;
@@ -113,13 +114,11 @@ errval_t ump_send(struct ump_chan *chan, enum ump_msg_type type, char *payload, 
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to send message");
             err = err_push(err, LIB_ERR_UMP_SEND);
-            goto unlock;
+            return err;
         }
     }
 
-unlock:
-    thread_mutex_unlock(chan->send_mutex);
-    return err;
+    return SYS_ERR_OK;
 }
 
 static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
@@ -137,20 +136,16 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
     // synchornization with the unlocking of the sending core.
     rdtscp();
 
-    // only lock once the message was actually sent
-    dmb();  // barrier spam
-    thread_mutex_lock(ump->recv_mutex);
-    dmb();  // barrier spam
-
-    rdtscp();
-    entry->header.msg_state = UmpMessageReceived;
     assert(sizeof(struct ump_msg) == UMP_MSG_BYTES);
     memcpy(msg, entry, UMP_MSG_BYTES);
+
+    dmb();  // ensure that the message is received before we mark it logically as received
+
+    entry->header.msg_state = UmpMessageReceived;
     ump->recv_next = (ump->recv_next + 1) % UMP_MESSAGES_ENTRIES;
 
     dmb();  // ensure that the message state is consistent
 
-    thread_mutex_unlock(ump->recv_mutex);
     return SYS_ERR_OK;
 }
 
