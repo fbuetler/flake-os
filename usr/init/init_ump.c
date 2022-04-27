@@ -28,9 +28,9 @@ void ump_receive_listener(struct ump_chan *chan){
             {
                 char *cmd = payload;
                 DEBUG_PRINTF("received ump spawn request for: %s\n", cmd);
-                struct spawninfo *info = malloc(sizeof(struct spawninfo));
+
                 domainid_t pid = 0;
-                err = start_process(cmd, info, &pid); 
+                err = process_spawn_request(cmd, &pid);
                 if(err_is_fail(err)){
                     DEBUG_PRINTF("failed to start process over ump: %s\n", cmd);
                 }
@@ -39,9 +39,7 @@ void ump_receive_listener(struct ump_chan *chan){
                 if(err_is_fail(err)){
                     DEBUG_PRINTF("failed to respond to spawn request!\n");
                 }
-
                 continue;
-
             }
             default:
             {

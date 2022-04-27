@@ -13,6 +13,17 @@
 #include <spawn/spawn.h>
 #include <aos/ump_chan.h>
 
+errval_t process_spawn_request(char *cmd, domainid_t *pid){
+    // malloc into the datastructure; spawn is responsible for freeing again
+    struct spawninfo *info = malloc(sizeof(struct spawninfo));
+    errval_t err = start_process(cmd, info, pid); 
+    if(err_is_fail(err)){
+        DEBUG_PRINTF("failed to start process over ump: %s\n", cmd);
+    }
+
+    return err;
+}
+
 errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid)
 {
     errval_t err;

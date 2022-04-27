@@ -100,10 +100,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
         DEBUG_PRINTF("launched process; PID is: %d\n", *(size_t *)payload);
 
     }else{
-        // spawn request on this core
-        struct spawninfo *info = malloc(sizeof(struct spawninfo));
-
-        err = start_process(module, info, &pid);
+        err = process_spawn_request(module, &pid);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to start spawn process");
             return;
