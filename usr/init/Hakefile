@@ -17,6 +17,7 @@
                         "distops/deletestep.c",
                         "distops/invocations.c",
                         "main.c",
+                        "init_ump.c",
                         "init_rpc.c",
                         "mem_alloc.c",
                         "custom_tests.c"
