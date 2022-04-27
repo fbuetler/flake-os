@@ -85,7 +85,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
     if(destination_core != disp_get_core_id()){
         // send UMP request to destination core; spawn process there
         DEBUG_PRINTF("destination_core: %d\n", destination_core);
-        err = ump_send(&ump_chans[destination_core], UmpSpawn, "hello", strlen("hello"));
+        err = ump_send(&ump_chans[destination_core], UmpSpawn, module, strlen(module));
         assert(err_is_ok(err));
 
         // get response!
@@ -246,6 +246,50 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc){
 }
 
 
+static errval_t aos_process_get_all_pids_request(struct aos_rpc *rpc){
+    errval_t err = SYS_ERR_OK;
+    size_t nr_of_pids;
+    domainid_t *pids;
+    err = process_get_all_pids(&nr_of_pids, &pids);
+
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not get all the PIDs");
+        return err;
+    }
+
+    size_t payload_size = sizeof(size_t) + nr_of_pids * sizeof(domainid_t);
+    void *payload = malloc(payload_size);
+    if(!payload){
+        free(pids);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    *(size_t*)payload = nr_of_pids;
+
+    memcpy(payload + sizeof(size_t), pids, nr_of_pids * sizeof(domainid_t));
+
+    struct aos_rpc_msg *reply;
+    err = aos_rpc_create_msg(&reply, GetAllPidsResponse, payload_size, (void *)payload,
+                            NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        goto unwind;
+    }
+
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error sending  response\n");
+        goto unwind;
+    }
+
+unwind:
+    free(payload);
+    free(pids);
+
+    return err;
+}
+
+
 errval_t init_process_msg(struct aos_rpc *rpc)
 {
     // refill slot allocator
@@ -277,6 +321,9 @@ errval_t init_process_msg(struct aos_rpc *rpc)
         break;
     case Pid2Name:
         aos_process_pid2name_request(rpc);
+        break;
+    case GetAllPids:
+        aos_process_get_all_pids_request(rpc);
         break;
     default:
         printf("received unknown message type\n");

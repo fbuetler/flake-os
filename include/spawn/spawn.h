@@ -19,6 +19,7 @@
 #include "aos/paging.h"
 #include "aos/aos_rpc.h"
 
+#include <aos/threads.h>
 
 #define PID_RANGE_BITS_PER_CORE (28)
 
@@ -55,6 +56,8 @@ struct spawninfo {
     struct aos_rpc rpc;
 };
 
+size_t spawn_number_of_processes;
+struct thread_mutex spawn_mutex;
 domainid_t global_pid_counter;
 struct spawninfo init_spawninfo;
 
@@ -79,5 +82,7 @@ errval_t spawn_kill_process(domainid_t pid);
 errval_t spawn_free(struct spawninfo *si);
 
 errval_t spawn_map_module(struct mem_region *module, size_t *retsize, lvaddr_t *retaddr);
+
+errval_t spawn_get_all_pids(size_t *ret_nr_of_pids, domainid_t **retpids);
 
 #endif /* _INIT_SPAWN_H_ */

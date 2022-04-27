@@ -27,6 +27,7 @@ struct aos_rpc {
     // TODO(M3): Add state
     struct lmp_chan chan;
     bool is_busy;
+    bool use_dynamic_buf;
 
     struct aos_rpc_msg *recv_msg;
     size_t recv_bytes;
@@ -47,6 +48,8 @@ enum aos_rpc_msg_type {
     SerialWriteCharResponse = 11,
     Pid2Name = 12,
     Pid2NameResponse = 13,
+    GetAllPids = 14,
+    GetAllPidsResponse = 15,
 };
 
 struct aos_rpc_msg {
@@ -87,7 +90,7 @@ errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_m
 /**
  * @brief Synchronously send a message
  */
-errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
+errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg, bool use_dynamic_buf);
 
 /**
  * \brief Send a number.

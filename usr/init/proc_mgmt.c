@@ -13,6 +13,12 @@
 #include <spawn/spawn.h>
 #include <aos/ump_chan.h>
 
+
+errval_t process_get_all_pids(size_t *ret_nr_of_pids, domainid_t **ret_pids){
+    errval_t err = spawn_get_all_pids(ret_nr_of_pids, ret_pids);
+    return err;
+}
+
 /**
  * @brief Lookup PID on current core and return name of process
  * 

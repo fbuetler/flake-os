@@ -176,13 +176,23 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not spawn process\n");
     }
 
-    /*
+    
     DEBUG_PRINTF("attempting pid2name...\n");
     char *name;
     aos_rpc_process_get_name(init_rpc, pid, &name);
     DEBUG_PRINTF("received pid2name result of pid 0x%lx: %s\n", pid, name);
-*/
 
+    size_t pid_count;
+    domainid_t *pids;
+    aos_rpc_process_get_all_pids(init_rpc, &pids, &pid_count);
+
+    DEBUG_PRINTF("PID count: %d\n", pid_count);
+    
+    for(int i = 0; i < pid_count; i++){
+        DEBUG_PRINTF("received pid: 0x%lx\n", pids[i]);
+    }
+
+    return 0;
 
     char c;
     // aos_rpc_serial_putchar(init_rpc, c);

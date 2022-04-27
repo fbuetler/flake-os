@@ -43,6 +43,9 @@ armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
 
 void spawn_init(void)
 {
+    thread_mutex_init(&spawn_mutex);
+    spawn_number_of_processes = 0;
+
     global_pid_counter = my_core_id << PID_RANGE_BITS_PER_CORE;
     init_spawninfo = (struct spawninfo) { .next = NULL,
                                           .binary_name = "init",
@@ -803,6 +806,8 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
  */
 void spawn_add_process(struct spawninfo *new_process)
 {
+    thread_mutex_lock(&spawn_mutex);
+
     assert(new_process);
     struct spawninfo *current = &init_spawninfo;
 
@@ -813,6 +818,8 @@ void spawn_add_process(struct spawninfo *new_process)
     }
     current->next = new_process;
     new_process->next = NULL;
+    spawn_number_of_processes += 1;
+    thread_mutex_unlock(&spawn_mutex);
 }
 
 /**
@@ -824,15 +831,19 @@ void spawn_add_process(struct spawninfo *new_process)
  * */
 errval_t spawn_get_process_by_pid(domainid_t pid, struct spawninfo **retinfo)
 {
+    thread_mutex_lock_nested(&spawn_mutex);
     struct spawninfo *current = &init_spawninfo;
 
     while (current) {
         if (current->pid == pid) {
             *retinfo = current;
+            thread_mutex_unlock(&spawn_mutex);
             return SYS_ERR_OK;
         }
         current = current->next;
     }
+
+    thread_mutex_unlock(&spawn_mutex);
     return SPAWN_ERR_PID_NOT_FOUND;
 }
 
@@ -848,6 +859,7 @@ errval_t spawn_get_process_by_pid(domainid_t pid, struct spawninfo **retinfo)
 
 errval_t spawn_get_free_pid(domainid_t *retpid)
 {
+    thread_mutex_lock(&spawn_mutex);
     struct spawninfo *retnode;
 
     domainid_t global_pid_counter_start = global_pid_counter;
@@ -859,10 +871,12 @@ errval_t spawn_get_free_pid(domainid_t *retpid)
         errval_t err = spawn_get_process_by_pid(global_pid_counter, &retnode);
         if (err_is_fail(err)) {
             *retpid = global_pid_counter;
+            thread_mutex_unlock(&spawn_mutex);
             return SYS_ERR_OK;
         }
     } while (global_pid_counter != global_pid_counter_start);
 
+    thread_mutex_unlock(&spawn_mutex);
     return SPAWN_ERR_OUT_OF_PIDS;
 }
 /**
@@ -870,6 +884,7 @@ errval_t spawn_get_free_pid(domainid_t *retpid)
  */
 void spawn_print_processes(void)
 {
+    thread_mutex_lock(&spawn_mutex);
     struct spawninfo *current = &init_spawninfo;
 
     printf("PID\tCMD\n");
@@ -877,10 +892,42 @@ void spawn_print_processes(void)
         printf("%d\t%s\n", current->pid, current->binary_name);
         current = current->next;
     }
+    thread_mutex_unlock(&spawn_mutex);
+}
+
+/**
+ * @brief Get all PIDs on current core. mallocs a new array, for which the caller
+ * is responsible for freeing. 
+ * 
+ * @param retpids Pointer to an array of PIDs. 
+ */
+errval_t spawn_get_all_pids(size_t *ret_nr_of_pids, domainid_t **retpids) {
+    thread_mutex_lock_nested(&spawn_mutex);
+
+    *ret_nr_of_pids = spawn_number_of_processes;
+
+    *retpids = malloc(spawn_number_of_processes);
+    if(!*retpids){
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    struct spawninfo *current = &init_spawninfo;
+    size_t i = 0;
+    while (current) {
+        (*retpids)[i] = current->pid;
+        DEBUG_PRINTF("current pid:0x%lx\n", current->pid);
+        current = current->next;
+        i++;
+    }
+
+    thread_mutex_unlock(&spawn_mutex);
+
+    return SYS_ERR_OK;
 }
 
 errval_t spawn_kill_process(domainid_t pid)
 {
+    thread_mutex_lock_nested(&spawn_mutex);
     errval_t err;
     struct spawninfo *process = NULL;
     struct spawninfo *prec = NULL;
@@ -896,15 +943,18 @@ errval_t spawn_kill_process(domainid_t pid)
         current = current->next;
     }
     if (process == NULL) {
+        thread_mutex_unlock(&spawn_mutex);
         return SPAWN_ERR_PID_NOT_FOUND;
     }
 
     err = spawn_get_process_by_pid(pid, &process);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&spawn_mutex);
         return err;
     }
     err = invoke_dispatcher_stop(process->dispatcher_cap);
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&spawn_mutex);
         return err_push(err, PROC_MGMT_ERR_KILL);
     }
 
@@ -913,9 +963,12 @@ errval_t spawn_kill_process(domainid_t pid)
     } else {
         // TODO killed init process. What now?
         DEBUG_PRINTF("init process was killed\n");
+        thread_mutex_unlock(&spawn_mutex);
         return LIB_ERR_SHOULD_NOT_GET_HERE;
     }
 
+    spawn_number_of_processes -= 1;
+    thread_mutex_unlock(&spawn_mutex);
     return SYS_ERR_OK;
 }
 
