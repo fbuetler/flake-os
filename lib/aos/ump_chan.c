@@ -85,8 +85,6 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
 
     dmb();  // ensure that the message state is consistent
 
-    rdtscp();  // barrier spam
-
     return SYS_ERR_OK;
 }
 
