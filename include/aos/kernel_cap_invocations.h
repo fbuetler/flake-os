@@ -32,6 +32,12 @@ static inline errval_t invoke_monitor_spawn_core(hwid_t core_id, enum cpu_type c
         .error;
 }
 
+static inline errval_t invoke_monitor_cpu_off(void)
+{
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
+    return cap_invoke1(cap_ipi, IPICmd_Cpu_Off).error;
+}
+
 static inline errval_t invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr,
                                                  int level, capaddr_t slot, coreid_t owner)
 {

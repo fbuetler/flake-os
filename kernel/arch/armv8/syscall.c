@@ -646,6 +646,14 @@ static struct sysret monitor_spawn_core(struct capability *kernel_cap,
     return sys_monitor_spawn_core(core_id, cpu_type, entry, context_id);
 }
 
+static struct sysret monitor_cpu_off(struct capability *kernel_cap,
+                                     arch_registers_state_t *context, int argc)
+{
+    errval_t err;
+    err = psci_cpu_off();
+    return SYSRET(err);
+}
+
 static struct sysret monitor_identify_cap(struct capability *kernel_cap,
                                           arch_registers_state_t *context, int argc)
 {
@@ -952,6 +960,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start]  = monitor_spawn_core,
+        [IPICmd_Cpu_Off] = monitor_cpu_off,
     },
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify

@@ -173,7 +173,6 @@ static errval_t boot_core(coreid_t core_id)
 }
 
 
-
 static int bsp_main(int argc, char *argv[])
 {
     errval_t err;
@@ -230,6 +229,20 @@ static int bsp_main(int argc, char *argv[])
     }
 
     return EXIT_SUCCESS;
+}
+
+static errval_t aos_cpu_off(void)
+{
+    DEBUG_PRINTF("turning CPU OFF\n")
+    errval_t err;
+    err = invoke_monitor_cpu_off();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to turn cpu off");
+        return err;
+    }
+    DEBUG_PRINTF("turned CPU OFF\n")
+
+    return SYS_ERR_OK;
 }
 
 static errval_t init_app_core(void)
@@ -332,6 +345,8 @@ static errval_t init_app_core(void)
         return err;
     }
 
+    DEBUG_PRINTF("App core initialized\n");
+
     return SYS_ERR_OK;
 }
 
@@ -358,8 +373,9 @@ static int app_main(int argc, char *argv[])
 
     run_m5_tests_app();
 
-
     grading_test_late();
+
+    aos_cpu_off();
 
     DEBUG_PRINTF("Message handler loop\n");
     struct waitset *default_ws = get_default_waitset();

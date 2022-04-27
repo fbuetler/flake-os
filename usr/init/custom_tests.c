@@ -914,8 +914,8 @@ void run_m4_tests(void)
     M5 TEST START
 */
 
-__attribute__((unused))
-static void test_ump_spawn(void){
+__attribute__((unused)) static void test_ump_spawn(void)
+{
     errval_t err = ump_send(&ump_chans[1], UmpSpawn, "memeater", strlen("memeater"));
     assert(err_is_ok(err));
 
@@ -931,21 +931,33 @@ static void test_ump_spawn(void){
     printf("Completed %s\n", __func__);
 }
 
+
+__attribute__((unused)) static void test_cpu_off(void)
+{
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    errval_t err = start_process("infinite_print", si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn infinite_print");
+    }
+    assert(err_is_ok(err));
+}
+
 void run_m5_tests_bsp(void)
 {
     // test_spawn_single_process();
 
     // send spawn request:
 
-    test_spawn_memeater();
-
+    // test_spawn_memeater();
 }
 
 void run_m5_tests_app(void)
 {
-    //ump_receive_listener(&ump_chans[0]);
+    // ump_receive_listener(&ump_chans[0]);
+    // test_spawn_single_process();
+    test_cpu_off();
 
-    //test_spawn_single_process();
     printf("Completed %s\n", __func__);
 }
 

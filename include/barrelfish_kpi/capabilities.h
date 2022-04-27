@@ -568,6 +568,7 @@ enum id_cmd {
 enum ipi_cmd {
     IPICmd_Send_Start,  ///< Send Startup IPI to a destination core
     IPICmd_Send_Init,   ///< Send Init IPI to a destination core
+    IPICmd_Cpu_Off,
 };
 
 /**
