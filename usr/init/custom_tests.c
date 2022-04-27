@@ -14,6 +14,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "proc_mgmt.h"
 #include "init_ump.h"
 #include "init_rpc.h"
 

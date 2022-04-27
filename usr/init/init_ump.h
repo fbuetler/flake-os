@@ -1,3 +1,9 @@
+
+
+#ifndef _INIT_INIT_UMP_H_
+#define _INIT_INIT_UMP_H_
+
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -13,3 +19,5 @@ void ump_receive_listener(struct ump_chan *chan);
 
 int ump_receive_listener_thread_func(void *arg);
 
+
+#endif
