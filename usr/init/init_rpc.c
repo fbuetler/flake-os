@@ -245,6 +245,37 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc){
 
 }
 
+__attribute__((unused))
+static errval_t aos_get_remote_pids(size_t *num_pids, domainid_t **pids){
+    // get pids from other core
+    debug_printf("getting remote pids...\n");
+    struct ump_chan *ump = &ump_chans[!disp_get_core_id()];
+
+    errval_t err = ump_send(ump, UmpGetAllPids, "", 1);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not send UMP message for get all pids");
+        return err;
+    }
+
+    debug_printf("awaiting remote pids...\n");
+
+    enum ump_msg_type type;
+    char *payload;
+    size_t retsize;
+
+    err = ump_receive(ump, &type, &payload, &retsize);
+
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not receive UMP message for get all pids");
+        return err;
+    }
+
+    *pids = (domainid_t *)payload;
+    *num_pids = retsize / sizeof(domainid_t); 
+
+    return SYS_ERR_OK;
+
+}
 
 static errval_t aos_process_get_all_pids_request(struct aos_rpc *rpc){
     errval_t err = SYS_ERR_OK;
@@ -257,16 +288,31 @@ static errval_t aos_process_get_all_pids_request(struct aos_rpc *rpc){
         return err;
     }
 
-    size_t payload_size = sizeof(size_t) + nr_of_pids * sizeof(domainid_t);
+    // get remote pids
+    size_t remote_nr_of_pids;
+    domainid_t *remote_pids;
+    err = aos_get_remote_pids(&remote_nr_of_pids, &remote_pids);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not get the remote PIDs\n");
+        return err;
+    }
+
+    size_t payload_size = sizeof(size_t) + nr_of_pids * sizeof(domainid_t) + remote_nr_of_pids * sizeof(domainid_t);
     void *payload = malloc(payload_size);
     if(!payload){
         free(pids);
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    *(size_t*)payload = nr_of_pids;
+    *(size_t*)payload = nr_of_pids + remote_nr_of_pids;
 
     memcpy(payload + sizeof(size_t), pids, nr_of_pids * sizeof(domainid_t));
+    memcpy(payload + sizeof(size_t) + nr_of_pids * sizeof(domainid_t), remote_pids, remote_nr_of_pids * sizeof(domainid_t));
+
+    domainid_t * pids_ = (domainid_t *)(payload+sizeof(size_t));
+    for (int i = 0; i < nr_of_pids; ++i) {
+        DEBUG_PRINTF("inside aos_process_get_all_pids_request, pid: %d\n", pids_[i]);
+    }
 
     struct aos_rpc_msg *reply;
     err = aos_rpc_create_msg(&reply, GetAllPidsResponse, payload_size, (void *)payload,

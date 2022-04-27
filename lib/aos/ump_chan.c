@@ -31,14 +31,10 @@ errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
     }
 
     ump->send_base = send_mem + UMP_MESSAGES_OFFSET;
-    ump->send_mutex = send_mem + UMP_METADATA_MUTEX_OFFSET;
     ump->send_next = 0;
-    thread_mutex_init(ump->send_mutex);
 
     ump->recv_base = recv_mem + UMP_MESSAGES_OFFSET;
-    ump->recv_mutex = recv_mem + UMP_METADATA_MUTEX_OFFSET;
     ump->recv_next = 0;
-    thread_mutex_init(ump->recv_mutex);
 
     // DEBUG_PRINTF("Shared memory:\nsend: 0x%lx\nreceive: 0x%lx\n", send_mem, recv_mem);
     // genpaddr_t paddr;

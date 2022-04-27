@@ -58,7 +58,26 @@ void ump_receive_listener(struct ump_chan *chan){
                 }
                 continue;
             }
-            
+            case UmpGetAllPids:
+            {
+                debug_printf("got a getallpids request\n");
+                size_t nr_of_pids;
+                domainid_t *pids;
+                err = process_get_all_pids(&nr_of_pids, &pids);
+                if(err_is_fail(err)){
+                    DEBUG_PRINTF("failed to get all pids!\n");
+                    continue;
+                }
+
+                debug_printf("sending %zu pids\n", nr_of_pids);
+
+                err = ump_send(chan, UmpGetAllPidsResponse, (char *)pids, nr_of_pids * sizeof(domainid_t));
+                if(err_is_fail(err)){
+                    DEBUG_PRINTF("failed to respond to get all pids!\n");
+                }
+                debug_printf("sent %zu pids\n", nr_of_pids);
+                continue;
+            }
             default:
             {
                 assert(!"unknown type message received in ump receive listener\n");

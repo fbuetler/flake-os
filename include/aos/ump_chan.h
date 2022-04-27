@@ -50,7 +50,9 @@ enum ump_msg_type {
     UmpSendBootinfo = 6,
     UmpSendMMStrings = 7,
     UmpPid2Name = 8,
-    UmpPid2NameResponse = 9
+    UmpPid2NameResponse = 9,
+    UmpGetAllPids = 10,
+    UmpGetAllPidsResponse = 11,
 };
 
 enum ump_msg_state {
@@ -82,11 +84,9 @@ struct ump_msg {
 struct ump_chan {
     uint64_t *send_base;  // start of the send secion
     uint64_t send_next;   // next send entry
-    struct thread_mutex *send_mutex;
 
     uint64_t *recv_base;  // start of the receive section
     uint64_t recv_next;   // next recv entry
-    struct thread_mutex *recv_mutex;
 };
 
 void ump_debug_print(struct ump_chan *ump);

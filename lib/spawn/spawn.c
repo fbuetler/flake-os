@@ -44,7 +44,7 @@ armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
 void spawn_init(void)
 {
     thread_mutex_init(&spawn_mutex);
-    spawn_number_of_processes = 0;
+    spawn_number_of_processes = 1;
 
     global_pid_counter = my_core_id << PID_RANGE_BITS_PER_CORE;
     init_spawninfo = (struct spawninfo) { .next = NULL,
@@ -57,7 +57,7 @@ void spawn_init(void)
                                           .dispatcher_cap = cap_dispatcher,
                                           .dispatcher_frame_cap = cap_dispframe,
                                           .args_frame_cap = cap_argcn,
-                                          .pid = 0,
+                                          .pid = global_pid_counter,
                                           .paging_state = *get_current_paging_state(),
                                           .dispatcher_handle = 0 };
 }
@@ -915,7 +915,6 @@ errval_t spawn_get_all_pids(size_t *ret_nr_of_pids, domainid_t **retpids) {
     size_t i = 0;
     while (current) {
         (*retpids)[i] = current->pid;
-        DEBUG_PRINTF("current pid:0x%lx\n", current->pid);
         current = current->next;
         i++;
     }

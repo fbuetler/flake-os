@@ -195,8 +195,6 @@ static int bsp_main(int argc, char *argv[])
     // Grading
     grading_test_early();
 
-    spawn_init();
-
     // run_m1_tests();
     // run_m2_tests();
     // run_m3_tests();
@@ -417,6 +415,8 @@ int main(int argc, char *argv[])
         printf(" %s", argv[i]);
     }
     printf("\n");
+
+    spawn_init();
 
     fflush(stdout);
 

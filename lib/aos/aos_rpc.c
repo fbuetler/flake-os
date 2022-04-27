@@ -16,6 +16,7 @@
 #include <aos/aos_rpc.h>
 #include <math.h>
 #include <spawn/spawn.h>
+#include <aos/deferred.h>
 
 #define AOS_RPC_MSG_SIZE(payload_size) (sizeof(struct aos_rpc_msg) + (payload_size))
 char static_rpc_msg_buf[1<<20];
@@ -67,6 +68,8 @@ static errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
     case SendString:
         aos_process_string(rpc->recv_msg);
         break;
+    case GetAllPidsResponse:
+        break;
     default:
         DEBUG_PRINTF("received unknown message type %d\n", msg_type);
         // free(rpc->recv_msg);
@@ -78,13 +81,14 @@ static errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
 
 // forward declared
 static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc);
+static errval_t aos_rpc_recv_msg_blocking(struct aos_rpc *rpc);
 
 static errval_t aos_rpc_recv_msg_handler(void *args)
 {
     errval_t err;
     struct aos_rpc *rpc = (struct aos_rpc *)args;
 
-      err = aos_rpc_recv_msg(rpc);
+    err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         return err;
@@ -96,7 +100,69 @@ static errval_t aos_rpc_recv_msg_handler(void *args)
 
     return SYS_ERR_OK;
 }
+
 static char STATIC_RPC_RECV_MSG_BUF[4096];
+__attribute__((unused))
+static errval_t aos_rpc_recv_msg_blocking(struct aos_rpc *rpc)
+{
+    errval_t err;
+    // receive first message
+    struct capref msg_cap;
+    struct lmp_recv_msg recv_buf = LMP_RECV_MSG_INIT;
+
+incoming_msg:
+    
+    while (!lmp_chan_can_recv(&rpc->chan)) {}
+
+    while (true)
+    {
+        err = lmp_chan_recv(&rpc->chan, &recv_buf, &msg_cap); 
+        if(err_is_fail(err) && lmp_err_is_transient(err)) {
+            continue;
+        } else if (err_is_fail(err)){
+            return err_push(err, LIB_ERR_LMP_CHAN_RECV);
+        } else {
+            break;
+        }
+    }
+
+    if(!rpc->is_busy) {
+        // setup rpc state with new message 
+        struct aos_rpc_msg *tmp_msg = (struct aos_rpc_msg *)recv_buf.words;
+        size_t total_bytes = tmp_msg->header_bytes + tmp_msg->payload_bytes;
+
+        size_t recv_bytes = MIN(LMP_MSG_LENGTH_BYTES, total_bytes);
+
+        // allocate space for return message, copy current message already to it
+        rpc->recv_msg = (!rpc->use_dynamic_buf) ? (struct aos_rpc_msg *)STATIC_RPC_RECV_MSG_BUF : malloc(total_bytes);
+        if (!rpc->recv_msg) {
+            DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg_handler for ret_msg failed "
+                            "\n");
+            return LIB_ERR_MALLOC_FAIL;
+        }
+
+        memcpy(rpc->recv_msg, tmp_msg, recv_bytes);
+        rpc->recv_bytes = recv_bytes;
+        rpc->is_busy = true;
+        rpc->recv_msg->cap = msg_cap;
+        goto incoming_msg;
+    } else if (rpc->recv_bytes < rpc->recv_msg->payload_bytes + rpc->recv_msg->header_bytes) {
+        size_t total_bytes = rpc->recv_msg->header_bytes + rpc->recv_msg->payload_bytes;
+        size_t remaining_bytes = total_bytes - rpc->recv_bytes;
+        size_t copy_bytes = MIN(remaining_bytes, LMP_MSG_LENGTH_BYTES);
+        memcpy(((char *)rpc->recv_msg) + rpc->recv_bytes, recv_buf.words, copy_bytes);
+        rpc->recv_bytes += copy_bytes;
+
+        if(rpc->recv_bytes < rpc->recv_msg->payload_bytes + rpc->recv_msg->header_bytes) {
+            while (!lmp_chan_can_recv(&rpc->chan)) {}
+            goto incoming_msg;
+        }
+    }
+
+    rpc->is_busy = false;
+    return err;
+}
+
 static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
 {
     errval_t err;
@@ -110,7 +176,6 @@ static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
     } else if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
     }
-
 
 
     if (!rpc->is_busy) {
@@ -378,6 +443,15 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 
     uint64_t *buf = (uint64_t *)msg;
 
+    if (msg->message_type == GetAllPidsResponse) {
+        DEBUG_PRINTF("msg type GET_ALL_PIDs_RESPONSE\n")
+        domainid_t * pids_ = (domainid_t *)(msg->payload+sizeof(size_t));
+        DEBUG_PRINTF("inside aos_rpc_send_msg nbr of pids: %zu\n", *(size_t*)(msg->payload));
+        for (int i = 0; i < *(size_t*)(msg->payload); ++i) {
+            DEBUG_PRINTF("inside aos_rpc_send_msg, pid: %d\n", pids_[i]);
+        }
+    }
+
     struct capref send_cap;
     if (!capcmp(msg->cap, NULL_CAP)) {
         send_cap = msg->cap;
@@ -489,10 +563,8 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg, bool use_dyn
         return err;
     }
 
-    // wait for the response message
     while (!lmp_chan_can_recv(&rpc->chan)) {
     }
-
 
     err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
@@ -500,6 +572,13 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg, bool use_dyn
         // TODO remove abort
         abort();
         return err;
+    }
+
+    while(rpc->is_busy){
+        // wait for the response message
+        while (!lmp_chan_can_recv(&rpc->chan)) {
+        }   
+        event_dispatch(get_default_waitset());
     }
 
     thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
@@ -737,6 +816,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
 errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
                                       size_t *pid_count)
 {
+    debug_printf("get all pids!\n");
     // TODO (M5): implement process id discovery
     errval_t err;
 
@@ -751,7 +831,8 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
         return err;
     }
 
-    err = aos_rpc_call(rpc, msg, true);  // rpc->recv_msg is malloced. Need to free it
+    err = aos_rpc_call(rpc, msg, false);  // rpc->recv_msg is malloced. Need to free it
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
@@ -760,10 +841,10 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
     *pid_count = *((size_t *)rpc->recv_msg->payload);
     //*pids = ((domainid_t *)(rpc->recv_msg->payload + sizeof(size_t)));
 
-    *pids = malloc(*pid_count);
-    memcpy(*pids, rpc->recv_msg->payload + sizeof(size_t), *pid_count);
+    *pids = malloc(*pid_count*sizeof(domainid_t));
+    memcpy(*pids, rpc->recv_msg->payload + sizeof(size_t), *pid_count*sizeof(domainid_t));
 
-    free(rpc->recv_msg);
+    //free(rpc->recv_msg);
 
     return SYS_ERR_OK;
 }
