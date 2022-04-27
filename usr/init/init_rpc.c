@@ -309,11 +309,6 @@ static errval_t aos_process_get_all_pids_request(struct aos_rpc *rpc){
     memcpy(payload + sizeof(size_t), pids, nr_of_pids * sizeof(domainid_t));
     memcpy(payload + sizeof(size_t) + nr_of_pids * sizeof(domainid_t), remote_pids, remote_nr_of_pids * sizeof(domainid_t));
 
-    domainid_t * pids_ = (domainid_t *)(payload+sizeof(size_t));
-    for (int i = 0; i < nr_of_pids; ++i) {
-        DEBUG_PRINTF("inside aos_process_get_all_pids_request, pid: %d\n", pids_[i]);
-    }
-
     struct aos_rpc_msg *reply;
     err = aos_rpc_create_msg(&reply, GetAllPidsResponse, payload_size, (void *)payload,
                             NULL_CAP);

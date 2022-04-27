@@ -443,15 +443,6 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
 
     uint64_t *buf = (uint64_t *)msg;
 
-    if (msg->message_type == GetAllPidsResponse) {
-        DEBUG_PRINTF("msg type GET_ALL_PIDs_RESPONSE\n")
-        domainid_t * pids_ = (domainid_t *)(msg->payload+sizeof(size_t));
-        DEBUG_PRINTF("inside aos_rpc_send_msg nbr of pids: %zu\n", *(size_t*)(msg->payload));
-        for (int i = 0; i < *(size_t*)(msg->payload); ++i) {
-            DEBUG_PRINTF("inside aos_rpc_send_msg, pid: %d\n", pids_[i]);
-        }
-    }
-
     struct capref send_cap;
     if (!capcmp(msg->cap, NULL_CAP)) {
         send_cap = msg->cap;
