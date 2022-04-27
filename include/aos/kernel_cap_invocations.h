@@ -22,25 +22,23 @@
  *                   memory
  */
 
-static inline errval_t
-invoke_monitor_spawn_core(hwid_t core_id, enum cpu_type cpu_type,
-                          genpaddr_t entry, genpaddr_t context,
-                          uint64_t psci_use_hvc)
+static inline errval_t invoke_monitor_spawn_core(hwid_t core_id, enum cpu_type cpu_type,
+                                                 genpaddr_t entry, genpaddr_t context,
+                                                 uint64_t psci_use_hvc)
 {
-    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__,
-            __builtin_return_address(0));
-    return cap_invoke6(cap_ipi, IPICmd_Send_Start, core_id, cpu_type,
-                       entry, context, psci_use_hvc).error;
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
+    return cap_invoke6(cap_ipi, IPICmd_Send_Start, core_id, cpu_type, entry, context,
+                       psci_use_hvc)
+        .error;
 }
 
-static inline errval_t
-invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int level,
-        capaddr_t slot, coreid_t owner)
+static inline errval_t invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr,
+                                                 int level, capaddr_t slot, coreid_t owner)
 {
-    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__,
-            __builtin_return_address(0));
-    return cap_invoke6(cap_kernel, KernelCmd_Create_cap, caddr, level, slot,
-                       owner, (uintptr_t)raw).error;
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
+    return cap_invoke6(cap_kernel, KernelCmd_Create_cap, caddr, level, slot, owner,
+                       (uintptr_t)raw)
+        .error;
 }
 
 /**
@@ -66,23 +64,15 @@ invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int level,
  * XXX Warning Warning Warning
  *
  */
-static inline errval_t
-ram_forge(struct capref dest, genpaddr_t base, gensize_t bytes,
-                   coreid_t coreid) {
-    struct capability ram_cap = {
-        .type = ObjType_RAM,
-        .rights = CAPRIGHTS_READ_WRITE,
-        .u.ram = {
-            .base  = base,
-            .pasid = 0,
-            .bytes = bytes
-        }
-    };
+static inline errval_t ram_forge(struct capref dest, genpaddr_t base, gensize_t bytes,
+                                 coreid_t coreid)
+{
+    struct capability ram_cap = { .type = ObjType_RAM,
+                                  .rights = CAPRIGHTS_READ_WRITE,
+                                  .u.ram = { .base = base, .pasid = 0, .bytes = bytes } };
 
-    return invoke_monitor_create_cap((uint64_t *)&ram_cap,
-                                     get_cnode_addr(dest),
-                                     get_cnode_level(dest),
-                                     dest.slot, coreid);
+    return invoke_monitor_create_cap((uint64_t *)&ram_cap, get_cnode_addr(dest),
+                                     get_cnode_level(dest), dest.slot, coreid);
 }
 
 /**
@@ -96,22 +86,15 @@ ram_forge(struct capref dest, genpaddr_t base, gensize_t bytes,
  * As for ram_forge, but for frames.  Same warnings apply!
  *
  */
-static inline errval_t
-frame_forge(struct capref dest, genpaddr_t base, gensize_t bytes,
-                     coreid_t coreid) {
-    struct capability frame_cap = {
-        .type = ObjType_Frame,
-        .rights = CAPRIGHTS_READ_WRITE,
-        .u.frame = {
-            .base  = base,
-            .bytes = bytes
-        }
-    };
+static inline errval_t frame_forge(struct capref dest, genpaddr_t base, gensize_t bytes,
+                                   coreid_t coreid)
+{
+    struct capability frame_cap = { .type = ObjType_Frame,
+                                    .rights = CAPRIGHTS_READ_WRITE,
+                                    .u.frame = { .base = base, .bytes = bytes } };
 
-    return invoke_monitor_create_cap((uint64_t *)&frame_cap,
-                                     get_cnode_addr(dest),
-                                     get_cnode_level(dest),
-                                     dest.slot, coreid);
+    return invoke_monitor_create_cap((uint64_t *)&frame_cap, get_cnode_addr(dest),
+                                     get_cnode_level(dest), dest.slot, coreid);
 }
 
 /**
@@ -125,25 +108,16 @@ frame_forge(struct capref dest, genpaddr_t base, gensize_t bytes,
  * As for ram_forge, but for devframes.  Same warnings apply!
  *
  */
-static inline errval_t
-devframe_forge(struct capref dest, genpaddr_t base, gensize_t bytes,
-                        coreid_t coreid) {
-    struct capability frame_cap = {
-        .type = ObjType_DevFrame,
-        .rights = CAPRIGHTS_READ_WRITE,
-        .u.frame = {
-            .base  = base,
-            .bytes = bytes
-        }
-    };
+static inline errval_t devframe_forge(struct capref dest, genpaddr_t base,
+                                      gensize_t bytes, coreid_t coreid)
+{
+    struct capability frame_cap = { .type = ObjType_DevFrame,
+                                    .rights = CAPRIGHTS_READ_WRITE,
+                                    .u.frame = { .base = base, .bytes = bytes } };
 
-    return invoke_monitor_create_cap((uint64_t *)&frame_cap,
-                                     get_cnode_addr(dest),
-                                     get_cnode_level(dest),
-                                     dest.slot, coreid);
+    return invoke_monitor_create_cap((uint64_t *)&frame_cap, get_cnode_addr(dest),
+                                     get_cnode_level(dest), dest.slot, coreid);
 }
-
-
 
 
 #endif /* __KERNEL_CAP_INVOCATIONS */
