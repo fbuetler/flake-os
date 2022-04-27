@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "init_rpc.h"
+
 #include <aos/aos.h>
 #include <aos/capabilities.h>
 #include <aos/morecore.h>
