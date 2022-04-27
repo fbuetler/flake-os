@@ -20,6 +20,8 @@
 #include "aos/aos_rpc.h"
 
 
+#define PID_RANGE_BITS_PER_CORE (28)
+
 struct spawninfo {
     // the next in the list of spawned domains
     struct spawninfo *next;

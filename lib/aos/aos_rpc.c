@@ -482,7 +482,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     //DEBUG_PRINTF("inside aos_rpc_call, after aos_rpc_send_msg \n");
     //DEBUG_PRINTF("channel after %p\n", rpc->chan.endpoint);
     //DEBUG_PRINTF("recv_bytes: %d, is_busy: %d \n", rpc->recv_bytes, rpc->is_busy);
-
+    
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
@@ -680,7 +680,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     }
 
     domainid_t assigned_pid = *((domainid_t *)rpc->recv_msg->payload);
-    DEBUG_PRINTF("spawned process with PID %d\n", assigned_pid);
+    DEBUG_PRINTF("spawned process with PID 0x%lx\n", assigned_pid);
     *newpid = assigned_pid;
     free(msg);
     free(payload);
@@ -691,6 +691,36 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
 errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **name)
 {
     // TODO (M5): implement name lookup for process given a process id
+    errval_t err;
+    struct aos_rpc_msg *msg;
+    err = aos_rpc_create_msg(&msg, Pid2Name, sizeof(domainid_t), (void *)&pid, NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
+
+
+    err = aos_rpc_call(rpc, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+        return err;
+    }
+
+    char *assigned_name = rpc->recv_msg->payload;
+
+    if(*assigned_name == 0){
+        DEBUG_PRINTF("no pid assigned to this!\n");
+    }
+
+    size_t name_len = strlen(assigned_name);
+    *name = (char *) malloc(name_len+1);
+    if(!*name){
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    memcpy(*name, assigned_name, name_len + 1);
+    free(msg);
+
     return SYS_ERR_OK;
 }
 

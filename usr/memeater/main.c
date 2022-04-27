@@ -171,10 +171,18 @@ int main(int argc, char *argv[])
 
     DEBUG_PRINTF("spawning hello\n");
     domainid_t pid;
-    err = aos_rpc_process_spawn(init_rpc, "hello", 1, &pid);
+    err = aos_rpc_process_spawn(init_rpc, "hello", disp_get_core_id(), &pid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not spawn process\n");
     }
+
+    /*
+    DEBUG_PRINTF("attempting pid2name...\n");
+    char *name;
+    aos_rpc_process_get_name(init_rpc, pid, &name);
+    DEBUG_PRINTF("received pid2name result of pid 0x%lx: %s\n", pid, name);
+*/
+
 
     char c;
     // aos_rpc_serial_putchar(init_rpc, c);

@@ -45,6 +45,8 @@ enum aos_rpc_msg_type {
     SerialReadChar = 9,
     SerialReadCharResponse = 10,
     SerialWriteCharResponse = 11,
+    Pid2Name = 12,
+    Pid2NameResponse = 13,
 };
 
 struct aos_rpc_msg {

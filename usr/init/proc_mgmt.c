@@ -14,8 +14,6 @@
 #include <aos/ump_chan.h>
 
 /**
- * 
- * 
  * @brief Lookup PID on current core and return name of process
  * 
  * @param pid Pid to look at
@@ -44,11 +42,13 @@ errval_t process_pid2name(domainid_t pid, char **retname){
 errval_t process_spawn_request(char *cmd, domainid_t *pid){
     // malloc into the datastructure; spawn is responsible for freeing again
     struct spawninfo *info = malloc(sizeof(struct spawninfo));
+    if(!info){
+        return LIB_ERR_MALLOC_FAIL;
+    }
     errval_t err = start_process(cmd, info, pid); 
     if(err_is_fail(err)){
         DEBUG_PRINTF("failed to start process over ump: %s\n", cmd);
     }
-
     return err;
 }
 

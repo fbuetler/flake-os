@@ -644,7 +644,7 @@ __attribute__((unused)) static void test_spawn_and_kill_multiple_process(size_t 
         }
         printf("%f\n", x);
         spawn_kill_process(pids[j]);
-        printf("process with PID %d killed\n", pids[j]);
+        printf("process with PID 0x%lx killed\n", pids[j]);
         spawn_print_processes();
     }
 }
@@ -926,7 +926,7 @@ static void test_ump_spawn(void){
     err = ump_receive(&ump_chans[1], &type, &payload, &len);
     assert(err_is_ok(err));
     assert(type == UmpSpawnResponse);
-    printf("launched process; PID is: %d\n", *(size_t *)payload);
+    printf("launched process; PID is: 0x%lx\n", *(size_t *)payload);
 
     printf("Completed %s\n", __func__);
 }

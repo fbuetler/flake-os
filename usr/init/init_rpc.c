@@ -97,7 +97,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
         assert(type == UmpSpawnResponse);
 
         pid = *(domainid_t *)payload;
-        DEBUG_PRINTF("launched process; PID is: %d\n", *(size_t *)payload);
+        DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
 
     }else{
         err = process_spawn_request(module, &pid);
@@ -105,7 +105,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
             DEBUG_ERR(err, "failed to start spawn process");
             return;
         }
-        DEBUG_PRINTF("spawned process with PID %d\n", pid);
+        DEBUG_PRINTF("spawned process with PID 0x%lx\n", pid);
     }
 
     size_t payload_size = sizeof(domainid_t);
@@ -120,7 +120,6 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
         return;
     }
 
-    DEBUG_PRINTF("sending back!\n");
     err = aos_rpc_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
@@ -186,6 +185,67 @@ errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
     return SYS_ERR_OK;
 }
 
+static void aos_process_pid2name_request(struct aos_rpc *rpc){
+    errval_t err;
+
+    domainid_t pid = *((domainid_t *)rpc->recv_msg->payload);
+
+    // get destination core
+    coreid_t destination_core = pid >> PID_RANGE_BITS_PER_CORE;
+    
+    char *name = "";
+    if(destination_core != disp_get_core_id()){
+        // process via UMP at destination core
+        // TODO here, always 0 or 1 currently
+        struct ump_chan *ump = &ump_chans[!disp_get_core_id()];
+        err = ump_send(ump, UmpPid2Name, (void*)rpc->recv_msg->payload, sizeof(domainid_t));
+        if(err_is_fail(err)){
+            assert(!"couldn't send ump message for pid2name request");
+        }
+
+        // receive response
+        enum ump_msg_type type;
+        char *payload;
+        size_t retsize;
+        ump_receive(ump, &type, &payload, &retsize);
+        if(err_is_fail(err)){
+            assert(!"couldn't send ump message for pid2name request");
+        }
+
+        if(*payload != 0){
+            name = payload;
+        }
+        
+    }else{
+        err = process_pid2name(pid, &name);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "failed pid2name\n");
+            assert(!"local pid2name lookup failed");
+        }
+        debug_printf("local pid2name returned name for pid 0x%lx: %s\n", pid, name);
+    }
+
+    // return the name
+    size_t payload_size = strlen(name) + 1;
+
+    struct aos_rpc_msg *reply;
+    err = aos_rpc_create_msg(&reply, Pid2NameResponse, payload_size, (void *)name,
+                            NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        assert(0);
+        return;
+    }
+
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error sending spawn response\n");
+        return;
+    }
+
+}
+
+
 errval_t init_process_msg(struct aos_rpc *rpc)
 {
     // refill slot allocator
@@ -214,6 +274,9 @@ errval_t init_process_msg(struct aos_rpc *rpc)
         break;
     case SerialReadChar:
         aos_process_serial_read_char_request(rpc);
+        break;
+    case Pid2Name:
+        aos_process_pid2name_request(rpc);
         break;
     default:
         printf("received unknown message type\n");

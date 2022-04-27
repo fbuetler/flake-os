@@ -43,7 +43,7 @@ armv8_set_registers(void *arch_load_info, dispatcher_handle_t handle,
 
 void spawn_init(void)
 {
-    global_pid_counter = 0;
+    global_pid_counter = my_core_id << PID_RANGE_BITS_PER_CORE;
     init_spawninfo = (struct spawninfo) { .next = NULL,
                                           .binary_name = "init",
                                           .rootcn = cnode_root,
@@ -749,7 +749,13 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     errval_t err;
 
     // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
-    si->binary_name = binary_name;
+    size_t binary_name_len = strlen(binary_name);
+    si->binary_name = malloc(binary_name_len + 1);
+    if(!si->binary_name){
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    memcpy(si->binary_name, binary_name, binary_name_len+1);
+
 
     DEBUG_TRACEF("Load binary from multiboot module\n");
     // get memory region from multiboot image
@@ -800,6 +806,7 @@ void spawn_add_process(struct spawninfo *new_process)
     assert(new_process);
     struct spawninfo *current = &init_spawninfo;
 
+    DEBUG_PRINTF("spawn_add_process: new process: %s\n", new_process->binary_name);
     DEBUG_TRACEF("&init_spawninfo: %p\n", &init_spawninfo);
     while (current->next) {
         current = current->next;
@@ -844,8 +851,11 @@ errval_t spawn_get_free_pid(domainid_t *retpid)
     struct spawninfo *retnode;
 
     domainid_t global_pid_counter_start = global_pid_counter;
+    size_t pid_core_prefix = my_core_id << PID_RANGE_BITS_PER_CORE;
+
     do {
-        global_pid_counter++;
+        global_pid_counter = pid_core_prefix + ((global_pid_counter+1) % (1 << PID_RANGE_BITS_PER_CORE));
+
         errval_t err = spawn_get_process_by_pid(global_pid_counter, &retnode);
         if (err_is_fail(err)) {
             *retpid = global_pid_counter;
@@ -938,6 +948,8 @@ errval_t spawn_free(struct spawninfo *si)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to destroy arguments frame cap");
     }
+
+    free(si->binary_name);
 
     return SYS_ERR_OK;
 }
