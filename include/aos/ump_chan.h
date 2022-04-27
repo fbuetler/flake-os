@@ -49,6 +49,8 @@ enum ump_msg_type {
     UmpSendMem = 5,
     UmpSendBootinfo = 6,
     UmpSendMMStrings = 7,
+    UmpPid2Name = 8,
+    UmpPid2NameResponse = 9
 };
 
 enum ump_msg_state {

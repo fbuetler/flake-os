@@ -41,6 +41,24 @@ void ump_receive_listener(struct ump_chan *chan){
                 }
                 continue;
             }
+            case UmpPid2Name:
+            {
+                char *name;
+
+                domainid_t pid = *(domainid_t*)payload;
+                err = process_pid2name(pid, &name);
+                if(err_is_fail(err)){
+                    DEBUG_PRINTF("failed to process pid2name request!\n");
+                    continue;
+                }
+
+                err = ump_send(chan, UmpPid2NameResponse, name, strlen(name) + 1);
+                if(err_is_fail(err)){
+                    DEBUG_PRINTF("failed to respond to pid2name request!\n");
+                }
+                continue;
+            }
+            
             default:
             {
                 assert(!"unknown type message received in ump receive listener\n");
