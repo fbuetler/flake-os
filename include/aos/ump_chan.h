@@ -82,7 +82,8 @@ struct ump_msg {
 
 
 struct ump_chan {
-    uint64_t *send_base;  // start of the send secion
+    struct thread_mutex chan_lock;
+    uint64_t *send_base;  // start of the send section
     uint64_t send_next;   // next send entry
 
     uint64_t *recv_base;  // start of the receive section

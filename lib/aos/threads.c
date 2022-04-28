@@ -434,6 +434,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
         return NULL;
     }
 
+
     // init stack
     newthread->stack = stack;
     newthread->stack_top = (char *)stack + stacksize;
@@ -471,6 +472,7 @@ struct thread *thread_create_varstack(thread_func_t start_func, void *arg,
                                       size_t stacksize)
 {
     struct thread *newthread = thread_create_unrunnable(start_func, arg, stacksize);
+    debug_printf("threade_create_unrunnable done\n");
     if (newthread) {
         // enqueue on runq
         dispatcher_handle_t handle = disp_disable();

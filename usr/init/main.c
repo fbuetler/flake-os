@@ -50,6 +50,7 @@ static int bsp_main(int argc, char *argv[])
 {
     errval_t err;
 
+
     // Grading
     grading_setup_bsp_init(argc, argv);
 
@@ -85,6 +86,7 @@ static int bsp_main(int argc, char *argv[])
     // if (err_is_fail(err)) {
     //     DEBUG_ERR(err, "failed to boot core");
     // }
+    struct thread *ump_listener_thread = run_ump_listener_thread();
 
     run_m5_tests_bsp();
 
@@ -100,6 +102,9 @@ static int bsp_main(int argc, char *argv[])
             abort();
         }
     }
+
+    int ump_listener_retval;
+    thread_join(ump_listener_thread, &ump_listener_retval);
 
     return EXIT_SUCCESS;
 }

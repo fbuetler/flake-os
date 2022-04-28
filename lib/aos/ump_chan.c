@@ -20,6 +20,7 @@ void ump_debug_print(struct ump_chan *ump)
 
 errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
 {
+    thread_mutex_init(&ump->chan_lock);
     void *send_mem;
     void *recv_mem;
     if (is_primary) {
@@ -60,10 +61,10 @@ static void ump_create_msg(struct ump_msg *msg, enum ump_msg_type type, char *pa
 static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
 {
     errval_t err;
-
     struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
     volatile enum ump_msg_state *state = &entry->header.msg_state;
 
+    DEBUG_PRINTF("sending UMP msg with type: %d \n", msg->header.msg_type);
     if (*state == UmpMessageSent) {
         err = LIB_ERR_UMP_CHAN_FULL;
         DEBUG_ERR(err, "send queue is full");
@@ -79,7 +80,9 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     entry->header.msg_state = UmpMessageSent;
     ump->send_next = (ump->send_next + 1) % UMP_MESSAGES_ENTRIES;
 
-    dmb();  // ensure that the message state is consistent
+    // no barrier needed as the receiving side has a memory barrier after the check of the
+    // message state. This already ensures that the message is not read before the state
+    // has been successfully checked
 
     return SYS_ERR_OK;
 }
@@ -88,7 +91,11 @@ errval_t ump_send(struct ump_chan *chan, enum ump_msg_type type, char *payload, 
 {
     errval_t err;
     size_t offset = 0;
-
+    /*
+    DEBUG_PRINTF("Before lock in ump_send \n");
+    thread_mutex_lock_nested(&chan->chan_lock);
+    DEBUG_PRINTF("Acquired lock in ump_send \n");
+    */
     if (len > UMP_MSG_MAX_BYTES) {
         err = LIB_ERR_UMP_SEND;
         DEBUG_ERR(err, "Message size exceeded max allowed size");
@@ -106,6 +113,7 @@ errval_t ump_send(struct ump_chan *chan, enum ump_msg_type type, char *payload, 
 
         err = ump_send_msg(chan, &msg);
         if (err_is_fail(err)) {
+            thread_mutex_unlock(&chan->chan_lock);
             DEBUG_ERR(err, "Failed to send message");
             err = err_push(err, LIB_ERR_UMP_SEND);
             return err;
@@ -119,16 +127,13 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
 {
     // ump_debug_print(ump);
 
+
     struct ump_msg *entry = (struct ump_msg *)ump->recv_base + ump->recv_next;
     volatile enum ump_msg_state *state = &entry->header.msg_state;
 
     while (*state != UmpMessageSent) {
         dmb();  // ensure that we checked the above condition before copying and every check
     }
-
-    // ensure that later instructions are only fetched after this point to ensure
-    // synchornization with the unlocking of the sending core.
-    rdtscp();
 
     assert(sizeof(struct ump_msg) == UMP_MSG_BYTES);
     memcpy(msg, entry, UMP_MSG_BYTES);
@@ -138,7 +143,9 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
     entry->header.msg_state = UmpMessageReceived;
     ump->recv_next = (ump->recv_next + 1) % UMP_MESSAGES_ENTRIES;
 
-    dmb();  // ensure that the message state is consistent
+    // no barrier needed, as the sending side has a memory barrier after its check of the
+    // message state
+
 
     return SYS_ERR_OK;
 }
@@ -146,6 +153,8 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
 errval_t ump_receive(struct ump_chan *ump, enum ump_msg_type *rettype, char **retpayload,
                      size_t *retlen)
 {
+
+    //thread_mutex_lock_nested(&ump->chan_lock);
     errval_t err;
 
     size_t offset = 0;

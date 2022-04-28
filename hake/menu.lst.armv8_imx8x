@@ -10,4 +10,4 @@ module  /armv8/sbin/infinite_print
 module  /armv8/sbin/memeater
 module  /armv8/sbin/selfpaging
 module  /armv8/sbin/selfpaging_already_handled
-
+module  /armv8/sbin/demom5

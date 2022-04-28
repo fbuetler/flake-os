@@ -32,6 +32,8 @@ struct aos_rpc {
     struct aos_rpc_msg *recv_msg;
     size_t recv_bytes;
     process_msg_func_t process_msg_func;
+
+    char *buf;
 };
 
 enum aos_rpc_msg_type {

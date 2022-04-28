@@ -748,15 +748,20 @@ void run_m2_tests(void)
     M2 TEST START
 */
 
-__attribute__((unused)) static void test_spawn_memeater(void)
+__attribute__((unused)) static void test_spawn_process(char *binary)
 {
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
-    errval_t err = start_process("memeater", si, pid);
+    errval_t err = start_process(binary, si, pid);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to spawn memeater");
+        DEBUG_ERR(err, "failed to spawn %s\n", binary);
     }
     assert(err_is_ok(err));
+}
+
+__attribute__((unused)) static void test_spawn_memeater(void)
+{
+    test_spawn_process("memeater");
 }
 
 __attribute__((unused)) static void test_spawn_multiple_memeaters(void)
@@ -985,6 +990,7 @@ void run_m5_tests_bsp(void)
     // send spawn request:
 
     // test_spawn_memeater();
+    // test_spawn_process("demom5");
     test_cpu_on();
 
     printf("Completed %s\n", __func__);

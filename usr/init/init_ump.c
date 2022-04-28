@@ -27,8 +27,6 @@ void ump_receive_listener(struct ump_chan *chan){
             case UmpSpawn:
             {
                 char *cmd = payload;
-                DEBUG_PRINTF("received ump spawn request for: %s\n", cmd);
-
                 domainid_t pid = 0;
                 err = process_spawn_request(cmd, &pid);
                 if(err_is_fail(err)){
@@ -69,13 +67,10 @@ void ump_receive_listener(struct ump_chan *chan){
                     continue;
                 }
 
-                debug_printf("sending %zu pids\n", nr_of_pids);
-
                 err = ump_send(chan, UmpGetAllPidsResponse, (char *)pids, nr_of_pids * sizeof(domainid_t));
                 if(err_is_fail(err)){
                     DEBUG_PRINTF("failed to respond to get all pids!\n");
                 }
-                debug_printf("sent %zu pids\n", nr_of_pids);
                 continue;
             }
             default:
@@ -97,7 +92,7 @@ int ump_receive_listener_thread_func(void *arg){
 }
 
 struct thread *run_ump_listener_thread(void){
-    struct ump_chan *chan = &ump_chans[0];
+    struct ump_chan *chan = &ump_chans[!disp_get_core_id()];
     struct thread *t = thread_create(ump_receive_listener_thread_func, (void *)chan);
     return t;
 }
