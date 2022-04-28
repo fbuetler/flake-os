@@ -135,7 +135,11 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
         // spin, cause it's cheap (L1 ftw!)
     }
 
-
+    // This barrier does not need to be inside the polling loop as the state enum is volatile.
+    // Further, the sending side has a data barrier before setting the correct state.
+    // Therefore, the only memory instruction between the barrier on the sending side
+    // and the polling loop reading that the state is UmpMessageSent is the sending side
+    // writing UmpMessageSent to the cache line.
     dmb();  // ensure that we checked the above condition before copying
 
     assert(sizeof(struct ump_msg) == UMP_MSG_BYTES);
@@ -156,7 +160,8 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
 errval_t ump_receive(struct ump_chan *ump, enum ump_msg_type *rettype, char **retpayload,
                      size_t *retlen)
 {
-    // thread_mutex_lock_nested(&ump->chan_lock);
+
+    //thread_mutex_lock_nested(&ump->chan_lock);
     errval_t err;
 
     size_t offset = 0;
