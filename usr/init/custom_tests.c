@@ -25,6 +25,7 @@
 #include <aos/capabilities.h>
 #include <aos/deferred.h>
 #include <aos/morecore.h>
+#include <aos/coreboot.h>
 #include <aos/paging.h>
 #include <aos/waitset.h>
 #include <aos/aos_rpc.h>
@@ -963,6 +964,20 @@ __attribute__((unused)) static void test_cpu_off(void)
     thread_create(test_cpu_off_func, NULL);
 }
 
+__attribute__((unused)) static void test_cpu_on(void)
+{
+    errval_t err;
+    delayus_t micro_sec = 1;
+    delayus_t sec = 1000 * 1000 * micro_sec;
+    barrelfish_usleep(10 * sec);
+
+    err = cpu_on(1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to turn cpu of");
+    }
+    assert(err_is_ok(err));
+}
+
 void run_m5_tests_bsp(void)
 {
     test_spawn_single_process();
@@ -970,6 +985,7 @@ void run_m5_tests_bsp(void)
     // send spawn request:
 
     // test_spawn_memeater();
+    test_cpu_on();
 
     printf("Completed %s\n", __func__);
 }
