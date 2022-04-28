@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "psci_mgmt.h"
 #include "proc_mgmt.h"
 #include "init_ump.h"
 #include "init_rpc.h"
@@ -22,6 +23,7 @@
 #include <aos/aos.h>
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
+#include <aos/deferred.h>
 #include <aos/morecore.h>
 #include <aos/paging.h>
 #include <aos/waitset.h>
@@ -931,6 +933,22 @@ __attribute__((unused)) static void test_ump_spawn(void)
     printf("Completed %s\n", __func__);
 }
 
+static int test_cpu_off_func(void *arg)
+{
+    errval_t err;
+
+    delayus_t micro_sec = 1;
+    delayus_t sec = 1000 * 1000 * micro_sec;
+    barrelfish_usleep(5 * sec);
+
+    err = cpu_off();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to turn cpu of");
+    }
+    assert(err_is_ok(err));
+
+    return err_is_ok(err);
+}
 
 __attribute__((unused)) static void test_cpu_off(void)
 {
@@ -941,15 +959,19 @@ __attribute__((unused)) static void test_cpu_off(void)
         DEBUG_ERR(err, "failed to spawn infinite_print");
     }
     assert(err_is_ok(err));
+
+    thread_create(test_cpu_off_func, NULL);
 }
 
 void run_m5_tests_bsp(void)
 {
-    // test_spawn_single_process();
+    test_spawn_single_process();
 
     // send spawn request:
 
     // test_spawn_memeater();
+
+    printf("Completed %s\n", __func__);
 }
 
 void run_m5_tests_app(void)

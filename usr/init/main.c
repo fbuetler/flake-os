@@ -231,20 +231,6 @@ static int bsp_main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-static errval_t aos_cpu_off(void)
-{
-    DEBUG_PRINTF("turning CPU OFF\n")
-    errval_t err;
-    err = invoke_monitor_cpu_off();
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to turn cpu off");
-        return err;
-    }
-    DEBUG_PRINTF("turned CPU OFF\n")
-
-    return SYS_ERR_OK;
-}
-
 static errval_t init_app_core(void)
 {
     errval_t err;
@@ -375,8 +361,6 @@ static int app_main(int argc, char *argv[])
 
     grading_test_late();
 
-    aos_cpu_off();
-
     DEBUG_PRINTF("Message handler loop\n");
     struct waitset *default_ws = get_default_waitset();
     while (true) {
@@ -386,7 +370,6 @@ static int app_main(int argc, char *argv[])
             abort();
         }
     }
-
 
     int ump_listener_retval;
     thread_join(ump_listener_thread, &ump_listener_retval);

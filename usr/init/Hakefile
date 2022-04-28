@@ -18,6 +18,7 @@
                         "distops/invocations.c",
                         "main.c",
                         "proc_mgmt.c",
+                        "psci_mgmt.c",
                         "init_ump.c",
                         "init_rpc.c",
                         "mem_alloc.c",
