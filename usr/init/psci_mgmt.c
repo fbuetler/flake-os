@@ -261,15 +261,14 @@ errval_t cpu_off(void)
     return SYS_ERR_OK;
 }
 
-errval_t cpu_on(void)
+errval_t cpu_on(hwid_t core_id)
 {
     DEBUG_PRINTF("turning CPU ON\n")
-    // errval_t err;
-    // err = invoke_monitor_cpu_on();
-    // if (err_is_fail(err)) {
-    //     DEBUG_ERR(err, "failed to turn cpu on");
-    //     return err;
-    // }
+    errval_t err;
+    err = boot_core(core_id);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to boot core");
+    }
     DEBUG_PRINTF("turned CPU ON\n")
 
     return SYS_ERR_OK;

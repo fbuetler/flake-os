@@ -9,6 +9,6 @@ errval_t init_app_core(void);
 
 errval_t cpu_off(void);
 
-errval_t cpu_on(void);
+errval_t cpu_on(hwid_t core_id);
 
 #endif
