@@ -939,6 +939,30 @@ __attribute__((unused)) static void test_ump_spawn(void)
     printf("Completed %s\n", __func__);
 }
 
+__attribute__((unused)) static void test_boot_all_cores(void)
+{
+    errval_t err;
+
+    // core 1 is booted by default
+    // err = boot_core(1);
+    // if (err_is_fail(err)) {
+    //     DEBUG_ERR(err, "failed to boot core");
+    // }
+    // assert(err_is_ok(err));
+
+    err = boot_core(2);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to boot core");
+    }
+    assert(err_is_ok(err));
+
+    err = boot_core(3);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to boot core");
+    }
+    assert(err_is_ok(err));
+}
+
 static int test_cpu_off_func(void *arg)
 {
     errval_t err;
@@ -993,6 +1017,8 @@ void run_m5_tests(void)
 
         // test_spawn_memeater();
         // test_spawn_process("demom5");
+
+        // test_boot_all_cores();
 
         test_cpu_on();
         break;
