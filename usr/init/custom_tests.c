@@ -961,50 +961,6 @@ __attribute__((unused)) static void test_boot_all_cores(void)
     assert(err_is_ok(err));
 }
 
-static int test_cpu_off_func(void *arg)
-{
-    errval_t err;
-
-    delayus_t micro_sec = 1;
-    delayus_t sec = 1000 * 1000 * micro_sec;
-    barrelfish_usleep(5 * sec);
-
-    err = cpu_off();
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to turn cpu of");
-    }
-    assert(err_is_ok(err));
-
-    return err_is_ok(err);
-}
-
-__attribute__((unused)) static void test_cpu_off(void)
-{
-    struct spawninfo *si = malloc(sizeof(struct spawninfo));
-    domainid_t *pid = malloc(sizeof(domainid_t));
-    errval_t err = start_process("infinite_print", si, pid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to spawn infinite_print");
-    }
-    assert(err_is_ok(err));
-
-    thread_create(test_cpu_off_func, NULL);
-}
-
-__attribute__((unused)) static void test_cpu_on(void)
-{
-    errval_t err;
-    delayus_t micro_sec = 1;
-    delayus_t sec = 1000 * 1000 * micro_sec;
-    barrelfish_usleep(10 * sec);
-
-    err = cpu_on(1);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to turn cpu of");
-    }
-    assert(err_is_ok(err));
-}
-
 __attribute__((unused)) static void test_cpu_off_on(void)
 {
     errval_t err;
@@ -1039,20 +995,15 @@ void run_m5_tests(void)
     switch (disp_get_current_core_id()) {
     case 0:
         // test_spawn_single_process();
-
         // test_spawn_memeater();
-        // test_spawn_process("demom5");
 
+        // DEMO TESTS
+        test_spawn_process("demom5");
         // test_boot_all_cores();
-
-        // test_cpu_on(); // run together with test_cpu_off()
-
-        test_cpu_off_on();
+        // test_cpu_off_on();
         break;
     case 1:
         // test_spawn_single_process();
-
-        // test_cpu_off(); // run together with test_cpu_on()
         break;
     case 2:
         break;
