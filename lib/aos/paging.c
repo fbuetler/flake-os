@@ -449,6 +449,7 @@ errval_t paging_init_onthread(struct thread *t)
     thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
     struct capref exception_frame;
     size_t exception_stack_bytes;
+
     errval_t err = frame_alloc(&exception_frame, EXCEPTION_STACK_SIZE,
                                &exception_stack_bytes);
     if (err_is_fail(err)) {

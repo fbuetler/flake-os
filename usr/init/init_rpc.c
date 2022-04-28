@@ -85,14 +85,17 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
     if(destination_core != disp_get_core_id()){
         // send UMP request to destination core; spawn process there
         DEBUG_PRINTF("destination_core: %d\n", destination_core);
-        err = ump_send(&ump_chans[destination_core], UmpSpawn, module, strlen(module));
+        struct ump_chan *ump = &ump_chans[destination_core];
+
+
+        err = ump_send(ump, UmpSpawn, module, strlen(module));
         assert(err_is_ok(err));
 
         // get response!
         enum ump_msg_type type;
         char *payload;
         size_t len;
-        err = ump_receive(&ump_chans[1], &type, &payload, &len);
+        err = ump_receive(ump, &type, &payload, &len);
         assert(err_is_ok(err));
         assert(type == UmpSpawnResponse);
 
@@ -198,6 +201,7 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc){
         // process via UMP at destination core
         // TODO here, always 0 or 1 currently
         struct ump_chan *ump = &ump_chans[!disp_get_core_id()];
+
         err = ump_send(ump, UmpPid2Name, (void*)rpc->recv_msg->payload, sizeof(domainid_t));
         if(err_is_fail(err)){
             assert(!"couldn't send ump message for pid2name request");
@@ -208,6 +212,7 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc){
         char *payload;
         size_t retsize;
         ump_receive(ump, &type, &payload, &retsize);
+
         if(err_is_fail(err)){
             assert(!"couldn't send ump message for pid2name request");
         }

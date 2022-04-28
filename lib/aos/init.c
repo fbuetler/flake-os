@@ -147,6 +147,7 @@ void barrelfish_libc_glue_init(void)
 }
 
 
+char STATIC_RPC_BUF[BASE_PAGE_SIZE];
 /** \brief Initialise libbarrelfish.
  *
  * This runs on a thread in every domain, after the dispatcher is setup but
@@ -220,8 +221,10 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return err;
     }
 
+    rpc.buf = STATIC_RPC_BUF;
+
     // reset the RAM allocator to use ram_alloc_remote
-    DEBUG_PRINTF("Use remote RAM allocator\n");
+    //DEBUG_PRINTF("Use remote RAM allocator\n");
     ram_alloc_set(NULL);
 
 

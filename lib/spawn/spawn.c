@@ -719,13 +719,15 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
 
     DEBUG_TRACEF("Setup channel to child\n");
     // setup lmp channel via handshake to child
+
+
     err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si->rpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup channel to child");
         return err;
-    }
+    } 
 
-    DEBUG_TRACEF("Spawn complete\n");
+    DEBUG_PRINTF("Spawn complete\n");
     return SYS_ERR_OK;
 }
 
@@ -757,6 +759,9 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     if(!si->binary_name){
         return LIB_ERR_MALLOC_FAIL;
     }
+    si->rpc.buf = malloc(BASE_PAGE_SIZE);
+    assert(si->rpc.buf);
+
     memcpy(si->binary_name, binary_name, binary_name_len+1);
 
 
@@ -794,6 +799,7 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
         DEBUG_PRINTF("Spawn dispatcher: failed to spawn a new dispatcher\n");
         return err;
     }
+
 
     return SYS_ERR_OK;
 }
