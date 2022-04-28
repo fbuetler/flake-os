@@ -934,9 +934,7 @@ __attribute__((unused)) static void test_ump_spawn(void)
     err = ump_receive(&ump_chans[1], &type, &payload, &len);
     assert(err_is_ok(err));
     assert(type == UmpSpawnResponse);
-    printf("launched process; PID is: 0x%lx\n", *(size_t *)payload);
-
-    printf("Completed %s\n", __func__);
+    DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
 }
 
 __attribute__((unused)) static void test_boot_all_cores(void)
@@ -1007,26 +1005,54 @@ __attribute__((unused)) static void test_cpu_on(void)
     assert(err_is_ok(err));
 }
 
+__attribute__((unused)) static void test_cpu_off_on(void)
+{
+    errval_t err;
+
+    delayus_t micro_sec = 1;
+    delayus_t sec = 1000 * 1000 * micro_sec;
+
+    // spawn infinite_print on core 1
+    err = ump_send(&ump_chans[1], UmpSpawn, "infinite_print", strlen("infinite_print"));
+    assert(err_is_ok(err));
+
+    // wait
+    barrelfish_usleep(3 * sec);
+
+    // turn core 1 off
+    err = ump_send(&ump_chans[1], UmpCpuOff, "off", strlen("off"));
+    assert(err_is_ok(err));
+
+    // wait
+    barrelfish_usleep(3 * sec);
+
+    // turn core 1 on
+    err = cpu_on(1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to turn cpu of");
+    }
+    assert(err_is_ok(err));
+}
+
 void run_m5_tests(void)
 {
     switch (disp_get_current_core_id()) {
     case 0:
         // test_spawn_single_process();
 
-        // send spawn request:
-
         // test_spawn_memeater();
         // test_spawn_process("demom5");
 
         // test_boot_all_cores();
 
-        test_cpu_on();
+        // test_cpu_on(); // run together with test_cpu_off()
+
+        test_cpu_off_on();
         break;
     case 1:
-        // ump_receive_listener(&ump_chans[0]);
         // test_spawn_single_process();
 
-        test_cpu_off();
+        // test_cpu_off(); // run together with test_cpu_on()
         break;
     case 2:
         break;
@@ -1035,7 +1061,7 @@ void run_m5_tests(void)
     default:
         break;
     }
-    printf("Completed %s\n", __func__);
+    DEBUG_PRINTF("Completed %s\n", __func__);
 }
 
 /*
