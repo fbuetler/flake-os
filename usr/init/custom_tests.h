@@ -28,8 +28,7 @@ void run_m3_tests(void);
 // M4: self paging
 void run_m4_tests(void);
 // M5: core spawing & simple inter core communication
-void run_m5_tests_bsp(void);
-void run_m5_tests_app(void);
+void run_m5_tests(void);
 // M6:
 void run_m6_tests(void);
 

@@ -983,25 +983,32 @@ __attribute__((unused)) static void test_cpu_on(void)
     assert(err_is_ok(err));
 }
 
-void run_m5_tests_bsp(void)
+void run_m5_tests(void)
 {
-    test_spawn_single_process();
+    switch (disp_get_current_core_id()) {
+    case 0:
+        // test_spawn_single_process();
 
-    // send spawn request:
+        // send spawn request:
 
-    // test_spawn_memeater();
-    // test_spawn_process("demom5");
-    test_cpu_on();
+        // test_spawn_memeater();
+        // test_spawn_process("demom5");
 
-    printf("Completed %s\n", __func__);
-}
+        test_cpu_on();
+        break;
+    case 1:
+        // ump_receive_listener(&ump_chans[0]);
+        // test_spawn_single_process();
 
-void run_m5_tests_app(void)
-{
-    // ump_receive_listener(&ump_chans[0]);
-    // test_spawn_single_process();
-    test_cpu_off();
-
+        test_cpu_off();
+        break;
+    case 2:
+        break;
+    case 3:
+        break;
+    default:
+        break;
+    }
     printf("Completed %s\n", __func__);
 }
 
