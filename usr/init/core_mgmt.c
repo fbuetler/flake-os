@@ -249,27 +249,27 @@ errval_t init_app_core(void)
 
 errval_t cpu_off(void)
 {
-    DEBUG_PRINTF("turning CPU OFF\n")
+    DEBUG_PRINTF("turning CPU OFF\n");
     errval_t err;
     err = invoke_monitor_cpu_off();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to turn cpu off");
         return err;
     }
-    DEBUG_PRINTF("turned CPU OFF\n")
+    DEBUG_PRINTF("turned CPU OFF\n");
 
     return SYS_ERR_OK;
 }
 
 errval_t cpu_on(hwid_t core_id)
 {
-    DEBUG_PRINTF("turning CPU ON\n")
+    DEBUG_PRINTF("turning CPU ON\n");
     errval_t err;
     err = boot_core(core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to boot core");
     }
-    DEBUG_PRINTF("turned CPU ON\n")
+    DEBUG_PRINTF("turned CPU ON\n");
 
     return SYS_ERR_OK;
 }

@@ -88,6 +88,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
         struct ump_chan *ump = &ump_chans[destination_core];
 
 
+        thread_mutex_lock(&ump->chan_lock);        
         err = ump_send(ump, UmpSpawn, module, strlen(module));
         assert(err_is_ok(err));
 
@@ -96,7 +97,10 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
         char *payload;
         size_t len;
         err = ump_receive(ump, &type, &payload, &len);
+        thread_mutex_unlock(&ump->chan_lock);        
+
         assert(err_is_ok(err));
+        DEBUG_PRINTF("Recieved ump type: %d\n", type);
         assert(type == UmpSpawnResponse);
 
         pid = *(domainid_t *)payload;
@@ -202,6 +206,8 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc){
         // TODO here, always 0 or 1 currently
         struct ump_chan *ump = &ump_chans[!disp_get_core_id()];
 
+        thread_mutex_lock(&ump->chan_lock);        
+
         err = ump_send(ump, UmpPid2Name, (void*)rpc->recv_msg->payload, sizeof(domainid_t));
         if(err_is_fail(err)){
             assert(!"couldn't send ump message for pid2name request");
@@ -212,6 +218,8 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc){
         char *payload;
         size_t retsize;
         ump_receive(ump, &type, &payload, &retsize);
+
+        thread_mutex_unlock(&ump->chan_lock);        
 
         if(err_is_fail(err)){
             assert(!"couldn't send ump message for pid2name request");
@@ -253,9 +261,10 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc){
 __attribute__((unused))
 static errval_t aos_get_remote_pids(size_t *num_pids, domainid_t **pids){
     // get pids from other core
-    debug_printf("getting remote pids...\n");
+    DEBUG_PRINTF("getting remote pids...\n");
     struct ump_chan *ump = &ump_chans[!disp_get_core_id()];
 
+    thread_mutex_lock(&ump->chan_lock);        
     errval_t err = ump_send(ump, UmpGetAllPids, "", 1);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Could not send UMP message for get all pids");
@@ -269,6 +278,8 @@ static errval_t aos_get_remote_pids(size_t *num_pids, domainid_t **pids){
     size_t retsize;
 
     err = ump_receive(ump, &type, &payload, &retsize);
+
+    thread_mutex_unlock(&ump->chan_lock);        
 
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Could not receive UMP message for get all pids");

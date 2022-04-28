@@ -567,7 +567,8 @@ __attribute__((unused)) static void test_spawn_single_process(void)
 {
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
-    spawn_load_by_name("hello", si, pid);
+    errval_t err = start_process("hello", si, pid);
+    assert(err_is_ok(err));
 }
 
 __attribute__((unused)) static void test_spawn_multiple_processes(size_t n)
@@ -985,7 +986,7 @@ __attribute__((unused)) static void test_cpu_off_on(void)
     // turn core 1 on
     err = cpu_on(1);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to turn cpu of");
+        DEBUG_ERR(err, "failed to turn cpu on");
     }
     assert(err_is_ok(err));
 }
@@ -999,11 +1000,13 @@ void run_m5_tests(void)
 
         // DEMO TESTS
         test_spawn_process("demom5");
-        // test_boot_all_cores();
+        //test_boot_all_cores();
         // test_cpu_off_on();
         break;
     case 1:
-        // test_spawn_single_process();
+        //test_spawn_single_process();
+        test_spawn_process("hello");
+        //test_spawn_single_process();
         break;
     case 2:
         break;

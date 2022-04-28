@@ -76,7 +76,6 @@ static errval_t request_and_map_memory(void)
 
     DEBUG_PRINTF("got frame: 0x%" PRIxGENPADDR " mapped at %p\n", id.base, buf1);
 
-    DEBUG_PRINTF("performing memset.\n");
     memset(buf1, 0x00, BASE_PAGE_SIZE);
 
     DEBUG_PRINTF("obtaining cap of %" PRIu32 " bytes using frame alloc...\n",
@@ -89,12 +88,10 @@ static errval_t request_and_map_memory(void)
         return err;
     }
 
-    DEBUG_PRINTF("before frame_identify\n");
     err = frame_identify(cap2, &id);
     assert(err_is_ok(err));
 
 
-    DEBUG_PRINTF("before paging it\n");
     void *buf2;
     err = paging_map_frame(pstate, &buf2, LARGE_PAGE_SIZE, cap2);
     if (err_is_fail(err)) {
@@ -171,7 +168,7 @@ int main(int argc, char *argv[])
 
     DEBUG_PRINTF("spawning hello\n");
     domainid_t pid;
-    err = aos_rpc_process_spawn(init_rpc, "hello", !disp_get_core_id(), &pid);
+    err = aos_rpc_process_spawn(init_rpc, "hello", !disp_get_current_core_id(), &pid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not spawn process\n");
     }

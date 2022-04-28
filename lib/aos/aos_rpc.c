@@ -118,12 +118,14 @@ static errval_t aos_rpc_recv_first_msg(struct aos_rpc *rpc, struct capref *msg_c
     size_t recv_bytes = MIN(LMP_MSG_LENGTH_BYTES, total_bytes);
 
     // allocate space for return message, copy current message already to it
+    //DEBUG_PRINTF("use_dynamic_buf: %d \n", rpc->use_dynamic_buf);
     rpc->recv_msg = (!rpc->use_dynamic_buf) ? (struct aos_rpc_msg *)rpc->buf: malloc(total_bytes);
     if (!rpc->recv_msg) {
         DEBUG_PRINTF("Malloc inside aos_rpc_recv_msg_handler for ret_msg failed "
                         "\n");
         return LIB_ERR_MALLOC_FAIL;
     }
+
     memcpy(rpc->recv_msg, tmp_msg, recv_bytes);
     rpc->recv_bytes = recv_bytes;
     rpc->is_busy = true;
@@ -184,23 +186,23 @@ static errval_t aos_rpc_chan_recv_blocking(struct aos_rpc *rpc, struct capref * 
 __attribute__((unused))
 static errval_t aos_rpc_recv_msg_blocking(struct aos_rpc *rpc)
 {
-    errval_t err = SYS_ERR_OK;
+    errval_t err;
     // receive first message
     struct capref msg_cap;
     struct lmp_recv_msg recv_buf = LMP_RECV_MSG_INIT;
 
-    aos_rpc_chan_recv_blocking(rpc, &msg_cap, &recv_buf);
+    err = aos_rpc_chan_recv_blocking(rpc, &msg_cap, &recv_buf);
 
 
     if (!rpc->is_busy) { 
-        aos_rpc_recv_first_msg(rpc, &msg_cap, &recv_buf);
+        err = aos_rpc_recv_first_msg(rpc, &msg_cap, &recv_buf);
     } 
 
     while(rpc->recv_bytes < rpc->recv_msg->payload_bytes + rpc->recv_msg->header_bytes) {
-        aos_rpc_chan_recv_blocking(rpc, &msg_cap, &recv_buf);
-        aos_rpc_recv_followup_msg(rpc, &recv_buf);
+        err = aos_rpc_chan_recv_blocking(rpc, &msg_cap, &recv_buf);
+        err = aos_rpc_recv_followup_msg(rpc, &recv_buf);
     }
-
+    
     rpc->is_busy = false;
     return err;
 }
@@ -593,6 +595,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg, bool use_dyn
     //DEBUG_PRINTF("inside aos_rpc_call, before aos_rpc_send_msg \n");
     //DEBUG_PRINTF("channel %p\n", rpc->chan.endpoint);
     rpc->use_dynamic_buf = use_dynamic_buf;
+
     err = aos_rpc_send_msg(rpc, msg);
     //DEBUG_PRINTF("inside aos_rpc_call, after aos_rpc_send_msg \n");
     //DEBUG_PRINTF("channel after %p\n", rpc->chan.endpoint);
@@ -626,7 +629,6 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg, bool use_dyn
         event_dispatch(get_default_waitset());
     }
     */
-
 
     thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
 
@@ -828,7 +830,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
-    
+
     err = aos_rpc_call(rpc, msg, true); // rpc->recv_msg is malloced. Need to free it
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
@@ -836,6 +838,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
     }
 
     char *assigned_name = rpc->recv_msg->payload;
+    struct aos_rpc_msg * tmp_ptr = rpc->recv_msg;
 
     if(*assigned_name == 0){
         DEBUG_PRINTF("no pid assigned to this!\n");
@@ -848,8 +851,8 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
     }
 
     memcpy(*name, assigned_name, name_len + 1);
-    free(rpc->recv_msg);
     free(msg);
+    free(tmp_ptr);
 
     return SYS_ERR_OK;
 }
@@ -866,7 +869,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
 errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
                                       size_t *pid_count)
 {
-    debug_printf("get all pids!\n");
+    DEBUG_PRINTF("get all pids!\n");
     // TODO (M5): implement process id discovery
     errval_t err;
 

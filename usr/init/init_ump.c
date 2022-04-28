@@ -21,6 +21,7 @@ void ump_receive_listener(struct ump_chan *chan)
     size_t len;
     while (1) {
         errval_t err = ump_receive(chan, &type, &payload, &len);
+        debug_printf("received message of type: %d\n", type);
         if (err_is_fail(err)) {
             assert(!"couldn't receive ump message in receive listener\n");
         }
@@ -39,10 +40,14 @@ void ump_receive_listener(struct ump_chan *chan)
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to respond to spawn request!\n");
             }
+
+            debug_printf("responded to UmpSpawn\n");
             continue;
         }
         case UmpSpawnResponse: {
             DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
+
+            debug_printf("responded to UmpSpawnRESPONE\n");
             continue;
         }
         case UmpPid2Name: {
@@ -59,10 +64,12 @@ void ump_receive_listener(struct ump_chan *chan)
             if (err_is_fail(err)) {
                 DEBUG_PRINTF("failed to respond to pid2name request!\n");
             }
+
+            debug_printf("responded to UmpPid2Name\n");
             continue;
         }
         case UmpGetAllPids: {
-            debug_printf("got a getallpids request\n");
+            DEBUG_PRINTF("got a getallpids request\n");
             size_t nr_of_pids;
             domainid_t *pids;
             err = process_get_all_pids(&nr_of_pids, &pids);
@@ -76,6 +83,7 @@ void ump_receive_listener(struct ump_chan *chan)
             if (err_is_fail(err)) {
                 DEBUG_PRINTF("failed to respond to get all pids!\n");
             }
+            debug_printf("responded to UmpGetAllPids\n");
             continue;
         }
         case UmpCpuOff: {
@@ -83,6 +91,7 @@ void ump_receive_listener(struct ump_chan *chan)
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to turn cpu of");
             }
+            debug_printf("responded to UmpCpuOff\n");
             continue;
         }
         default: {

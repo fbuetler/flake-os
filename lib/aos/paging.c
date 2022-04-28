@@ -197,7 +197,6 @@ static errval_t paging_set_exception_handler(char *stack_base, size_t stack_size
         stack_top = stack_base + stack_size;
     } else {  // use our exception stack region
         stack_base = internal_ex_stack;
-        DEBUG_PRINTF("setting internal ex stack to addr %p\n", stack_base);
         stack_top = stack_base + EXCEPTION_STACK_SIZE;
     }
 
