@@ -79,7 +79,9 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     entry->header.msg_state = UmpMessageSent;
     ump->send_next = (ump->send_next + 1) % UMP_MESSAGES_ENTRIES;
 
-    dmb();  // ensure that the message state is consistent
+    // no barrier needed as the receiving side has a memory barrier after the check of the
+    // message state. This already ensures that the message is not read before the state
+    // has been successfully checked
 
     return SYS_ERR_OK;
 }
@@ -126,10 +128,6 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
         dmb();  // ensure that we checked the above condition before copying and every check
     }
 
-    // ensure that later instructions are only fetched after this point to ensure
-    // synchornization with the unlocking of the sending core.
-    rdtscp();
-
     assert(sizeof(struct ump_msg) == UMP_MSG_BYTES);
     memcpy(msg, entry, UMP_MSG_BYTES);
 
@@ -138,7 +136,8 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
     entry->header.msg_state = UmpMessageReceived;
     ump->recv_next = (ump->recv_next + 1) % UMP_MESSAGES_ENTRIES;
 
-    dmb();  // ensure that the message state is consistent
+    // no barrier needed, as the sending side has a memory barrier after its check of the
+    // message state
 
     return SYS_ERR_OK;
 }
