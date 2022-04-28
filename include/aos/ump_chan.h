@@ -53,6 +53,7 @@ enum ump_msg_type {
     UmpPid2NameResponse = 9,
     UmpGetAllPids = 10,
     UmpGetAllPidsResponse = 11,
+    UmpCpuOff = 12,
 };
 
 enum ump_msg_state {
