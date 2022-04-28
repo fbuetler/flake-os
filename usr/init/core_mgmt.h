@@ -1,5 +1,5 @@
-#ifndef _INIT_PSCI_MGMT_H_
-#define _INIT_PSCI_MGMT_H_
+#ifndef _INIT_CORE_MGMT_H_
+#define _INIT_CORE_MGMT_H_
 
 #include <aos/aos.h>
 

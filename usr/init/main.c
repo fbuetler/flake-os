@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 
-#include "psci_mgmt.h"
+#include "core_mgmt.h"
 #include "proc_mgmt.h"
 #include "init_ump.h"
 #include "init_rpc.h"

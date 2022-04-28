@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "psci_mgmt.h"
+#include "core_mgmt.h"
 
 #include <aos/aos.h>
 #include <aos/core_state.h>
