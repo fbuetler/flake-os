@@ -1,3 +1,19 @@
 \section{Multi-core Support}
 
 TODO
+
+% each core gets 512mb (core 0 initially has all memory and allocs for other cores)
+% assumed core 0 is always present (only core 1-3 on/off)
+% primary-secondary communication
+% pid ranges per core
+% communication between cores ofer urpc frame used as a ring buffer (split into 2 halfs)
+% first 64 bytes of a half are reserved for metadata (historical reasons)
+% every ump messages iz 64 bytes (a cache line) inclusive header
+% can send messages that are larger than one cache line
+% memory barriers at the right locaions to work with ARMs weak memory model
+% communication protocal is based on a volatile variable
+% core 1 know where the shared frame is because its passed at a well known location
+
+% extra:
+% boot all cores 
+% turn core off and on
