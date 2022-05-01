@@ -715,14 +715,6 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }
 
-    DEBUG_TRACEF("Invoke dispatcher\n");
-    // invoke the dispatcher
-    err = spawn_invoke_dispatcher(si);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to invoke the dispatcher");
-        err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
-    }
-
     DEBUG_TRACEF("Get free PID\n");
     err = spawn_get_free_pid(pid);
     if (err_is_fail(err)) {
@@ -738,13 +730,37 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     DEBUG_TRACEF("Setup channel to child\n");
     // setup lmp channel via handshake to child
 
+    // will contain endpoint cap of child
+    struct capref cap1;
+    err = slot_alloc(&cap1);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("Failed to allocate slot for init endpoint\n");
+        return err;
+    }
+    lmp_endpoint_set_recv_slot(si->rpc.chan.endpoint, cap1);
 
-    err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si->rpc);
+    struct capref cap2;
+    err = slot_alloc(&cap2);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("Failed to allocate slot for init endpoint\n");
+        return err;
+    }
+    lmp_endpoint_set_recv_slot(si->mem_rpc.chan.endpoint, cap2);
+
+    DEBUG_TRACEF("Invoke dispatcher\n");
+    // invoke the dispatcher
+    err = spawn_invoke_dispatcher(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to invoke the dispatcher");
+        err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
+    }
+
+    err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si->rpc, cap1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup channel to child");
         return err;
     } 
-    err = aos_rpc_init_chan_to_child(&init_spawninfo.mem_rpc, &si->mem_rpc);
+    err = aos_rpc_init_chan_to_child(&init_spawninfo.mem_rpc, &si->mem_rpc, cap2);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup mem channel to child");
         return err;

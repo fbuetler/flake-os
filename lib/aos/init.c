@@ -230,7 +230,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     set_init_rpc(&rpc);
 
     // struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
-    barrelfish_usleep(1000 * 1000);
     mem_rpc.chan.remote_cap = cap_initmemep;
     err = aos_rpc_init(&mem_rpc);
     if (err_is_fail(err)) {

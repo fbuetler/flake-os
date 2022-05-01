@@ -65,7 +65,7 @@ struct aos_rpc_msg {
 /**
  * @brief Initialize an aos_rpc struct from parent to child
  */
-errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc);
+errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc, struct capref memeater_endpoint_cap);
 /**
  * \brief Initialize an aos_rpc struct from child to parent.
  */

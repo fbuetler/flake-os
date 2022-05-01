@@ -284,19 +284,11 @@ reregister:
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc)
+errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc, struct capref memeater_endpoint_cap)
 {
     errval_t err;
 
     struct capref init_ep_cap = child_rpc->chan.local_cap;
-
-    // will contain endpoint cap of child
-    struct capref memeater_endpoint_cap;
-    err = slot_alloc(&memeater_endpoint_cap);
-    if (err_is_fail(err)) {
-        DEBUG_PRINTF("Failed to allocate slot for init endpoint\n");
-        return err;
-    }
 
     while (1) {
         struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
