@@ -216,3 +216,25 @@ struct aos_rpc *get_init_rpc(void)
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     return disp->core_state.c.init_rpc;
 }
+
+
+/**
+ * \brief Set the init mem rpc channel on the domain state
+ */
+void set_init_mem_rpc(struct aos_rpc *mem_rpc)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    disp->core_state.mem_rpc = mem_rpc;
+}
+
+/**
+ * \brief Returns the mem RPC channel to init
+ */
+struct aos_rpc *get_init_mem_rpc(void)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    return disp->core_state.mem_rpc;
+}
+

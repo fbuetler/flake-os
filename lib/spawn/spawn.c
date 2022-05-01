@@ -12,6 +12,7 @@
 #include <barrelfish_kpi/domain_params.h>
 #include <spawn/multiboot.h>
 #include <spawn/argv.h>
+#include <aos/deferred.h>
 
 extern struct bootinfo *bi;
 extern coreid_t my_core_id;
@@ -195,6 +196,10 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     struct capref child_cap_init_endpoint = { .cnode = si->taskcn,
                                               .slot = TASKCN_SLOT_INITEP };
 
+    // copy init's endpoint into known location in child
+    struct capref child_cap_init_mem_endpoint = { .cnode = si->taskcn,
+                                              .slot = TASKCN_SLOT_INITMEMEP };
+
     // creates a new endpoint into local_cap!
     err = lmp_chan_accept(&si->rpc.chan, 256, NULL_CAP);
     if (err_is_fail(err)) {
@@ -205,6 +210,19 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     err = cap_copy(child_cap_init_endpoint, si->rpc.chan.local_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to copy init endpoint to cap location in child");
+        return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error
+    }
+
+    // creates a new endpoint into local_cap!
+    err = lmp_chan_accept(&si->mem_rpc.chan, 256, NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to accept endpoint");
+        return err;
+    }
+
+    err = cap_copy(child_cap_init_mem_endpoint, si->mem_rpc.chan.local_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to copy init_mem endpoint to cap location in child");
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error
     }
 
@@ -726,6 +744,11 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         DEBUG_ERR(err, "failed to setup channel to child");
         return err;
     } 
+    err = aos_rpc_init_chan_to_child(&init_spawninfo.mem_rpc, &si->mem_rpc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup mem channel to child");
+        return err;
+    }
 
     DEBUG_PRINTF("Spawn complete\n");
     return SYS_ERR_OK;
@@ -761,6 +784,8 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     }
     si->rpc.buf = malloc(BASE_PAGE_SIZE);
     assert(si->rpc.buf);
+    si->mem_rpc.buf = malloc(BASE_PAGE_SIZE);
+    assert(si->mem_rpc.buf);
 
     memcpy(si->binary_name, binary_name, binary_name_len+1);
 

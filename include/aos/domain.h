@@ -47,6 +47,9 @@ struct ram_alloc_state *get_ram_alloc_state(void);
 struct slot_alloc_state *get_slot_alloc_state(void);
 
 
+void set_init_mem_rpc(struct aos_rpc *mem_rpc);
+struct aos_rpc *get_init_mem_rpc(void);
+
 __END_DECLS
 
 #endif

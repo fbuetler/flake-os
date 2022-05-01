@@ -71,6 +71,9 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
  */
 errval_t aos_rpc_init(struct aos_rpc *rpc);
 
+
+errval_t aos_rpc_setup_local_chan(struct aos_rpc *rpc, struct capref cap_ep);
+
 /**
  * @brief Helper function to create a message
  */

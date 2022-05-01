@@ -27,6 +27,7 @@
 #include <barrelfish_kpi/domain_params.h>
 #include <aos/aos_rpc.h>
 #include <spawn/spawn.h>
+#include <aos/deferred.h>
 
 #include "threads_priv.h"
 #include "init.h"
@@ -126,6 +127,7 @@ __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t le
 }
 
 static struct aos_rpc rpc;
+static struct aos_rpc mem_rpc;
 
 /* Set libc function pointers */
 void barrelfish_libc_glue_init(void)
@@ -148,6 +150,7 @@ void barrelfish_libc_glue_init(void)
 
 
 char STATIC_RPC_BUF[BASE_PAGE_SIZE];
+char STATIC_RPC_MEMSRV_BUF[BASE_PAGE_SIZE];
 /** \brief Initialise libbarrelfish.
  *
  * This runs on a thread in every domain, after the dispatcher is setup but
@@ -201,27 +204,42 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         }
 
         // setup endpoint of init
-        lmp_chan_init(&init_spawninfo.rpc.chan);
-
-        err = lmp_endpoint_create_in_slot(512, cap_initep,
-                                          &init_spawninfo.rpc.chan.endpoint);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed create endpoint in init process");
-            abort();
+        err = aos_rpc_setup_local_chan(&init_spawninfo.rpc, cap_initep);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "failed to setup local rpc channel for init");
+            return err;
+        }        
+        // setup endpoint for memory requests
+        err = aos_rpc_setup_local_chan(&init_spawninfo.mem_rpc, cap_initmemep);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "failed to setup local mem rpc channel for init");
+            return err;
         }
-        init_spawninfo.rpc.chan.buflen_words = 256;
-
         return SYS_ERR_OK;
     }
 
     // struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
+
+    rpc.chan.remote_cap = cap_initep;
     err = aos_rpc_init(&rpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init rpc");
         return err;
     }
-
     rpc.buf = STATIC_RPC_BUF;
+    set_init_rpc(&rpc);
+
+    // struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
+    barrelfish_usleep(1000 * 1000);
+    mem_rpc.chan.remote_cap = cap_initmemep;
+    err = aos_rpc_init(&mem_rpc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to init mem rpc");
+        return err;
+    }
+    mem_rpc.buf = STATIC_RPC_MEMSRV_BUF;
+    
+    set_init_mem_rpc(&mem_rpc);
 
     // reset the RAM allocator to use ram_alloc_remote
     //DEBUG_PRINTF("Use remote RAM allocator\n");

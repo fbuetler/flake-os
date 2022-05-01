@@ -75,6 +75,12 @@ errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid)
                   cmd);
         return err;
     }
+    err = aos_rpc_register_recv(&si->mem_rpc, init_process_msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register receive handler for channel to %s in init\n",
+                  cmd);
+        return err;
+    }
 
     return SYS_ERR_OK;
 }

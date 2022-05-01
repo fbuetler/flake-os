@@ -294,7 +294,7 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
     struct capref memeater_endpoint_cap;
     err = slot_alloc(&memeater_endpoint_cap);
     if (err_is_fail(err)) {
-        DEBUG_PRINTF("Failed to allocate slot for memeater endpoint\n");
+        DEBUG_PRINTF("Failed to allocate slot for init endpoint\n");
         return err;
     }
 
@@ -347,7 +347,8 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
     return SYS_ERR_OK;
 }
 
-static struct lmp_endpoint static_ep;
+static struct lmp_endpoint static_ep[2];
+int static_ep_ctr = 0;
 /**
  *  \brief Initialize an aos_rpc struct. Sets up channel to remote endpoint (init)
  *
@@ -358,11 +359,9 @@ static struct lmp_endpoint static_ep;
 errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 {
     errval_t err;
-
     thread_mutex_init(&ram_mutex);
 
     aos_rpc->buf = STATIC_RPC_RECV_MSG_BUF;
-
     // initial state
     aos_rpc->is_busy = false;
 
@@ -374,7 +373,7 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 
     // struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
     // assert(ep);
-    struct lmp_endpoint *ep = &static_ep;
+    struct lmp_endpoint *ep = &static_ep[static_ep_ctr++];
     aos_rpc->chan.endpoint = ep;
     err = endpoint_create(256, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
     if (err_is_fail(err)) {
@@ -384,8 +383,7 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     aos_rpc->chan.buflen_words = 256;
 
     /* set remote endpoint to init's endpoint */
-    aos_rpc->chan.remote_cap = cap_initep;
-    set_init_rpc(aos_rpc);
+    //aos_rpc->chan.remote_cap = cap_initep;
 
     /* send local ep to init */
     err = lmp_chan_send0(&aos_rpc->chan, LMP_SEND_FLAGS_DEFAULT, aos_rpc->chan.local_cap);
@@ -401,7 +399,8 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
     }
 
 
-    get_default_waitset();
+    while (!lmp_chan_can_recv(&aos_rpc->chan)) {
+    }
 
     err = event_dispatch(get_default_waitset());
     if (err_is_fail(err)) {
@@ -917,7 +916,7 @@ struct aos_rpc *aos_rpc_get_memory_channel(void)
 {
     // TODO: Return channel to talk to memory server process (or whoever
     // implements memory server functionality)
-    return get_init_rpc();
+    return get_init_mem_rpc();
 }
 
 /**
@@ -938,4 +937,20 @@ struct aos_rpc *aos_rpc_get_serial_channel(void)
     // TODO: Return channel to talk to serial driver/terminal process (whoever
     // implements print/read functionality)
     return get_init_rpc();
+}
+
+errval_t aos_rpc_setup_local_chan(struct aos_rpc *rpc, struct capref cap_ep){
+    // setup endpoint of init
+    lmp_chan_init(&rpc->chan);
+    errval_t err = lmp_endpoint_create_in_slot(512, cap_ep,
+                                        &rpc->chan.endpoint);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed create endpoint in init process");
+        return err;
+    }
+
+    // TODO review if this line is necessary
+    rpc->chan.buflen_words = 256;
+
+    return SYS_ERR_OK;
 }

@@ -390,4 +390,3 @@ errval_t init_process_msg(struct aos_rpc *rpc)
     //  TODO: free msg
     return SYS_ERR_OK;
 }
-

@@ -54,6 +54,7 @@ struct spawninfo {
     dispatcher_handle_t dispatcher_handle;
 
     struct aos_rpc rpc;
+    struct aos_rpc mem_rpc;
 };
 
 size_t spawn_number_of_processes;

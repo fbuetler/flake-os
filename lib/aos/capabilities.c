@@ -107,6 +107,9 @@ struct capref cap_perfmon = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_PERF
 /// Capability for endpoint to init (only in monitor/mem_serv)
 struct capref cap_initep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_INITEP };
 
+/// Capability for endpoint to init for mem
+struct capref cap_initmemep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_INITMEMEP };
+
 /// Capability to the URPC frame
 struct capref cap_urpc = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_MON_URPC };
 
