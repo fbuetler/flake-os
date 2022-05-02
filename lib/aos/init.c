@@ -149,8 +149,6 @@ void barrelfish_libc_glue_init(void)
 }
 
 
-char STATIC_RPC_BUF[BASE_PAGE_SIZE];
-char STATIC_RPC_MEMSRV_BUF[BASE_PAGE_SIZE];
 /** \brief Initialise libbarrelfish.
  *
  * This runs on a thread in every domain, after the dispatcher is setup but
@@ -218,27 +216,18 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return SYS_ERR_OK;
     }
 
-    // struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
-
-    rpc.chan.remote_cap = cap_initep;
-    err = aos_rpc_init(&rpc);
+    // initialize handshakes with the init process for both rpc & mem_rpc 
+    err = aos_rpc_init(&rpc, AOS_RPC_BASE_CHANNEL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init rpc");
         return err;
     }
-    rpc.buf = STATIC_RPC_BUF;
-    set_init_rpc(&rpc);
 
-    // struct aos_rpc *rpc = malloc(sizeof(struct aos_rpc));
-    mem_rpc.chan.remote_cap = cap_initmemep;
-    err = aos_rpc_init(&mem_rpc);
+    err = aos_rpc_init(&mem_rpc, AOS_RPC_MEMORY_CHANNEL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init mem rpc");
         return err;
     }
-    mem_rpc.buf = STATIC_RPC_MEMSRV_BUF;
-    
-    set_init_mem_rpc(&mem_rpc);
 
     // reset the RAM allocator to use ram_alloc_remote
     //DEBUG_PRINTF("Use remote RAM allocator\n");

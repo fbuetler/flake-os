@@ -381,6 +381,7 @@ errors libaos LIB_ERR_ {
     failure RPC_GET_NUMBER      "Failure in aos_rpc_get_number()",
     failure RPC_SEND_STRING     "Failure in aos_rpc_send_string()",
     failure RPC_GET_STRING      "Faulure in aos_rpc_get_string()",
+    failure RPC_INIT_BAD_ARGS   "Bad argument in aos_rpc_init()",
 
     // IDC binding/export and Monitor client interface
     failure MONITOR_CLIENT_BIND "Error in monitor_client_lmp_bind()",
@@ -698,6 +699,7 @@ errors spawn SPAWN_ERR_ {
 
     failure FIND_SPAWNDS       "Unable to find spawn daemons",
     failure MALFORMED_SPAWND_RECORD "Spawn record without ID found?",
+    failure SETUP_RPC          "Unable to setup RPC",
 
     failure PID_NOT_FOUND      "PID does not exist",
 };

@@ -728,42 +728,43 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     spawn_add_process(si);
 
     DEBUG_TRACEF("Setup channel to child\n");
-    // setup lmp channel via handshake to child
 
-    // will contain endpoint cap of child
-    struct capref cap1;
-    err = slot_alloc(&cap1);
-    if (err_is_fail(err)) {
-        DEBUG_PRINTF("Failed to allocate slot for init endpoint\n");
-        return err;
+    struct capref recv_ep_cap1, recv_ep_cap2;
+    err = aos_rpc_set_recv_endpoint(&si->rpc, &recv_ep_cap1);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to set recv endpoint for rpc");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
-    lmp_endpoint_set_recv_slot(si->rpc.chan.endpoint, cap1);
+    err = aos_rpc_set_recv_endpoint(&si->mem_rpc, &recv_ep_cap2);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to set recv endpoint for mem_rpc");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
+    }
 
-    struct capref cap2;
-    err = slot_alloc(&cap2);
-    if (err_is_fail(err)) {
-        DEBUG_PRINTF("Failed to allocate slot for init endpoint\n");
-        return err;
-    }
-    lmp_endpoint_set_recv_slot(si->mem_rpc.chan.endpoint, cap2);
+    // same for the memory channel
+    // spawn dispatcher only after recv slots have been set
 
     DEBUG_TRACEF("Invoke dispatcher\n");
     // invoke the dispatcher
     err = spawn_invoke_dispatcher(si);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to invoke the dispatcher");
-        err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
+        return err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
     }
 
-    err = aos_rpc_init_chan_to_child(&init_spawninfo.rpc, &si->rpc, cap1);
+    // perform handshakes with child process 
+    // for both rpc channels
+
+    err = aos_rpc_init_handshake_to_child(&init_spawninfo.rpc, &si->rpc, recv_ep_cap1);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup channel to child");
-        return err;
+        DEBUG_ERR(err, "failed to setup rpc channel to child");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
     } 
-    err = aos_rpc_init_chan_to_child(&init_spawninfo.mem_rpc, &si->mem_rpc, cap2);
+
+    err = aos_rpc_init_handshake_to_child(&init_spawninfo.mem_rpc, &si->mem_rpc, recv_ep_cap2);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup mem channel to child");
-        return err;
+        DEBUG_ERR(err, "failed to setup mem rpc channel to child");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
     DEBUG_PRINTF("Spawn complete\n");
@@ -789,7 +790,6 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // - Get the mem_region from the multiboot image
     // - Fill in argc/argv from the multiboot command line
     // - Call spawn_load_argv
-
     errval_t err;
 
     // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
@@ -798,13 +798,19 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     if(!si->binary_name){
         return LIB_ERR_MALLOC_FAIL;
     }
+
     si->rpc.buf = malloc(BASE_PAGE_SIZE);
-    assert(si->rpc.buf);
+    if(!si->rpc.buf){
+        DEBUG_PRINTF("failed to allocate rpc buffer\n");
+        return SPAWN_ERR_SETUP_RPC;
+    }
     si->mem_rpc.buf = malloc(BASE_PAGE_SIZE);
-    assert(si->mem_rpc.buf);
+    if(!si->mem_rpc.buf){
+        DEBUG_PRINTF("failed to allocate mem rpc buffer\n");
+        return SPAWN_ERR_SETUP_RPC;
+    }
 
     memcpy(si->binary_name, binary_name, binary_name_len+1);
-
 
     DEBUG_TRACEF("Load binary from multiboot module\n");
     // get memory region from multiboot image

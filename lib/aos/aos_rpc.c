@@ -284,18 +284,18 @@ reregister:
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc, struct capref memeater_endpoint_cap)
+errval_t aos_rpc_init_handshake_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc, struct capref recv_cap)
 {
     errval_t err;
 
-    struct capref init_ep_cap = child_rpc->chan.local_cap;
+    struct capref ep_cap = child_rpc->chan.local_cap;
 
     while (1) {
         struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
 
-        lmp_endpoint_set_recv_slot(child_rpc->chan.endpoint, memeater_endpoint_cap);
+        lmp_endpoint_set_recv_slot(child_rpc->chan.endpoint, recv_cap);
         err = lmp_endpoint_recv(child_rpc->chan.endpoint, &recv_msg.buf,
-                                &memeater_endpoint_cap);
+                                &recv_cap);
         if (err_is_fail(err)) {
             if (err == LIB_ERR_NO_LMP_MSG || lmp_err_is_transient(err)) {
                 continue;
@@ -309,16 +309,9 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
     }
     // we've received the capability;
 
-    child_rpc->chan.local_cap = init_ep_cap;
-    child_rpc->chan.remote_cap = memeater_endpoint_cap;
-    init_rpc->chan.remote_cap = memeater_endpoint_cap;
-
-    // char buf0[256];
-    // debug_print_cap_at_capref(buf0, 256, child_rpc->chan.local_cap);
-    // DEBUG_PRINTF("local: %.*s\n", 256, buf0);
-    // char buf1[256];
-    // debug_print_cap_at_capref(buf1, 256, child_rpc->chan.remote_cap);
-    // DEBUG_PRINTF("remote %.*s\n", 256, buf1);
+    child_rpc->chan.local_cap = ep_cap;
+    child_rpc->chan.remote_cap = recv_cap;
+    init_rpc->chan.remote_cap = recv_cap;
 
     size_t payload_size = 0;
     struct aos_rpc_msg *msg;
@@ -339,8 +332,9 @@ errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *ch
     return SYS_ERR_OK;
 }
 
-static struct lmp_endpoint static_ep[2];
-int static_ep_ctr = 0;
+static struct lmp_endpoint static_init_ep, static_init_mem_ep;
+char STATIC_RPC_BUF[BASE_PAGE_SIZE];
+char STATIC_RPC_MEMSRV_BUF[BASE_PAGE_SIZE];
 /**
  *  \brief Initialize an aos_rpc struct. Sets up channel to remote endpoint (init)
  *
@@ -348,12 +342,43 @@ int static_ep_ctr = 0;
  *
  **/
 
-errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
+errval_t aos_rpc_set_recv_endpoint(struct aos_rpc *rpc, struct capref *ret_recv_ep_cap){
+    // will contain endpoint cap of child
+    struct capref ep_cap1;
+    errval_t err = slot_alloc(&ep_cap1);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("Failed to allocate slot for init endpoint\n");
+        return err;
+    }
+    lmp_endpoint_set_recv_slot(rpc->chan.endpoint, ep_cap1);
+    *ret_recv_ep_cap = ep_cap1;
+
+    return SYS_ERR_OK;
+
+}
+
+errval_t aos_rpc_init(struct aos_rpc *aos_rpc, enum aos_rpc_channel_type chan_type)
 {
     errval_t err;
     thread_mutex_init(&ram_mutex);
 
-    aos_rpc->buf = STATIC_RPC_RECV_MSG_BUF;
+    switch(chan_type){
+        case AOS_RPC_BASE_CHANNEL:
+            aos_rpc->chan.remote_cap = cap_initep;
+            aos_rpc->chan.endpoint = &static_init_ep;
+            aos_rpc->buf = STATIC_RPC_BUF;
+            set_init_rpc(aos_rpc);
+            break;
+        case AOS_RPC_MEMORY_CHANNEL:
+            aos_rpc->chan.remote_cap = cap_initmemep;
+            aos_rpc->chan.endpoint = &static_init_mem_ep;
+            aos_rpc->buf = STATIC_RPC_MEMSRV_BUF;
+            set_init_mem_rpc(aos_rpc);
+            break;
+        default:
+            return LIB_ERR_RPC_INIT_BAD_ARGS;
+    }
+
     // initial state
     aos_rpc->is_busy = false;
 
@@ -365,8 +390,6 @@ errval_t aos_rpc_init(struct aos_rpc *aos_rpc)
 
     // struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
     // assert(ep);
-    struct lmp_endpoint *ep = &static_ep[static_ep_ctr++];
-    aos_rpc->chan.endpoint = ep;
     err = endpoint_create(256, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not create endpoint in child \n");

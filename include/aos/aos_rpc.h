@@ -62,14 +62,24 @@ struct aos_rpc_msg {
     char payload[0];
 };
 
+enum aos_rpc_channel_type{
+    AOS_RPC_BASE_CHANNEL,
+    AOS_RPC_MEMORY_CHANNEL,
+};
+
 /**
  * @brief Initialize an aos_rpc struct from parent to child
  */
-errval_t aos_rpc_init_chan_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc, struct capref memeater_endpoint_cap);
+errval_t aos_rpc_init_handshake_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc, struct capref recv_cap);
 /**
  * \brief Initialize an aos_rpc struct from child to parent.
  */
-errval_t aos_rpc_init(struct aos_rpc *rpc);
+errval_t aos_rpc_init(struct aos_rpc *aos_rpc, enum aos_rpc_channel_type chan_type);
+
+/**
+ * \brief Setup a recv endpoint for rpc
+ */
+errval_t aos_rpc_set_recv_endpoint(struct aos_rpc *rpc, struct capref *ret_recv_ep_cap);
 
 
 errval_t aos_rpc_setup_local_chan(struct aos_rpc *rpc, struct capref cap_ep);
