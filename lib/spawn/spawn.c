@@ -799,15 +799,15 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    si->rpc.buf = malloc(BASE_PAGE_SIZE);
-    if(!si->rpc.buf){
-        DEBUG_PRINTF("failed to allocate rpc buffer\n");
-        return SPAWN_ERR_SETUP_RPC;
+    err = aos_rpc_parent_init(&si->rpc);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to setup rpc channel of init");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
-    si->mem_rpc.buf = malloc(BASE_PAGE_SIZE);
-    if(!si->mem_rpc.buf){
-        DEBUG_PRINTF("failed to allocate mem rpc buffer\n");
-        return SPAWN_ERR_SETUP_RPC;
+    err = aos_rpc_parent_init(&si->mem_rpc);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to setup mem rpc channel of init");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
     memcpy(si->binary_name, binary_name, binary_name_len+1);

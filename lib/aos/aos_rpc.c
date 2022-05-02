@@ -360,7 +360,8 @@ errval_t aos_rpc_set_recv_endpoint(struct aos_rpc *rpc, struct capref *ret_recv_
 errval_t aos_rpc_init(struct aos_rpc *aos_rpc, enum aos_rpc_channel_type chan_type)
 {
     errval_t err;
-    thread_mutex_init(&ram_mutex);
+    thread_mutex_init(&ram_mutex); // TODO why is this here?
+    thread_mutex_init(&aos_rpc->lock);
 
     switch(chan_type){
         case AOS_RPC_BASE_CHANNEL:
@@ -602,51 +603,28 @@ errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_m
 
 errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg, bool use_dynamic_buf)
 {
-    thread_mutex_lock_nested(&get_current_paging_state()->paging_mutex);
-    errval_t err;
+    thread_mutex_lock(&rpc->lock);
+    errval_t err = SYS_ERR_OK;
 
     // send message
-    //DEBUG_PRINTF("inside aos_rpc_call, before aos_rpc_send_msg \n");
-    //DEBUG_PRINTF("channel %p\n", rpc->chan.endpoint);
     rpc->use_dynamic_buf = use_dynamic_buf;
-
     err = aos_rpc_send_msg(rpc, msg);
-    //DEBUG_PRINTF("inside aos_rpc_call, after aos_rpc_send_msg \n");
-    //DEBUG_PRINTF("channel after %p\n", rpc->chan.endpoint);
-    //DEBUG_PRINTF("recv_bytes: %d, is_busy: %d \n", rpc->recv_bytes, rpc->is_busy);
     
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
-        return err;
+        goto unwind;
     }
-
-    /*
-    while (!lmp_chan_can_recv(&rpc->chan)) {
-    }
-    */
-
-    //err = aos_rpc_recv_msg(rpc);
     
     err = aos_rpc_recv_msg_blocking(rpc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive message");
         // TODO remove abort
-        abort();
-        return err;
+        goto unwind;
     }
 
-    /*
-    while(rpc->is_busy){
-        // wait for the response message
-        while (!lmp_chan_can_recv(&rpc->chan)) {
-        }   
-        event_dispatch(get_default_waitset());
-    }
-    */
-
-    thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
-
-    return SYS_ERR_OK;
+unwind:
+    thread_mutex_unlock(&rpc->lock);
+    return err;
 }
 
 errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
@@ -966,6 +944,19 @@ errval_t aos_rpc_setup_local_chan(struct aos_rpc *rpc, struct capref cap_ep){
 
     // TODO review if this line is necessary
     rpc->chan.buflen_words = 256;
+
+    return SYS_ERR_OK;
+}
+
+
+errval_t aos_rpc_parent_init(struct aos_rpc *rpc){
+    rpc->is_busy = false;
+    rpc->buf = malloc(BASE_PAGE_SIZE);
+    if(!rpc->buf){
+        DEBUG_PRINTF("failed to allocate rpc buffer\n");
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    thread_mutex_init(&rpc->lock);
 
     return SYS_ERR_OK;
 }
