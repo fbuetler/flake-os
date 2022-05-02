@@ -24,6 +24,7 @@ struct aos_rpc_msg;
 typedef errval_t (*process_msg_func_t)(struct aos_rpc *);
 /* An RPC binding, which may be transported over LMP or UMP. */
 struct aos_rpc {
+    struct thread_mutex lock;
     // TODO(M3): Add state
     struct lmp_chan chan;
     bool is_busy;
@@ -75,6 +76,8 @@ errval_t aos_rpc_init_handshake_to_child(struct aos_rpc *init_rpc, struct aos_rp
  * \brief Initialize an aos_rpc struct from child to parent.
  */
 errval_t aos_rpc_init(struct aos_rpc *aos_rpc, enum aos_rpc_channel_type chan_type);
+
+errval_t aos_rpc_parent_init(struct aos_rpc *rpc);
 
 /**
  * \brief Setup a recv endpoint for rpc
