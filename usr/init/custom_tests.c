@@ -1035,6 +1035,8 @@ __attribute__((unused)) static void test_large_ping_pong(void)
         memcpy(payload + i, ping, strlen(ping));
     }
 
+    // give the core some to time to boot
+    barrelfish_usleep(1000 * 1000);
     err = ump_send(ump, UmpPing, payload, strlen(payload));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
