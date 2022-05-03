@@ -81,7 +81,8 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
-    DEBUG_PRINTF("sending UMP msg with type: %d \n", msg->header.msg_type);
+    // DEBUG_PRINTF("sending UMP msg with type: %d in slot %d\n", msg->header.msg_type,
+    //              ump->send_next);
     if (*state == UmpMessageSent) {
         err = LIB_ERR_UMP_CHAN_FULL;
         DEBUG_ERR(err, "send queue is full");
@@ -130,10 +131,9 @@ errval_t ump_send(struct ump_chan *ump, ump_msg_type type, char *payload, size_t
 
         err = ump_send_msg(ump, &msg);
         if (err_is_fail(err)) {
-            thread_mutex_unlock(&ump->chan_lock);
+            // thread_mutex_unlock(&ump->chan_lock);
             DEBUG_ERR(err, "Failed to send message");
-            err = err_push(err, LIB_ERR_UMP_SEND);
-            return err;
+            return err_push(err, LIB_ERR_UMP_SEND);
         }
     }
 
