@@ -88,7 +88,8 @@ static int bsp_main(int argc, char *argv[])
     // }
     struct thread *ump_listener_thread = run_ump_listener_thread();
 
-    run_m5_tests();
+    // run_m5_tests();
+    run_m6_tests();
 
     // Grading
     grading_test_late();
@@ -130,7 +131,8 @@ static int app_main(int argc, char *argv[])
 
     struct thread *ump_listener_thread = run_ump_listener_thread();
 
-    run_m5_tests();
+    // run_m5_tests();
+    run_m6_tests();
 
     grading_test_late();
 

@@ -1000,13 +1000,13 @@ void run_m5_tests(void)
 
         // DEMO TESTS
         test_spawn_process("demom5");
-        //test_boot_all_cores();
-        // test_cpu_off_on();
+        // test_boot_all_cores();
+        //  test_cpu_off_on();
         break;
     case 1:
-        //test_spawn_single_process();
+        // test_spawn_single_process();
         test_spawn_process("hello");
-        //test_spawn_single_process();
+        // test_spawn_single_process();
         break;
     case 2:
         break;
@@ -1022,4 +1022,43 @@ void run_m5_tests(void)
     M6 TEST START
 */
 
-void run_m6_tests(void) { }
+__attribute__((unused)) static void test_large_ping_pong(void)
+{
+    errval_t err;
+    struct ump_chan *ump;
+
+    ump = &ump_chans[1];
+
+    char *ping = "ping";
+    char *payload = (char *)malloc(UMP_MSG_MAX_BYTES);
+    for (int i = 0; i < UMP_MSG_MAX_BYTES; i += strlen(ping)) {
+        memcpy(payload + i, ping, strlen(ping));
+    }
+
+    debug_printf("size %d\n", strlen(payload));
+    debug_printf("%s\n", payload);
+
+    err = ump_send(ump, UmpPing, payload, strlen(payload));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message");
+    }
+    assert(err_is_ok(err));
+}
+
+void run_m6_tests(void)
+{
+    switch (disp_get_current_core_id()) {
+    case 0:
+        test_large_ping_pong();
+        break;
+    case 1:
+        break;
+    case 2:
+        break;
+    case 3:
+        break;
+    default:
+        break;
+    }
+    DEBUG_PRINTF("Completed %s\n", __func__);
+}

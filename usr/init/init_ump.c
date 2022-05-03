@@ -97,6 +97,23 @@ void ump_receive_listener(struct ump_chan *chan)
             debug_printf("responded to UmpCpuOff\n");
             continue;
         }
+        case UmpPing: {
+            debug_printf("PING: %s\n", payload);
+
+            payload = "pong";
+            ump_send(chan, UmpPong, payload, strlen(payload));
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to send message");
+                continue;
+            }
+
+            debug_printf("responded to UmpPong\n");
+            continue;
+        }
+        case UmpPong: {
+            debug_printf("PONG: %s\n", payload);
+            continue;
+        }
         default: {
             assert(!"unknown type message received in ump receive listener\n");
             return;
