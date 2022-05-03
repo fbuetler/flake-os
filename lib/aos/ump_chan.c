@@ -1,5 +1,7 @@
 #include <aos/ump_chan.h>
 
+#include <aos/deferred.h>
+
 void ump_debug_print(struct ump_chan *ump)
 {
     size_t show_cache_lines = 32;
@@ -81,8 +83,7 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
-    // DEBUG_PRINTF("sending UMP msg with type: %d in slot %d\n", msg->header.msg_type,
-    //              ump->send_next);
+    // DEBUG_PRINTF("sending UMP in slot %d\n", ump->send_next);
     if (*state == UmpMessageSent) {
         err = LIB_ERR_UMP_CHAN_FULL;
         DEBUG_ERR(err, "send queue is full");
@@ -109,11 +110,8 @@ errval_t ump_send(struct ump_chan *ump, ump_msg_type type, char *payload, size_t
 {
     errval_t err;
     size_t offset = 0;
-    /*
-    DEBUG_PRINTF("Before lock in ump_send \n");
-    thread_mutex_lock_nested(&chan->chan_lock);
-    DEBUG_PRINTF("Acquired lock in ump_send \n");
-    */
+    // thread_mutex_lock_nested(&chan->chan_lock);
+
     if (len > UMP_MSG_MAX_BYTES) {
         err = LIB_ERR_UMP_SEND;
         DEBUG_ERR(err, "Message size exceeded max allowed size");
@@ -129,7 +127,16 @@ errval_t ump_send(struct ump_chan *ump, ump_msg_type type, char *payload, size_t
         ump_create_msg(&msg, type, payload + current_offset, current_payload_len,
                        offset >= len);
 
-        err = ump_send_msg(ump, &msg);
+        size_t backoff = 1;
+        while (backoff < 1 << 5) {
+            err = ump_send_msg(ump, &msg);
+            if (err_is_fail(err)) {
+                barrelfish_usleep(backoff * 1000);
+                backoff <<= 1;
+            } else {
+                break;
+            }
+        }
         if (err_is_fail(err)) {
             // thread_mutex_unlock(&ump->chan_lock);
             DEBUG_ERR(err, "Failed to send message");
@@ -148,6 +155,7 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
     struct ump_msg *entry = (struct ump_msg *)ump->recv_base + ump->recv_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
+    // DEBUG_PRINTF("receiving UMP in slot %d\n", ump->recv_next);
     while (*state != UmpMessageSent) {
         // spin, cause it's cheap (L1 ftw!)
     }

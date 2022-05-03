@@ -29,6 +29,7 @@
 #define UMP_SECTION_BYTES (UMP_SHARED_MEM_BYTES / 2)
 
 #define UMP_MSG_BYTES 64  // CACHE_LINE_SIZE
+#define UMP_MSG_MAX_BYTES (2 * BASE_PAGE_SIZE)
 
 #define UMP_MESSAGES_OFFSET 0
 #define UMP_MESSAGES_BYTES UMP_SECTION_BYTES
@@ -63,8 +64,6 @@ struct ump_msg_header {
 
 #define UMP_MSG_HEADER_BYTES (sizeof(struct ump_msg_header))
 #define UMP_MSG_PAYLOAD_BYTES (UMP_MSG_BYTES - UMP_MSG_HEADER_BYTES)
-#define UMP_MSG_MAX_BYTES                                                                \
-    (32 * UMP_MSG_PAYLOAD_BYTES)  // (BASE_PAGE_SIZE / 2) / UMP_MSG_BYTES
 
 struct ump_mem_msg {
     genpaddr_t base;

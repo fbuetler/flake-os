@@ -98,7 +98,7 @@ void ump_receive_listener(struct ump_chan *chan)
             continue;
         }
         case UmpPing: {
-            debug_printf("PING: %s\n", payload);
+            debug_printf("PING: size %d - %s\n", strlen(payload), payload);
 
             payload = "pong";
             ump_send(chan, UmpPong, payload, strlen(payload));
