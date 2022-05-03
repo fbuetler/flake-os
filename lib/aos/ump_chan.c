@@ -2,19 +2,36 @@
 
 void ump_debug_print(struct ump_chan *ump)
 {
-    DEBUG_PRINTF("Send:\nbase: 0x%lx\nnext: %d\n", ump->send_base, ump->send_next);
-    DEBUG_PRINTF("SEND MEMORY DUMP:\n");
-    size_t show_cache_lines = 3;
-    for (int i = 0; i < show_cache_lines * 8; i++) {
-        DEBUG_PRINTF("%d: [0x%lx, 0x%lx]\n", i, ump->send_base - 8 + i,
-                     *(ump->send_base - 8 + i));
+    size_t show_cache_lines = 32;
+
+    DEBUG_PRINTF("Send - base: 0x%lx - next: %d\n", ump->send_base, ump->send_next);
+    for (int i = 0; i < show_cache_lines; i++) {
+        char *send_dump = malloc(1 << 8);
+        int c = 0;
+
+        sprintf((send_dump + c), "%02d ", i);
+        c += 3;
+
+        for (int j = 0; j < 8; j++) {
+            sprintf((send_dump + c), "%016lx ", *(ump->send_base + 8 * i + j));
+            c += 17;
+        }
+        DEBUG_PRINTF("%s\n", send_dump);
     }
 
-    DEBUG_PRINTF("Receive:\nbase: 0x%lx\nnext: %d\n", ump->recv_base, ump->recv_next);
-    DEBUG_PRINTF("RECEIVE MEMORY DUMP:\n");
-    for (int i = 0; i < show_cache_lines * 8; i++) {
-        DEBUG_PRINTF("%d: [0x%lx, 0x%lx]\n", i, ump->recv_base - 8 + i,
-                     *(ump->recv_base - 8 + i));
+    DEBUG_PRINTF("Receive - base: 0x%lx - next: %d\n", ump->recv_base, ump->recv_next)
+    for (int i = 0; i < show_cache_lines; i++) {
+        char *recv_dump = malloc(1 << 8);
+        int c = 0;
+
+        sprintf((recv_dump + c), "%02d ", i);
+        c += 3;
+
+        for (int j = 0; j < 8; j++) {
+            sprintf((recv_dump + c), "%016lx ", *(ump->recv_base + 8 * i + j));
+            c += 17;
+        }
+        DEBUG_PRINTF("%s\n", recv_dump);
     }
 }
 
