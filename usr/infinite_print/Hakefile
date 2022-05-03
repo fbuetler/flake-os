@@ -12,6 +12,7 @@
 
 [ build application { target = "infinite_print",
   		              cFiles = [ "infinite_print.c" ],
+                    addLibraries = [ "grading" ],
                       architectures = allArchitectures
                     }
 ]

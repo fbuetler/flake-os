@@ -12,6 +12,7 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. attn: systems group.
  */
 
+#include <grading.h>
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
 #include <math.h>
@@ -36,9 +37,11 @@ static void aos_process_handshake(struct aos_rpc_msg *msg)
  *
  * @param msg
  */
-static void aos_process_number(struct aos_rpc_msg *msg)
+void aos_process_number(struct aos_rpc_msg *msg)
 {
-    DEBUG_PRINTF("received number: %d\n", *((uint64_t *)msg->payload));
+    uintptr_t number = *((uint64_t *)msg->payload);
+    grading_rpc_handle_number(number);
+    DEBUG_PRINTF("received number: %d\n", number);
     free(msg);
 }
 
@@ -48,8 +51,9 @@ static void aos_process_number(struct aos_rpc_msg *msg)
  * @param ms
  * g
  */
-static void aos_process_string(struct aos_rpc_msg *msg)
+void aos_process_string(struct aos_rpc_msg *msg)
 {
+    grading_rpc_handler_string(msg->payload);
     DEBUG_PRINTF("received string: %s\n", msg->payload);
     free(msg);
 }

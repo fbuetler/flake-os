@@ -12,6 +12,7 @@
 
 [ build application { target = "selfpaging",
   		              cFiles = [ "selfpaging.c" ],
+                    addLibraries = [ "grading" ],
                       architectures = allArchitectures
                     }
 ]

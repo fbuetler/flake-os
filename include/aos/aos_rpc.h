@@ -68,6 +68,10 @@ enum aos_rpc_channel_type{
     AOS_RPC_MEMORY_CHANNEL,
 };
 
+
+void aos_process_number(struct aos_rpc_msg *msg);
+void aos_process_string(struct aos_rpc_msg *msg);
+
 /**
  * @brief Initialize an aos_rpc struct from parent to child
  */

@@ -12,7 +12,7 @@
 
 [ build application { target = "spawnTester",
   		                cFiles = [ "spawnTester.c" ],
-                      addLibraries = [ "spawn" ],
+                      addLibraries = [ "spawn", "grading" ],
                       architectures = allArchitectures
                     }
 ]

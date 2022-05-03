@@ -13,6 +13,7 @@
 [ build application 
   { 
     target = "demom5",
-    cFiles = [ "main.c" ]
+    cFiles = [ "main.c" ],
+    addLibraries = [ "grading" ]
   }
 ]

@@ -12,8 +12,6 @@
 
 errval_t init_process_msg(struct aos_rpc *rpc);
 
-void aos_process_number(struct aos_rpc_msg *msg);
-void aos_process_string(struct aos_rpc_msg *msg);
 void aos_process_ram_cap_request(struct aos_rpc *rpc);
 void aos_process_spawn_request(struct aos_rpc *rpc);
 errval_t aos_process_serial_write_char(struct aos_rpc *rpc);
