@@ -11,6 +11,7 @@
 #define _INIT_UMP_H_
 
 #include <aos/aos.h>
+#include <aos/aos_rpc.h>
 
 /*
     memory layout of the URPC frame (BASE_PAGE_SIZE aka 4kb)
@@ -85,10 +86,14 @@ struct ump_chan {
     uint64_t recv_next;   // next recv entry
 };
 
+
 void ump_debug_print(struct ump_chan *ump);
 errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary);
 errval_t ump_send(struct ump_chan *chan, ump_msg_type type, char *payload, size_t len);
 errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayload,
                      size_t *retlen);
+
+
+errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, struct ump_chan **sump, coreid_t core, enum aos_rpc_service service);
 
 #endif /* _INIT_UMP_H_ */

@@ -68,6 +68,11 @@ enum aos_rpc_channel_type{
     AOS_RPC_MEMORY_CHANNEL,
 };
 
+enum aos_rpc_service{
+    AOS_RPC_BASE_SERVICE,
+    AOS_RPC_MEMORY_SERVICE,
+};
+
 
 void aos_process_number(struct aos_rpc_msg *msg);
 void aos_process_string(struct aos_rpc_msg *msg);
