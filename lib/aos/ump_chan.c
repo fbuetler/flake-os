@@ -48,7 +48,7 @@ errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
 /**
  * Populate ump_msg struct on the stack
  */
-static void ump_create_msg(struct ump_msg *msg, enum ump_msg_type type, char *payload,
+static void ump_create_msg(struct ump_msg *msg, ump_msg_type type, char *payload,
                            size_t len, bool is_last)
 {
     msg->header.msg_state = UmpMessageCreated;
@@ -62,7 +62,7 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
 {
     errval_t err;
     struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
-    volatile enum ump_msg_state *state = &entry->header.msg_state;
+    volatile ump_msg_state *state = &entry->header.msg_state;
 
     DEBUG_PRINTF("sending UMP msg with type: %d \n", msg->header.msg_type);
     if (*state == UmpMessageSent) {
@@ -87,7 +87,7 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     return SYS_ERR_OK;
 }
 
-errval_t ump_send(struct ump_chan *ump, enum ump_msg_type type, char *payload, size_t len)
+errval_t ump_send(struct ump_chan *ump, ump_msg_type type, char *payload, size_t len)
 {
     errval_t err;
     size_t offset = 0;
@@ -129,7 +129,7 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
 
 
     struct ump_msg *entry = (struct ump_msg *)ump->recv_base + ump->recv_next;
-    volatile enum ump_msg_state *state = &entry->header.msg_state;
+    volatile ump_msg_state *state = &entry->header.msg_state;
 
     while (*state != UmpMessageSent) {
         // spin, cause it's cheap (L1 ftw!)
@@ -157,7 +157,7 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
     return SYS_ERR_OK;
 }
 
-errval_t ump_receive(struct ump_chan *ump, enum ump_msg_type *rettype, char **retpayload,
+errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayload,
                      size_t *retlen)
 {
     // thread_mutex_lock_nested(&ump->chan_lock);
@@ -166,7 +166,7 @@ errval_t ump_receive(struct ump_chan *ump, enum ump_msg_type *rettype, char **re
     size_t offset = 0;
     char *tmp_payload = malloc(UMP_MSG_MAX_BYTES);
 
-    enum ump_msg_type msg_type;
+    ump_msg_type msg_type;
     bool is_last = false;
     while (!is_last) {
         struct ump_msg msg;

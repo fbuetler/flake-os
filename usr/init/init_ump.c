@@ -16,7 +16,7 @@
 
 void ump_receive_listener(struct ump_chan *chan)
 {
-    enum ump_msg_type type;
+    ump_msg_type type;
     char *payload;
     size_t len;
     while (1) {

@@ -929,7 +929,7 @@ __attribute__((unused)) static void test_ump_spawn(void)
     assert(err_is_ok(err));
 
     // get response!
-    enum ump_msg_type type;
+    ump_msg_type type;
     char *payload;
     size_t len;
     err = ump_receive(&ump_chans[1], &type, &payload, &len);
@@ -1034,9 +1034,6 @@ __attribute__((unused)) static void test_large_ping_pong(void)
     for (int i = 0; i < UMP_MSG_MAX_BYTES; i += strlen(ping)) {
         memcpy(payload + i, ping, strlen(ping));
     }
-
-    debug_printf("size %d\n", strlen(payload));
-    debug_printf("%s\n", payload);
 
     err = ump_send(ump, UmpPing, payload, strlen(payload));
     if (err_is_fail(err)) {

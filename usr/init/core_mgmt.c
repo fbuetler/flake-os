@@ -15,7 +15,7 @@
 extern struct platform_info platform_info;
 extern struct ump_chan ump_chans[4];
 
-static errval_t send_cap(struct ump_chan *ump, enum ump_msg_type msg_type,
+static errval_t send_cap(struct ump_chan *ump, ump_msg_type msg_type,
                          struct capref cap)
 {
     errval_t err;
@@ -36,12 +36,12 @@ static errval_t send_cap(struct ump_chan *ump, enum ump_msg_type msg_type,
     return SYS_ERR_OK;
 }
 
-static errval_t recv_cap(struct ump_chan *ump, enum ump_msg_type expected_msg_type,
+static errval_t recv_cap(struct ump_chan *ump, ump_msg_type expected_msg_type,
                          struct ump_mem_msg **mem_msg)
 {
     errval_t err;
 
-    enum ump_msg_type msg_type;
+    ump_msg_type msg_type;
     char *payload;
     size_t payload_len;
     err = ump_receive(ump, &msg_type, &payload, &payload_len);

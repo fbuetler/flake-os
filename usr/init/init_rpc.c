@@ -90,7 +90,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
         assert(err_is_ok(err));
 
         // get response!
-        enum ump_msg_type type;
+        ump_msg_type type;
         char *payload;
         size_t len;
         err = ump_receive(ump, &type, &payload, &len);
@@ -222,7 +222,7 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc)
         }
 
         // receive response
-        enum ump_msg_type type;
+        ump_msg_type type;
         char *payload;
         size_t retsize;
         ump_receive(ump, &type, &payload, &retsize);
@@ -281,7 +281,7 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
 
     debug_printf("awaiting remote pids...\n");
 
-    enum ump_msg_type type;
+    ump_msg_type type;
     char *payload;
     size_t retsize;
 

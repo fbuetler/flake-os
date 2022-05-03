@@ -28,44 +28,43 @@
 #define UMP_SHARED_MEM_BYTES BASE_PAGE_SIZE
 #define UMP_SECTION_BYTES (UMP_SHARED_MEM_BYTES / 2)
 
-#define UMP_MSG_BYTES 64                        // CACHE_LINE_SIZE
-#define UMP_MSG_MAX_BYTES (16 * UMP_MSG_BYTES)  // (BASE_PAGE_SIZE / 2) / UMP_MSG_BYTES
+#define UMP_MSG_BYTES 64  // CACHE_LINE_SIZE
 
 #define UMP_MESSAGES_OFFSET 0
 #define UMP_MESSAGES_BYTES UMP_SECTION_BYTES
 
 #define UMP_MESSAGES_ENTRIES (UMP_MESSAGES_BYTES / UMP_MSG_BYTES)
 
-enum ump_msg_type {
-    UmpPing = 1,
-    UmpPong = 2,
-    UmpSpawn = 3,
-    UmpSpawnResponse = 4,
-    UmpSendMem = 5,
-    UmpSendBootinfo = 6,
-    UmpSendMMStrings = 7,
-    UmpPid2Name = 8,
-    UmpPid2NameResponse = 9,
-    UmpGetAllPids = 10,
-    UmpGetAllPidsResponse = 11,
-    UmpCpuOff = 12,
-};
+typedef uint8_t ump_msg_type;
+static const ump_msg_type UmpPing = 1;
+static const ump_msg_type UmpPong = 2;
+static const ump_msg_type UmpSpawn = 3;
+static const ump_msg_type UmpSpawnResponse = 4;
+static const ump_msg_type UmpSendMem = 5;
+static const ump_msg_type UmpSendBootinfo = 6;
+static const ump_msg_type UmpSendMMStrings = 7;
+static const ump_msg_type UmpPid2Name = 8;
+static const ump_msg_type UmpPid2NameResponse = 9;
+static const ump_msg_type UmpGetAllPids = 10;
+static const ump_msg_type UmpGetAllPidsResponse = 11;
+static const ump_msg_type UmpCpuOff = 12;
 
-enum ump_msg_state {
-    UmpMessageCreated = 1,
-    UmpMessageSent = 2,
-    UmpMessageReceived = 3,
-};
+typedef uint8_t ump_msg_state;
+static const ump_msg_state UmpMessageCreated = 1;
+static const ump_msg_state UmpMessageSent = 2;
+static const ump_msg_state UmpMessageReceived = 3;
 
 struct ump_msg_header {
-    enum ump_msg_type msg_type;
-    enum ump_msg_state msg_state;
+    ump_msg_type msg_type;
+    ump_msg_state msg_state;
     uint8_t len;
     bool last;
 };
 
 #define UMP_MSG_HEADER_BYTES (sizeof(struct ump_msg_header))
 #define UMP_MSG_PAYLOAD_BYTES (UMP_MSG_BYTES - UMP_MSG_HEADER_BYTES)
+#define UMP_MSG_MAX_BYTES                                                                \
+    (32 * UMP_MSG_PAYLOAD_BYTES)  // (BASE_PAGE_SIZE / 2) / UMP_MSG_BYTES
 
 struct ump_mem_msg {
     genpaddr_t base;
@@ -88,9 +87,8 @@ struct ump_chan {
 
 void ump_debug_print(struct ump_chan *ump);
 errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary);
-errval_t ump_send(struct ump_chan *chan, enum ump_msg_type type, char *payload,
-                  size_t len);
-errval_t ump_receive(struct ump_chan *ump, enum ump_msg_type *rettype, char **retpayload,
+errval_t ump_send(struct ump_chan *chan, ump_msg_type type, char *payload, size_t len);
+errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayload,
                      size_t *retlen);
 
 #endif /* _INIT_UMP_H_ */
