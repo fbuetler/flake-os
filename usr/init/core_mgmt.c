@@ -109,7 +109,7 @@ errval_t boot_core(coreid_t core_id)
     ump_initialize(ump, urpc, true);
 
     // Send Memory Almosen
-    DEBUG_PRINTF("Send initial memory\n");
+    // DEBUG_PRINTF("Send initial memory\n");
     struct capref mem_cap;
     err = ram_alloc(&mem_cap, BIT(29));
     if (err_is_fail(err)) {
@@ -124,7 +124,7 @@ errval_t boot_core(coreid_t core_id)
     }
 
     // Send boot info
-    DEBUG_PRINTF("Send boot info\n");
+    // DEBUG_PRINTF("Send boot info\n");
     err = send_cap(ump, UmpSendBootinfo, cap_bootinfo);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send boot info cap");
@@ -132,7 +132,7 @@ errval_t boot_core(coreid_t core_id)
     }
 
     // Send multiboot module string area
-    DEBUG_PRINTF("Send mm strings\n");
+    // DEBUG_PRINTF("Send mm strings\n");
     err = send_cap(ump, UmpSendMMStrings, cap_mmstrings);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send mm strings cap");
@@ -158,7 +158,7 @@ errval_t init_app_core(void)
     ump_initialize(ump, urpc, false);
 
     // Receive memory almosen
-    DEBUG_PRINTF("Receive initial memory\n");
+    // DEBUG_PRINTF("Receive initial memory\n");
     struct ump_mem_msg *memory_region;
     err = recv_cap(ump, UmpSendMem, &memory_region);
     if (err_is_fail(err)) {
@@ -189,7 +189,7 @@ errval_t init_app_core(void)
     }
 
     // Receive boot info
-    DEBUG_PRINTF("Receive boot info\n");
+    // DEBUG_PRINTF("Receive boot info\n");
     struct ump_mem_msg *bootinfo_region;
     err = recv_cap(ump, UmpSendBootinfo, &bootinfo_region);
     if (err_is_fail(err)) {
@@ -227,7 +227,7 @@ errval_t init_app_core(void)
     }
 
     // Receive multiboot module string area
-    DEBUG_PRINTF("Receive mm strings\n");
+    // DEBUG_PRINTF("Receive mm strings\n");
     struct ump_mem_msg *mmstring_region;
     err = recv_cap(ump, UmpSendMMStrings, &mmstring_region);
     if (err_is_fail(err)) {
@@ -242,7 +242,7 @@ errval_t init_app_core(void)
         return err;
     }
 
-    DEBUG_PRINTF("App core initialized\n");
+    // DEBUG_PRINTF("App core initialized\n");
 
     return SYS_ERR_OK;
 }

@@ -87,7 +87,7 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     return SYS_ERR_OK;
 }
 
-errval_t ump_send(struct ump_chan *chan, enum ump_msg_type type, char *payload, size_t len)
+errval_t ump_send(struct ump_chan *ump, enum ump_msg_type type, char *payload, size_t len)
 {
     errval_t err;
     size_t offset = 0;
@@ -111,9 +111,9 @@ errval_t ump_send(struct ump_chan *chan, enum ump_msg_type type, char *payload, 
         ump_create_msg(&msg, type, payload + current_offset, current_payload_len,
                        offset >= len);
 
-        err = ump_send_msg(chan, &msg);
+        err = ump_send_msg(ump, &msg);
         if (err_is_fail(err)) {
-            thread_mutex_unlock(&chan->chan_lock);
+            thread_mutex_unlock(&ump->chan_lock);
             DEBUG_ERR(err, "Failed to send message");
             err = err_push(err, LIB_ERR_UMP_SEND);
             return err;
@@ -135,11 +135,11 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
         // spin, cause it's cheap (L1 ftw!)
     }
 
-    // This barrier does not need to be inside the polling loop as the state enum is volatile.
-    // Further, the sending side has a data barrier before setting the correct state.
-    // Therefore, the only memory instruction between the barrier on the sending side
-    // and the polling loop reading that the state is UmpMessageSent is the sending side
-    // writing UmpMessageSent to the cache line.
+    // This barrier does not need to be inside the polling loop as the state enum is
+    // volatile. Further, the sending side has a data barrier before setting the correct
+    // state. Therefore, the only memory instruction between the barrier on the sending
+    // side and the polling loop reading that the state is UmpMessageSent is the sending
+    // side writing UmpMessageSent to the cache line.
     dmb();  // ensure that we checked the above condition before copying
 
     assert(sizeof(struct ump_msg) == UMP_MSG_BYTES);
@@ -160,8 +160,7 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
 errval_t ump_receive(struct ump_chan *ump, enum ump_msg_type *rettype, char **retpayload,
                      size_t *retlen)
 {
-
-    //thread_mutex_lock_nested(&ump->chan_lock);
+    // thread_mutex_lock_nested(&ump->chan_lock);
     errval_t err;
 
     size_t offset = 0;

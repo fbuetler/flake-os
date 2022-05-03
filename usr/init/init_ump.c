@@ -21,7 +21,7 @@ void ump_receive_listener(struct ump_chan *chan)
     size_t len;
     while (1) {
         errval_t err = ump_receive(chan, &type, &payload, &len);
-        debug_printf("received message of type: %d\n", type);
+        // debug_printf("received message of type: %d\n", type);
         if (err_is_fail(err)) {
             assert(!"couldn't receive ump message in receive listener\n");
         }
@@ -39,6 +39,7 @@ void ump_receive_listener(struct ump_chan *chan)
             err = ump_send(chan, UmpSpawnResponse, (char *)&pid, sizeof(domainid_t));
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to respond to spawn request!\n");
+                continue;
             }
 
             debug_printf("responded to UmpSpawn\n");
@@ -47,7 +48,7 @@ void ump_receive_listener(struct ump_chan *chan)
         case UmpSpawnResponse: {
             DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
 
-            debug_printf("responded to UmpSpawnRESPONE\n");
+            debug_printf("responded to UmpSpawnResponse\n");
             continue;
         }
         case UmpPid2Name: {
@@ -63,6 +64,7 @@ void ump_receive_listener(struct ump_chan *chan)
             err = ump_send(chan, UmpPid2NameResponse, name, strlen(name) + 1);
             if (err_is_fail(err)) {
                 DEBUG_PRINTF("failed to respond to pid2name request!\n");
+                continue;
             }
 
             debug_printf("responded to UmpPid2Name\n");
@@ -82,6 +84,7 @@ void ump_receive_listener(struct ump_chan *chan)
                            nr_of_pids * sizeof(domainid_t));
             if (err_is_fail(err)) {
                 DEBUG_PRINTF("failed to respond to get all pids!\n");
+                continue;
             }
             debug_printf("responded to UmpGetAllPids\n");
             continue;
