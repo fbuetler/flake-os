@@ -86,10 +86,10 @@ static int bsp_main(int argc, char *argv[])
     // if (err_is_fail(err)) {
     //     DEBUG_ERR(err, "failed to boot core");
     // }
-    struct thread *ump_listener_thread = run_ump_listener_thread();
+    struct ump_chan *chan = &ump_chans[!disp_get_core_id()];
+    struct thread *ump_listener_thread = run_ump_listener_thread(chan, false);
 
-    // run_m5_tests();
-    run_m6_tests();
+    run_tests();
 
     // Grading
     grading_test_late();
@@ -129,10 +129,10 @@ static int app_main(int argc, char *argv[])
 
     grading_test_early();
 
-    struct thread *ump_listener_thread = run_ump_listener_thread();
+    struct ump_chan *chan = &ump_chans[!disp_get_core_id()];
+    struct thread *ump_listener_thread = run_ump_listener_thread(chan, false);
 
-    // run_m5_tests();
-    run_m6_tests();
+    run_tests();
 
     grading_test_late();
 

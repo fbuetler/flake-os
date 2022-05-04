@@ -36,12 +36,25 @@ int main(int argc, char *argv[])
     }
 
     struct ump_chan c_ump;
-    struct ump_chan s_ump;
 
-    err = ump_bind(init_rpc, &c_ump, &s_ump, 0, AOS_RPC_BASE_SERVICE); 
+    err = ump_bind(init_rpc, &c_ump, 0, AOS_RPC_BASE_SERVICE); 
+    assert(err_is_ok(err));
+
+    char p = 'p';
+    ump_send(&c_ump, UmpClose, &p, 1);
+
+
+    ump_msg_type rtype;
+    char *rpayload;
+    size_t rlen;
+    err = ump_receive(&c_ump, &rtype, &rpayload, &rlen);
+    debug_printf("received type: %d\n", rtype);
     assert(err_is_ok(err));
 
     printf("channel is set up!\n");
+
+    //printf("printing char from core 1 to core 0!\n");
+    //aos_rpc_serial_putchar(init_rpc, 'x');
 
     return EXIT_SUCCESS;
 }

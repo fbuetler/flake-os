@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <aos/aos.h>
 
+void run_tests(void);
 
 // M1: physical memory management
 void run_m1_tests(void);
