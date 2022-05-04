@@ -107,7 +107,6 @@ void ump_receive_listener(struct ump_chan *chan)
                 DEBUG_ERR(err, "failed to send message");
                 continue;
             }
-
             debug_printf("responded to UmpPong\n");
             continue;
         }
@@ -139,21 +138,7 @@ void ump_receive_listener(struct ump_chan *chan)
             }
 
             process_ump_bind_request(mem_cap);
-/*            struct ump_chan *new_chan = malloc(sizeof(struct ump_chan));
-            if(!new_chan){
-                DEBUG_PRINTF("Failed to malloc new channel\n");
-                continue;
-            }
- 
-            err = ump_create_chan(&mem_cap, new_chan, false, true);
-            if(err_is_fail(err)) {
-                DEBUG_PRINTF("Could not create channel during UMP binding\n");
-                //return err_push(LIB_ERR_UMP_CHAN_BIND, err);
-                continue;
-            } 
-            
-            run_ump_listener_thread(new_chan);
-*/
+
             // TODO: is problem fixed that we can't send payloads of size 0?
             char response_payload[1];
             ump_send(chan, UmpBindReponse, response_payload, 1);

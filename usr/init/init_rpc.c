@@ -307,10 +307,6 @@ static errval_t aos_process_ump_bind_request(struct aos_rpc *rpc){
     struct aos_rpc_msg *msg = rpc->recv_msg;
     struct capref frame_cap = msg->cap;
 
-    char buf2[1024];
-    debug_print_capref(buf2, 1024, frame_cap);
-    debug_printf("cap: %s\n", buf2);
-
     //struct capref cframe = msg->cap;
     err = lmp_chan_alloc_recv_slot(&rpc->chan);
     if (err_is_fail(err)) {

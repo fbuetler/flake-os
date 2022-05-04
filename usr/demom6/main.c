@@ -35,23 +35,35 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
 
+/*
+    - bind to any RPC server:  we have on init: base-server, mem-server
+        e.g memory server, serial server
+
+*/
+
     struct ump_chan c_ump;
 
-    err = ump_bind(init_rpc, &c_ump, 0, AOS_RPC_BASE_SERVICE); 
+    coreid_t core_id = 1;
+    err = ump_bind(init_rpc, &c_ump, core_id, AOS_RPC_BASE_SERVICE); 
     assert(err_is_ok(err));
 
-    char p = 'p';
-    ump_send(&c_ump, UmpClose, &p, 1);
+    debug_printf("channel is set up!\n");
 
-
+    char p;
+    ump_send(&c_ump, UmpPing, &p, 1);
     ump_msg_type rtype;
     char *rpayload;
     size_t rlen;
     err = ump_receive(&c_ump, &rtype, &rpayload, &rlen);
+    assert(err_is_ok(err));
+    debug_printf("PING: %s\n", rpayload);
+
+    ump_send(&c_ump, UmpClose, &p, 1);
+    err = ump_receive(&c_ump, &rtype, &rpayload, &rlen);
     debug_printf("received type: %d\n", rtype);
     assert(err_is_ok(err));
 
-    printf("channel is set up!\n");
+    debug_printf("channel is closed\n");
 
     //printf("printing char from core 1 to core 0!\n");
     //aos_rpc_serial_putchar(init_rpc, 'x');

@@ -1018,10 +1018,6 @@ void run_m5_tests(void)
     DEBUG_PRINTF("Completed %s\n", __func__);
 }
 
-__attribute__((unused)) void run_tests(void){
-    run_m6_tests();
-}
-
 /*
     M6 TEST START
 */
@@ -1064,4 +1060,8 @@ void run_m6_tests(void)
         break;
     }
     DEBUG_PRINTF("Completed %s\n", __func__);
+}
+
+void run_tests(void){
+    run_m6_tests();
 }
