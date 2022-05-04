@@ -47,7 +47,7 @@ void aos_process_ram_cap_request(struct aos_rpc *rpc)
     size_t payload_size = 0;
     struct aos_rpc_msg *reply;
     char buf[sizeof(struct aos_rpc_msg)];
-    err = aos_rpc_create_msg_no_pagefault(&reply, RamCapResponse, payload_size, NULL,
+    err = aos_rpc_create_msg_no_pagefault(&reply, AosRpcRamCapResponse, payload_size, NULL,
                                           ram_cap, (struct aos_rpc_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -82,7 +82,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
     if (destination_core != disp_get_core_id()) {
         // send UMP request to destination core; spawn process there
         DEBUG_PRINTF("destination_core: %d\n", destination_core);
-        struct ump_chan *ump = &ump_chans[destination_core];
+        struct ump_chan *ump = &ump_client_chans[destination_core];
 
 
         thread_mutex_lock(&ump->chan_lock);
@@ -117,7 +117,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
     *((domainid_t *)payload) = pid;
 
     struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, SpawnResponse, payload_size, (void *)payload,
+    err = aos_rpc_create_msg(&reply, AosRpcSpawnResponse, payload_size, (void *)payload,
                              NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -145,7 +145,7 @@ errval_t aos_process_serial_write_char(struct aos_rpc *rpc)
 
     size_t payload_size = 0;
     struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, SerialWriteCharResponse, payload_size, NULL,
+    err = aos_rpc_create_msg(&reply, AosRpcSerialWriteCharResponse, payload_size, NULL,
                              NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -179,7 +179,7 @@ errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
     *((char *)payload) = c;
 
     struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, SerialReadCharResponse, payload_size, payload,
+    err = aos_rpc_create_msg(&reply, AosRpcSerialReadCharResponse, payload_size, payload,
                              NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -211,7 +211,7 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc)
     if (destination_core != disp_get_core_id()) {
         // process via UMP at destination core
         // TODO here, always 0 or 1 currently
-        struct ump_chan *ump = &ump_chans[!disp_get_core_id()];
+        struct ump_chan *ump = &ump_client_chans[!disp_get_core_id()];
 
         thread_mutex_lock(&ump->chan_lock);
 
@@ -250,7 +250,7 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc)
     size_t payload_size = strlen(name) + 1;
 
     struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, Pid2NameResponse, payload_size, (void *)name,
+    err = aos_rpc_create_msg(&reply, AosRpcPid2NameResponse, payload_size, (void *)name,
                              NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -270,7 +270,7 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
 {
     // get pids from other core
     DEBUG_PRINTF("getting remote pids...\n");
-    struct ump_chan *ump = &ump_chans[!disp_get_core_id()];
+    struct ump_chan *ump = &ump_client_chans[!disp_get_core_id()];
 
     thread_mutex_lock(&ump->chan_lock);
     errval_t err = ump_send(ump, UmpGetAllPids, "", 1);
@@ -297,6 +297,67 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
     *pids = (domainid_t *)payload;
     *num_pids = retsize / sizeof(domainid_t);
 
+    return SYS_ERR_OK;
+}
+
+static errval_t aos_process_ump_bind_request(struct aos_rpc *rpc){
+    DEBUG_PRINTF("received ump bind request\n");
+    errval_t err;
+
+    struct aos_rpc_msg *msg = rpc->recv_msg;
+    struct capref frame_cap = msg->cap;
+
+    //struct capref cframe = msg->cap;
+    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
+    }
+
+    coreid_t destination_core = *((coreid_t *)msg->payload);
+
+    if(disp_get_core_id() == destination_core){
+        // bind to self
+        err = process_ump_bind_request(frame_cap);
+        assert(err_is_ok(err));
+        
+    }else{
+        // send UMP request to destination core
+        struct capability c;
+        err = cap_direct_identify(frame_cap, &c);
+        assert(err_is_ok(err));
+
+        size_t base = c.u.frame.base;
+        size_t bytes = c.u.frame.bytes;
+        size_t payload[2] = {base, bytes};
+        err = ump_send(&ump_client_chans[destination_core], UmpBind, (char *)payload, sizeof(payload));
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "Could not send UMP message during bind request \n");
+            return err_push(LIB_ERR_UMP_CHAN_BIND, err);
+        }
+
+        ump_msg_type type;
+        char *recv_payload;
+        size_t retsize;
+        ump_receive(&ump_client_chans[destination_core], &type, &recv_payload, &retsize);
+        debug_printf("done\n");
+        assert(type == UmpBindReponse);
+    }
+
+    struct aos_rpc_msg *reply;
+    char buf[AOS_RPC_MSG_SIZE(0)];
+    err = aos_rpc_create_msg_no_pagefault(&reply, AosRpcUmpBindResponse, 0, NULL,
+                                          NULL_CAP, (struct aos_rpc_msg *)buf);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
+    // send response
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error sending ump cap response\n");
+    }
     return SYS_ERR_OK;
 }
 
@@ -339,7 +400,7 @@ static errval_t aos_process_get_all_pids_request(struct aos_rpc *rpc)
            remote_nr_of_pids * sizeof(domainid_t));
 
     struct aos_rpc_msg *reply;
-    err = aos_rpc_create_msg(&reply, GetAllPidsResponse, payload_size, (void *)payload,
+    err = aos_rpc_create_msg(&reply, AosRpcGetAllPidsResponse, payload_size, (void *)payload,
                              NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -371,29 +432,32 @@ errval_t init_process_msg(struct aos_rpc *rpc)
     // should only handle incoming messages not initiated by us
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
-    case SendNumber:
+    case AosRpcSendNumber:
         aos_process_number(rpc->recv_msg);
         break;
-    case SendString:
+    case AosRpcSendString:
         aos_process_string(rpc->recv_msg);
         break;
-    case RamCapRequest:
+    case AosRpcRamCapRequest:
         aos_process_ram_cap_request(rpc);
         break;
-    case SpawnRequest:
+    case AosRpcSpawnRequest:
         aos_process_spawn_request(rpc);
         break;
-    case SerialWriteChar:
+    case AosRpcSerialWriteChar:
         aos_process_serial_write_char(rpc);
         break;
-    case SerialReadChar:
+    case AosRpcSerialReadChar:
         aos_process_serial_read_char_request(rpc);
         break;
-    case Pid2Name:
+    case AosRpcPid2Name:
         aos_process_pid2name_request(rpc);
         break;
-    case GetAllPids:
+    case AosRpcGetAllPids:
         aos_process_get_all_pids_request(rpc);
+        break;
+    case AosRpcUmpBindRequest:
+        aos_process_ump_bind_request(rpc);
         break;
     default:
         printf("received unknown message type\n");

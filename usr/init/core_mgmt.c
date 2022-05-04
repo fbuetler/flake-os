@@ -10,10 +10,10 @@
 #include <aos/ump_chan.h>
 #include <aos/coreboot.h>
 
+#include "init_ump.h"
 #include "mem_alloc.h"
 
 extern struct platform_info platform_info;
-extern struct ump_chan ump_chans[4];
 
 static errval_t send_cap(struct ump_chan *ump, ump_msg_type msg_type,
                          struct capref cap)
@@ -74,19 +74,32 @@ errval_t boot_core(coreid_t core_id)
     }
     const char *init = "init";
 
-    struct capref frame_cap;
+    struct ump_chan *ump = &ump_chans[core_id];
+    struct ump_chan *c_ump = &ump_client_chans[core_id];
+    
     size_t allocated_bytes;
-    err = frame_alloc(&frame_cap, BASE_PAGE_SIZE, &allocated_bytes);
+    struct capref frame_cap;
+    err = frame_alloc(&frame_cap, 2*BASE_PAGE_SIZE, &allocated_bytes);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to allocate frame");
+        DEBUG_ERR(err, "failed to allocate frame\n");
         return err;
     }
 
-    if (allocated_bytes != BASE_PAGE_SIZE) {
-        err = LIB_ERR_FRAME_ALLOC;
-        DEBUG_ERR(err, "failed to allocate frame of the requested size");
+    void *urpc;
+    err = paging_map_frame_complete(get_current_paging_state(), &urpc, frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map urpc frame");
         return err;
     }
+
+    // init channel
+    err = ump_initialize(ump, urpc, true);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to initialize channel");
+        return err;
+    }
+
+    ump_initialize(c_ump, urpc + BASE_PAGE_SIZE, false);
 
     struct frame_identity urpc_frame_id;
     err = frame_identify(frame_cap, &urpc_frame_id);
@@ -97,17 +110,6 @@ errval_t boot_core(coreid_t core_id)
 
     coreboot(core_id, boot_driver, cpu_driver, init, urpc_frame_id);
 
-    // communicate with other core over shared memory
-    void *urpc;
-    err = paging_map_frame_complete(get_current_paging_state(), &urpc, frame_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to map urpc frame");
-    }
-
-    // init channel
-    struct ump_chan *ump = &ump_chans[core_id];
-    ump_initialize(ump, urpc, true);
-
     // Send Memory Almosen
     // DEBUG_PRINTF("Send initial memory\n");
     struct capref mem_cap;
@@ -117,7 +119,7 @@ errval_t boot_core(coreid_t core_id)
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = send_cap(ump, UmpSendMem, mem_cap);
+    err = send_cap(c_ump, UmpSendMem, mem_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send mem cap");
         return err;
@@ -125,7 +127,7 @@ errval_t boot_core(coreid_t core_id)
 
     // Send boot info
     // DEBUG_PRINTF("Send boot info\n");
-    err = send_cap(ump, UmpSendBootinfo, cap_bootinfo);
+    err = send_cap(c_ump, UmpSendBootinfo, cap_bootinfo);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send boot info cap");
         return err;
@@ -133,7 +135,7 @@ errval_t boot_core(coreid_t core_id)
 
     // Send multiboot module string area
     // DEBUG_PRINTF("Send mm strings\n");
-    err = send_cap(ump, UmpSendMMStrings, cap_mmstrings);
+    err = send_cap(c_ump, UmpSendMMStrings, cap_mmstrings);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send mm strings cap");
         return err;
@@ -154,8 +156,10 @@ errval_t init_app_core(void)
     }
 
     // init channel to core0
+    struct ump_chan *c_ump = &ump_client_chans[0];
     struct ump_chan *ump = &ump_chans[0];
-    ump_initialize(ump, urpc, false);
+    ump_initialize(c_ump, urpc, false);
+    ump_initialize(ump, urpc + BASE_PAGE_SIZE, true);
 
     // Receive memory almosen
     // DEBUG_PRINTF("Receive initial memory\n");

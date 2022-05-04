@@ -19,7 +19,6 @@
 #include <spawn/spawn.h>
 #include <aos/deferred.h>
 
-#define AOS_RPC_MSG_SIZE(payload_size) (sizeof(struct aos_rpc_msg) + (payload_size))
 char static_rpc_msg_buf[1<<20];
 
 /**
@@ -63,16 +62,16 @@ static errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
     // should only handle incoming messages not initiated by us
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
     switch (msg_type) {
-    case Handshake:
+    case AosRpcHandshake:
         aos_process_handshake(rpc->recv_msg);
         break;
-    case SendNumber:
+    case AosRpcSendNumber:
         aos_process_number(rpc->recv_msg);
         break;
-    case SendString:
+    case AosRpcSendString:
         aos_process_string(rpc->recv_msg);
         break;
-    case GetAllPidsResponse:
+    case AosRpcGetAllPidsResponse:
         break;
     default:
         DEBUG_PRINTF("received unknown message type %d\n", msg_type);
@@ -206,6 +205,7 @@ static errval_t aos_rpc_recv_msg_blocking(struct aos_rpc *rpc)
         err = aos_rpc_chan_recv_blocking(rpc, &msg_cap, &recv_buf);
         err = aos_rpc_recv_followup_msg(rpc, &recv_buf);
     }
+
     
     rpc->is_busy = false;
     return err;
@@ -319,7 +319,7 @@ errval_t aos_rpc_init_handshake_to_child(struct aos_rpc *init_rpc, struct aos_rp
 
     size_t payload_size = 0;
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, Handshake, payload_size, NULL,
+    err = aos_rpc_create_msg(&msg, AosRpcHandshake, payload_size, NULL,
                              child_rpc->chan.local_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -545,6 +545,7 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     else
         remaining = total_bytes - transferred_size;
 
+    err = SYS_ERR_OK;
     do {
         switch (DIVIDE_ROUND_UP(remaining, sizeof(uint64_t))) {
         case 0:
@@ -637,7 +638,7 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
     struct aos_rpc_msg *msg;
 
     char msg_buf[AOS_RPC_MSG_SIZE(sizeof(uintptr_t))];
-    err = aos_rpc_create_msg_no_pagefault(&msg, SendNumber, sizeof(num), (void *)&num, NULL_CAP, (struct aos_rpc_msg *)msg_buf);
+    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcSendNumber, sizeof(num), (void *)&num, NULL_CAP, (struct aos_rpc_msg *)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -658,7 +659,7 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
 
     size_t payload_size = strlen(string);
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, SendString, payload_size, (void *)string, NULL_CAP);
+    err = aos_rpc_create_msg(&msg, AosRpcSendString, payload_size, (void *)string, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -694,10 +695,17 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     struct aos_rpc_msg *msg;
 
     char buf[AOS_RPC_MSG_SIZE(payload_size)];
-    err = aos_rpc_create_msg_no_pagefault(&msg, RamCapRequest, payload_size, (void *)payload, NULL_CAP, (struct aos_rpc_msg*)buf);
+    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcRamCapRequest, payload_size, (void *)payload, NULL_CAP, (struct aos_rpc_msg*)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
+    }
+
+    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
     }
 
     err = aos_rpc_call(rpc, msg, false);
@@ -706,7 +714,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
         return err_push(err, LIB_ERR_RPC_SEND);
     }
 
-    if(rpc->recv_msg->message_type != RamCapResponse){
+    if(rpc->recv_msg->message_type != AosRpcRamCapResponse){
         DEBUG_PRINTF("message type is not RamCapResponse, it's %d\n", rpc->recv_msg->message_type);
     }
 
@@ -727,7 +735,7 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
     char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
 
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg_no_pagefault(&msg, SerialReadChar, payload_size, NULL, NULL_CAP, (struct aos_rpc_msg*)msg_buf);
+    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcSerialReadChar, payload_size, NULL, NULL_CAP, (struct aos_rpc_msg*)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -759,7 +767,7 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
     char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
 
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg_no_pagefault(&msg, SerialWriteChar, payload_size, (void *)payload,
+    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcSerialWriteChar, payload_size, (void *)payload,
                              NULL_CAP, (struct aos_rpc_msg*)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -791,7 +799,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
 
     *(coreid_t*)payload = core;
     memcpy(payload + sizeof(coreid_t), cmdline, cmdline_len +1);
-    err = aos_rpc_create_msg(&msg, SpawnRequest, payload_size, (void *)payload, NULL_CAP);
+    err = aos_rpc_create_msg(&msg, AosRpcSpawnRequest, payload_size, (void *)payload, NULL_CAP);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -821,7 +829,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
     // TODO (M5): implement name lookup for process given a process id
     errval_t err;
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, Pid2Name, sizeof(domainid_t), (void *)&pid, NULL_CAP);
+    err = aos_rpc_create_msg(&msg, AosRpcPid2Name, sizeof(domainid_t), (void *)&pid, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -874,7 +882,7 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
     char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
 
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg_no_pagefault(&msg, GetAllPids, payload_size, NULL, NULL_CAP, (struct aos_rpc_msg*)msg_buf);
+    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcGetAllPids, payload_size, NULL, NULL_CAP, (struct aos_rpc_msg*)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;

@@ -11,6 +11,7 @@
 #define _INIT_UMP_H_
 
 #include <aos/aos.h>
+#include <aos/aos_rpc.h>
 
 /*
     memory layout of the URPC frame (BASE_PAGE_SIZE aka 4kb)
@@ -49,6 +50,10 @@ static const ump_msg_type UmpPid2NameResponse = 9;
 static const ump_msg_type UmpGetAllPids = 10;
 static const ump_msg_type UmpGetAllPidsResponse = 11;
 static const ump_msg_type UmpCpuOff = 12;
+static const ump_msg_type UmpBind = 13;
+static const ump_msg_type UmpBindReponse = 14;
+static const ump_msg_type UmpClose = 15;
+static const ump_msg_type UmpCloseReponse = 16;
 
 typedef uint8_t ump_msg_state;
 static const ump_msg_state UmpMessageCreated = 1;
@@ -69,11 +74,11 @@ struct ump_mem_msg {
     genpaddr_t base;
     gensize_t bytes;
 };
+
 struct ump_msg {
     struct ump_msg_header header;
     char payload[UMP_MSG_PAYLOAD_BYTES];
 };
-
 
 struct ump_chan {
     struct thread_mutex chan_lock;
@@ -89,5 +94,9 @@ errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
 errval_t ump_send(struct ump_chan *chan, ump_msg_type type, char *payload, size_t len);
 errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayload,
                      size_t *retlen);
+
+errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, coreid_t core, enum aos_rpc_service service);
+errval_t  ump_create_chan(struct capref *frame_cap, struct ump_chan *ump, bool alloc_new_frame, bool is_server);
+
 
 #endif /* _INIT_UMP_H_ */

@@ -13,6 +13,7 @@
 #include <aos/aos_rpc.h>
 #include <spawn/spawn.h>
 #include <aos/ump_chan.h>
+#include <aos/kernel_cap_invocations.h>
 
 void ump_receive_listener(struct ump_chan *chan)
 {
@@ -106,13 +107,51 @@ void ump_receive_listener(struct ump_chan *chan)
                 DEBUG_ERR(err, "failed to send message");
                 continue;
             }
-
             debug_printf("responded to UmpPong\n");
             continue;
         }
         case UmpPong: {
             debug_printf("PONG: %s\n", payload);
             continue;
+        }
+        case UmpBind: {
+            DEBUG_PRINTF("received remote UMP Bind request\n");
+
+            // extract memory region
+            genpaddr_t base = *(genpaddr_t *)payload;
+            gensize_t size = *(gensize_t *)(payload + sizeof(genpaddr_t));
+
+            struct capref mem_cap;
+            err = slot_alloc(&mem_cap);
+
+            if(err_is_fail(err)) {
+                DEBUG_PRINTF("Could not allocate slot for ramp cap during UMP binding\n");
+                //return err_push(LIB_ERR_UMP_CHAN_BIND, err);;
+                continue;
+            }
+
+            err = frame_forge(mem_cap, base, size, disp_get_current_core_id());
+            if(err_is_fail(err)) {
+                DEBUG_PRINTF("Could not forge shared frame during UMP binding\n");
+                //return err_push(LIB_ERR_UMP_CHAN_BIND, err);
+                continue;
+            }
+
+            process_ump_bind_request(mem_cap);
+
+            // TODO: is problem fixed that we can't send payloads of size 0?
+            char response_payload[1];
+            ump_send(chan, UmpBindReponse, response_payload, 1);
+
+            debug_printf("ump response has been sent\n");
+
+            continue;
+        }
+        case UmpClose:{
+            char response_payload[1];
+            ump_send(chan, UmpCloseReponse, response_payload, 1);
+            debug_printf("channel closing...\n");
+            return;
         }
         default: {
             assert(!"unknown type message received in ump receive listener\n");
@@ -124,16 +163,28 @@ void ump_receive_listener(struct ump_chan *chan)
 
 int ump_receive_listener_thread_func(void *arg)
 {
-    struct ump_chan *chan = (struct ump_chan *)arg;
+struct ump_chan *chan = (struct ump_chan *)arg;
 
-    ump_receive_listener(chan);
+ump_receive_listener(chan);
+    return 0;
+}
+
+int ump_receive_listener_thread_func_malloced(void *arg){
+    ump_receive_listener_thread_func(arg);
+
+    free(arg);
+    DEBUG_PRINTF("malloced UMP channel has been freed\n");
 
     return 0;
 }
 
-struct thread *run_ump_listener_thread(void)
+struct thread *run_ump_listener_thread(struct ump_chan *chan, bool is_malloced)
 {
-    struct ump_chan *chan = &ump_chans[!disp_get_core_id()];
-    struct thread *t = thread_create(ump_receive_listener_thread_func, (void *)chan);
+    struct thread *t;
+    if(!is_malloced){
+        t = thread_create(ump_receive_listener_thread_func, (void *)chan);
+    }else{
+        t = thread_create(ump_receive_listener_thread_func_malloced, (void *)chan);
+    }
     return t;
 }

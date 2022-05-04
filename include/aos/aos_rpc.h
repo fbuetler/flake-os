@@ -17,6 +17,7 @@
 
 #include <aos/aos.h>
 
+#define AOS_RPC_MSG_SIZE(payload_size) (sizeof(struct aos_rpc_msg) + (payload_size))
 
 // forward declaration
 struct aos_rpc_msg;
@@ -38,21 +39,23 @@ struct aos_rpc {
 };
 
 enum aos_rpc_msg_type {
-    Handshake = 1,
-    SendNumber = 2,
-    SendString = 3,
-    RamCapRequest = 4,
-    RamCapResponse = 5,
-    SpawnRequest = 6,
-    SpawnResponse = 7,
-    SerialWriteChar = 8,
-    SerialReadChar = 9,
-    SerialReadCharResponse = 10,
-    SerialWriteCharResponse = 11,
-    Pid2Name = 12,
-    Pid2NameResponse = 13,
-    GetAllPids = 14,
-    GetAllPidsResponse = 15,
+    AosRpcHandshake = 1,
+    AosRpcSendNumber = 2,
+    AosRpcSendString = 3,
+    AosRpcRamCapRequest = 4,
+    AosRpcRamCapResponse = 5,
+    AosRpcSpawnRequest = 6,
+    AosRpcSpawnResponse = 7,
+    AosRpcSerialWriteChar = 8,
+    AosRpcSerialReadChar = 9,
+    AosRpcSerialReadCharResponse = 10,
+    AosRpcSerialWriteCharResponse = 11,
+    AosRpcPid2Name = 12,
+    AosRpcPid2NameResponse = 13,
+    AosRpcGetAllPids = 14,
+    AosRpcGetAllPidsResponse = 15,
+    AosRpcUmpBindRequest = 16,
+    AosRpcUmpBindResponse = 17,
 };
 
 struct aos_rpc_msg {
@@ -66,6 +69,11 @@ struct aos_rpc_msg {
 enum aos_rpc_channel_type{
     AOS_RPC_BASE_CHANNEL,
     AOS_RPC_MEMORY_CHANNEL,
+};
+
+enum aos_rpc_service{
+    AOS_RPC_BASE_SERVICE,
+    AOS_RPC_MEMORY_SERVICE,
 };
 
 

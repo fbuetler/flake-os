@@ -84,3 +84,24 @@ errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid)
 
     return SYS_ERR_OK;
 }
+
+errval_t process_ump_bind_request(struct capref frame_cap){
+    errval_t err;
+    struct ump_chan *new_chan = malloc(sizeof(struct ump_chan));
+    if(!new_chan){
+        DEBUG_PRINTF("Failed to malloc new channel\n");
+        err = LIB_ERR_MALLOC_FAIL;
+        return err;
+    }
+
+    err = ump_create_chan(&frame_cap, new_chan, false, true);
+    if(err_is_fail(err)) {
+        DEBUG_PRINTF("Could not create channel during UMP binding\n");
+        free(new_chan);
+        return err_push(LIB_ERR_UMP_CHAN_BIND, err);
+    } 
+    
+    run_ump_listener_thread(new_chan, true);
+
+    return SYS_ERR_OK;
+}

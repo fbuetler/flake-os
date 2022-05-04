@@ -1,4 +1,5 @@
 #include <aos/ump_chan.h>
+#include <aos/aos_rpc.h>
 
 #include <aos/deferred.h>
 
@@ -83,7 +84,6 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
-    // DEBUG_PRINTF("sending UMP in slot %d\n", ump->send_next);
     if (*state == UmpMessageSent) {
         err = LIB_ERR_UMP_CHAN_FULL;
         DEBUG_ERR(err, "send queue is full");
@@ -196,6 +196,7 @@ errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayl
     while (!is_last) {
         struct ump_msg msg;
         err = ump_receive_msg(ump, &msg);
+
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to receive message");
             return err_push(err, LIB_ERR_UMP_RECV);
@@ -215,6 +216,83 @@ errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayl
     *rettype = msg_type;
     *retpayload = payload;
     *retlen = offset;
+
+    return SYS_ERR_OK;
+}
+
+
+errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, coreid_t core,
+                  enum aos_rpc_service service)
+{
+    // 1. The client allocates and maps a region of shared memory (the cframe in Figure 8.11.)
+    struct capref cframe_cap = NULL_CAP;
+
+    errval_t err = ump_create_chan(&cframe_cap, ump, true, false);
+    assert(err_is_ok(err));
+
+    // 2. The client calls its local monitor with a capability to this frame, and the
+    // identifier of the server it wants to connect to.
+    // + 3. The client’s monitor figures out which monitor is on the same core as the
+    // server, and forwards the request to it.
+
+    size_t payload_size = sizeof(coreid_t);
+    char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
+    struct aos_rpc_msg *msg;
+    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcUmpBindRequest, payload_size, &core,
+                                          cframe_cap, (struct aos_rpc_msg *)msg_buf);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
+
+    // inside RPC call: 4. The server’s monitor calls the server, giving it the client’s cframe.
+    err = aos_rpc_call(rpc, msg, false);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to call aos_rpc_call");
+        return err;
+    }
+
+    assert(rpc->recv_msg->message_type == AosRpcUmpBindResponse);
+
+    return SYS_ERR_OK;
+}
+
+errval_t ump_create_chan(struct capref *frame_cap, struct ump_chan *ump,
+                         bool alloc_new_frame, bool is_server)
+{
+    DEBUG_PRINTF("creating UMP server chan\n");
+    size_t allocated_bytes;
+    errval_t err;
+    if (alloc_new_frame) {
+        debug_printf("allocating new frame\n");
+        err = frame_alloc(frame_cap, BASE_PAGE_SIZE, &allocated_bytes);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to allocate frame\n");
+            return err;
+        }
+
+        if (allocated_bytes != BASE_PAGE_SIZE) {
+            err = LIB_ERR_FRAME_ALLOC;
+            DEBUG_ERR(err, "failed to allocate frame of the requested size\n");
+            return err;
+        }
+    }
+
+    void *urpc;
+    err = paging_map_frame_complete(get_current_paging_state(), &urpc, *frame_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map urpc frame");
+        return err;
+    }
+
+    // init channel
+    err = ump_initialize(ump, urpc, is_server);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to initialize channel");
+        return err;
+    }
+
+    DEBUG_PRINTF("ump server chan created!\n");
 
     return SYS_ERR_OK;
 }
