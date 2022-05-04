@@ -205,7 +205,6 @@ static errval_t aos_rpc_recv_msg_blocking(struct aos_rpc *rpc)
         err = aos_rpc_chan_recv_blocking(rpc, &msg_cap, &recv_buf);
         err = aos_rpc_recv_followup_msg(rpc, &recv_buf);
     }
-
     
     rpc->is_busy = false;
     return err;
@@ -627,6 +626,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg, bool use_dyn
         goto unwind;
     }
 
+
 unwind:
     thread_mutex_unlock(&rpc->lock);
     return err;
@@ -761,13 +761,10 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
     errval_t err = SYS_ERR_OK;
 
     size_t payload_size = sizeof(char);
-    void *payload = malloc(payload_size);
-    ((char *)payload)[0] = c;
-
     char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
 
     struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcSerialWriteChar, payload_size, (void *)payload,
+    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcSerialWriteChar, payload_size, (void *)&c,
                              NULL_CAP, (struct aos_rpc_msg*)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -779,7 +776,7 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
-
+    // Gad wider do
     return err;
 }
 

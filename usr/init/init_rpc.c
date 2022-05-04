@@ -133,15 +133,25 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
 
 errval_t aos_process_serial_write_char(struct aos_rpc *rpc)
 {
-    char *buf = rpc->recv_msg->payload;
-    errval_t err = sys_print(buf, 1);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error writing to serial");
-        return err;
-    }
+    errval_t err;
+    if(disp_get_current_core_id() != 0){
+        // send to serial driver on core 0
+        ump_send(&ump_client_chans[0], UmpSerialWriteChar, rpc->recv_msg->payload, 1);
 
-    // grading
-    grading_rpc_handler_serial_putchar(*buf);
+        ump_msg_type rtype;
+        char *rpayload;
+        size_t rlen;
+        ump_receive(&ump_client_chans[0], &rtype, &rpayload, &rlen);
+        assert(rtype == UmpSerialWriteCharResponse);
+    }else{
+        err = process_write_char_request(rpc->recv_msg->payload);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "failed to writechar");
+            return err;
+        }
+        // grading
+        grading_rpc_handler_serial_putchar(*rpc->recv_msg->payload);
+    }
 
     size_t payload_size = 0;
     struct aos_rpc_msg *reply;
@@ -168,11 +178,27 @@ errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
 
     errval_t err;
 
+
     char c;
-    err = sys_getchar(&c);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    if(disp_get_current_core_id() != 0){
+        // send to serial driver on core 0
+        ump_send(&ump_client_chans[0], UmpSerialReadChar, rpc->recv_msg->payload, 1);
+        ump_msg_type rtype;
+        char *rpayload;
+        size_t rlen;
+        ump_receive(&ump_client_chans[0], &rtype, &rpayload, &rlen);
+        assert(rtype == UmpSerialReadCharResponse);
+
+        c = *rpayload;
+
+    }else{
+        err = process_read_char_request(&c);
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to read char on core 0 \n");
+            return err;
+        }
+    } 
+
 
     size_t payload_size = sizeof(char);
     void *payload = malloc(payload_size);

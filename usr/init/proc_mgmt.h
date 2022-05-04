@@ -14,4 +14,8 @@ errval_t process_pid2name(domainid_t pid, char **retname);
 
 errval_t process_ump_bind_request(struct capref frame_cap);
 
+errval_t process_write_char_request(char *buf);
+
+errval_t process_read_char_request(char *c);
+
 #endif

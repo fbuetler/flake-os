@@ -153,6 +153,26 @@ void ump_receive_listener(struct ump_chan *chan)
             debug_printf("channel closing...\n");
             return;
         }
+        case UmpSerialWriteChar:{
+            err = process_write_char_request((char *)payload);
+            if(err_is_fail(err)){
+                DEBUG_ERR(err, "failed to write char to serial\n");
+                continue;
+            }
+            char retpayload[1];
+            ump_send(chan, UmpSerialWriteCharResponse, retpayload, 1);
+            continue;
+        }
+        case UmpSerialReadChar:{
+            char retpayload[1];
+            err = process_read_char_request(retpayload);
+            if(err_is_fail(err)) {
+                DEBUG_ERR(err, "Could not read char in UMP \n");
+                continue;
+            }
+            ump_send(chan, UmpSerialReadCharResponse, retpayload, 1);
+            continue;
+        }
         default: {
             assert(!"unknown type message received in ump receive listener\n");
             return;

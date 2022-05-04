@@ -105,3 +105,20 @@ errval_t process_ump_bind_request(struct capref frame_cap){
 
     return SYS_ERR_OK;
 }
+
+errval_t process_write_char_request(char *buf){
+    errval_t err = sys_print(buf, 1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error writing to serial");
+        return err;
+    }
+    return SYS_ERR_OK;
+}
+
+errval_t process_read_char_request(char *c){
+    errval_t err = sys_getchar(c);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    return SYS_ERR_OK;
+}

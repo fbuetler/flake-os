@@ -54,6 +54,10 @@ static const ump_msg_type UmpBind = 13;
 static const ump_msg_type UmpBindReponse = 14;
 static const ump_msg_type UmpClose = 15;
 static const ump_msg_type UmpCloseReponse = 16;
+static const ump_msg_type UmpSerialWriteChar = 17;
+static const ump_msg_type UmpSerialWriteCharResponse = 18;
+static const ump_msg_type UmpSerialReadChar = 19;
+static const ump_msg_type UmpSerialReadCharResponse = 20;
 
 typedef uint8_t ump_msg_state;
 static const ump_msg_state UmpMessageCreated = 1;
