@@ -92,7 +92,7 @@ errval_t ump_send(struct ump_chan *chan, ump_msg_type type, char *payload, size_
 errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayload,
                      size_t *retlen);
 
-errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, struct ump_chan **sump, coreid_t core, enum aos_rpc_service service);
+errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, struct ump_chan *sump, coreid_t core, enum aos_rpc_service service);
 
 errval_t  ump_create_server_chan(struct capref *frame_cap, struct ump_chan *ump);
 

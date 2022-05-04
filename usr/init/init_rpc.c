@@ -307,14 +307,20 @@ static errval_t aos_process_ump_bind_request(struct aos_rpc *rpc){
     struct aos_rpc_msg *msg = rpc->recv_msg;
 
     //struct capref cframe = msg->cap;
+    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
+    }
 
     coreid_t destination_core = *((coreid_t *)msg->payload);
 
-    struct capref sframe;
+    struct capref sframe_cap;
     struct ump_chan sump;
     if(disp_get_core_id() == destination_core){
         // bind to self
-        err = ump_create_server_chan(&sframe, &sump); 
+        err = ump_create_server_chan(&sframe_cap, &sump); 
         assert(err_is_ok(err));
     }else{
         // send UMP request to destination core
@@ -322,21 +328,27 @@ static errval_t aos_process_ump_bind_request(struct aos_rpc *rpc){
 
     // send back the capability
 
-    // create response with ram cap
+    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
+    }
+
     size_t payload_size = 0;
     struct aos_rpc_msg *reply;
-    char buf[AOS_RPC_MSG_SIZE(payload_size)];
+    char buf[sizeof(struct aos_rpc_msg)];
     err = aos_rpc_create_msg_no_pagefault(&reply, UmpBindResponse, payload_size, NULL,
-                                          sframe, (struct aos_rpc_msg *)buf);
-    assert(err_is_ok(err));
-
-    DEBUG_PRINTF("sending back ump cap\n");
-
+                                          sframe_cap, (struct aos_rpc_msg *)buf);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return err;
+    }
+    // send response
     err = aos_rpc_send_msg(rpc, reply);
-    assert(err_is_ok(err));
-
-    DEBUG_PRINTF("ump bind request handled\n");
-
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error sending ump cap response\n");
+    }
     return SYS_ERR_OK;
 }
 

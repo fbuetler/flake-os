@@ -205,6 +205,7 @@ static errval_t aos_rpc_recv_msg_blocking(struct aos_rpc *rpc)
         err = aos_rpc_chan_recv_blocking(rpc, &msg_cap, &recv_buf);
         err = aos_rpc_recv_followup_msg(rpc, &recv_buf);
     }
+
     
     rpc->is_busy = false;
     return err;
@@ -544,6 +545,7 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     else
         remaining = total_bytes - transferred_size;
 
+    err = SYS_ERR_OK;
     do {
         switch (DIVIDE_ROUND_UP(remaining, sizeof(uint64_t))) {
         case 0:
@@ -697,6 +699,13 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
+    }
+
+    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
     }
 
     err = aos_rpc_call(rpc, msg, false);

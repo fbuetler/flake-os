@@ -36,7 +36,8 @@ int main(int argc, char *argv[])
     }
 
     struct ump_chan c_ump;
-    struct ump_chan *s_ump;
+    struct ump_chan s_ump;
+
     err = ump_bind(init_rpc, &c_ump, &s_ump, 0, AOS_RPC_BASE_SERVICE); 
     assert(err_is_ok(err));
 

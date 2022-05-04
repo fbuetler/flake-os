@@ -196,7 +196,7 @@ errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayl
 }
 
 
-errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, struct ump_chan **sump, coreid_t core, enum aos_rpc_service service){
+errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, struct ump_chan *sump, coreid_t core, enum aos_rpc_service service){
     // 1. The client allocates and maps a region of shared memory (the cframe in Figure 8.11.)
     struct capref cframe_cap;
 
@@ -214,7 +214,12 @@ errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, struct ump_chan **s
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
-
+    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocated receive slot");
+        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+        abort();
+    }
    // inside RPC call: 4. The server’s monitor calls the server, giving it the client’s cframe.
     err = aos_rpc_call(rpc, msg, false);
     if(err_is_fail(err)){
@@ -247,7 +252,7 @@ errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, struct ump_chan **s
         DEBUG_ERR(err, "failed to map urpc frame");
     }
 
-    err = ump_initialize(*sump, s_urpc, false);
+    err = ump_initialize(sump, s_urpc, false);
     assert(err_is_ok(err));
 
     return SYS_ERR_OK;
