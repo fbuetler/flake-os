@@ -75,18 +75,9 @@ errval_t boot_core(coreid_t core_id)
     const char *init = "init";
 
     struct capref frame_cap;
-    size_t allocated_bytes;
-    err = frame_alloc(&frame_cap, BASE_PAGE_SIZE, &allocated_bytes);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to allocate frame");
-        return err;
-    }
 
-    if (allocated_bytes != BASE_PAGE_SIZE) {
-        err = LIB_ERR_FRAME_ALLOC;
-        DEBUG_ERR(err, "failed to allocate frame of the requested size");
-        return err;
-    }
+    struct ump_chan *ump = &ump_chans[core_id];
+    ump_create_server_chan(&frame_cap, ump);
 
     struct frame_identity urpc_frame_id;
     err = frame_identify(frame_cap, &urpc_frame_id);
@@ -96,17 +87,6 @@ errval_t boot_core(coreid_t core_id)
     }
 
     coreboot(core_id, boot_driver, cpu_driver, init, urpc_frame_id);
-
-    // communicate with other core over shared memory
-    void *urpc;
-    err = paging_map_frame_complete(get_current_paging_state(), &urpc, frame_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to map urpc frame");
-    }
-
-    // init channel
-    struct ump_chan *ump = &ump_chans[core_id];
-    ump_initialize(ump, urpc, true);
 
     // Send Memory Almosen
     // DEBUG_PRINTF("Send initial memory\n");

@@ -258,7 +258,6 @@ errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, struct ump_chan *su
     return SYS_ERR_OK;
 }
 
-
 errval_t  ump_create_server_chan(struct capref *frame_cap, struct ump_chan *ump){
     DEBUG_PRINTF("creating UMP server chan\n");
     size_t allocated_bytes;
@@ -271,13 +270,6 @@ errval_t  ump_create_server_chan(struct capref *frame_cap, struct ump_chan *ump)
     if (allocated_bytes != BASE_PAGE_SIZE) {
         err = LIB_ERR_FRAME_ALLOC;
         DEBUG_ERR(err, "failed to allocate frame of the requested size");
-        return err;
-    }
-
-    struct frame_identity urpc_frame_id;
-    err = frame_identify(*frame_cap, &urpc_frame_id);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to identify frame");
         return err;
     }
 
@@ -295,9 +287,7 @@ errval_t  ump_create_server_chan(struct capref *frame_cap, struct ump_chan *ump)
         return err;
     }
 
-
     DEBUG_PRINTF("ump server chan created!\n");
-
 
     return SYS_ERR_OK;
 } 
