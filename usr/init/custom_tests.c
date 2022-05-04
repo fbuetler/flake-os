@@ -1046,7 +1046,9 @@ void run_m6_tests(void)
 {
     switch (disp_get_current_core_id()) {
     case 0:
-        test_large_ping_pong();
+        //test_large_ping_pong();
+        DEBUG_PRINTF("spawning demom6\n");
+        test_spawn_process("demom6");
         break;
     case 1:
         break;

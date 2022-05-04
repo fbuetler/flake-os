@@ -71,11 +71,11 @@ struct ump_mem_msg {
     genpaddr_t base;
     gensize_t bytes;
 };
+
 struct ump_msg {
     struct ump_msg_header header;
     char payload[UMP_MSG_PAYLOAD_BYTES];
 };
-
 
 struct ump_chan {
     struct thread_mutex chan_lock;
@@ -86,14 +86,15 @@ struct ump_chan {
     uint64_t recv_next;   // next recv entry
 };
 
-
 void ump_debug_print(struct ump_chan *ump);
 errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary);
 errval_t ump_send(struct ump_chan *chan, ump_msg_type type, char *payload, size_t len);
 errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayload,
                      size_t *retlen);
 
-
 errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, struct ump_chan **sump, coreid_t core, enum aos_rpc_service service);
+
+errval_t  ump_create_server_chan(struct capref *frame_cap, struct ump_chan *ump);
+
 
 #endif /* _INIT_UMP_H_ */

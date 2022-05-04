@@ -300,6 +300,46 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
     return SYS_ERR_OK;
 }
 
+static errval_t aos_process_ump_bind_request(struct aos_rpc *rpc){
+    DEBUG_PRINTF("received ump bind request\n");
+    errval_t err;
+
+    struct aos_rpc_msg *msg = rpc->recv_msg;
+
+    //struct capref cframe = msg->cap;
+
+    coreid_t destination_core = *((coreid_t *)msg->payload);
+
+    struct capref sframe;
+    struct ump_chan sump;
+    if(disp_get_core_id() == destination_core){
+        // bind to self
+        err = ump_create_server_chan(&sframe, &sump); 
+        assert(err_is_ok(err));
+    }else{
+        // send UMP request to destination core
+    }
+
+    // send back the capability
+
+    // create response with ram cap
+    size_t payload_size = 0;
+    struct aos_rpc_msg *reply;
+    char buf[AOS_RPC_MSG_SIZE(payload_size)];
+    err = aos_rpc_create_msg_no_pagefault(&reply, UmpBindResponse, payload_size, NULL,
+                                          sframe, (struct aos_rpc_msg *)buf);
+    assert(err_is_ok(err));
+
+    DEBUG_PRINTF("sending back ump cap\n");
+
+    err = aos_rpc_send_msg(rpc, reply);
+    assert(err_is_ok(err));
+
+    DEBUG_PRINTF("ump bind request handled\n");
+
+    return SYS_ERR_OK;
+}
+
 static errval_t aos_process_get_all_pids_request(struct aos_rpc *rpc)
 {
     // grading
@@ -394,6 +434,9 @@ errval_t init_process_msg(struct aos_rpc *rpc)
         break;
     case GetAllPids:
         aos_process_get_all_pids_request(rpc);
+        break;
+    case UmpBindRequest:
+        aos_process_ump_bind_request(rpc);
         break;
     default:
         printf("received unknown message type\n");

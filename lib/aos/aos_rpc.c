@@ -19,7 +19,6 @@
 #include <spawn/spawn.h>
 #include <aos/deferred.h>
 
-#define AOS_RPC_MSG_SIZE(payload_size) (sizeof(struct aos_rpc_msg) + (payload_size))
 char static_rpc_msg_buf[1<<20];
 
 /**

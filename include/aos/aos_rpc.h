@@ -17,6 +17,7 @@
 
 #include <aos/aos.h>
 
+#define AOS_RPC_MSG_SIZE(payload_size) (sizeof(struct aos_rpc_msg) + (payload_size))
 
 // forward declaration
 struct aos_rpc_msg;
@@ -53,6 +54,8 @@ enum aos_rpc_msg_type {
     Pid2NameResponse = 13,
     GetAllPids = 14,
     GetAllPidsResponse = 15,
+    UmpBindRequest = 16,
+    UmpBindResponse = 17,
 };
 
 struct aos_rpc_msg {
