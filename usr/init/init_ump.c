@@ -98,6 +98,7 @@ void aos_ump_receive_listener(struct aos_ump *ump)
             continue;
         }
         case AosRpcPing: {
+            debug_printf("PING: (%d) %s\n", strlen(payload), payload);
             payload = "pong";
             err = aos_ump_send(ump, AosRpcPong, payload, strlen(payload));
             if (err_is_fail(err)) {

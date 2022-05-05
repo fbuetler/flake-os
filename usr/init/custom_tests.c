@@ -1027,11 +1027,13 @@ __attribute__((unused)) static void test_large_ping_pong(void)
     errval_t err;
     struct aos_ump *ump;
 
-    ump = &aos_ump_server_chans[1];
+    ump = &aos_ump_client_chans[1];
+    debug_printf("%p: sending large ping pong\n", ump);
 
     char *ping = "ping";
-    char *payload = (char *)malloc(AOS_UMP_MSG_MAX_BYTES);
-    for (int i = 0; i < AOS_UMP_MSG_MAX_BYTES; i += strlen(ping)) {
+    size_t payload_size = AOS_UMP_MSG_MAX_BYTES;
+    char *payload = (char *)malloc(payload_size);
+    for (int i = 0; i < payload_size; i += strlen(ping)) {
         memcpy(payload + i, ping, strlen(ping));
     }
 
@@ -1048,9 +1050,8 @@ void run_m6_tests(void)
 {
     switch (disp_get_current_core_id()) {
     case 0:
-        // test_large_ping_pong();
-        DEBUG_PRINTF("spawning demom6\n");
-        test_spawn_process("demom6");
+        test_large_ping_pong();
+        // test_spawn_process("demom6");
         break;
     case 1:
         break;

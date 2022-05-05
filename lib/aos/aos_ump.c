@@ -84,6 +84,7 @@ static errval_t aos_ump_send_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
     struct aos_ump_msg *entry = (struct aos_ump_msg *)ump->send_base + ump->send_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
+    // DEBUG_PRINTF("sending message in slot %d\n", ump->send_next);
     if (*state == UmpMessageSent) {
         err = LIB_ERR_UMP_CHAN_FULL;
         DEBUG_ERR(err, "send queue is full");
@@ -156,7 +157,7 @@ static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct aos_ump_msg *msg
     struct aos_ump_msg *entry = (struct aos_ump_msg *)ump->recv_base + ump->recv_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
-    // DEBUG_PRINTF("receiving UMP in slot %d\n", ump->recv_next);
+    // DEBUG_PRINTF("receiving in slot %d\n", ump->recv_next);
     while (*state != UmpMessageSent) {
         // spin, cause it's cheap (L1 ftw!)
     }

@@ -103,8 +103,6 @@ int main(int argc, char *argv[])
     assert(err_is_ok(err));
 
     debug_printf("channel is closed\n");
-#ifdef LATER22
-#endif
     return EXIT_SUCCESS;
 }
 
