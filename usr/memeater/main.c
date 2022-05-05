@@ -17,10 +17,11 @@
 
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
+#include <aos/rpc.h>
 #include <aos/waitset.h>
 #include <aos/paging.h>
 
-static struct aos_lmp *init_rpc, *mem_rpc;
+static struct rpc *init_rpc, *mem_rpc;
 
 const char *str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
                   "sed do eiusmod tempor incididunt ut labore et dolore magna "
@@ -45,7 +46,7 @@ static errval_t request_and_map_memory(void)
 
   
     struct capref cap1;
-    err = aos_rpc_get_ram_cap(mem_rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
+    err = aos_rpc_get_ram_cap(&mem_rpc->u.lmp, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not get BASE_PAGE_SIZE cap\n");
         return err;
@@ -90,7 +91,6 @@ static errval_t request_and_map_memory(void)
 
     err = frame_identify(cap2, &id);
     assert(err_is_ok(err));
-
 
     void *buf2;
     err = paging_map_frame(pstate, &buf2, LARGE_PAGE_SIZE, cap2);

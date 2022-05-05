@@ -17,6 +17,7 @@
 
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
+#include <aos/rpc.h>
 #include <aos/waitset.h>
 #include <aos/paging.h>
 #include <aos/deferred.h>
@@ -27,7 +28,7 @@ static struct aos_lmp *init_rpc;
 
 __attribute__((unused))
 static void test_terminal_write(void){
-    struct aos_lmp *serial_rpc = aos_rpc_get_serial_channel();
+    struct rpc *serial_rpc = aos_rpc_get_serial_channel();
     printf("this is very very slow\n");
 
     debug_printf("enter char: ");
@@ -44,7 +45,7 @@ int main(int argc, char *argv[])
     errval_t err = SYS_ERR_OK;
 
 
-    init_rpc = aos_rpc_get_init_channel();
+    init_rpc = &aos_rpc_get_init_channel()->u.lmp;
     if (!init_rpc) {
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
@@ -52,49 +53,65 @@ int main(int argc, char *argv[])
     /*
         - bind to any RPC server:  we have on init: base-server, mem-server
             e.g memory server, serial server
-
     */
 
-    struct ump_chan c_ump;
+    struct rpc c_rpc;
 
     /*
         1. Bind to new channel on opposite core
     */
 
     coreid_t core = !disp_get_current_core_id();
-    err = ump_bind(init_rpc, &c_ump, core, AOS_RPC_BASE_SERVICE); 
+    err = rpc_bind(init_rpc, &c_rpc, core, AOS_RPC_BASE_SERVICE); 
     assert(err_is_ok(err));
 
     debug_printf("channel is set up!\n");
-
-    aos_rpc_msg_type_t rtype;
-    char *rpayload;
-    size_t rlen;
 
     /*
         2. Send Ping to new channel -> await Pong
     */
 
-    err = ump_call(&c_ump, AosRpcPing, "", 1, &rtype, &rpayload, &rlen);
-    assert(rtype == AosRpcPong);
-    debug_printf("PING: %s\n", rpayload);
+    struct rpc_msg request = {
+        .type = AosRpcPing,
+        .payload = "",
+        .bytes = 1
+    };
+
+    struct rpc_msg response;
+
+    err = rpc_call(&c_rpc, request, &response);
+    assert(response.type == AosRpcPong);
+    debug_printf("PING: %s\n", response.payload);
     /*
         3. Spawn the hello process on opposite core
     */
 
     char *module ="hello";
-    err = ump_call(&c_ump, AosRpcSpawnRequest, module, strlen(module), &rtype, &rpayload, &rlen);
+
+    request = (struct rpc_msg){
+        .type = AosRpcSpawnRequest,
+        .payload = module,
+        .bytes = strlen(module)
+    };
+    err = rpc_call(&c_rpc, request, &response);
     assert(err_is_ok(err));
 
     /*
         3. Close the channel again
     */
 
-    err = ump_call(&c_ump, AosRpcClose, "", 1, &rtype, &rpayload, &rlen);
+    request = (struct rpc_msg){
+        .type = AosRpcClose,
+        .payload = "",
+        .bytes = 1
+    };
+
+    err = rpc_call(&c_rpc, request, &response);
     assert(err_is_ok(err));
 
     debug_printf("channel is closed\n");
-
+#ifdef LATER22
+#endif
     return EXIT_SUCCESS;
 }
 

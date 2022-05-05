@@ -15,6 +15,7 @@
 #include <grading.h>
 #include <aos/aos.h>
 #include <aos/aos_rpc.h>
+#include <aos/rpc.h>
 #include <math.h>
 #include <spawn/spawn.h>
 #include <aos/deferred.h>
@@ -36,12 +37,29 @@ static void aos_process_handshake(struct aos_rpc_msg *msg)
  *
  * @param msg
  */
-void aos_process_number(struct aos_rpc_msg *msg)
+void aos_process_number(struct aos_lmp *rpc)
 {
-    uintptr_t number = *((uint64_t *)msg->payload);
+    uintptr_t number = *((uint64_t *)rpc->recv_msg->payload);
     grading_rpc_handle_number(number);
     DEBUG_PRINTF("received number: %d\n", number);
-    free(msg);
+
+    // create response with ram cap
+    size_t payload_size = 0;
+    struct aos_rpc_msg *reply;
+    char buf[sizeof(struct aos_rpc_msg)];
+    errval_t err = aos_rpc_create_msg_no_pagefault(&reply, AosRpcSendNumberResponse, payload_size,
+                                          NULL, NULL_CAP, (struct aos_rpc_msg *)buf);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+        return;
+    }
+
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error sending ram cap response\n");
+    }
+
+
 }
 
 /**
@@ -50,11 +68,27 @@ void aos_process_number(struct aos_rpc_msg *msg)
  * @param ms
  * g
  */
-void aos_process_string(struct aos_rpc_msg *msg)
+void aos_process_string(struct aos_lmp *rpc)
 {
-    grading_rpc_handler_string(msg->payload);
-    DEBUG_PRINTF("received string: %s\n", msg->payload);
-    free(msg);
+    grading_rpc_handler_string(rpc->recv_msg->payload);
+    DEBUG_PRINTF("received string: %s\n", rpc->recv_msg->payload);
+    // TODO still required?
+    //free(msg);
+
+    size_t payload_size = 0;
+    struct aos_rpc_msg *reply;
+    char buf[sizeof(struct aos_rpc_msg)];
+    errval_t err = aos_rpc_create_msg_no_pagefault(&reply, AosRpcSendStringResponse, payload_size,
+                                          NULL, NULL_CAP, (struct aos_rpc_msg *)buf);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create string response message");
+        return;
+    }
+
+    err = aos_rpc_send_msg(rpc, reply);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error sending string response msg\n");
+    }
 }
 
 static errval_t aos_rpc_process_msg(struct aos_lmp *rpc)
@@ -66,10 +100,10 @@ static errval_t aos_rpc_process_msg(struct aos_lmp *rpc)
         aos_process_handshake(rpc->recv_msg);
         break;
     case AosRpcSendNumber:
-        aos_process_number(rpc->recv_msg);
+        aos_process_number(rpc);
         break;
     case AosRpcSendString:
-        aos_process_string(rpc->recv_msg);
+        aos_process_string(rpc);
         break;
     case AosRpcGetAllPidsResponse:
         break;
@@ -629,19 +663,20 @@ unwind:
     return err;
 }
 
-errval_t aos_rpc_send_number(struct aos_lmp *rpc, uintptr_t num)
+errval_t aos_rpc_send_number(struct rpc *rpc, uintptr_t num)
 {
     errval_t err;
-    struct aos_rpc_msg *msg;
 
-    char msg_buf[AOS_RPC_MSG_SIZE(sizeof(uintptr_t))];
-    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcSendNumber, sizeof(num), (void *)&num, NULL_CAP, (struct aos_rpc_msg *)msg_buf);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
-        return err;
-    }
+    struct rpc_msg request = {
+        .type = AosRpcSendNumber,
+        .payload = (char *)&num,
+        .bytes = sizeof(num),
+    };
 
-    err = aos_rpc_send_msg(rpc, msg);
+    struct rpc_msg response;
+
+    err = rpc_call(rpc, request, &response);
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err_push(err, LIB_ERR_RPC_SEND);
@@ -650,10 +685,11 @@ errval_t aos_rpc_send_number(struct aos_lmp *rpc, uintptr_t num)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_send_string(struct aos_lmp *rpc, const char *string)
+errval_t aos_rpc_send_string(struct rpc *rpc, const char *string)
 {
     errval_t err;
 
+    /*
     size_t payload_size = strlen(string);
     struct aos_rpc_msg *msg;
     err = aos_rpc_create_msg(&msg, AosRpcSendString, payload_size, (void *)string, NULL_CAP);
@@ -661,15 +697,28 @@ errval_t aos_rpc_send_string(struct aos_lmp *rpc, const char *string)
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
+    */
 
-    err = aos_rpc_send_msg(rpc, msg);
+    struct rpc_msg request = {
+        .type = AosRpcSendString,
+        .payload = (void *)string,
+        .bytes = strlen(string)
+    };
+
+    struct rpc_msg response;
+    
+    err = rpc_call(rpc, request, &response);
+
+    //err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not send string\n");
-        free(msg);
+        // TODO still required?
+        //free(msg);
         return err_push(err, LIB_ERR_RPC_SEND);
     }
 
-    free(msg);
+    // TODO still required?
+    //free(msg);
 
     return SYS_ERR_OK;
 }
@@ -720,64 +769,50 @@ errval_t aos_rpc_get_ram_cap(struct aos_lmp *rpc, size_t bytes, size_t alignment
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_serial_getchar(struct aos_lmp *rpc, char *retc)
+errval_t aos_rpc_serial_getchar(struct rpc *rpc, char *retc)
 {
-    // TODO implement functionality to request a character from
-    // the serial driver.
-
     errval_t err;
 
-    size_t payload_size = 0;
+    struct rpc_msg request = {
+        .type = AosRpcSerialReadChar,
+        .payload = NULL,
+        .bytes = 0
+    };
+    struct rpc_msg response;
 
-    char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
-
-    struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcSerialReadChar, payload_size, NULL, NULL_CAP, (struct aos_rpc_msg*)msg_buf);
+    err = rpc_call(rpc, request, &response);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
+        DEBUG_ERR(err, "failed serial putchar request");
         return err;
     }
 
-    err = aos_rpc_call(rpc, msg, false);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send message");
-        return err;
-    }
-
-    char c = ((char *)rpc->recv_msg->payload)[0];
-    *retc = c;
+    *retc = *response.payload;
 
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_serial_putchar(struct aos_lmp *rpc, char c)
+errval_t aos_rpc_serial_putchar(struct rpc *rpc, char c)
 {
-    // TODO implement functionality to send a character to the
-    // serial port.
-
     errval_t err = SYS_ERR_OK;
 
-    size_t payload_size = sizeof(char);
-    char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
+    struct rpc_msg request = {
+        .type = AosRpcSerialWriteChar,
+        .payload = &c,
+        .bytes = sizeof(char)
+    };
 
-    struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcSerialWriteChar, payload_size, (void *)&c,
-                             NULL_CAP, (struct aos_rpc_msg*)msg_buf);
+    struct rpc_msg response;
+
+    err = rpc_call(rpc, request, &response);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
+        DEBUG_ERR(err, "failed serial putchar request");
         return err;
     }
 
-    err = aos_rpc_call(rpc, msg, false);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send message");
-        return err;
-    }
-    // Gad wider do
     return err;
 }
 
-errval_t aos_rpc_process_spawn(struct aos_lmp *rpc, char *cmdline, coreid_t core,
+errval_t aos_rpc_process_spawn(struct rpc *rpc, char *cmdline, coreid_t core,
                                domainid_t *newpid)
 {
     // TODO (M5): implement spawn new process rpc
@@ -785,7 +820,6 @@ errval_t aos_rpc_process_spawn(struct aos_lmp *rpc, char *cmdline, coreid_t core
 
     size_t cmdline_len = strlen(cmdline);
     size_t payload_size = sizeof(coreid_t) + cmdline_len + 1;
-    struct aos_rpc_msg *msg;
     char *payload = (char *)malloc(payload_size);
     if(!payload){
         return LIB_ERR_MALLOC_FAIL;
@@ -793,50 +827,48 @@ errval_t aos_rpc_process_spawn(struct aos_lmp *rpc, char *cmdline, coreid_t core
 
     *(coreid_t*)payload = core;
     memcpy(payload + sizeof(coreid_t), cmdline, cmdline_len +1);
-    err = aos_rpc_create_msg(&msg, AosRpcSpawnRequest, payload_size, (void *)payload, NULL_CAP);
 
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
-        return err;
-    }
+    // TODO-refactor: now only static-sized bufs work at the moment!
+    struct rpc_msg request = {
+        .type = AosRpcSpawnRequest,
+        .payload = payload,
+        .bytes = payload_size,
+    };
 
-    DEBUG_PRINTF("spawning...\n");
+    struct rpc_msg response;
 
-    err = aos_rpc_call(rpc, msg, false);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send message");
-        free(payload);
-        return err;
-    }
+    err = rpc_call(rpc, request, &response);
 
-    domainid_t assigned_pid = *((domainid_t *)rpc->recv_msg->payload);
+    domainid_t assigned_pid = *((domainid_t *)response.payload);
     DEBUG_PRINTF("spawned process with PID 0x%lx\n", assigned_pid);
     *newpid = assigned_pid;
-    free(msg);
+
     free(payload);
 
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_process_get_name(struct aos_lmp *rpc, domainid_t pid, char **name)
+errval_t aos_rpc_process_get_name(struct rpc *rpc, domainid_t pid, char **name)
 {
     // TODO (M5): implement name lookup for process given a process id
     errval_t err;
-    struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg(&msg, AosRpcPid2Name, sizeof(domainid_t), (void *)&pid, NULL_CAP);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
+
+    struct rpc_msg request={
+        .type = AosRpcPid2Name,
+        .payload = (void *)&pid,
+        .bytes = sizeof(domainid_t)
+    };
+
+    struct rpc_msg response;
+
+    // TODO-refactor: free rpc->recv_msg 
+    err = rpc_call(rpc, request, &response);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed rpc getname request");
         return err;
     }
 
-    err = aos_rpc_call(rpc, msg, true); // rpc->recv_msg is malloced. Need to free it
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send message");
-        return err;
-    }
-
-    char *assigned_name = rpc->recv_msg->payload;
-    struct aos_rpc_msg * tmp_ptr = rpc->recv_msg;
+    char *assigned_name = response.payload;
 
     if(*assigned_name == 0){
         DEBUG_PRINTF("no pid assigned to this!\n");
@@ -849,8 +881,6 @@ errval_t aos_rpc_process_get_name(struct aos_lmp *rpc, domainid_t pid, char **na
     }
 
     memcpy(*name, assigned_name, name_len + 1);
-    free(msg);
-    free(tmp_ptr);
 
     return SYS_ERR_OK;
 }
@@ -864,13 +894,14 @@ errval_t aos_rpc_process_get_name(struct aos_lmp *rpc, domainid_t pid, char **na
  * @param pid_count 
  * @return errval_t 
  */
-errval_t aos_rpc_process_get_all_pids(struct aos_lmp *rpc, domainid_t **pids,
+errval_t aos_rpc_process_get_all_pids(struct rpc *rpc, domainid_t **pids,
                                       size_t *pid_count)
 {
     DEBUG_PRINTF("get all pids!\n");
     // TODO (M5): implement process id discovery
     errval_t err;
 
+    /*
     size_t payload_size = 0;
 
     char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
@@ -881,19 +912,31 @@ errval_t aos_rpc_process_get_all_pids(struct aos_lmp *rpc, domainid_t **pids,
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
+    */
+    
+    struct rpc_msg request={
+        .type = AosRpcGetAllPids,
+        .payload = NULL,
+        .bytes = 0
+    };
 
-    err = aos_rpc_call(rpc, msg, false);  // rpc->recv_msg is malloced. Need to free it
+    struct rpc_msg response;
+
+    err = rpc_call(rpc, request, &response);
+
+
+    //err = aos_rpc_call(rpc, msg, false);  // rpc->recv_msg is malloced. Need to free it
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
 
-    *pid_count = *((size_t *)rpc->recv_msg->payload);
+    *pid_count = *((size_t *)response.payload);
     //*pids = ((domainid_t *)(rpc->recv_msg->payload + sizeof(size_t)));
 
     *pids = malloc(*pid_count*sizeof(domainid_t));
-    memcpy(*pids, rpc->recv_msg->payload + sizeof(size_t), *pid_count*sizeof(domainid_t));
+    memcpy(*pids, response.payload + sizeof(size_t), *pid_count*sizeof(domainid_t));
 
     //free(rpc->recv_msg);
 
@@ -903,7 +946,7 @@ errval_t aos_rpc_process_get_all_pids(struct aos_lmp *rpc, domainid_t **pids,
 /**
  * \brief Returns the RPC channel to init.
  */
-struct aos_lmp *aos_rpc_get_init_channel(void)
+struct rpc *aos_rpc_get_init_channel(void)
 {
     return get_init_rpc();
 }
@@ -911,7 +954,7 @@ struct aos_lmp *aos_rpc_get_init_channel(void)
 /**
  * \brief Returns the channel to the memory server
  */
-struct aos_lmp *aos_rpc_get_memory_channel(void)
+struct rpc *aos_rpc_get_memory_channel(void)
 {
     // TODO: Return channel to talk to memory server process (or whoever
     // implements memory server functionality)
@@ -921,7 +964,7 @@ struct aos_lmp *aos_rpc_get_memory_channel(void)
 /**
  * \brief Returns the channel to the process manager
  */
-struct aos_lmp *aos_rpc_get_process_channel(void)
+struct rpc *aos_rpc_get_process_channel(void)
 {
     // TODO: Return channel to talk to process server process (or whoever
     // implements process server functionality)
@@ -931,7 +974,7 @@ struct aos_lmp *aos_rpc_get_process_channel(void)
 /**
  * \brief Returns the channel to the serial console
  */
-struct aos_lmp *aos_rpc_get_serial_channel(void)
+struct rpc *aos_rpc_get_serial_channel(void)
 {
     // TODO: Return channel to talk to serial driver/terminal process (whoever
     // implements print/read functionality)

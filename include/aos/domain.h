@@ -40,7 +40,7 @@ coreid_t disp_handle_get_core_id(dispatcher_handle_t handle);
 void set_init_chan(struct aos_chan *initchan);
 struct aos_chan *get_init_chan(void);
 void set_init_rpc(struct rpc *initrpc);
-struct aos_lmp *get_init_rpc(void);
+struct rpc *get_init_rpc(void);
 struct morecore_state *get_morecore_state(void);
 struct paging_state *get_current_paging_state(void);
 void set_current_paging_state(struct paging_state *st);
@@ -49,7 +49,7 @@ struct slot_alloc_state *get_slot_alloc_state(void);
 
 
 void set_init_mem_rpc(struct rpc *mem_rpc);
-struct aos_lmp *get_init_mem_rpc(void);
+struct rpc *get_init_mem_rpc(void);
 
 __END_DECLS
 

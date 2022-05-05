@@ -999,7 +999,7 @@ void run_m5_tests(void)
         // test_spawn_memeater();
 
         // DEMO TESTS
-        test_spawn_process("demom5");
+        test_spawn_process("memeater");
         // test_boot_all_cores();
         //  test_cpu_off_on();
         break;

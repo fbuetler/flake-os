@@ -434,7 +434,7 @@ unwind:
 }
 
 
-errval_t init_process_msg(struct aos_lmp *rpc)
+errval_t init_process_msg(struct aos_lmp *lmp)
 {
     // refill slot allocator
     struct slot_alloc_state *s = get_slot_alloc_state();
@@ -443,34 +443,34 @@ errval_t init_process_msg(struct aos_lmp *rpc)
     }
 
     // should only handle incoming messages not initiated by us
-    enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
+    enum aos_rpc_msg_type msg_type = lmp->recv_msg->message_type;
     switch (msg_type) {
     case AosRpcSendNumber:
-        aos_process_number(rpc->recv_msg);
+        aos_process_number(lmp);
         break;
     case AosRpcSendString:
-        aos_process_string(rpc->recv_msg);
+        aos_process_string(lmp);
         break;
     case AosRpcRamCapRequest:
-        aos_process_ram_cap_request(rpc);
+        aos_process_ram_cap_request(lmp);
         break;
     case AosRpcSpawnRequest:
-        aos_process_spawn_request(rpc);
+        aos_process_spawn_request(lmp);
         break;
     case AosRpcSerialWriteChar:
-        aos_process_serial_write_char(rpc);
+        aos_process_serial_write_char(lmp);
         break;
     case AosRpcSerialReadChar:
-        aos_process_serial_read_char_request(rpc);
+        aos_process_serial_read_char_request(lmp);
         break;
     case AosRpcPid2Name:
-        aos_process_pid2name_request(rpc);
+        aos_process_pid2name_request(lmp);
         break;
     case AosRpcGetAllPids:
-        aos_process_get_all_pids_request(rpc);
+        aos_process_get_all_pids_request(lmp);
         break;
     case AosRpcUmpBindRequest:
-        aos_process_ump_bind_request(rpc);
+        aos_process_ump_bind_request(lmp);
         break;
     default:
         printf("received unknown message type\n");

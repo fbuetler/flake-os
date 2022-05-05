@@ -210,11 +210,11 @@ void set_init_rpc(struct rpc *initrpc)
 /**
  * \brief Returns the RPC channel to init 
  */
-struct aos_lmp *get_init_rpc(void)
+struct rpc *get_init_rpc(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    return &disp->core_state.c.init_rpc->u.lmp;
+    return disp->core_state.c.init_rpc;
 }
 
 
@@ -231,10 +231,10 @@ void set_init_mem_rpc(struct rpc *mem_rpc)
 /**
  * \brief Returns the mem RPC channel to init
  */
-struct aos_lmp *get_init_mem_rpc(void)
+struct rpc *get_init_mem_rpc(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    return &disp->core_state.mem_rpc->u.lmp;
+    return disp->core_state.mem_rpc;
 }
 

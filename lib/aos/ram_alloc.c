@@ -28,7 +28,7 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
     // TODO(M3): Implement me!
     errval_t err;
 
-    struct aos_lmp *memory_rpc = aos_rpc_get_memory_channel();
+    struct aos_lmp *memory_rpc = &aos_rpc_get_memory_channel()->u.lmp;
     if (!memory_rpc) {
         thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_PRINTF("ERROR: no memory server found!\n");

@@ -83,7 +83,7 @@ __attribute__((__used__)) static size_t syscall_terminal_write(const char *buf, 
 
 __attribute__((__used__)) static size_t terminal_write(const char *buf, size_t len)
 {
-    struct aos_lmp *rpc = aos_rpc_get_serial_channel();
+    struct rpc *rpc = aos_rpc_get_serial_channel();
 
     if (!rpc || init_domain) {
         return syscall_terminal_write(buf, len);
@@ -99,7 +99,7 @@ __attribute__((__used__)) static size_t terminal_write(const char *buf, size_t l
 __attribute__((__used__)) static size_t terminal_read(char *buf, size_t len)
 {
     errval_t err;
-    struct aos_lmp *rpc = get_init_rpc();
+    struct rpc *rpc = get_init_rpc();
     if (1) {
         int i = 0;
         while (i++ < len) {
