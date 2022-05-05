@@ -63,15 +63,15 @@ int main(int argc, char *argv[])
 
     
     char p;
-    ump_send(&c_ump, UmpPing, &p, 1);
-    ump_msg_type rtype;
+    ump_send(&c_ump, AosRpcPing, &p, 1);
+    aos_rpc_msg_type_t rtype;
     char *rpayload;
     size_t rlen;
     err = ump_receive(&c_ump, &rtype, &rpayload, &rlen);
     assert(err_is_ok(err));
     debug_printf("PING: %s\n", rpayload);
 
-    ump_send(&c_ump, UmpClose, &p, 1);
+    ump_send(&c_ump, AosRpcClose, &p, 1);
     err = ump_receive(&c_ump, &rtype, &rpayload, &rlen);
     debug_printf("received type: %d\n", rtype);
     assert(err_is_ok(err));

@@ -38,25 +38,34 @@ struct aos_rpc {
     char *buf;
 };
 
-enum aos_rpc_msg_type {
+typedef enum aos_rpc_msg_type {
     AosRpcHandshake = 1,
-    AosRpcSendNumber = 2,
-    AosRpcSendString = 3,
-    AosRpcRamCapRequest = 4,
-    AosRpcRamCapResponse = 5,
-    AosRpcSpawnRequest = 6,
-    AosRpcSpawnResponse = 7,
-    AosRpcSerialWriteChar = 8,
-    AosRpcSerialReadChar = 9,
-    AosRpcSerialReadCharResponse = 10,
-    AosRpcSerialWriteCharResponse = 11,
-    AosRpcPid2Name = 12,
-    AosRpcPid2NameResponse = 13,
-    AosRpcGetAllPids = 14,
-    AosRpcGetAllPidsResponse = 15,
-    AosRpcUmpBindRequest = 16,
-    AosRpcUmpBindResponse = 17,
-};
+    AosRpcSendNumber,
+    AosRpcSendString,
+    AosRpcRamCapRequest,
+    AosRpcRamCapResponse,
+    AosRpcSpawnRequest,
+    AosRpcSpawnResponse,
+    AosRpcSerialWriteChar,
+    AosRpcSerialReadChar,
+    AosRpcSerialReadCharResponse,
+    AosRpcSerialWriteCharResponse,
+    AosRpcPid2Name,
+    AosRpcPid2NameResponse,
+    AosRpcGetAllPids,
+    AosRpcGetAllPidsResponse,
+    AosRpcUmpBindRequest,
+    AosRpcUmpBindResponse,
+    AosRpcPing,
+    AosRpcPong,
+    AosRpcClose,
+    AosRpcCloseReponse,
+    AosRpcCpuOff,
+    AosRpcBind,
+    AosRpcBindReponse,
+    AosRpcSendBootinfo,
+    AosRpcSendMMStrings
+} aos_rpc_msg_type_t;
 
 struct aos_rpc_msg {
     uint16_t header_bytes;

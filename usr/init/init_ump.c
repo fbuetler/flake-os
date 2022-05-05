@@ -17,7 +17,7 @@
 
 void ump_receive_listener(struct ump_chan *chan)
 {
-    ump_msg_type type;
+    aos_rpc_msg_type_t type;
     char *payload;
     size_t len;
     while (1) {
@@ -28,7 +28,7 @@ void ump_receive_listener(struct ump_chan *chan)
         }
 
         switch (type) {
-        case UmpSpawn: {
+        case AosRpcSpawnRequest: {
             char *cmd = payload;
             domainid_t pid = 0;
             err = process_spawn_request(cmd, &pid);
@@ -37,7 +37,7 @@ void ump_receive_listener(struct ump_chan *chan)
                 continue;
             }
 
-            err = ump_send(chan, UmpSpawnResponse, (char *)&pid, sizeof(domainid_t));
+            err = ump_send(chan, AosRpcSpawnResponse, (char *)&pid, sizeof(domainid_t));
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to respond to spawn request!\n");
                 continue;
@@ -46,13 +46,13 @@ void ump_receive_listener(struct ump_chan *chan)
             debug_printf("responded to UmpSpawn\n");
             continue;
         }
-        case UmpSpawnResponse: {
+        case AosRpcSpawnResponse: {
             DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
 
             debug_printf("responded to UmpSpawnResponse\n");
             continue;
         }
-        case UmpPid2Name: {
+        case AosRpcPid2Name: {
             char *name;
 
             domainid_t pid = *(domainid_t *)payload;
@@ -62,7 +62,7 @@ void ump_receive_listener(struct ump_chan *chan)
                 continue;
             }
 
-            err = ump_send(chan, UmpPid2NameResponse, name, strlen(name) + 1);
+            err = ump_send(chan, AosRpcPid2NameResponse, name, strlen(name) + 1);
             if (err_is_fail(err)) {
                 DEBUG_PRINTF("failed to respond to pid2name request!\n");
                 continue;
@@ -71,7 +71,7 @@ void ump_receive_listener(struct ump_chan *chan)
             debug_printf("responded to UmpPid2Name\n");
             continue;
         }
-        case UmpGetAllPids: {
+        case AosRpcGetAllPids: {
             DEBUG_PRINTF("got a getallpids request\n");
             size_t nr_of_pids;
             domainid_t *pids;
@@ -81,7 +81,7 @@ void ump_receive_listener(struct ump_chan *chan)
                 continue;
             }
 
-            err = ump_send(chan, UmpGetAllPidsResponse, (char *)pids,
+            err = ump_send(chan, AosRpcGetAllPidsResponse, (char *)pids,
                            nr_of_pids * sizeof(domainid_t));
             if (err_is_fail(err)) {
                 DEBUG_PRINTF("failed to respond to get all pids!\n");
@@ -90,7 +90,7 @@ void ump_receive_listener(struct ump_chan *chan)
             debug_printf("responded to UmpGetAllPids\n");
             continue;
         }
-        case UmpCpuOff: {
+        case AosRpcCpuOff: {
             err = cpu_off();
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to turn cpu of");
@@ -98,11 +98,11 @@ void ump_receive_listener(struct ump_chan *chan)
             debug_printf("responded to UmpCpuOff\n");
             continue;
         }
-        case UmpPing: {
+        case AosRpcPing: {
             debug_printf("PING: size %d - %s\n", strlen(payload), payload);
 
             payload = "pong";
-            ump_send(chan, UmpPong, payload, strlen(payload));
+            ump_send(chan, AosRpcPong, payload, strlen(payload));
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to send message");
                 continue;
@@ -110,11 +110,11 @@ void ump_receive_listener(struct ump_chan *chan)
             debug_printf("responded to UmpPong\n");
             continue;
         }
-        case UmpPong: {
+        case AosRpcPong: {
             debug_printf("PONG: %s\n", payload);
             continue;
         }
-        case UmpBind: {
+        case AosRpcBind: {
             DEBUG_PRINTF("received remote UMP Bind request\n");
 
             // extract memory region
@@ -141,36 +141,36 @@ void ump_receive_listener(struct ump_chan *chan)
 
             // TODO: is problem fixed that we can't send payloads of size 0?
             char response_payload[1];
-            ump_send(chan, UmpBindReponse, response_payload, 1);
+            ump_send(chan, AosRpcBindReponse, response_payload, 1);
 
             debug_printf("ump response has been sent\n");
 
             continue;
         }
-        case UmpClose:{
+        case AosRpcClose:{
             char response_payload[1];
-            ump_send(chan, UmpCloseReponse, response_payload, 1);
+            ump_send(chan, AosRpcCloseReponse, response_payload, 1);
             debug_printf("channel closing...\n");
             return;
         }
-        case UmpSerialWriteChar:{
+        case AosRpcSerialWriteChar:{
             err = process_write_char_request((char *)payload);
             if(err_is_fail(err)){
                 DEBUG_ERR(err, "failed to write char to serial\n");
                 continue;
             }
             char retpayload[1];
-            ump_send(chan, UmpSerialWriteCharResponse, retpayload, 1);
+            ump_send(chan, AosRpcSerialWriteCharResponse, retpayload, 1);
             continue;
         }
-        case UmpSerialReadChar:{
+        case AosRpcSerialReadChar:{
             char retpayload[1];
             err = process_read_char_request(retpayload);
             if(err_is_fail(err)) {
                 DEBUG_ERR(err, "Could not read char in UMP \n");
                 continue;
             }
-            ump_send(chan, UmpSerialReadCharResponse, retpayload, 1);
+            ump_send(chan, AosRpcSerialReadCharResponse, retpayload, 1);
             continue;
         }
         default: {

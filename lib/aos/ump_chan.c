@@ -68,11 +68,11 @@ errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
 /**
  * Populate ump_msg struct on the stack
  */
-static void ump_create_msg(struct ump_msg *msg, ump_msg_type type, char *payload,
+static void ump_create_msg(struct ump_msg *msg, enum aos_rpc_msg_type type, char *payload,
                            size_t len, bool is_last)
 {
     msg->header.msg_state = UmpMessageCreated;
-    msg->header.msg_type = type;
+    msg->header.msg_type = (ump_msg_type) type;
     msg->header.last = is_last;
     msg->header.len = len;
     memcpy(msg->payload, payload, len);
@@ -106,7 +106,7 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     return SYS_ERR_OK;
 }
 
-errval_t ump_send(struct ump_chan *ump, ump_msg_type type, char *payload, size_t len)
+errval_t ump_send(struct ump_chan *ump, enum aos_rpc_msg_type type, char *payload, size_t len)
 {
     errval_t err;
     size_t offset = 0;
@@ -182,7 +182,7 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
     return SYS_ERR_OK;
 }
 
-errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayload,
+errval_t ump_receive(struct ump_chan *ump, aos_rpc_msg_type_t *rettype, char **retpayload,
                      size_t *retlen)
 {
     // thread_mutex_lock_nested(&ump->chan_lock);
@@ -213,7 +213,7 @@ errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayl
     memcpy(payload, tmp_payload, offset);
     free(tmp_payload);
 
-    *rettype = msg_type;
+    *rettype = (aos_rpc_msg_type_t) msg_type;
     *retpayload = payload;
     *retlen = offset;
 

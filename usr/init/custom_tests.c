@@ -925,16 +925,16 @@ void run_m4_tests(void)
 
 __attribute__((unused)) static void test_ump_spawn(void)
 {
-    errval_t err = ump_send(&ump_chans[1], UmpSpawn, "memeater", strlen("memeater"));
+    errval_t err = ump_send(&ump_chans[1], AosRpcSpawnRequest, "memeater", strlen("memeater"));
     assert(err_is_ok(err));
 
     // get response!
-    ump_msg_type type;
+    aos_rpc_msg_type_t type;
     char *payload;
     size_t len;
     err = ump_receive(&ump_chans[1], &type, &payload, &len);
     assert(err_is_ok(err));
-    assert(type == UmpSpawnResponse);
+    assert(type == AosRpcSpawnResponse);
     DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
 }
 
@@ -970,14 +970,14 @@ __attribute__((unused)) static void test_cpu_off_on(void)
     delayus_t sec = 1000 * 1000 * micro_sec;
 
     // spawn infinite_print on core 1
-    err = ump_send(&ump_chans[1], UmpSpawn, "infinite_print", strlen("infinite_print"));
+    err = ump_send(&ump_chans[1], AosRpcSpawnRequest, "infinite_print", strlen("infinite_print"));
     assert(err_is_ok(err));
 
     // wait
     barrelfish_usleep(3 * sec);
 
     // turn core 1 off
-    err = ump_send(&ump_chans[1], UmpCpuOff, "off", strlen("off"));
+    err = ump_send(&ump_chans[1], AosRpcCpuOff, "off", strlen("off"));
     assert(err_is_ok(err));
 
     // wait
@@ -1037,7 +1037,7 @@ __attribute__((unused)) static void test_large_ping_pong(void)
 
     // give the core some to time to boot
     barrelfish_usleep(1000 * 1000);
-    err = ump_send(ump, UmpPing, payload, strlen(payload));
+    err = ump_send(ump, AosRpcPing, payload, strlen(payload));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
     }
@@ -1066,5 +1066,5 @@ void run_m6_tests(void)
 }
 
 void run_tests(void){
-    run_m6_tests();
+    run_m5_tests();
 }

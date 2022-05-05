@@ -15,7 +15,7 @@
 
 extern struct platform_info platform_info;
 
-static errval_t send_cap(struct ump_chan *ump, ump_msg_type msg_type,
+static errval_t send_cap(struct ump_chan *ump, enum aos_rpc_msg_type msg_type,
                          struct capref cap)
 {
     errval_t err;
@@ -36,12 +36,12 @@ static errval_t send_cap(struct ump_chan *ump, ump_msg_type msg_type,
     return SYS_ERR_OK;
 }
 
-static errval_t recv_cap(struct ump_chan *ump, ump_msg_type expected_msg_type,
+static errval_t recv_cap(struct ump_chan *ump, aos_rpc_msg_type_t expected_msg_type,
                          struct ump_mem_msg **mem_msg)
 {
     errval_t err;
 
-    ump_msg_type msg_type;
+    aos_rpc_msg_type_t msg_type;
     char *payload;
     size_t payload_len;
     err = ump_receive(ump, &msg_type, &payload, &payload_len);
@@ -119,7 +119,7 @@ errval_t boot_core(coreid_t core_id)
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = send_cap(c_ump, UmpSendMem, mem_cap);
+    err = send_cap(c_ump, AosRpcRamCapRequest, mem_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send mem cap");
         return err;
@@ -127,7 +127,7 @@ errval_t boot_core(coreid_t core_id)
 
     // Send boot info
     // DEBUG_PRINTF("Send boot info\n");
-    err = send_cap(c_ump, UmpSendBootinfo, cap_bootinfo);
+    err = send_cap(c_ump, AosRpcSendBootinfo, cap_bootinfo);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send boot info cap");
         return err;
@@ -135,7 +135,7 @@ errval_t boot_core(coreid_t core_id)
 
     // Send multiboot module string area
     // DEBUG_PRINTF("Send mm strings\n");
-    err = send_cap(c_ump, UmpSendMMStrings, cap_mmstrings);
+    err = send_cap(c_ump, AosRpcSendMMStrings, cap_mmstrings);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send mm strings cap");
         return err;
@@ -164,7 +164,7 @@ errval_t init_app_core(void)
     // Receive memory almosen
     // DEBUG_PRINTF("Receive initial memory\n");
     struct ump_mem_msg *memory_region;
-    err = recv_cap(ump, UmpSendMem, &memory_region);
+    err = recv_cap(ump, AosRpcRamCapRequest, &memory_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err;
@@ -195,7 +195,7 @@ errval_t init_app_core(void)
     // Receive boot info
     // DEBUG_PRINTF("Receive boot info\n");
     struct ump_mem_msg *bootinfo_region;
-    err = recv_cap(ump, UmpSendBootinfo, &bootinfo_region);
+    err = recv_cap(ump, AosRpcSendBootinfo, &bootinfo_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err;
@@ -233,7 +233,7 @@ errval_t init_app_core(void)
     // Receive multiboot module string area
     // DEBUG_PRINTF("Receive mm strings\n");
     struct ump_mem_msg *mmstring_region;
-    err = recv_cap(ump, UmpSendMMStrings, &mmstring_region);
+    err = recv_cap(ump, AosRpcSendMMStrings, &mmstring_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err;

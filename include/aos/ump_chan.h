@@ -37,27 +37,8 @@
 
 #define UMP_MESSAGES_ENTRIES (UMP_MESSAGES_BYTES / UMP_MSG_BYTES)
 
+// compresses the aos_rpc_msg_type to a single byte
 typedef uint8_t ump_msg_type;
-static const ump_msg_type UmpPing = 1;
-static const ump_msg_type UmpPong = 2;
-static const ump_msg_type UmpSpawn = 3;
-static const ump_msg_type UmpSpawnResponse = 4;
-static const ump_msg_type UmpSendMem = 5;
-static const ump_msg_type UmpSendBootinfo = 6;
-static const ump_msg_type UmpSendMMStrings = 7;
-static const ump_msg_type UmpPid2Name = 8;
-static const ump_msg_type UmpPid2NameResponse = 9;
-static const ump_msg_type UmpGetAllPids = 10;
-static const ump_msg_type UmpGetAllPidsResponse = 11;
-static const ump_msg_type UmpCpuOff = 12;
-static const ump_msg_type UmpBind = 13;
-static const ump_msg_type UmpBindReponse = 14;
-static const ump_msg_type UmpClose = 15;
-static const ump_msg_type UmpCloseReponse = 16;
-static const ump_msg_type UmpSerialWriteChar = 17;
-static const ump_msg_type UmpSerialWriteCharResponse = 18;
-static const ump_msg_type UmpSerialReadChar = 19;
-static const ump_msg_type UmpSerialReadCharResponse = 20;
 
 typedef uint8_t ump_msg_state;
 static const ump_msg_state UmpMessageCreated = 1;
@@ -95,8 +76,9 @@ struct ump_chan {
 
 void ump_debug_print(struct ump_chan *ump);
 errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary);
-errval_t ump_send(struct ump_chan *chan, ump_msg_type type, char *payload, size_t len);
-errval_t ump_receive(struct ump_chan *ump, ump_msg_type *rettype, char **retpayload,
+errval_t ump_send(struct ump_chan *chan, aos_rpc_msg_type_t type, char *payload, size_t len);
+
+errval_t ump_receive(struct ump_chan *ump, aos_rpc_msg_type_t *rettype, char **retpayload,
                      size_t *retlen);
 
 errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, coreid_t core, enum aos_rpc_service service);

@@ -86,11 +86,11 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
 
 
         thread_mutex_lock(&ump->chan_lock);
-        err = ump_send(ump, UmpSpawn, module, strlen(module));
+        err = ump_send(ump, AosRpcSpawnRequest, module, strlen(module));
         assert(err_is_ok(err));
 
         // get response!
-        ump_msg_type type;
+        aos_rpc_msg_type_t type;
         char *payload;
         size_t len;
         err = ump_receive(ump, &type, &payload, &len);
@@ -98,7 +98,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
 
         assert(err_is_ok(err));
         DEBUG_PRINTF("Recieved ump type: %d\n", type);
-        assert(type == UmpSpawnResponse);
+        assert(type == AosRpcSpawnResponse);
 
         pid = *(domainid_t *)payload;
         DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
@@ -136,13 +136,13 @@ errval_t aos_process_serial_write_char(struct aos_rpc *rpc)
     errval_t err;
     if(disp_get_current_core_id() != 0){
         // send to serial driver on core 0
-        ump_send(&ump_client_chans[0], UmpSerialWriteChar, rpc->recv_msg->payload, 1);
+        ump_send(&ump_client_chans[0], AosRpcSerialWriteChar, rpc->recv_msg->payload, 1);
 
-        ump_msg_type rtype;
+        aos_rpc_msg_type_t rtype;
         char *rpayload;
         size_t rlen;
         ump_receive(&ump_client_chans[0], &rtype, &rpayload, &rlen);
-        assert(rtype == UmpSerialWriteCharResponse);
+        assert(rtype == AosRpcSerialWriteCharResponse);
     }else{
         err = process_write_char_request(rpc->recv_msg->payload);
         if(err_is_fail(err)){
@@ -182,12 +182,12 @@ errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
     char c;
     if(disp_get_current_core_id() != 0){
         // send to serial driver on core 0
-        ump_send(&ump_client_chans[0], UmpSerialReadChar, rpc->recv_msg->payload, 1);
-        ump_msg_type rtype;
+        ump_send(&ump_client_chans[0], AosRpcSerialReadChar, rpc->recv_msg->payload, 1);
+        aos_rpc_msg_type_t rtype;
         char *rpayload;
         size_t rlen;
         ump_receive(&ump_client_chans[0], &rtype, &rpayload, &rlen);
-        assert(rtype == UmpSerialReadCharResponse);
+        assert(rtype == AosRpcSerialReadCharResponse);
 
         c = *rpayload;
 
@@ -241,14 +241,14 @@ static void aos_process_pid2name_request(struct aos_rpc *rpc)
 
         thread_mutex_lock(&ump->chan_lock);
 
-        err = ump_send(ump, UmpPid2Name, (void *)rpc->recv_msg->payload,
+        err = ump_send(ump, AosRpcPid2Name, (void *)rpc->recv_msg->payload,
                        sizeof(domainid_t));
         if (err_is_fail(err)) {
             assert(!"couldn't send ump message for pid2name request");
         }
 
         // receive response
-        ump_msg_type type;
+        aos_rpc_msg_type_t type;
         char *payload;
         size_t retsize;
         ump_receive(ump, &type, &payload, &retsize);
@@ -299,7 +299,7 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
     struct ump_chan *ump = &ump_client_chans[!disp_get_core_id()];
 
     thread_mutex_lock(&ump->chan_lock);
-    errval_t err = ump_send(ump, UmpGetAllPids, "", 1);
+    errval_t err = ump_send(ump, AosRpcGetAllPids, "", 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not send UMP message for get all pids");
         return err;
@@ -307,7 +307,7 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
 
     debug_printf("awaiting remote pids...\n");
 
-    ump_msg_type type;
+    aos_rpc_msg_type_t type;
     char *payload;
     size_t retsize;
 
@@ -357,18 +357,18 @@ static errval_t aos_process_ump_bind_request(struct aos_rpc *rpc){
         size_t base = c.u.frame.base;
         size_t bytes = c.u.frame.bytes;
         size_t payload[2] = {base, bytes};
-        err = ump_send(&ump_client_chans[destination_core], UmpBind, (char *)payload, sizeof(payload));
+        err = ump_send(&ump_client_chans[destination_core], AosRpcBind, (char *)payload, sizeof(payload));
         if(err_is_fail(err)) {
             DEBUG_ERR(err, "Could not send UMP message during bind request \n");
             return err_push(LIB_ERR_UMP_CHAN_BIND, err);
         }
 
-        ump_msg_type type;
+        aos_rpc_msg_type_t type;
         char *recv_payload;
         size_t retsize;
         ump_receive(&ump_client_chans[destination_core], &type, &recv_payload, &retsize);
         debug_printf("done\n");
-        assert(type == UmpBindReponse);
+        assert(type == AosRpcBindReponse);
     }
 
     struct aos_rpc_msg *reply;
