@@ -87,7 +87,7 @@ static errval_t aos_ump_send_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
     // DEBUG_PRINTF("sending message in slot %d\n", ump->send_next);
     if (*state == UmpMessageSent) {
         err = LIB_ERR_UMP_CHAN_FULL;
-        DEBUG_ERR(err, "send queue is full");
+        // DEBUG_ERR(err, "send queue is full");
         return err;
     }
 
