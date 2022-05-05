@@ -1,5 +1,5 @@
 #include <aos/ump_chan.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 
 #include <aos/deferred.h>
 
@@ -235,10 +235,10 @@ errval_t ump_bind(struct aos_lmp *rpc, struct ump_chan *ump, coreid_t core,
     // server, and forwards the request to it.
 
     size_t payload_size = sizeof(coreid_t);
-    char msg_buf[AOS_RPC_MSG_SIZE(payload_size)];
-    struct aos_rpc_msg *msg;
-    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcUmpBindRequest, payload_size, &core,
-                                          cframe_cap, (struct aos_rpc_msg *)msg_buf);
+    char msg_buf[AOS_LMP_MSG_SIZE(payload_size)];
+    struct aos_lmp_msg *msg;
+    err = aos_lmp_create_msg_no_pagefault(&msg, AosRpcUmpBindRequest, payload_size, &core,
+                                          cframe_cap, (struct aos_lmp_msg *)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;

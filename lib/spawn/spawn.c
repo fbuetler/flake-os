@@ -7,7 +7,7 @@
 #include <elf/elf.h>
 #include <aos/dispatcher_arch.h>
 #include <aos/lmp_chan.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <barrelfish_kpi/paging_arm_v8.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <spawn/multiboot.h>

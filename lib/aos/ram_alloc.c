@@ -13,7 +13,7 @@
  */
 
 #include <aos/aos.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <aos/core_state.h>
 
 

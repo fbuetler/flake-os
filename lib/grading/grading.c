@@ -3,7 +3,7 @@
 #include <aos/aos.h>
 #include <aos/capabilities.h>
 #include <aos/ram_alloc.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <grading.h>
 #include <spawn/spawn.h>
 

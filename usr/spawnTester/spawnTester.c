@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <aos/aos.h>
 #include <spawn/spawn.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 
 struct aos_lmp *proc_rpc;
 coreid_t my_core_id;

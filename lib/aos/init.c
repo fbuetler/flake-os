@@ -25,7 +25,7 @@
 #include <aos/paging.h>
 #include <aos/systime.h>
 #include <barrelfish_kpi/domain_params.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <aos/rpc.h>
 #include <spawn/spawn.h>
 #include <aos/deferred.h>

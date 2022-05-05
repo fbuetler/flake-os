@@ -28,7 +28,7 @@
 #include <aos/coreboot.h>
 #include <aos/paging.h>
 #include <aos/waitset.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <mm/mm.h>
 #include <spawn/spawn.h>
 #include <aos/ump_chan.h>

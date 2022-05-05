@@ -9,7 +9,7 @@
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
 #include <aos/paging.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <spawn/spawn.h>
 #include <aos/ump_chan.h>
 

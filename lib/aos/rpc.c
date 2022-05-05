@@ -17,11 +17,11 @@ errval_t rpc_call(struct rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg, b
     // TODO-refactor: dynamic sizes
     char buf[1024];
     if(rpc->is_lmp){
-        struct aos_rpc_msg *lmp_msg;
+        struct aos_lmp_msg *lmp_msg;
         if(!is_dynamic){
-            err = aos_rpc_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload, msg.cap, (struct aos_rpc_msg *)buf);
+            err = aos_lmp_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload, msg.cap, (struct aos_lmp_msg *)buf);
         }else{
-            err = aos_rpc_create_msg(&lmp_msg, msg.type, msg.bytes, msg.payload, msg.cap);
+            err = aos_lmp_create_msg(&lmp_msg, msg.type, msg.bytes, msg.payload, msg.cap);
         }
         if(err_is_fail(err)){
             DEBUG_ERR(err, "failed to create message");

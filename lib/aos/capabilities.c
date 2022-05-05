@@ -19,7 +19,7 @@
 #include <aos/caddr.h>
 #include <aos/kernel_cap_invocations.h>
 #include <aos/lmp_endpoints.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <stdio.h>
 
 /// Root CNode

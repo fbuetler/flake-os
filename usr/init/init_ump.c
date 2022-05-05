@@ -10,7 +10,7 @@
 #include <aos/aos.h>
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <spawn/spawn.h>
 #include <aos/ump_chan.h>
 #include <aos/kernel_cap_invocations.h>

@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 #include <aos/aos.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <aos/rpc.h>
 #include <aos/waitset.h>
 #include <aos/paging.h>

@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 #include <aos/aos.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 #include <spawn/spawn.h>
 #include <aos/ump_chan.h>
 #include <aos/threads.h>

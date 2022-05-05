@@ -15,9 +15,9 @@
 #ifndef _INIT_SPAWN_H_
 #define _INIT_SPAWN_H_
 
-#include "aos/slot_alloc.h"
-#include "aos/paging.h"
-#include "aos/aos_rpc.h"
+#include <aos/slot_alloc.h>
+#include <aos/paging.h>
+#include <aos/aos_lmp.h>
 
 #include <aos/threads.h>
 

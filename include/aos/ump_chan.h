@@ -11,7 +11,7 @@
 #define _INIT_UMP_H_
 
 #include <aos/aos.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 
 /*
     memory layout of the URPC frame (BASE_PAGE_SIZE aka 4kb)

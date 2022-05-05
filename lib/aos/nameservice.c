@@ -8,7 +8,7 @@
 #include <aos/aos.h>
 #include <aos/waitset.h>
 #include <aos/nameserver.h>
-#include <aos/aos_rpc.h>
+#include <aos/aos_lmp.h>
 
 
 #include <hashtable/hashtable.h>
