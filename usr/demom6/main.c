@@ -24,6 +24,21 @@
 
 static struct aos_rpc *init_rpc;
 
+
+__attribute__((unused))
+static void test_terminal_write(void){
+    struct aos_rpc *serial_rpc = aos_rpc_get_serial_channel();
+    printf("this is very very slow\n");
+
+    debug_printf("enter char: ");
+    char c;
+    errval_t err = aos_rpc_serial_getchar(serial_rpc, &c);
+    assert(err_is_ok(err));
+    debug_printf("\n");
+
+    debug_printf("received char: %c\n", c);
+}
+
 int main(int argc, char *argv[])
 {
     errval_t err = SYS_ERR_OK;
@@ -34,53 +49,51 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
 
-    printf("this is very very slow\n");
+    /*
+        - bind to any RPC server:  we have on init: base-server, mem-server
+            e.g memory server, serial server
 
-    debug_printf("enter char: ");
-    char c;
-    err = aos_rpc_serial_getchar(init_rpc, &c);
-    debug_printf("\n");
-
-    debug_printf("received char: %c\n", c);
-
-    return 0;
-
-
-
-/*
-    - bind to any RPC server:  we have on init: base-server, mem-server
-        e.g memory server, serial server
-
-*/
+    */
 
     struct ump_chan c_ump;
 
-    coreid_t core_id = 1;
-    err = ump_bind(init_rpc, &c_ump, core_id, AOS_RPC_BASE_SERVICE); 
+    /*
+        1. Bind to new channel on opposite core
+    */
+
+    coreid_t core = !disp_get_current_core_id();
+    err = ump_bind(init_rpc, &c_ump, core, AOS_RPC_BASE_SERVICE); 
     assert(err_is_ok(err));
 
     debug_printf("channel is set up!\n");
 
-    
-    char p;
-    ump_send(&c_ump, AosRpcPing, &p, 1);
     aos_rpc_msg_type_t rtype;
     char *rpayload;
     size_t rlen;
-    err = ump_receive(&c_ump, &rtype, &rpayload, &rlen);
-    assert(err_is_ok(err));
-    debug_printf("PING: %s\n", rpayload);
 
-    ump_send(&c_ump, AosRpcClose, &p, 1);
-    err = ump_receive(&c_ump, &rtype, &rpayload, &rlen);
-    debug_printf("received type: %d\n", rtype);
+    /*
+        2. Send Ping to new channel -> await Pong
+    */
+
+    err = ump_call(&c_ump, AosRpcPing, "", 1, &rtype, &rpayload, &rlen);
+    assert(rtype == AosRpcPong);
+    debug_printf("PING: %s\n", rpayload);
+    /*
+        3. Spawn the hello process on opposite core
+    */
+
+    char *module ="hello";
+    err = ump_call(&c_ump, AosRpcSpawnRequest, module, strlen(module), &rtype, &rpayload, &rlen);
+    assert(err_is_ok(err));
+
+    /*
+        3. Close the channel again
+    */
+
+    err = ump_call(&c_ump, AosRpcClose, "", 1, &rtype, &rpayload, &rlen);
     assert(err_is_ok(err));
 
     debug_printf("channel is closed\n");
-
-    //printf("printing char from core 1 to core 0!\n");
-    //aos_rpc_serial_putchar(init_rpc, 'x');
-
 
     return EXIT_SUCCESS;
 }

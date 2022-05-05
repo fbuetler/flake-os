@@ -1005,7 +1005,6 @@ void run_m5_tests(void)
         break;
     case 1:
         // test_spawn_single_process();
-        test_spawn_process("hello");
         // test_spawn_single_process();
         break;
     case 2:
@@ -1049,11 +1048,10 @@ void run_m6_tests(void)
     switch (disp_get_current_core_id()) {
     case 0:
         //test_large_ping_pong();
-
-        break;
-    case 1:
         DEBUG_PRINTF("spawning demom6\n");
         test_spawn_process("demom6");
+        break;
+    case 1:
         break;
     case 2:
         break;

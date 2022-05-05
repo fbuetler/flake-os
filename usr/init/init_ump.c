@@ -99,15 +99,13 @@ void ump_receive_listener(struct ump_chan *chan)
             continue;
         }
         case AosRpcPing: {
-            debug_printf("PING: size %d - %s\n", strlen(payload), payload);
-
             payload = "pong";
-            ump_send(chan, AosRpcPong, payload, strlen(payload));
+            err = ump_send(chan, AosRpcPong, payload, strlen(payload));
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to send message");
                 continue;
             }
-            debug_printf("responded to UmpPong\n");
+            debug_printf("responded to UmpPing\n");
             continue;
         }
         case AosRpcPong: {
