@@ -16,7 +16,6 @@
 #include <stdlib.h>
 
 #include <aos/aos.h>
-#include <aos/aos_lmp.h>
 #include <aos/aos_rpc.h>
 #include <aos/waitset.h>
 #include <aos/paging.h>
@@ -44,7 +43,7 @@ static errval_t request_and_map_memory(void)
 
     DEBUG_PRINTF("obtaining cap of %" PRIu32 " bytes...\n", BASE_PAGE_SIZE);
 
-  
+
     struct capref cap1;
     err = aos_rpc_get_ram_cap(mem_rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
     if (err_is_fail(err)) {
@@ -172,13 +171,13 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not spawn process\n");
     }
-/*
-    
-    DEBUG_PRINTF("attempting pid2name...\n");
-    char *name;
-    aos_rpc_process_get_name(init_rpc, pid, &name);
-    DEBUG_PRINTF("received pid2name result of pid 0x%lx: %s\n", pid, name);
-*/
+    /*
+
+        DEBUG_PRINTF("attempting pid2name...\n");
+        char *name;
+        aos_rpc_process_get_name(init_rpc, pid, &name);
+        DEBUG_PRINTF("received pid2name result of pid 0x%lx: %s\n", pid, name);
+    */
 
 
     size_t pid_count;
@@ -186,8 +185,8 @@ int main(int argc, char *argv[])
     aos_rpc_process_get_all_pids(init_rpc, &pids, &pid_count);
 
     DEBUG_PRINTF("PID count: %d\n", pid_count);
-    
-    for(int i = 0; i < pid_count; i++){
+
+    for (int i = 0; i < pid_count; i++) {
         DEBUG_PRINTF("received pid: 0x%lx\n", pids[i]);
     }
 

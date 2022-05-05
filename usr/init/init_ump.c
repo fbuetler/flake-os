@@ -10,9 +10,8 @@
 #include <aos/aos.h>
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
-#include <aos/aos_lmp.h>
+#include <aos/aos_rpc.h>
 #include <spawn/spawn.h>
-#include <aos/aos_ump.h>
 #include <aos/kernel_cap_invocations.h>
 
 void aos_ump_receive_listener(struct aos_ump *chan)

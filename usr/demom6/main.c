@@ -16,12 +16,10 @@
 #include <stdlib.h>
 
 #include <aos/aos.h>
-#include <aos/aos_lmp.h>
 #include <aos/aos_rpc.h>
 #include <aos/waitset.h>
 #include <aos/paging.h>
 #include <aos/deferred.h>
-#include <aos/aos_ump.h>
 
 static struct aos_rpc *init_rpc;
 

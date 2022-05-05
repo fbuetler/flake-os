@@ -7,7 +7,7 @@
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
 #include <aos/kernel_cap_invocations.h>
-#include <aos/aos_ump.h>
+#include <aos/aos_rpc.h>
 #include <aos/coreboot.h>
 
 #include "init_ump.h"

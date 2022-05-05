@@ -28,10 +28,9 @@
 #include <aos/coreboot.h>
 #include <aos/paging.h>
 #include <aos/waitset.h>
-#include <aos/aos_lmp.h>
+#include <aos/aos_rpc.h>
 #include <mm/mm.h>
 #include <spawn/spawn.h>
-#include <aos/aos_ump.h>
 
 #include "custom_tests.h"
 #include "mem_alloc.h"

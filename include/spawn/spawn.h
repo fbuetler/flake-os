@@ -17,7 +17,7 @@
 
 #include <aos/slot_alloc.h>
 #include <aos/paging.h>
-#include <aos/aos_lmp.h>
+#include <aos/aos_rpc.h>
 
 #include <aos/threads.h>
 

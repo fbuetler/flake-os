@@ -16,7 +16,6 @@
 #include <stdlib.h>
 
 #include <aos/aos.h>
-#include <aos/aos_lmp.h>
 #include <aos/aos_rpc.h>
 #include <aos/waitset.h>
 #include <aos/paging.h>
@@ -35,7 +34,7 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
 
-    for(int iter = 0; iter < 2; iter++){
+    for (int iter = 0; iter < 2; iter++) {
         DEBUG_PRINTF("spawning hello\n");
         domainid_t pid;
         err = aos_rpc_process_spawn(init_rpc, "hello", iter, &pid);
@@ -53,8 +52,8 @@ int main(int argc, char *argv[])
         aos_rpc_process_get_all_pids(init_rpc, &pids, &pid_count);
 
         DEBUG_PRINTF("PID count: %d\n", pid_count);
-        
-        for(int i = 0; i < pid_count; i++){
+
+        for (int i = 0; i < pid_count; i++) {
             DEBUG_PRINTF("received pid: 0x%lx\n", pids[i]);
         }
     }

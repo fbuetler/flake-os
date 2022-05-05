@@ -7,7 +7,7 @@
 #include <elf/elf.h>
 #include <aos/dispatcher_arch.h>
 #include <aos/lmp_chan.h>
-#include <aos/aos_lmp.h>
+#include <aos/aos_rpc.h>
 #include <barrelfish_kpi/paging_arm_v8.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <spawn/multiboot.h>
@@ -72,8 +72,7 @@ void spawn_init(void)
  * @param retaddr the base address of the frame holding the module
  * @return errval_t
  */
-errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
-                                 lvaddr_t *retaddr)
+errval_t spawn_map_module(struct mem_region *module, size_t *retsize, lvaddr_t *retaddr)
 {
     errval_t err;
 
@@ -198,7 +197,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
 
     // copy init's endpoint into known location in child
     struct capref child_cap_init_mem_endpoint = { .cnode = si->taskcn,
-                                              .slot = TASKCN_SLOT_INITMEMEP };
+                                                  .slot = TASKCN_SLOT_INITMEMEP };
 
     // creates a new endpoint into local_cap!
     err = lmp_chan_accept(&si->lmp.chan, 256, NULL_CAP);
@@ -731,12 +730,12 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
 
     struct capref recv_ep_cap1, recv_ep_cap2;
     err = aos_lmp_set_recv_endpoint(&si->lmp, &recv_ep_cap1);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to set recv endpoint for rpc");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
     err = aos_lmp_set_recv_endpoint(&si->mem_lmp, &recv_ep_cap2);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to set recv endpoint for mem_rpc");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
@@ -752,16 +751,17 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
         return err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
     }
 
-    // perform handshakes with child process 
+    // perform handshakes with child process
     // for both rpc channels
 
     err = aos_lmp_init_handshake_to_child(&init_spawninfo.lmp, &si->lmp, recv_ep_cap1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
-    } 
+    }
 
-    err = aos_lmp_init_handshake_to_child(&init_spawninfo.mem_lmp, &si->mem_lmp, recv_ep_cap2);
+    err = aos_lmp_init_handshake_to_child(&init_spawninfo.mem_lmp, &si->mem_lmp,
+                                          recv_ep_cap2);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup mem rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
@@ -795,22 +795,22 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
     // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
     size_t binary_name_len = strlen(binary_name);
     si->binary_name = malloc(binary_name_len + 1);
-    if(!si->binary_name){
+    if (!si->binary_name) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
     err = aos_lmp_parent_init(&si->lmp);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
     err = aos_lmp_parent_init(&si->mem_lmp);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup mem rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
-    memcpy(si->binary_name, binary_name, binary_name_len+1);
+    memcpy(si->binary_name, binary_name, binary_name_len + 1);
 
     DEBUG_TRACEF("Load binary from multiboot module\n");
     // get memory region from multiboot image
@@ -919,7 +919,8 @@ errval_t spawn_get_free_pid(domainid_t *retpid)
     size_t pid_core_prefix = my_core_id << PID_RANGE_BITS_PER_CORE;
 
     do {
-        global_pid_counter = pid_core_prefix + ((global_pid_counter+1) % (1 << PID_RANGE_BITS_PER_CORE));
+        global_pid_counter = pid_core_prefix
+                             + ((global_pid_counter + 1) % (1 << PID_RANGE_BITS_PER_CORE));
 
         errval_t err = spawn_get_process_by_pid(global_pid_counter, &retnode);
         if (err_is_fail(err)) {
@@ -950,17 +951,18 @@ void spawn_print_processes(void)
 
 /**
  * @brief Get all PIDs on current core. mallocs a new array, for which the caller
- * is responsible for freeing. 
- * 
- * @param retpids Pointer to an array of PIDs. 
+ * is responsible for freeing.
+ *
+ * @param retpids Pointer to an array of PIDs.
  */
-errval_t spawn_get_all_pids(size_t *ret_nr_of_pids, domainid_t **retpids) {
+errval_t spawn_get_all_pids(size_t *ret_nr_of_pids, domainid_t **retpids)
+{
     thread_mutex_lock_nested(&spawn_mutex);
 
     *ret_nr_of_pids = spawn_number_of_processes;
 
     *retpids = malloc(spawn_number_of_processes);
-    if(!*retpids){
+    if (!*retpids) {
         return LIB_ERR_MALLOC_FAIL;
     }
 

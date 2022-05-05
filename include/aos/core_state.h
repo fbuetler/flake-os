@@ -26,9 +26,6 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/init.h>  // for CNODE_SLOTS_*
 
-// TODO-refactor
-#include <aos/aos_rpc.h>
-
 struct morecore_state {
     struct thread_mutex mutex;
     Header header_base;

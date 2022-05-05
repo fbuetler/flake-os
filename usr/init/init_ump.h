@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 #include <aos/aos.h>
-#include <aos/aos_ump.h>
+#include <aos/aos_rpc.h>
 
 // on these channels, we're the client
 struct aos_ump aos_ump_client_chans[4];

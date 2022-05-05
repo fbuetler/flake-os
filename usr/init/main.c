@@ -26,8 +26,7 @@
 #include <aos/morecore.h>
 #include <aos/paging.h>
 #include <aos/waitset.h>
-#include <aos/aos_lmp.h>
-#include <aos/aos_ump.h>
+#include <aos/aos_rpc.h>
 #include <mm/mm.h>
 #include <grading.h>
 #include <spawn/spawn.h>

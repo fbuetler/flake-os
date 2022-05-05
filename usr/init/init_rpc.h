@@ -5,9 +5,8 @@
 
 #include <stdio.h>
 #include <aos/aos.h>
-#include <aos/aos_lmp.h>
+#include <aos/aos_rpc.h>
 #include <spawn/spawn.h>
-#include <aos/aos_ump.h>
 #include <aos/threads.h>
 
 errval_t init_process_msg(struct aos_lmp *rpc);

@@ -21,6 +21,7 @@
 #define AOS_LMP_MSG_SIZE(payload_size) (sizeof(struct aos_lmp_msg) + (payload_size))
 
 // forward declaration
+struct aos_lmp;
 struct aos_lmp_msg;
 
 typedef errval_t (*process_msg_func_t)(struct aos_lmp *);
@@ -47,12 +48,12 @@ struct aos_lmp_msg {
     char payload[0];
 };
 
-enum aos_rpc_channel_type{
+enum aos_rpc_channel_type {
     AOS_RPC_BASE_CHANNEL,
     AOS_RPC_MEMORY_CHANNEL,
 };
 
-enum aos_rpc_service{
+enum aos_rpc_service {
     AOS_RPC_BASE_SERVICE,
     AOS_RPC_MEMORY_SERVICE,
 };
@@ -63,7 +64,9 @@ void aos_process_string(struct aos_lmp *msg);
 /**
  * @brief Initialize an aos_lmp struct from parent to child
  */
-errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *init_lmp, struct aos_lmp *child_lmp, struct capref recv_cap);
+errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *init_lmp,
+                                         struct aos_lmp *child_lmp,
+                                         struct capref recv_cap);
 /**
  * \brief Initialize an aos_lmp struct from child to parent.
  */
@@ -85,7 +88,10 @@ errval_t aos_lmp_setup_local_chan(struct aos_lmp *lmp, struct capref cap_ep);
 errval_t aos_lmp_create_msg(struct aos_lmp_msg **ret_msg, aos_rpc_msg_type_t msg_type,
                             size_t payload_size, void *payload, struct capref msg_cap);
 
-errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg, aos_rpc_msg_type_t msg_type, size_t payload_size, void *payload, struct capref msg_cap, struct aos_lmp_msg *msg);
+errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
+                                         aos_rpc_msg_type_t msg_type, size_t payload_size,
+                                         void *payload, struct capref msg_cap,
+                                         struct aos_lmp_msg *msg);
 
 /**
  * @brief Asynchronously send a message

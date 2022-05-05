@@ -126,7 +126,7 @@ __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t le
     return 0;
 }
 
-static struct aos_rpc aos_rpc;
+static struct aos_rpc rpc;
 static struct aos_rpc mem_rpc;
 
 /* Set libc function pointers */
@@ -203,21 +203,21 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
         // setup endpoint of init
         err = aos_lmp_setup_local_chan(&init_spawninfo.lmp, cap_initep);
-        if(err_is_fail(err)){
+        if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to setup local rpc channel for init");
             return err;
-        }        
+        }
         // setup endpoint for memory requests
         err = aos_lmp_setup_local_chan(&init_spawninfo.mem_lmp, cap_initmemep);
-        if(err_is_fail(err)){
+        if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to setup local mem rpc channel for init");
             return err;
         }
         return SYS_ERR_OK;
     }
 
-    aos_rpc.is_lmp = mem_rpc.is_lmp = true;
-    struct aos_lmp *lmp = &aos_rpc.u.lmp;
+    rpc.is_lmp = mem_rpc.is_lmp = true;
+    struct aos_lmp *lmp = &rpc.u.lmp;
     struct aos_lmp *mem_lmp = &mem_rpc.u.lmp;
 
     err = aos_lmp_init(lmp, AOS_RPC_BASE_CHANNEL);
@@ -232,10 +232,10 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return err;
     }
 
-    set_init_rpc(&aos_rpc);
+    set_init_rpc(&rpc);
     set_init_mem_rpc(&mem_rpc);
     // reset the RAM allocator to use ram_alloc_remote
-    //DEBUG_PRINTF("Use remote RAM allocator\n");
+    // DEBUG_PRINTF("Use remote RAM allocator\n");
     ram_alloc_set(NULL);
 
     return SYS_ERR_OK;

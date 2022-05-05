@@ -10,10 +10,9 @@
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
 #include <aos/paging.h>
-#include <aos/aos_lmp.h>
+#include <aos/aos_rpc.h>
 #include <mm/mm.h>
 #include <spawn/spawn.h>
-#include <aos/aos_ump.h>
 #include <grading.h>
 
 #define TERMINAL_SERVER_CORE 1

@@ -9,9 +9,8 @@
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
 #include <aos/paging.h>
-#include <aos/aos_lmp.h>
+#include <aos/aos_rpc.h>
 #include <spawn/spawn.h>
-#include <aos/aos_ump.h>
 
 
 errval_t process_get_all_pids(size_t *ret_nr_of_pids, domainid_t **ret_pids)

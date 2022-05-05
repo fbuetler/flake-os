@@ -25,7 +25,6 @@ __BEGIN_DECLS
 typedef void (*domain_spanned_callback_t)(void *arg, errval_t err);
 
 struct aos_chan;
-struct aos_lmp;
 struct aos_rpc;
 struct waitset;
 
