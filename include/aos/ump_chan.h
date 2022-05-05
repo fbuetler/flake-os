@@ -76,13 +76,19 @@ struct ump_chan {
 
 void ump_debug_print(struct ump_chan *ump);
 errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary);
-errval_t ump_send(struct ump_chan *chan, aos_rpc_msg_type_t type, char *payload, size_t len);
+errval_t ump_send(struct ump_chan *chan, aos_rpc_msg_type_t type, char *payload,
+                  size_t len);
 
 errval_t ump_receive(struct ump_chan *ump, aos_rpc_msg_type_t *rettype, char **retpayload,
                      size_t *retlen);
 
-errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, coreid_t core, enum aos_rpc_service service);
-errval_t  ump_create_chan(struct capref *frame_cap, struct ump_chan *ump, bool alloc_new_frame, bool is_server);
+errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, coreid_t core,
+                  enum aos_rpc_service service);
+errval_t ump_create_chan(struct capref *frame_cap, struct ump_chan *ump,
+                         bool alloc_new_frame, bool is_server);
 
+errval_t ump_call(struct ump_chan *ump, aos_rpc_msg_type_t send_type, char *send_payload,
+                  size_t send_len, aos_rpc_msg_type_t *recv_type, char **recv_payload,
+                  size_t *recv_len);
 
 #endif /* _INIT_UMP_H_ */

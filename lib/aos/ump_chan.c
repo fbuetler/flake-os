@@ -178,7 +178,6 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
     // no barrier needed, as the sending side has a memory barrier after its check of the
     // message state
 
-
     return SYS_ERR_OK;
 }
 
@@ -295,4 +294,28 @@ errval_t ump_create_chan(struct capref *frame_cap, struct ump_chan *ump,
     DEBUG_PRINTF("ump server chan created!\n");
 
     return SYS_ERR_OK;
+}
+
+errval_t ump_call(struct ump_chan *ump, aos_rpc_msg_type_t send_type, char *send_payload, size_t send_len, aos_rpc_msg_type_t *recv_type, char **recv_payload, size_t *recv_len){
+    errval_t err = SYS_ERR_OK;
+
+    thread_mutex_lock(&ump->chan_lock);
+
+    err =ump_send(ump, send_type, send_payload, send_len);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to send in ump_call\n");
+        err = err_push(err, LIB_ERR_UMP_SEND);
+        goto unlock;
+    }
+
+    err = ump_receive(ump, recv_type, recv_payload, recv_len);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to receive in ump_call\n");
+        err = err_push(err, LIB_ERR_UMP_RECV);
+        goto unlock;
+    }
+
+unlock:
+    thread_mutex_unlock(&ump->chan_lock);
+    return err;
 }

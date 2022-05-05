@@ -364,6 +364,7 @@ errors libaos LIB_ERR_ {
     failure UMP_CHAN_RECV       "Failure in ump_chan_recv()",
     failure UMP_RECV            "Failure in ump_receive()",
     failure UMP_SEND            "Failure in ump_send()",
+    failure UMP_CALL            "Failure in ump_call()",
     failure LMP_CHAN_SEND       "Failure in lmp_chan_send()",
     failure LMP_CHAN_BIND       "Failure in lmp_chan_bind()",
     failure UMP_CHAN_BIND       "Failure in ump_chan_bind()",
