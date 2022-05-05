@@ -22,7 +22,7 @@ struct rpc_msg{
 void rpc_init_from_ump(struct rpc *rpc, struct ump_chan *chan);
 void rpc_init_from_lmp(struct rpc *rpc, struct aos_lmp *chan);
 
-errval_t rpc_call(struct rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg);
+errval_t rpc_call(struct rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg, bool is_dynamic);
 
 errval_t rpc_bind(struct aos_lmp *init_lmp, struct rpc *rpc, coreid_t core,
                   enum aos_rpc_service service);

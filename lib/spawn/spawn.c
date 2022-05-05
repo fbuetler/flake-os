@@ -201,26 +201,26 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
                                               .slot = TASKCN_SLOT_INITMEMEP };
 
     // creates a new endpoint into local_cap!
-    err = lmp_chan_accept(&si->rpc.chan, 256, NULL_CAP);
+    err = lmp_chan_accept(&si->lmp.chan, 256, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to accept endpoint");
         return err;
     }
 
-    err = cap_copy(child_cap_init_endpoint, si->rpc.chan.local_cap);
+    err = cap_copy(child_cap_init_endpoint, si->lmp.chan.local_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to copy init endpoint to cap location in child");
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error
     }
 
     // creates a new endpoint into local_cap!
-    err = lmp_chan_accept(&si->mem_rpc.chan, 256, NULL_CAP);
+    err = lmp_chan_accept(&si->mem_lmp.chan, 256, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to accept endpoint");
         return err;
     }
 
-    err = cap_copy(child_cap_init_mem_endpoint, si->mem_rpc.chan.local_cap);
+    err = cap_copy(child_cap_init_mem_endpoint, si->mem_lmp.chan.local_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to copy init_mem endpoint to cap location in child");
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error
@@ -730,12 +730,12 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     DEBUG_TRACEF("Setup channel to child\n");
 
     struct capref recv_ep_cap1, recv_ep_cap2;
-    err = aos_rpc_set_recv_endpoint(&si->rpc, &recv_ep_cap1);
+    err = aos_rpc_set_recv_endpoint(&si->lmp, &recv_ep_cap1);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed to set recv endpoint for rpc");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
-    err = aos_rpc_set_recv_endpoint(&si->mem_rpc, &recv_ep_cap2);
+    err = aos_rpc_set_recv_endpoint(&si->mem_lmp, &recv_ep_cap2);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed to set recv endpoint for mem_rpc");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
@@ -755,13 +755,13 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // perform handshakes with child process 
     // for both rpc channels
 
-    err = aos_rpc_init_handshake_to_child(&init_spawninfo.rpc, &si->rpc, recv_ep_cap1);
+    err = aos_rpc_init_handshake_to_child(&init_spawninfo.lmp, &si->lmp, recv_ep_cap1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     } 
 
-    err = aos_rpc_init_handshake_to_child(&init_spawninfo.mem_rpc, &si->mem_rpc, recv_ep_cap2);
+    err = aos_rpc_init_handshake_to_child(&init_spawninfo.mem_lmp, &si->mem_lmp, recv_ep_cap2);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup mem rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
@@ -799,12 +799,12 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    err = aos_rpc_parent_init(&si->rpc);
+    err = aos_rpc_parent_init(&si->lmp);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed to setup rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
-    err = aos_rpc_parent_init(&si->mem_rpc);
+    err = aos_rpc_parent_init(&si->mem_lmp);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed to setup mem rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);

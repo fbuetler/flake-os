@@ -676,7 +676,7 @@ errval_t aos_rpc_send_number(struct rpc *rpc, uintptr_t num)
 
     struct rpc_msg response;
 
-    err = rpc_call(rpc, request, &response);
+    err = rpc_call(rpc, request, &response, false);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
@@ -709,7 +709,7 @@ errval_t aos_rpc_send_string(struct rpc *rpc, const char *string)
 
     struct rpc_msg response;
     
-    err = rpc_call(rpc, request, &response);
+    err = rpc_call(rpc, request, &response, true);
 
     //err = aos_rpc_send_msg(rpc, msg);
     if (err_is_fail(err)) {
@@ -750,7 +750,7 @@ errval_t aos_rpc_get_ram_cap(struct rpc *rpc, size_t bytes, size_t alignment,
 
     struct rpc_msg response;
 
-    err = rpc_call(rpc, request, &response);
+    err = rpc_call(rpc, request, &response, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -784,7 +784,7 @@ errval_t aos_rpc_serial_getchar(struct rpc *rpc, char *retc)
     };
     struct rpc_msg response;
 
-    err = rpc_call(rpc, request, &response);
+    err = rpc_call(rpc, request, &response, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed serial putchar request");
         return err;
@@ -808,7 +808,7 @@ errval_t aos_rpc_serial_putchar(struct rpc *rpc, char c)
 
     struct rpc_msg response;
 
-    err = rpc_call(rpc, request, &response);
+    err = rpc_call(rpc, request, &response, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed serial putchar request");
         return err;
@@ -843,7 +843,7 @@ errval_t aos_rpc_process_spawn(struct rpc *rpc, char *cmdline, coreid_t core,
 
     struct rpc_msg response;
 
-    err = rpc_call(rpc, request, &response);
+    err = rpc_call(rpc, request, &response, false);
 
     domainid_t assigned_pid = *((domainid_t *)response.payload);
     DEBUG_PRINTF("spawned process with PID 0x%lx\n", assigned_pid);
@@ -869,7 +869,7 @@ errval_t aos_rpc_process_get_name(struct rpc *rpc, domainid_t pid, char **name)
     struct rpc_msg response;
 
     // TODO-refactor: free rpc->recv_msg 
-    err = rpc_call(rpc, request, &response);
+    err = rpc_call(rpc, request, &response, true);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed rpc getname request");
         return err;
@@ -930,7 +930,7 @@ errval_t aos_rpc_process_get_all_pids(struct rpc *rpc, domainid_t **pids,
 
     struct rpc_msg response;
 
-    err = rpc_call(rpc, request, &response);
+    err = rpc_call(rpc, request, &response, true);
 
 
     //err = aos_rpc_call(rpc, msg, false);  // rpc->recv_msg is malloced. Need to free it

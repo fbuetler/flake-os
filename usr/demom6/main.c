@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 
     struct rpc_msg response;
 
-    err = rpc_call(&c_rpc, request, &response);
+    err = rpc_call(&c_rpc, request, &response, false);
     assert(response.type == AosRpcPong);
     debug_printf("PING: %s\n", response.payload);
     /*
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
         .bytes = strlen(module),
         .cap = NULL_CAP
     };
-    err = rpc_call(&c_rpc, request, &response);
+    err = rpc_call(&c_rpc, request, &response, false);
     assert(err_is_ok(err));
 
     /*
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
         .cap = NULL_CAP
     };
 
-    err = rpc_call(&c_rpc, request, &response);
+    err = rpc_call(&c_rpc, request, &response, false);
     assert(err_is_ok(err));
 
     debug_printf("channel is closed\n");

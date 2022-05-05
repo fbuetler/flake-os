@@ -11,19 +11,23 @@ void rpc_init_from_lmp(struct rpc *rpc, struct aos_lmp *chan){
 }
 
 // TODO-refactor: currently only for static bufs if lmp (no too large messages)
-errval_t rpc_call(struct rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg){
+errval_t rpc_call(struct rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg, bool is_dynamic){
     errval_t err = SYS_ERR_OK;
 
     // TODO-refactor: dynamic sizes
-    char buf[BASE_PAGE_SIZE];
+    char buf[1024];
     if(rpc->is_lmp){
         struct aos_rpc_msg *lmp_msg;
-        err = aos_rpc_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload, msg.cap, (struct aos_rpc_msg *)buf);
+        if(!is_dynamic){
+            err = aos_rpc_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload, msg.cap, (struct aos_rpc_msg *)buf);
+        }else{
+            err = aos_rpc_create_msg(&lmp_msg, msg.type, msg.bytes, msg.payload, msg.cap);
+        }
         if(err_is_fail(err)){
             DEBUG_ERR(err, "failed to create message");
             return err;
         }
-        err = aos_rpc_call(&rpc->u.lmp, lmp_msg, false);
+        err = aos_rpc_call(&rpc->u.lmp, lmp_msg, is_dynamic);
         if(err_is_fail(err)){
             DEBUG_ERR(err, "failed to send lmp message");
             return err;
@@ -42,7 +46,6 @@ errval_t rpc_call(struct rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg){
                 return err;
             }  
         }
-
 
     } else {
         if(!capcmp(msg.cap, NULL_CAP)) {

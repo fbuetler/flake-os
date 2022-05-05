@@ -35,14 +35,6 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
         abort();
     }
 
-    err = lmp_chan_alloc_recv_slot(&memory_rpc->u.lmp.chan);
-    if (err_is_fail(err)) {
-        thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
-        DEBUG_ERR(err, "failed to allocated receive slot");
-        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
-        abort();
-    }
-
     size_t allocated_size;
 
     err = aos_rpc_get_ram_cap(memory_rpc, size, alignment, ret, &allocated_size);
