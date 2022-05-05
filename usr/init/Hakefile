@@ -20,7 +20,7 @@
                         "proc_mgmt.c",
                         "core_mgmt.c",
                         "init_ump.c",
-                        "init_rpc.c",
+                        "init_lmp.c",
                         "mem_alloc.c",
                         "custom_tests.c"
                       ],

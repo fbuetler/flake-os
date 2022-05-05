@@ -1,7 +1,7 @@
 
 
-#ifndef _INIT_INIT_RPC_H_
-#define _INIT_INIT_RPC_H_
+#ifndef _INIT_INIT_LMP_H_
+#define _INIT_INIT_LMP_H_
 
 #include <stdio.h>
 #include <aos/aos.h>

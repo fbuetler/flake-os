@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "init_rpc.h"
+#include "init_lmp.h"
 
 #include "proc_mgmt.h"
 #include "init_ump.h"

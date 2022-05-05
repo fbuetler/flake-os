@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "proc_mgmt.h"
-#include "init_rpc.h"
+#include "init_lmp.h"
 #include "init_ump.h"
 
 #include <aos/aos.h>
