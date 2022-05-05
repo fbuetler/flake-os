@@ -1,20 +1,20 @@
 #include <aos/aos_rpc.h>
 
-void rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan)
+void aos_rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan)
 {
     rpc->u.ump = *chan;
     rpc->is_lmp = false;
 }
 
-void rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan)
+void aos_rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan)
 {
     rpc->u.lmp = *chan;
     rpc->is_lmp = true;
 }
 
 // TODO-refactor: currently only for static bufs if lmp (no too large messages)
-errval_t rpc_call(struct aos_rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg,
-                  bool is_dynamic)
+errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
+                      struct aos_rpc_msg *retmsg, bool is_dynamic)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -65,8 +65,8 @@ errval_t rpc_call(struct aos_rpc *rpc, struct rpc_msg msg, struct rpc_msg *retms
     return err;
 }
 
-errval_t rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
-                  enum aos_rpc_service service)
+errval_t aos_rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
+                      enum aos_rpc_service service)
 {
     rpc->is_lmp = false;
     errval_t err = aos_ump_bind(&init_lmp->u.lmp, &rpc->u.ump, core, service);
@@ -77,14 +77,14 @@ errval_t aos_rpc_send_number(struct aos_rpc *aos_rpc, uintptr_t num)
 {
     errval_t err;
 
-    struct rpc_msg request = { .type = AosRpcSendNumber,
-                               .payload = (char *)&num,
-                               .bytes = sizeof(num),
-                               .cap = NULL_CAP };
+    struct aos_rpc_msg request = { .type = AosRpcSendNumber,
+                                   .payload = (char *)&num,
+                                   .bytes = sizeof(num),
+                                   .cap = NULL_CAP };
 
-    struct rpc_msg response;
+    struct aos_rpc_msg response;
 
-    err = rpc_call(aos_rpc, request, &response, false);
+    err = aos_rpc_call(aos_rpc, request, &response, false);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
@@ -110,14 +110,14 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     ((size_t *)payload)[0] = bytes;
     ((size_t *)payload)[1] = alignment;
 
-    struct rpc_msg request = { .type = AosRpcRamCapRequest,
-                               .payload = payload,
-                               .bytes = payload_size,
-                               .cap = NULL_CAP };
+    struct aos_rpc_msg request = { .type = AosRpcRamCapRequest,
+                                   .payload = payload,
+                                   .bytes = payload_size,
+                                   .cap = NULL_CAP };
 
-    struct rpc_msg response;
+    struct aos_rpc_msg response;
 
-    err = rpc_call(rpc, request, &response, false);
+    err = aos_rpc_call(rpc, request, &response, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
@@ -146,14 +146,14 @@ errval_t aos_rpc_send_string(struct aos_rpc *aos_rpc, const char *string)
     }
     */
 
-    struct rpc_msg request = { .type = AosRpcSendString,
-                               .payload = (void *)string,
-                               .bytes = strlen(string),
-                               .cap = NULL_CAP };
+    struct aos_rpc_msg request = { .type = AosRpcSendString,
+                                   .payload = (void *)string,
+                                   .bytes = strlen(string),
+                                   .cap = NULL_CAP };
 
-    struct rpc_msg response;
+    struct aos_rpc_msg response;
 
-    err = rpc_call(aos_rpc, request, &response, true);
+    err = aos_rpc_call(aos_rpc, request, &response, true);
 
     // err = aos_lmp_send_msg(lmp, msg);
     if (err_is_fail(err)) {
@@ -173,11 +173,11 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
 {
     errval_t err;
 
-    struct rpc_msg request
+    struct aos_rpc_msg request
         = { .type = AosRpcSerialReadChar, .payload = NULL, .bytes = 0, .cap = NULL_CAP };
-    struct rpc_msg response;
+    struct aos_rpc_msg response;
 
-    err = rpc_call(rpc, request, &response, false);
+    err = aos_rpc_call(rpc, request, &response, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed serial putchar request");
         return err;
@@ -192,14 +192,14 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
 {
     errval_t err = SYS_ERR_OK;
 
-    struct rpc_msg request = { .type = AosRpcSerialWriteChar,
-                               .payload = &c,
-                               .bytes = sizeof(char),
-                               .cap = NULL_CAP };
+    struct aos_rpc_msg request = { .type = AosRpcSerialWriteChar,
+                                   .payload = &c,
+                                   .bytes = sizeof(char),
+                                   .cap = NULL_CAP };
 
-    struct rpc_msg response;
+    struct aos_rpc_msg response;
 
-    err = rpc_call(rpc, request, &response, false);
+    err = aos_rpc_call(rpc, request, &response, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed serial putchar request");
         return err;
@@ -214,15 +214,15 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
     // TODO (M5): implement name lookup for process given a process id
     errval_t err;
 
-    struct rpc_msg request = { .type = AosRpcPid2Name,
-                               .payload = (void *)&pid,
-                               .bytes = sizeof(domainid_t),
-                               .cap = NULL_CAP };
+    struct aos_rpc_msg request = { .type = AosRpcPid2Name,
+                                   .payload = (void *)&pid,
+                                   .bytes = sizeof(domainid_t),
+                                   .cap = NULL_CAP };
 
-    struct rpc_msg response;
+    struct aos_rpc_msg response;
 
     // TODO-refactor: free lmp->recv_msg
-    err = rpc_call(rpc, request, &response, true);
+    err = aos_rpc_call(rpc, request, &response, true);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed lmp getname request");
         return err;
@@ -262,14 +262,14 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     memcpy(payload + sizeof(coreid_t), cmdline, cmdline_len + 1);
 
     // TODO-refactor: now only static-sized bufs work at the moment!
-    struct rpc_msg request = { .type = AosRpcSpawnRequest,
-                               .payload = payload,
-                               .bytes = payload_size,
-                               .cap = NULL_CAP };
+    struct aos_rpc_msg request = { .type = AosRpcSpawnRequest,
+                                   .payload = payload,
+                                   .bytes = payload_size,
+                                   .cap = NULL_CAP };
 
-    struct rpc_msg response;
+    struct aos_rpc_msg response;
 
-    err = rpc_call(rpc, request, &response, false);
+    err = aos_rpc_call(rpc, request, &response, false);
 
     domainid_t assigned_pid = *((domainid_t *)response.payload);
     DEBUG_PRINTF("spawned process with PID 0x%lx\n", assigned_pid);
@@ -308,15 +308,15 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
     }
     */
 
-    struct rpc_msg request
+    struct aos_rpc_msg request
         = { .type = AosRpcGetAllPids, .payload = NULL, .bytes = 0, .cap = NULL_CAP };
 
-    struct rpc_msg response;
+    struct aos_rpc_msg response;
 
-    err = rpc_call(rpc, request, &response, true);
+    err = aos_rpc_call(rpc, request, &response, true);
 
 
-    // err = aos_rpc_call(lmp, msg, false);  // lmp->recv_msg is malloced. Need to free it
+    // err = aos_aos_rpc_call(lmp, msg, false);  // lmp->recv_msg is malloced. Need to free it
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");

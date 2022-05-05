@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
     */
 
     coreid_t core = !disp_get_current_core_id();
-    err = rpc_bind(init_rpc, &c_rpc, core, AOS_RPC_BASE_SERVICE);
+    err = aos_rpc_bind(init_rpc, &c_rpc, core, AOS_RPC_BASE_SERVICE);
     assert(err_is_ok(err));
 
     debug_printf("channel is set up!\n");
@@ -73,12 +73,12 @@ int main(int argc, char *argv[])
         2. Send Ping to new channel -> await Pong
     */
 
-    struct rpc_msg request
+    struct aos_rpc_msg request
         = { .type = AosRpcPing, .payload = "", .bytes = 1, .cap = NULL_CAP };
 
-    struct rpc_msg response;
+    struct aos_rpc_msg response;
 
-    err = rpc_call(&c_rpc, request, &response, false);
+    err = aos_rpc_call(&c_rpc, request, &response, false);
     assert(response.type == AosRpcPong);
     debug_printf("PING: %s\n", response.payload);
     /*
@@ -87,21 +87,21 @@ int main(int argc, char *argv[])
 
     char *module = "hello";
 
-    request = (struct rpc_msg) { .type = AosRpcSpawnRequest,
-                                 .payload = module,
-                                 .bytes = strlen(module),
-                                 .cap = NULL_CAP };
-    err = rpc_call(&c_rpc, request, &response, false);
+    request = (struct aos_rpc_msg) { .type = AosRpcSpawnRequest,
+                                     .payload = module,
+                                     .bytes = strlen(module),
+                                     .cap = NULL_CAP };
+    err = aos_rpc_call(&c_rpc, request, &response, false);
     assert(err_is_ok(err));
 
     /*
         3. Close the channel again
     */
-    request = (struct rpc_msg) {
+    request = (struct aos_rpc_msg) {
         .type = AosRpcClose, .payload = "", .bytes = 1, .cap = NULL_CAP
     };
 
-    err = rpc_call(&c_rpc, request, &response, false);
+    err = aos_rpc_call(&c_rpc, request, &response, false);
     assert(err_is_ok(err));
 
     debug_printf("channel is closed\n");

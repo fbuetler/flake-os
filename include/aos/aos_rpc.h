@@ -1,5 +1,5 @@
-#ifndef _INIT_RPC_TMP_H_
-#define _INIT_RPC_TMP_H_
+#ifndef _INIT_AOS_RPC_H
+#define _INIT_AOS_RPC_H
 
 #include <aos/aos_rpc_types.h>
 #include <aos/aos_lmp.h>
@@ -13,14 +13,14 @@ struct aos_rpc {
     bool is_lmp;
 };
 
-void rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan);
-void rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan);
+void aos_rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan);
+void aos_rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan);
 
-errval_t rpc_call(struct aos_rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg,
-                  bool is_dynamic);
+errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
+                      struct aos_rpc_msg *retmsg, bool is_dynamic);
 
-errval_t rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
-                  enum aos_rpc_service service);
+errval_t aos_rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
+                      enum aos_rpc_service service);
 /**
  * \brief Send a number.
  */

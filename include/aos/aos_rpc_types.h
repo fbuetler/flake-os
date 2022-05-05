@@ -34,7 +34,7 @@ typedef enum aos_rpc_msg_type {
     AosRpcSendMMStrings
 } aos_rpc_msg_type_t;
 
-struct rpc_msg{
+struct aos_rpc_msg {
     aos_rpc_msg_type_t type;
     char *payload;
     size_t bytes;

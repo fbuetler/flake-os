@@ -1031,8 +1031,8 @@ __attribute__((unused)) static void test_large_ping_pong(void)
     ump = &aos_ump_server_chans[1];
 
     char *ping = "ping";
-    char *payload = (char *)malloc(UMP_MSG_MAX_BYTES);
-    for (int i = 0; i < UMP_MSG_MAX_BYTES; i += strlen(ping)) {
+    char *payload = (char *)malloc(AOS_UMP_MSG_MAX_BYTES);
+    for (int i = 0; i < AOS_UMP_MSG_MAX_BYTES; i += strlen(ping)) {
         memcpy(payload + i, ping, strlen(ping));
     }
 

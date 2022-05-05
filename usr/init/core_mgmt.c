@@ -20,7 +20,7 @@ static errval_t send_cap(struct aos_ump *ump, enum aos_rpc_msg_type msg_type,
 {
     errval_t err;
 
-    struct ump_mem_msg region;
+    struct aos_ump_mem_msg region;
     err = get_phys_addr(cap, &region.base, &region.bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get physical address");
@@ -37,7 +37,7 @@ static errval_t send_cap(struct aos_ump *ump, enum aos_rpc_msg_type msg_type,
 }
 
 static errval_t recv_cap(struct aos_ump *ump, aos_rpc_msg_type_t expected_msg_type,
-                         struct ump_mem_msg **mem_msg)
+                         struct aos_ump_mem_msg **mem_msg)
 {
     errval_t err;
 
@@ -51,7 +51,7 @@ static errval_t recv_cap(struct aos_ump *ump, aos_rpc_msg_type_t expected_msg_ty
     }
 
     assert(msg_type == expected_msg_type);
-    *mem_msg = (struct ump_mem_msg *)payload;
+    *mem_msg = (struct aos_ump_mem_msg *)payload;
 
     return SYS_ERR_OK;
 }
@@ -163,7 +163,7 @@ errval_t init_app_core(void)
 
     // Receive memory almosen
     // DEBUG_PRINTF("Receive initial memory\n");
-    struct ump_mem_msg *memory_region;
+    struct aos_ump_mem_msg *memory_region;
     err = recv_cap(ump, AosRpcRamCapRequest, &memory_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
@@ -194,7 +194,7 @@ errval_t init_app_core(void)
 
     // Receive boot info
     // DEBUG_PRINTF("Receive boot info\n");
-    struct ump_mem_msg *bootinfo_region;
+    struct aos_ump_mem_msg *bootinfo_region;
     err = recv_cap(ump, AosRpcSendBootinfo, &bootinfo_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
@@ -232,7 +232,7 @@ errval_t init_app_core(void)
 
     // Receive multiboot module string area
     // DEBUG_PRINTF("Receive mm strings\n");
-    struct ump_mem_msg *mmstring_region;
+    struct aos_ump_mem_msg *mmstring_region;
     err = recv_cap(ump, AosRpcSendMMStrings, &mmstring_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");

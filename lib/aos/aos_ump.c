@@ -45,16 +45,16 @@ errval_t aos_ump_initialize(struct aos_ump *ump, void *shared_mem, bool is_prima
     void *recv_mem;
     if (is_primary) {
         send_mem = shared_mem;
-        recv_mem = shared_mem + UMP_SECTION_BYTES;
+        recv_mem = shared_mem + AOS_UMP_SECTION_BYTES;
     } else {
-        send_mem = shared_mem + UMP_SECTION_BYTES;
+        send_mem = shared_mem + AOS_UMP_SECTION_BYTES;
         recv_mem = shared_mem;
     }
 
-    ump->send_base = send_mem + UMP_MESSAGES_OFFSET;
+    ump->send_base = send_mem + AOS_UMP_MESSAGES_OFFSET;
     ump->send_next = 0;
 
-    ump->recv_base = recv_mem + UMP_MESSAGES_OFFSET;
+    ump->recv_base = recv_mem + AOS_UMP_MESSAGES_OFFSET;
     ump->recv_next = 0;
 
     // DEBUG_PRINTF("Shared memory:\nsend: 0x%lx\nreceive: 0x%lx\n", send_mem, recv_mem);
@@ -68,20 +68,20 @@ errval_t aos_ump_initialize(struct aos_ump *ump, void *shared_mem, bool is_prima
 /**
  * Populate ump_msg struct on the stack
  */
-static void ump_create_msg(struct ump_msg *msg, enum aos_rpc_msg_type type, char *payload,
-                           size_t len, bool is_last)
+static void ump_create_msg(struct aos_ump_msg *msg, enum aos_rpc_msg_type type,
+                           char *payload, size_t len, bool is_last)
 {
     msg->header.msg_state = UmpMessageCreated;
-    msg->header.msg_type = (ump_msg_type)type;
+    msg->header.msg_type = (aos_ump_msg_type)type;
     msg->header.last = is_last;
     msg->header.len = len;
     memcpy(msg->payload, payload, len);
 }
 
-static errval_t aos_ump_send_msg(struct aos_ump *ump, struct ump_msg *msg)
+static errval_t aos_ump_send_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
 {
     errval_t err;
-    struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
+    struct aos_ump_msg *entry = (struct aos_ump_msg *)ump->send_base + ump->send_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
     if (*state == UmpMessageSent) {
@@ -92,12 +92,12 @@ static errval_t aos_ump_send_msg(struct aos_ump *ump, struct ump_msg *msg)
 
     dmb();  // ensure that we checked the above condition before copying
 
-    memcpy(entry, msg, UMP_MSG_BYTES);
+    memcpy(entry, msg, AOS_UMP_MSG_BYTES);
 
     dmb();  // ensure that the message is written to memory before logically mark it as sent
 
     entry->header.msg_state = UmpMessageSent;
-    ump->send_next = (ump->send_next + 1) % UMP_MESSAGES_ENTRIES;
+    ump->send_next = (ump->send_next + 1) % AOS_UMP_MESSAGES_ENTRIES;
 
     // no barrier needed as the receiving side has a memory barrier after the check of the
     // message state. This already ensures that the message is not read before the state
@@ -113,15 +113,15 @@ errval_t aos_ump_send(struct aos_ump *ump, enum aos_rpc_msg_type type, char *pay
     size_t offset = 0;
     // thread_mutex_lock_nested(&chan->chan_lock);
 
-    if (len > UMP_MSG_MAX_BYTES) {
+    if (len > AOS_UMP_MSG_MAX_BYTES) {
         err = LIB_ERR_UMP_SEND;
         DEBUG_ERR(err, "Message size exceeded max allowed size");
         return err;
     }
 
-    struct ump_msg msg;
+    struct aos_ump_msg msg;
     while (offset < len) {
-        size_t current_payload_len = MIN(len - offset, UMP_MSG_PAYLOAD_BYTES);
+        size_t current_payload_len = MIN(len - offset, AOS_UMP_MSG_PAYLOAD_BYTES);
         size_t current_offset = offset;
         offset += current_payload_len;
 
@@ -148,12 +148,12 @@ errval_t aos_ump_send(struct aos_ump *ump, enum aos_rpc_msg_type type, char *pay
     return SYS_ERR_OK;
 }
 
-static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct ump_msg *msg)
+static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
 {
     // aos_ump_debug_print(ump);
 
 
-    struct ump_msg *entry = (struct ump_msg *)ump->recv_base + ump->recv_next;
+    struct aos_ump_msg *entry = (struct aos_ump_msg *)ump->recv_base + ump->recv_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
     // DEBUG_PRINTF("receiving UMP in slot %d\n", ump->recv_next);
@@ -168,13 +168,13 @@ static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct ump_msg *msg)
     // side writing UmpMessageSent to the cache line.
     dmb();  // ensure that we checked the above condition before copying
 
-    assert(sizeof(struct ump_msg) == UMP_MSG_BYTES);
-    memcpy(msg, entry, UMP_MSG_BYTES);
+    assert(sizeof(struct aos_ump_msg) == AOS_UMP_MSG_BYTES);
+    memcpy(msg, entry, AOS_UMP_MSG_BYTES);
 
     dmb();  // ensure that the message is received before we mark it logically as received
 
     entry->header.msg_state = UmpMessageReceived;
-    ump->recv_next = (ump->recv_next + 1) % UMP_MESSAGES_ENTRIES;
+    ump->recv_next = (ump->recv_next + 1) % AOS_UMP_MESSAGES_ENTRIES;
 
     // no barrier needed, as the sending side has a memory barrier after its check of the
     // message state
@@ -189,12 +189,12 @@ errval_t aos_ump_receive(struct aos_ump *ump, aos_rpc_msg_type_t *rettype,
     errval_t err;
 
     size_t offset = 0;
-    char *tmp_payload = malloc(UMP_MSG_MAX_BYTES);
+    char *tmp_payload = malloc(AOS_UMP_MSG_MAX_BYTES);
 
-    ump_msg_type msg_type;
+    aos_ump_msg_type msg_type;
     bool is_last = false;
     while (!is_last) {
-        struct ump_msg msg;
+        struct aos_ump_msg msg;
         err = aos_ump_receive_msg(ump, &msg);
 
         if (err_is_fail(err)) {

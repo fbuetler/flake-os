@@ -26,43 +26,43 @@
 
 */
 
-#define UMP_SHARED_MEM_BYTES BASE_PAGE_SIZE
-#define UMP_SECTION_BYTES (UMP_SHARED_MEM_BYTES / 2)
+#define AOS_UMP_SHARED_MEM_BYTES BASE_PAGE_SIZE
+#define AOS_UMP_SECTION_BYTES (AOS_UMP_SHARED_MEM_BYTES / 2)
 
-#define UMP_MSG_BYTES 64  // CACHE_LINE_SIZE
-#define UMP_MSG_MAX_BYTES (2 * BASE_PAGE_SIZE)
+#define AOS_UMP_MSG_BYTES 64  // CACHE_LINE_SIZE
+#define AOS_UMP_MSG_MAX_BYTES (2 * BASE_PAGE_SIZE)
 
-#define UMP_MESSAGES_OFFSET 0
-#define UMP_MESSAGES_BYTES UMP_SECTION_BYTES
+#define AOS_UMP_MESSAGES_OFFSET 0
+#define AOS_UMP_MESSAGES_BYTES AOS_UMP_SECTION_BYTES
 
-#define UMP_MESSAGES_ENTRIES (UMP_MESSAGES_BYTES / UMP_MSG_BYTES)
+#define AOS_UMP_MESSAGES_ENTRIES (AOS_UMP_MESSAGES_BYTES / AOS_UMP_MSG_BYTES)
 
 // compresses the aos_rpc_msg_type to a single byte
-typedef uint8_t ump_msg_type;
+typedef uint8_t aos_ump_msg_type;
 
 typedef uint8_t ump_msg_state;
 static const ump_msg_state UmpMessageCreated = 1;
 static const ump_msg_state UmpMessageSent = 2;
 static const ump_msg_state UmpMessageReceived = 3;
 
-struct ump_msg_header {
-    ump_msg_type msg_type;
+struct aos_ump_msg_header {
+    aos_ump_msg_type msg_type;
     ump_msg_state msg_state;
     uint8_t len;
     bool last;
 };
 
-#define UMP_MSG_HEADER_BYTES (sizeof(struct ump_msg_header))
-#define UMP_MSG_PAYLOAD_BYTES (UMP_MSG_BYTES - UMP_MSG_HEADER_BYTES)
+#define AOS_UMP_MSG_HEADER_BYTES (sizeof(struct aos_ump_msg_header))
+#define AOS_UMP_MSG_PAYLOAD_BYTES (AOS_UMP_MSG_BYTES - AOS_UMP_MSG_HEADER_BYTES)
 
-struct ump_mem_msg {
+struct aos_ump_mem_msg {
     genpaddr_t base;
     gensize_t bytes;
 };
 
-struct ump_msg {
-    struct ump_msg_header header;
-    char payload[UMP_MSG_PAYLOAD_BYTES];
+struct aos_ump_msg {
+    struct aos_ump_msg_header header;
+    char payload[AOS_UMP_MSG_PAYLOAD_BYTES];
 };
 
 struct aos_ump {
