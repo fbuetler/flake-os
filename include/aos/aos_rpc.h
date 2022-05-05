@@ -13,6 +13,16 @@ struct aos_rpc {
     bool is_lmp;
 };
 
+enum aos_rpc_channel_type {
+    AOS_RPC_BASE_CHANNEL,
+    AOS_RPC_MEMORY_CHANNEL,
+};
+
+enum aos_rpc_service {
+    AOS_RPC_BASE_SERVICE,
+    AOS_RPC_MEMORY_SERVICE,
+};
+
 void aos_rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan);
 void aos_rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan);
 
