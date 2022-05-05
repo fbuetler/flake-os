@@ -73,20 +73,13 @@ static int bsp_main(int argc, char *argv[])
     // run_m4_tests();
 
     // TODO: Spawn system processes, boot second core etc. here
-    err = boot_core(1);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to boot core");
+    uint8_t number_of_cores_to_boot = 1;
+    for (int i = 1; i <= number_of_cores_to_boot; i++) {
+        err = boot_core(i);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to boot core");
+        }
     }
-    // err = boot_core(2);
-    // if (err_is_fail(err)) {
-    //     DEBUG_ERR(err, "failed to boot core");
-    // }
-    // err = boot_core(3);
-    // if (err_is_fail(err)) {
-    //     DEBUG_ERR(err, "failed to boot core");
-    // }
-    struct aos_ump *chan = &aos_ump_server_chans[!disp_get_core_id()];
-    struct thread *ump_listener_thread = run_ump_listener_thread(chan, false);
 
     run_tests();
 
@@ -103,8 +96,12 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
-    int ump_listener_retval;
-    thread_join(ump_listener_thread, &ump_listener_retval);
+    for (int i = 1; i <= number_of_cores_to_boot; i++) {
+        err = thread_join(aos_ump_server_threads[i], NULL);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to join thread");
+        }
+    }
 
     return EXIT_SUCCESS;
 }
@@ -128,9 +125,6 @@ static int app_main(int argc, char *argv[])
 
     grading_test_early();
 
-    struct aos_ump *chan = &aos_ump_server_chans[!disp_get_core_id()];
-    struct thread *ump_listener_thread = run_ump_listener_thread(chan, false);
-
     run_tests();
 
     grading_test_late();
@@ -145,8 +139,9 @@ static int app_main(int argc, char *argv[])
         }
     }
 
-    int ump_listener_retval;
-    thread_join(ump_listener_thread, &ump_listener_retval);
+    // core that booted us
+    coreid_t primary_core = 0;
+    thread_join(aos_ump_server_threads[primary_core], NULL);
 
     return EXIT_SUCCESS;
 }

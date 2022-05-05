@@ -14,13 +14,13 @@
 #include <spawn/spawn.h>
 #include <aos/kernel_cap_invocations.h>
 
-void aos_ump_receive_listener(struct aos_ump *chan)
+void aos_ump_receive_listener(struct aos_ump *ump)
 {
     aos_rpc_msg_type_t type;
     char *payload;
     size_t len;
     while (1) {
-        errval_t err = aos_ump_receive(chan, &type, &payload, &len);
+        errval_t err = aos_ump_receive(ump, &type, &payload, &len);
         // debug_printf("received message of type: %d\n", type);
         if (err_is_fail(err)) {
             assert(!"couldn't receive ump message in receive listener\n");
@@ -36,8 +36,7 @@ void aos_ump_receive_listener(struct aos_ump *chan)
                 continue;
             }
 
-            err = aos_ump_send(chan, AosRpcSpawnResponse, (char *)&pid,
-                               sizeof(domainid_t));
+            err = aos_ump_send(ump, AosRpcSpawnResponse, (char *)&pid, sizeof(domainid_t));
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to respond to spawn request!\n");
                 continue;
@@ -62,7 +61,7 @@ void aos_ump_receive_listener(struct aos_ump *chan)
                 continue;
             }
 
-            err = aos_ump_send(chan, AosRpcPid2NameResponse, name, strlen(name) + 1);
+            err = aos_ump_send(ump, AosRpcPid2NameResponse, name, strlen(name) + 1);
             if (err_is_fail(err)) {
                 DEBUG_PRINTF("failed to respond to pid2name request!\n");
                 continue;
@@ -81,7 +80,7 @@ void aos_ump_receive_listener(struct aos_ump *chan)
                 continue;
             }
 
-            err = aos_ump_send(chan, AosRpcGetAllPidsResponse, (char *)pids,
+            err = aos_ump_send(ump, AosRpcGetAllPidsResponse, (char *)pids,
                                nr_of_pids * sizeof(domainid_t));
             if (err_is_fail(err)) {
                 DEBUG_PRINTF("failed to respond to get all pids!\n");
@@ -100,7 +99,7 @@ void aos_ump_receive_listener(struct aos_ump *chan)
         }
         case AosRpcPing: {
             payload = "pong";
-            err = aos_ump_send(chan, AosRpcPong, payload, strlen(payload));
+            err = aos_ump_send(ump, AosRpcPong, payload, strlen(payload));
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to send message");
                 continue;
@@ -139,7 +138,7 @@ void aos_ump_receive_listener(struct aos_ump *chan)
 
             // TODO: is problem fixed that we can't send payloads of size 0?
             char response_payload[1];
-            aos_ump_send(chan, AosRpcBindReponse, response_payload, 1);
+            aos_ump_send(ump, AosRpcBindReponse, response_payload, 1);
 
             debug_printf("ump response has been sent\n");
 
@@ -147,7 +146,7 @@ void aos_ump_receive_listener(struct aos_ump *chan)
         }
         case AosRpcClose: {
             char response_payload[1];
-            aos_ump_send(chan, AosRpcCloseReponse, response_payload, 1);
+            aos_ump_send(ump, AosRpcCloseReponse, response_payload, 1);
             debug_printf("channel closing...\n");
             return;
         }
@@ -158,7 +157,7 @@ void aos_ump_receive_listener(struct aos_ump *chan)
                 continue;
             }
             char retpayload[1];
-            aos_ump_send(chan, AosRpcSerialWriteCharResponse, retpayload, 1);
+            aos_ump_send(ump, AosRpcSerialWriteCharResponse, retpayload, 1);
             continue;
         }
         case AosRpcSerialReadChar: {
@@ -168,7 +167,7 @@ void aos_ump_receive_listener(struct aos_ump *chan)
                 DEBUG_ERR(err, "Could not read char in UMP \n");
                 continue;
             }
-            aos_ump_send(chan, AosRpcSerialReadCharResponse, retpayload, 1);
+            aos_ump_send(ump, AosRpcSerialReadCharResponse, retpayload, 1);
             continue;
         }
         default: {
@@ -197,13 +196,13 @@ int aos_ump_receive_listener_thread_func_malloced(void *arg)
     return 0;
 }
 
-struct thread *run_ump_listener_thread(struct aos_ump *chan, bool is_malloced)
+struct thread *run_ump_listener_thread(struct aos_ump *ump, bool is_malloced)
 {
     struct thread *t;
     if (!is_malloced) {
-        t = thread_create(aos_ump_receive_listener_thread_func, (void *)chan);
+        t = thread_create(aos_ump_receive_listener_thread_func, (void *)ump);
     } else {
-        t = thread_create(aos_ump_receive_listener_thread_func_malloced, (void *)chan);
+        t = thread_create(aos_ump_receive_listener_thread_func_malloced, (void *)ump);
     }
     return t;
 }

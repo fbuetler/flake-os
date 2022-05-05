@@ -74,9 +74,6 @@ errval_t boot_core(coreid_t core_id)
     }
     const char *init = "init";
 
-    struct aos_ump *ump = &aos_ump_server_chans[core_id];
-    struct aos_ump *c_ump = &aos_ump_client_chans[core_id];
-
     size_t allocated_bytes;
     struct capref frame_cap;
     err = frame_alloc(&frame_cap, 2 * BASE_PAGE_SIZE, &allocated_bytes);
@@ -92,14 +89,13 @@ errval_t boot_core(coreid_t core_id)
         return err;
     }
 
-    // init channel
-    err = aos_ump_initialize(ump, urpc, true);
+    // Setup ump client to booted core
+    struct aos_ump *client_ump = &aos_ump_client_chans[core_id];
+    err = aos_ump_initialize(client_ump, urpc + BASE_PAGE_SIZE, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to initialize channel");
         return err;
     }
-
-    aos_ump_initialize(c_ump, urpc + BASE_PAGE_SIZE, false);
 
     struct frame_identity urpc_frame_id;
     err = frame_identify(frame_cap, &urpc_frame_id);
@@ -119,7 +115,7 @@ errval_t boot_core(coreid_t core_id)
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = send_cap(c_ump, AosRpcRamCapRequest, mem_cap);
+    err = send_cap(client_ump, AosRpcRamCapRequest, mem_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send mem cap");
         return err;
@@ -127,7 +123,7 @@ errval_t boot_core(coreid_t core_id)
 
     // Send boot info
     // DEBUG_PRINTF("Send boot info\n");
-    err = send_cap(c_ump, AosRpcSendBootinfo, cap_bootinfo);
+    err = send_cap(client_ump, AosRpcSendBootinfo, cap_bootinfo);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send boot info cap");
         return err;
@@ -135,11 +131,20 @@ errval_t boot_core(coreid_t core_id)
 
     // Send multiboot module string area
     // DEBUG_PRINTF("Send mm strings\n");
-    err = send_cap(c_ump, AosRpcSendMMStrings, cap_mmstrings);
+    err = send_cap(client_ump, AosRpcSendMMStrings, cap_mmstrings);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send mm strings cap");
         return err;
     }
+
+    // Setup and run ump server listener to booted core
+    struct aos_ump *server_ump = &aos_ump_server_chans[core_id];
+    err = aos_ump_initialize(server_ump, urpc, true);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to initialize channel");
+        return err;
+    }
+    aos_ump_server_threads[core_id] = run_ump_listener_thread(server_ump, false);
 
     return SYS_ERR_OK;
 }
@@ -155,16 +160,27 @@ errval_t init_app_core(void)
         return err;
     }
 
-    // init channel to core0
-    struct aos_ump *c_ump = &aos_ump_client_chans[0];
-    struct aos_ump *ump = &aos_ump_server_chans[0];
-    aos_ump_initialize(c_ump, urpc, false);
-    aos_ump_initialize(ump, urpc + BASE_PAGE_SIZE, true);
+    // Setup client ump to core 0
+    coreid_t primary_core = 0;
+    struct aos_ump *client_ump = &aos_ump_client_chans[primary_core];
+    aos_ump_initialize(client_ump, urpc, false);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to initialize channel");
+        return err;
+    }
+
+    // Setup server ump listener to core 0
+    struct aos_ump *server_ump = &aos_ump_server_chans[primary_core];
+    aos_ump_initialize(server_ump, urpc + BASE_PAGE_SIZE, true);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to initialize channel");
+        return err;
+    }
 
     // Receive memory almosen
     // DEBUG_PRINTF("Receive initial memory\n");
     struct aos_ump_mem_msg *memory_region;
-    err = recv_cap(ump, AosRpcRamCapRequest, &memory_region);
+    err = recv_cap(server_ump, AosRpcRamCapRequest, &memory_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err;
@@ -195,7 +211,7 @@ errval_t init_app_core(void)
     // Receive boot info
     // DEBUG_PRINTF("Receive boot info\n");
     struct aos_ump_mem_msg *bootinfo_region;
-    err = recv_cap(ump, AosRpcSendBootinfo, &bootinfo_region);
+    err = recv_cap(server_ump, AosRpcSendBootinfo, &bootinfo_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err;
@@ -233,7 +249,7 @@ errval_t init_app_core(void)
     // Receive multiboot module string area
     // DEBUG_PRINTF("Receive mm strings\n");
     struct aos_ump_mem_msg *mmstring_region;
-    err = recv_cap(ump, AosRpcSendMMStrings, &mmstring_region);
+    err = recv_cap(server_ump, AosRpcSendMMStrings, &mmstring_region);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err;
@@ -245,6 +261,10 @@ errval_t init_app_core(void)
         DEBUG_ERR(err, "failed to force mmstring frame");
         return err;
     }
+
+    // Run ump server listener
+    aos_ump_server_threads[disp_get_current_core_id()] = run_ump_listener_thread(
+        server_ump, false);
 
     // DEBUG_PRINTF("App core initialized\n");
 
