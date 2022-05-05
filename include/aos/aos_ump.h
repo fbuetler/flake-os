@@ -65,7 +65,7 @@ struct ump_msg {
     char payload[UMP_MSG_PAYLOAD_BYTES];
 };
 
-struct ump_chan {
+struct aos_ump {
     struct thread_mutex chan_lock;
     uint64_t *send_base;  // start of the send section
     uint64_t send_next;   // next send entry
@@ -74,21 +74,21 @@ struct ump_chan {
     uint64_t recv_next;   // next recv entry
 };
 
-void ump_debug_print(struct ump_chan *ump);
-errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary);
-errval_t ump_send(struct ump_chan *chan, aos_rpc_msg_type_t type, char *payload,
-                  size_t len);
+void aos_ump_debug_print(struct aos_ump *ump);
+errval_t aos_ump_initialize(struct aos_ump *ump, void *shared_mem, bool is_primary);
+errval_t aos_ump_send(struct aos_ump *chan, aos_rpc_msg_type_t type, char *payload,
+                      size_t len);
 
-errval_t ump_receive(struct ump_chan *ump, aos_rpc_msg_type_t *rettype, char **retpayload,
-                     size_t *retlen);
+errval_t aos_ump_receive(struct aos_ump *ump, aos_rpc_msg_type_t *rettype,
+                         char **retpayload, size_t *retlen);
 
-errval_t ump_bind(struct aos_lmp *aos_rpc, struct ump_chan *ump, coreid_t core,
-                  enum aos_rpc_service service);
-errval_t ump_create_chan(struct capref *frame_cap, struct ump_chan *ump,
-                         bool alloc_new_frame, bool is_server);
+errval_t aos_ump_bind(struct aos_lmp *aos_rpc, struct aos_ump *ump, coreid_t core,
+                      enum aos_rpc_service service);
+errval_t aos_ump_create_chan(struct capref *frame_cap, struct aos_ump *ump,
+                             bool alloc_new_frame, bool is_server);
 
-errval_t ump_call(struct ump_chan *ump, aos_rpc_msg_type_t send_type, char *send_payload,
-                  size_t send_len, aos_rpc_msg_type_t *recv_type, char **recv_payload,
-                  size_t *recv_len);
+errval_t aos_ump_call(struct aos_ump *ump, aos_rpc_msg_type_t send_type,
+                      char *send_payload, size_t send_len, aos_rpc_msg_type_t *recv_type,
+                      char **recv_payload, size_t *recv_len);
 
 #endif /* _INIT_UMP_H_ */

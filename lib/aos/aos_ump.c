@@ -1,9 +1,9 @@
-#include <aos/ump_chan.h>
+#include <aos/aos_ump.h>
 #include <aos/aos_lmp.h>
 
 #include <aos/deferred.h>
 
-void ump_debug_print(struct ump_chan *ump)
+void aos_ump_debug_print(struct aos_ump *ump)
 {
     size_t show_cache_lines = 32;
 
@@ -38,7 +38,7 @@ void ump_debug_print(struct ump_chan *ump)
     }
 }
 
-errval_t ump_initialize(struct ump_chan *ump, void *shared_mem, bool is_primary)
+errval_t aos_ump_initialize(struct aos_ump *ump, void *shared_mem, bool is_primary)
 {
     thread_mutex_init(&ump->chan_lock);
     void *send_mem;
@@ -72,13 +72,13 @@ static void ump_create_msg(struct ump_msg *msg, enum aos_rpc_msg_type type, char
                            size_t len, bool is_last)
 {
     msg->header.msg_state = UmpMessageCreated;
-    msg->header.msg_type = (ump_msg_type) type;
+    msg->header.msg_type = (ump_msg_type)type;
     msg->header.last = is_last;
     msg->header.len = len;
     memcpy(msg->payload, payload, len);
 }
 
-static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
+static errval_t aos_ump_send_msg(struct aos_ump *ump, struct ump_msg *msg)
 {
     errval_t err;
     struct ump_msg *entry = (struct ump_msg *)ump->send_base + ump->send_next;
@@ -106,7 +106,8 @@ static errval_t ump_send_msg(struct ump_chan *ump, struct ump_msg *msg)
     return SYS_ERR_OK;
 }
 
-errval_t ump_send(struct ump_chan *ump, enum aos_rpc_msg_type type, char *payload, size_t len)
+errval_t aos_ump_send(struct aos_ump *ump, enum aos_rpc_msg_type type, char *payload,
+                      size_t len)
 {
     errval_t err;
     size_t offset = 0;
@@ -129,7 +130,7 @@ errval_t ump_send(struct ump_chan *ump, enum aos_rpc_msg_type type, char *payloa
 
         size_t backoff = 1;
         while (backoff < 1 << 5) {
-            err = ump_send_msg(ump, &msg);
+            err = aos_ump_send_msg(ump, &msg);
             if (err_is_fail(err)) {
                 barrelfish_usleep(backoff * 1000);
                 backoff <<= 1;
@@ -147,9 +148,9 @@ errval_t ump_send(struct ump_chan *ump, enum aos_rpc_msg_type type, char *payloa
     return SYS_ERR_OK;
 }
 
-static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
+static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct ump_msg *msg)
 {
-    // ump_debug_print(ump);
+    // aos_ump_debug_print(ump);
 
 
     struct ump_msg *entry = (struct ump_msg *)ump->recv_base + ump->recv_next;
@@ -181,8 +182,8 @@ static errval_t ump_receive_msg(struct ump_chan *ump, struct ump_msg *msg)
     return SYS_ERR_OK;
 }
 
-errval_t ump_receive(struct ump_chan *ump, aos_rpc_msg_type_t *rettype, char **retpayload,
-                     size_t *retlen)
+errval_t aos_ump_receive(struct aos_ump *ump, aos_rpc_msg_type_t *rettype,
+                         char **retpayload, size_t *retlen)
 {
     // thread_mutex_lock_nested(&ump->chan_lock);
     errval_t err;
@@ -194,7 +195,7 @@ errval_t ump_receive(struct ump_chan *ump, aos_rpc_msg_type_t *rettype, char **r
     bool is_last = false;
     while (!is_last) {
         struct ump_msg msg;
-        err = ump_receive_msg(ump, &msg);
+        err = aos_ump_receive_msg(ump, &msg);
 
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to receive message");
@@ -212,7 +213,7 @@ errval_t ump_receive(struct ump_chan *ump, aos_rpc_msg_type_t *rettype, char **r
     memcpy(payload, tmp_payload, offset);
     free(tmp_payload);
 
-    *rettype = (aos_rpc_msg_type_t) msg_type;
+    *rettype = (aos_rpc_msg_type_t)msg_type;
     *retpayload = payload;
     *retlen = offset;
 
@@ -220,13 +221,13 @@ errval_t ump_receive(struct ump_chan *ump, aos_rpc_msg_type_t *rettype, char **r
 }
 
 
-errval_t ump_bind(struct aos_lmp *rpc, struct ump_chan *ump, coreid_t core,
-                  enum aos_rpc_service service)
+errval_t aos_ump_bind(struct aos_lmp *rpc, struct aos_ump *ump, coreid_t core,
+                      enum aos_rpc_service service)
 {
     // 1. The client allocates and maps a region of shared memory (the cframe in Figure 8.11.)
     struct capref cframe_cap = NULL_CAP;
 
-    errval_t err = ump_create_chan(&cframe_cap, ump, true, false);
+    errval_t err = aos_ump_create_chan(&cframe_cap, ump, true, false);
     assert(err_is_ok(err));
 
     // 2. The client calls its local monitor with a capability to this frame, and the
@@ -256,8 +257,8 @@ errval_t ump_bind(struct aos_lmp *rpc, struct ump_chan *ump, coreid_t core,
     return SYS_ERR_OK;
 }
 
-errval_t ump_create_chan(struct capref *frame_cap, struct ump_chan *ump,
-                         bool alloc_new_frame, bool is_server)
+errval_t aos_ump_create_chan(struct capref *frame_cap, struct aos_ump *ump,
+                             bool alloc_new_frame, bool is_server)
 {
     DEBUG_PRINTF("creating UMP server chan\n");
     size_t allocated_bytes;
@@ -285,7 +286,7 @@ errval_t ump_create_chan(struct capref *frame_cap, struct ump_chan *ump,
     }
 
     // init channel
-    err = ump_initialize(ump, urpc, is_server);
+    err = aos_ump_initialize(ump, urpc, is_server);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to initialize channel");
         return err;
@@ -296,21 +297,24 @@ errval_t ump_create_chan(struct capref *frame_cap, struct ump_chan *ump,
     return SYS_ERR_OK;
 }
 
-errval_t ump_call(struct ump_chan *ump, aos_rpc_msg_type_t send_type, char *send_payload, size_t send_len, aos_rpc_msg_type_t *recv_type, char **recv_payload, size_t *recv_len){
+errval_t aos_ump_call(struct aos_ump *ump, aos_rpc_msg_type_t send_type,
+                      char *send_payload, size_t send_len, aos_rpc_msg_type_t *recv_type,
+                      char **recv_payload, size_t *recv_len)
+{
     errval_t err = SYS_ERR_OK;
 
     thread_mutex_lock(&ump->chan_lock);
 
-    err = ump_send(ump, send_type, send_payload, send_len);
+    err = aos_ump_send(ump, send_type, send_payload, send_len);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to send in ump_call\n");
+        DEBUG_ERR(err, "Failed to send in aos_ump_call\n");
         err = err_push(err, LIB_ERR_UMP_SEND);
         goto unlock;
     }
 
-    err = ump_receive(ump, recv_type, recv_payload, recv_len);
+    err = aos_ump_receive(ump, recv_type, recv_payload, recv_len);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to receive in ump_call\n");
+        DEBUG_ERR(err, "Failed to receive in aos_ump_call\n");
         err = err_push(err, LIB_ERR_UMP_RECV);
         goto unlock;
     }

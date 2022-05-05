@@ -50,7 +50,7 @@
                              "thread_once.c",
                              "thread_sync.c",
                              "threads.c",
-                             "ump_chan.c",
+                             "aos_ump.c",
                              "aos_rpc.c",
                              "waitset.c" ],
                   assemblyFiles = [

@@ -7,7 +7,7 @@
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
 #include <aos/kernel_cap_invocations.h>
-#include <aos/ump_chan.h>
+#include <aos/aos_ump.h>
 #include <aos/coreboot.h>
 
 #include "init_ump.h"
@@ -15,7 +15,7 @@
 
 extern struct platform_info platform_info;
 
-static errval_t send_cap(struct ump_chan *ump, enum aos_rpc_msg_type msg_type,
+static errval_t send_cap(struct aos_ump *ump, enum aos_rpc_msg_type msg_type,
                          struct capref cap)
 {
     errval_t err;
@@ -27,7 +27,7 @@ static errval_t send_cap(struct ump_chan *ump, enum aos_rpc_msg_type msg_type,
         return err;
     }
 
-    err = ump_send(ump, msg_type, (char *)&region, sizeof(region));
+    err = aos_ump_send(ump, msg_type, (char *)&region, sizeof(region));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send cap to other core");
         return err;
@@ -36,7 +36,7 @@ static errval_t send_cap(struct ump_chan *ump, enum aos_rpc_msg_type msg_type,
     return SYS_ERR_OK;
 }
 
-static errval_t recv_cap(struct ump_chan *ump, aos_rpc_msg_type_t expected_msg_type,
+static errval_t recv_cap(struct aos_ump *ump, aos_rpc_msg_type_t expected_msg_type,
                          struct ump_mem_msg **mem_msg)
 {
     errval_t err;
@@ -44,7 +44,7 @@ static errval_t recv_cap(struct ump_chan *ump, aos_rpc_msg_type_t expected_msg_t
     aos_rpc_msg_type_t msg_type;
     char *payload;
     size_t payload_len;
-    err = ump_receive(ump, &msg_type, &payload, &payload_len);
+    err = aos_ump_receive(ump, &msg_type, &payload, &payload_len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive cap");
         return err_push(err, LIB_ERR_UMP_RECV);
@@ -74,12 +74,12 @@ errval_t boot_core(coreid_t core_id)
     }
     const char *init = "init";
 
-    struct ump_chan *ump = &ump_chans[core_id];
-    struct ump_chan *c_ump = &ump_client_chans[core_id];
-    
+    struct aos_ump *ump = &aos_ump_server_chans[core_id];
+    struct aos_ump *c_ump = &aos_ump_client_chans[core_id];
+
     size_t allocated_bytes;
     struct capref frame_cap;
-    err = frame_alloc(&frame_cap, 2*BASE_PAGE_SIZE, &allocated_bytes);
+    err = frame_alloc(&frame_cap, 2 * BASE_PAGE_SIZE, &allocated_bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocate frame\n");
         return err;
@@ -93,13 +93,13 @@ errval_t boot_core(coreid_t core_id)
     }
 
     // init channel
-    err = ump_initialize(ump, urpc, true);
-    if(err_is_fail(err)){
+    err = aos_ump_initialize(ump, urpc, true);
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to initialize channel");
         return err;
     }
 
-    ump_initialize(c_ump, urpc + BASE_PAGE_SIZE, false);
+    aos_ump_initialize(c_ump, urpc + BASE_PAGE_SIZE, false);
 
     struct frame_identity urpc_frame_id;
     err = frame_identify(frame_cap, &urpc_frame_id);
@@ -156,10 +156,10 @@ errval_t init_app_core(void)
     }
 
     // init channel to core0
-    struct ump_chan *c_ump = &ump_client_chans[0];
-    struct ump_chan *ump = &ump_chans[0];
-    ump_initialize(c_ump, urpc, false);
-    ump_initialize(ump, urpc + BASE_PAGE_SIZE, true);
+    struct aos_ump *c_ump = &aos_ump_client_chans[0];
+    struct aos_ump *ump = &aos_ump_server_chans[0];
+    aos_ump_initialize(c_ump, urpc, false);
+    aos_ump_initialize(ump, urpc + BASE_PAGE_SIZE, true);
 
     // Receive memory almosen
     // DEBUG_PRINTF("Receive initial memory\n");

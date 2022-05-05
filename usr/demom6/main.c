@@ -21,13 +21,13 @@
 #include <aos/waitset.h>
 #include <aos/paging.h>
 #include <aos/deferred.h>
-#include <aos/ump_chan.h>
+#include <aos/aos_ump.h>
 
 static struct aos_rpc *init_rpc;
 
 
-__attribute__((unused))
-static void test_terminal_write(void){
+__attribute__((unused)) static void test_terminal_write(void)
+{
     struct aos_rpc *serial_rpc = aos_rpc_get_serial_channel();
     printf("this is very very slow\n");
 
@@ -49,8 +49,8 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
 
-    //test_terminal_write();
-    // return 0;
+    // test_terminal_write();
+    //  return 0;
 
     /*
         - bind to any RPC server:  we have on init: base-server, mem-server
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
     */
 
     coreid_t core = !disp_get_current_core_id();
-    err = rpc_bind(init_rpc, &c_rpc, core, AOS_RPC_BASE_SERVICE); 
+    err = rpc_bind(init_rpc, &c_rpc, core, AOS_RPC_BASE_SERVICE);
     assert(err_is_ok(err));
 
     debug_printf("channel is set up!\n");
@@ -73,12 +73,8 @@ int main(int argc, char *argv[])
         2. Send Ping to new channel -> await Pong
     */
 
-    struct rpc_msg request = {
-        .type = AosRpcPing,
-        .payload = "",
-        .bytes = 1,
-        .cap = NULL_CAP
-    };
+    struct rpc_msg request
+        = { .type = AosRpcPing, .payload = "", .bytes = 1, .cap = NULL_CAP };
 
     struct rpc_msg response;
 
@@ -89,25 +85,20 @@ int main(int argc, char *argv[])
         3. Spawn the hello process on opposite core
     */
 
-    char *module ="hello";
+    char *module = "hello";
 
-    request = (struct rpc_msg){
-        .type = AosRpcSpawnRequest,
-        .payload = module,
-        .bytes = strlen(module),
-        .cap = NULL_CAP
-    };
+    request = (struct rpc_msg) { .type = AosRpcSpawnRequest,
+                                 .payload = module,
+                                 .bytes = strlen(module),
+                                 .cap = NULL_CAP };
     err = rpc_call(&c_rpc, request, &response, false);
     assert(err_is_ok(err));
 
     /*
         3. Close the channel again
     */
-    request = (struct rpc_msg){
-        .type = AosRpcClose,
-        .payload = "",
-        .bytes = 1,
-        .cap = NULL_CAP
+    request = (struct rpc_msg) {
+        .type = AosRpcClose, .payload = "", .bytes = 1, .cap = NULL_CAP
     };
 
     err = rpc_call(&c_rpc, request, &response, false);
@@ -118,7 +109,6 @@ int main(int argc, char *argv[])
 #endif
     return EXIT_SUCCESS;
 }
-
 
 
 /*
@@ -149,19 +139,19 @@ rpc_bind(endpoint):
 /*
 
 DEMO TODO:
-    - 
+    -
 
 -----------
 LMP&UMP unification
 
 struct rpc_chan{
     is_ump: bool
-    chan: union{ ump_chan, aos_rpc }
+    chan: union{ aos_ump, aos_rpc }
 };
 
 rpc_call: chan, msg{
     if chan.is_ump:
-        return ump_call
+        return aos_ump_call
     else:
         return aos_lmp_call
 }
@@ -173,13 +163,13 @@ rpc_call: chan, msg{
 
 - rpc_send:
     if chan.is_ump:
-        return ump_send
+        return aos_ump_send
     else:
         return aos_rpc_send
 
 - rpc_receive:
     if chan.is_ump:
-        return ump_receive
+        return aos_ump_receive
     else:
         return aos_rpc_receive_blocking
 

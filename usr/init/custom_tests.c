@@ -31,7 +31,7 @@
 #include <aos/aos_lmp.h>
 #include <mm/mm.h>
 #include <spawn/spawn.h>
-#include <aos/ump_chan.h>
+#include <aos/aos_ump.h>
 
 #include "custom_tests.h"
 #include "mem_alloc.h"
@@ -925,14 +925,15 @@ void run_m4_tests(void)
 
 __attribute__((unused)) static void test_ump_spawn(void)
 {
-    errval_t err = ump_send(&ump_chans[1], AosRpcSpawnRequest, "memeater", strlen("memeater"));
+    errval_t err = aos_ump_send(&aos_ump_server_chans[1], AosRpcSpawnRequest, "memeater",
+                                strlen("memeater"));
     assert(err_is_ok(err));
 
     // get response!
     aos_rpc_msg_type_t type;
     char *payload;
     size_t len;
-    err = ump_receive(&ump_chans[1], &type, &payload, &len);
+    err = aos_ump_receive(&aos_ump_server_chans[1], &type, &payload, &len);
     assert(err_is_ok(err));
     assert(type == AosRpcSpawnResponse);
     DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
@@ -970,14 +971,15 @@ __attribute__((unused)) static void test_cpu_off_on(void)
     delayus_t sec = 1000 * 1000 * micro_sec;
 
     // spawn infinite_print on core 1
-    err = ump_send(&ump_chans[1], AosRpcSpawnRequest, "infinite_print", strlen("infinite_print"));
+    err = aos_ump_send(&aos_ump_server_chans[1], AosRpcSpawnRequest, "infinite_print",
+                       strlen("infinite_print"));
     assert(err_is_ok(err));
 
     // wait
     barrelfish_usleep(3 * sec);
 
     // turn core 1 off
-    err = ump_send(&ump_chans[1], AosRpcCpuOff, "off", strlen("off"));
+    err = aos_ump_send(&aos_ump_server_chans[1], AosRpcCpuOff, "off", strlen("off"));
     assert(err_is_ok(err));
 
     // wait
@@ -1024,9 +1026,9 @@ void run_m5_tests(void)
 __attribute__((unused)) static void test_large_ping_pong(void)
 {
     errval_t err;
-    struct ump_chan *ump;
+    struct aos_ump *ump;
 
-    ump = &ump_chans[1];
+    ump = &aos_ump_server_chans[1];
 
     char *ping = "ping";
     char *payload = (char *)malloc(UMP_MSG_MAX_BYTES);
@@ -1036,7 +1038,7 @@ __attribute__((unused)) static void test_large_ping_pong(void)
 
     // give the core some to time to boot
     barrelfish_usleep(1000 * 1000);
-    err = ump_send(ump, AosRpcPing, payload, strlen(payload));
+    err = aos_ump_send(ump, AosRpcPing, payload, strlen(payload));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
     }
@@ -1047,7 +1049,7 @@ void run_m6_tests(void)
 {
     switch (disp_get_current_core_id()) {
     case 0:
-        //test_large_ping_pong();
+        // test_large_ping_pong();
         DEBUG_PRINTF("spawning demom6\n");
         test_spawn_process("demom6");
         break;
@@ -1063,6 +1065,7 @@ void run_m6_tests(void)
     DEBUG_PRINTF("Completed %s\n", __func__);
 }
 
-void run_tests(void){
+void run_tests(void)
+{
     run_m6_tests();
 }

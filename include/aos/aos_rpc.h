@@ -3,20 +3,21 @@
 
 #include <aos/aos_rpc_types.h>
 #include <aos/aos_lmp.h>
-#include <aos/ump_chan.h>
+#include <aos/aos_ump.h>
 
-struct aos_rpc{
+struct aos_rpc {
     union {
         struct aos_lmp lmp;
-        struct ump_chan ump;
+        struct aos_ump ump;
     } u;
     bool is_lmp;
 };
 
-void rpc_init_from_ump(struct aos_rpc *rpc, struct ump_chan *chan);
+void rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan);
 void rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan);
 
-errval_t rpc_call(struct aos_rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg, bool is_dynamic);
+errval_t rpc_call(struct aos_rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg,
+                  bool is_dynamic);
 
 errval_t rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
                   enum aos_rpc_service service);

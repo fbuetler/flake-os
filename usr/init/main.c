@@ -27,7 +27,7 @@
 #include <aos/paging.h>
 #include <aos/waitset.h>
 #include <aos/aos_lmp.h>
-#include <aos/ump_chan.h>
+#include <aos/aos_ump.h>
 #include <mm/mm.h>
 #include <grading.h>
 #include <spawn/spawn.h>
@@ -86,7 +86,7 @@ static int bsp_main(int argc, char *argv[])
     // if (err_is_fail(err)) {
     //     DEBUG_ERR(err, "failed to boot core");
     // }
-    struct ump_chan *chan = &ump_chans[!disp_get_core_id()];
+    struct aos_ump *chan = &aos_ump_server_chans[!disp_get_core_id()];
     struct thread *ump_listener_thread = run_ump_listener_thread(chan, false);
 
     run_tests();
@@ -129,7 +129,7 @@ static int app_main(int argc, char *argv[])
 
     grading_test_early();
 
-    struct ump_chan *chan = &ump_chans[!disp_get_core_id()];
+    struct aos_ump *chan = &aos_ump_server_chans[!disp_get_core_id()];
     struct thread *ump_listener_thread = run_ump_listener_thread(chan, false);
 
     run_tests();
