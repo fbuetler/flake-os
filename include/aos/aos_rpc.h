@@ -18,10 +18,8 @@ void rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan);
 
 errval_t rpc_call(struct aos_rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg, bool is_dynamic);
 
-errval_t rpc_bind(struct aos_lmp *init_lmp, struct aos_rpc *rpc, coreid_t core,
+errval_t rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
                   enum aos_rpc_service service);
-
-
 /**
  * \brief Send a number.
  */

@@ -57,10 +57,10 @@ errval_t rpc_call(struct aos_rpc *rpc, struct rpc_msg msg, struct rpc_msg *retms
     return err;
 }
 
-errval_t rpc_bind(struct aos_lmp *init_lmp, struct aos_rpc *rpc, coreid_t core,
+errval_t rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
                   enum aos_rpc_service service){
     rpc->is_lmp = false;
-    errval_t err = ump_bind(init_lmp, &rpc->u.ump, core, service);
+    errval_t err = ump_bind(&init_lmp->u.lmp, &rpc->u.ump, core, service);
     return err;
 }
 

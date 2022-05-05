@@ -23,7 +23,7 @@
 #include <aos/deferred.h>
 #include <aos/ump_chan.h>
 
-static struct aos_lmp *init_rpc;
+static struct aos_rpc *init_rpc;
 
 
 __attribute__((unused))
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 {
     errval_t err = SYS_ERR_OK;
 
-    init_rpc = &aos_rpc_get_init_channel()->u.lmp;
+    init_rpc = aos_rpc_get_init_channel();
     if (!init_rpc) {
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
