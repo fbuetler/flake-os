@@ -221,7 +221,7 @@ errval_t aos_ump_receive(struct aos_ump *ump, aos_rpc_msg_type_t *rettype,
 }
 
 
-errval_t aos_ump_bind(struct aos_lmp *rpc, struct aos_ump *ump, coreid_t core,
+errval_t aos_ump_bind(struct aos_lmp *lmp, struct aos_ump *ump, coreid_t core,
                       enum aos_rpc_service service)
 {
     // 1. The client allocates and maps a region of shared memory (the cframe in Figure 8.11.)
@@ -246,13 +246,13 @@ errval_t aos_ump_bind(struct aos_lmp *rpc, struct aos_ump *ump, coreid_t core,
     }
 
     // inside RPC call: 4. The server’s monitor calls the server, giving it the client’s cframe.
-    err = aos_lmp_call(rpc, msg, false);
+    err = aos_lmp_call(lmp, msg, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to call aos_lmp_call");
         return err;
     }
 
-    assert(rpc->recv_msg->message_type == AosRpcUmpBindResponse);
+    assert(lmp->recv_msg->message_type == AosRpcUmpBindResponse);
 
     return SYS_ERR_OK;
 }

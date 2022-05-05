@@ -18,13 +18,13 @@
 #define TERMINAL_SERVER_CORE 1
 
 
-void aos_process_ram_cap_request(struct aos_lmp *rpc)
+void aos_process_ram_cap_request(struct aos_lmp *lmp)
 {
     errval_t err;
 
     // read ram request properties
-    size_t bytes = ((size_t *)rpc->recv_msg->payload)[0];
-    size_t alignment = ((size_t *)rpc->recv_msg->payload)[1];
+    size_t bytes = ((size_t *)lmp->recv_msg->payload)[0];
+    size_t alignment = ((size_t *)lmp->recv_msg->payload)[1];
 
     // grading call
     grading_rpc_handler_ram_cap(bytes, alignment);
@@ -37,7 +37,7 @@ void aos_process_ram_cap_request(struct aos_lmp *rpc)
         return;
     }
 
-    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    err = lmp_chan_alloc_recv_slot(&lmp->chan);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated receive slot");
         err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
@@ -60,17 +60,17 @@ void aos_process_ram_cap_request(struct aos_lmp *rpc)
     // DEBUG_PRINTF("%.*s\n", 256, buf1);
 
     // send response
-    err = aos_lmp_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
 }
 
-void aos_process_spawn_request(struct aos_lmp *rpc)
+void aos_process_spawn_request(struct aos_lmp *lmp)
 {
     errval_t err;
 
-    coreid_t *destination_core_ptr = (coreid_t *)rpc->recv_msg->payload;
+    coreid_t *destination_core_ptr = (coreid_t *)lmp->recv_msg->payload;
     coreid_t destination_core = *destination_core_ptr;
 
     char *module = (char *)(destination_core_ptr + 1);
@@ -121,14 +121,14 @@ void aos_process_spawn_request(struct aos_lmp *rpc)
         return;
     }
 
-    err = aos_lmp_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
         return;
     }
 }
 
-errval_t aos_process_serial_write_char(struct aos_lmp *rpc)
+errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 {
     errval_t err;
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
@@ -137,7 +137,7 @@ errval_t aos_process_serial_write_char(struct aos_lmp *rpc)
         char *rpayload;
         size_t rlen;
         err = aos_ump_call(&aos_ump_client_chans[TERMINAL_SERVER_CORE],
-                           AosRpcSerialWriteChar, rpc->recv_msg->payload, 1, &rtype,
+                           AosRpcSerialWriteChar, lmp->recv_msg->payload, 1, &rtype,
                            &rpayload, &rlen);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to writechar on core %d over UMP relay\n",
@@ -147,13 +147,13 @@ errval_t aos_process_serial_write_char(struct aos_lmp *rpc)
 
         assert(rtype == AosRpcSerialWriteCharResponse);
     } else {
-        err = process_write_char_request(rpc->recv_msg->payload);
+        err = process_write_char_request(lmp->recv_msg->payload);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to writechar");
             return err;
         }
         // grading
-        grading_rpc_handler_serial_putchar(*rpc->recv_msg->payload);
+        grading_rpc_handler_serial_putchar(*lmp->recv_msg->payload);
     }
 
     size_t payload_size = 0;
@@ -165,7 +165,7 @@ errval_t aos_process_serial_write_char(struct aos_lmp *rpc)
         return err;
     }
 
-    err = aos_lmp_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending serial read char response\n");
         return err;
@@ -174,7 +174,7 @@ errval_t aos_process_serial_write_char(struct aos_lmp *rpc)
     return SYS_ERR_OK;
 }
 
-errval_t aos_process_serial_read_char_request(struct aos_lmp *rpc)
+errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
 {
     // grading
     grading_rpc_handler_serial_getchar();
@@ -188,7 +188,7 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *rpc)
         char *rpayload;
         size_t rlen;
         err = aos_ump_call(&aos_ump_client_chans[TERMINAL_SERVER_CORE],
-                           AosRpcSerialReadChar, rpc->recv_msg->payload, 1, &rtype,
+                           AosRpcSerialReadChar, lmp->recv_msg->payload, 1, &rtype,
                            &rpayload, &rlen);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to read char from core %d over UMP\n",
@@ -220,7 +220,7 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *rpc)
         return err;
     }
 
-    err = aos_lmp_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending serial read char response\n");
         return err;
@@ -229,11 +229,11 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *rpc)
     return SYS_ERR_OK;
 }
 
-static void aos_process_pid2name_request(struct aos_lmp *rpc)
+static void aos_process_pid2name_request(struct aos_lmp *lmp)
 {
     errval_t err;
 
-    domainid_t pid = *((domainid_t *)rpc->recv_msg->payload);
+    domainid_t pid = *((domainid_t *)lmp->recv_msg->payload);
 
     // grading
     grading_rpc_handler_process_get_name(pid);
@@ -251,7 +251,7 @@ static void aos_process_pid2name_request(struct aos_lmp *rpc)
         char *payload;
         size_t retsize;
 
-        err = aos_ump_call(ump, AosRpcPid2Name, rpc->recv_msg->payload,
+        err = aos_ump_call(ump, AosRpcPid2Name, lmp->recv_msg->payload,
                            sizeof(domainid_t), &type, &payload, &retsize);
 
         if (err_is_fail(err)) {
@@ -283,7 +283,7 @@ static void aos_process_pid2name_request(struct aos_lmp *rpc)
         return;
     }
 
-    err = aos_lmp_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
         return;
@@ -314,16 +314,16 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
     return SYS_ERR_OK;
 }
 
-static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *rpc)
+static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
 {
     DEBUG_PRINTF("received ump bind request\n");
     errval_t err;
 
-    struct aos_lmp_msg *msg = rpc->recv_msg;
+    struct aos_lmp_msg *msg = lmp->recv_msg;
     struct capref frame_cap = msg->cap;
 
     // struct capref cframe = msg->cap;
-    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    err = lmp_chan_alloc_recv_slot(&lmp->chan);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated receive slot");
         err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
@@ -369,14 +369,14 @@ static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *rpc)
         return err;
     }
     // send response
-    err = aos_lmp_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ump cap response\n");
     }
     return SYS_ERR_OK;
 }
 
-static errval_t aos_process_get_all_pids_request(struct aos_lmp *rpc)
+static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
 {
     // grading
     grading_rpc_handler_process_get_all_pids();
@@ -422,7 +422,7 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *rpc)
         goto unwind;
     }
 
-    err = aos_lmp_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending  response\n");
         goto unwind;

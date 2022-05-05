@@ -82,8 +82,9 @@ errval_t aos_ump_send(struct aos_ump *chan, aos_rpc_msg_type_t type, char *paylo
 errval_t aos_ump_receive(struct aos_ump *ump, aos_rpc_msg_type_t *rettype,
                          char **retpayload, size_t *retlen);
 
-errval_t aos_ump_bind(struct aos_lmp *aos_rpc, struct aos_ump *ump, coreid_t core,
+errval_t aos_ump_bind(struct aos_lmp *lmp, struct aos_ump *ump, coreid_t core,
                       enum aos_rpc_service service);
+
 errval_t aos_ump_create_chan(struct capref *frame_cap, struct aos_ump *ump,
                              bool alloc_new_frame, bool is_server);
 
