@@ -22,7 +22,7 @@
 #include <spawn/spawn.h>
 #include <aos/aos_rpc.h>
 
-struct aos_rpc *proc_rpc;
+struct aos_lmp *proc_rpc;
 coreid_t my_core_id;
 
 /**

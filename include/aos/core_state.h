@@ -26,6 +26,9 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/init.h>  // for CNODE_SLOTS_*
 
+// TODO-refactor
+#include <aos/rpc.h>
+
 struct morecore_state {
     struct thread_mutex mutex;
     Header header_base;
@@ -76,7 +79,7 @@ struct paging_state;
 struct core_state_generic {
     struct waitset default_waitset;
     struct aos_chan *init_chan;
-    struct aos_rpc *init_rpc;
+    struct rpc *init_rpc;
     struct morecore_state morecore_state;
     struct paging_state *paging_state;
     struct ram_alloc_state ram_alloc_state;

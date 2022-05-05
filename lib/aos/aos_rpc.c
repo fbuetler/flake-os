@@ -57,7 +57,7 @@ void aos_process_string(struct aos_rpc_msg *msg)
     free(msg);
 }
 
-static errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
+static errval_t aos_rpc_process_msg(struct aos_lmp *rpc)
 {
     // should only handle incoming messages not initiated by us
     enum aos_rpc_msg_type msg_type = rpc->recv_msg->message_type;
@@ -83,13 +83,13 @@ static errval_t aos_rpc_process_msg(struct aos_rpc *rpc)
 }
 
 // forward declared
-static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc);
-static errval_t aos_rpc_recv_msg_blocking(struct aos_rpc *rpc);
+static errval_t aos_rpc_recv_msg(struct aos_lmp *rpc);
+static errval_t aos_rpc_recv_msg_blocking(struct aos_lmp *rpc);
 
 static errval_t aos_rpc_recv_msg_handler(void *args)
 {
     errval_t err;
-    struct aos_rpc *rpc = (struct aos_rpc *)args;
+    struct aos_lmp *rpc = (struct aos_lmp *)args;
 
     err = aos_rpc_recv_msg(rpc);
     if (err_is_fail(err)) {
@@ -114,7 +114,7 @@ static char STATIC_RPC_RECV_MSG_BUF[4096];
  * @param recv_buf 
  * @return errval_t 
  */
-static errval_t aos_rpc_recv_first_msg(struct aos_rpc *rpc, struct capref *msg_cap, struct lmp_recv_msg *recv_buf) {
+static errval_t aos_rpc_recv_first_msg(struct aos_lmp *rpc, struct capref *msg_cap, struct lmp_recv_msg *recv_buf) {
     struct aos_rpc_msg *tmp_msg = (struct aos_rpc_msg *)recv_buf->words;
     size_t total_bytes = tmp_msg->header_bytes + tmp_msg->payload_bytes;
 
@@ -145,7 +145,7 @@ static errval_t aos_rpc_recv_first_msg(struct aos_rpc *rpc, struct capref *msg_c
  * @param recv_buf 
  * @return errval_t 
  */
-static errval_t aos_rpc_recv_followup_msg(struct aos_rpc *rpc,  struct lmp_recv_msg *recv_buf) {
+static errval_t aos_rpc_recv_followup_msg(struct aos_lmp *rpc,  struct lmp_recv_msg *recv_buf) {
     size_t total_bytes = rpc->recv_msg->header_bytes + rpc->recv_msg->payload_bytes;
     size_t remaining_bytes = total_bytes - rpc->recv_bytes;
     size_t copy_bytes = MIN(remaining_bytes, LMP_MSG_LENGTH_BYTES);
@@ -163,7 +163,7 @@ static errval_t aos_rpc_recv_followup_msg(struct aos_rpc *rpc,  struct lmp_recv_
  * @param recv_buf 
  * @return errval_t 
  */
-static errval_t aos_rpc_chan_recv_blocking(struct aos_rpc *rpc, struct capref * msg_cap, struct lmp_recv_msg *recv_buf ) {
+static errval_t aos_rpc_chan_recv_blocking(struct aos_lmp *rpc, struct capref * msg_cap, struct lmp_recv_msg *recv_buf ) {
     errval_t err;
     while (!lmp_chan_can_recv(&rpc->chan)) {}
     while (true)
@@ -187,7 +187,7 @@ static errval_t aos_rpc_chan_recv_blocking(struct aos_rpc *rpc, struct capref * 
  * @return errval_t 
  */
 __attribute__((unused))
-static errval_t aos_rpc_recv_msg_blocking(struct aos_rpc *rpc)
+static errval_t aos_rpc_recv_msg_blocking(struct aos_lmp *rpc)
 {
     errval_t err;
     // receive first message
@@ -216,7 +216,7 @@ static errval_t aos_rpc_recv_msg_blocking(struct aos_rpc *rpc)
  * @param rpc 
  * @return errval_t 
  */
-static errval_t aos_rpc_recv_msg(struct aos_rpc *rpc)
+static errval_t aos_rpc_recv_msg(struct aos_lmp *rpc)
 {
     errval_t err;
     // receive first message
@@ -287,7 +287,7 @@ reregister:
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_init_handshake_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc, struct capref recv_cap)
+errval_t aos_rpc_init_handshake_to_child(struct aos_lmp *init_rpc, struct aos_lmp *child_rpc, struct capref recv_cap)
 {
     errval_t err;
 
@@ -339,13 +339,13 @@ static struct lmp_endpoint static_init_ep, static_init_mem_ep;
 char STATIC_RPC_BUF[BASE_PAGE_SIZE];
 char STATIC_RPC_MEMSRV_BUF[BASE_PAGE_SIZE];
 /**
- *  \brief Initialize an aos_rpc struct. Sets up channel to remote endpoint (init)
+ *  \brief Initialize an aos_lmp struct. Sets up channel to remote endpoint (init)
  *
- *  \param aos_rpc The aos_rpc struct to initialize.
+ *  \param aos_rpc The aos_lmp struct to initialize.
  *
  **/
 
-errval_t aos_rpc_set_recv_endpoint(struct aos_rpc *rpc, struct capref *ret_recv_ep_cap){
+errval_t aos_rpc_set_recv_endpoint(struct aos_lmp *rpc, struct capref *ret_recv_ep_cap){
     // will contain endpoint cap of child
     struct capref ep_cap1;
     errval_t err = slot_alloc(&ep_cap1);
@@ -357,68 +357,65 @@ errval_t aos_rpc_set_recv_endpoint(struct aos_rpc *rpc, struct capref *ret_recv_
     *ret_recv_ep_cap = ep_cap1;
 
     return SYS_ERR_OK;
-
 }
 
-errval_t aos_rpc_init(struct aos_rpc *aos_rpc, enum aos_rpc_channel_type chan_type)
+errval_t aos_lmp_init(struct aos_lmp *aos_lmp, enum aos_rpc_channel_type chan_type)
 {
     errval_t err;
     thread_mutex_init(&ram_mutex); // TODO why is this here?
-    thread_mutex_init(&aos_rpc->lock);
+    thread_mutex_init(&aos_lmp->lock);
 
     switch(chan_type){
         case AOS_RPC_BASE_CHANNEL:
-            aos_rpc->chan.remote_cap = cap_initep;
-            aos_rpc->chan.endpoint = &static_init_ep;
-            aos_rpc->buf = STATIC_RPC_BUF;
-            set_init_rpc(aos_rpc);
+            aos_lmp->chan.remote_cap = cap_initep;
+            aos_lmp->chan.endpoint = &static_init_ep;
+            aos_lmp->buf = STATIC_RPC_BUF;
             break;
         case AOS_RPC_MEMORY_CHANNEL:
-            aos_rpc->chan.remote_cap = cap_initmemep;
-            aos_rpc->chan.endpoint = &static_init_mem_ep;
-            aos_rpc->buf = STATIC_RPC_MEMSRV_BUF;
-            set_init_mem_rpc(aos_rpc);
+            aos_lmp->chan.remote_cap = cap_initmemep;
+            aos_lmp->chan.endpoint = &static_init_mem_ep;
+            aos_lmp->buf = STATIC_RPC_MEMSRV_BUF;
             break;
         default:
             return LIB_ERR_RPC_INIT_BAD_ARGS;
     }
 
     // initial state
-    aos_rpc->is_busy = false;
+    aos_lmp->is_busy = false;
 
     // MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
 
     /* create local endpoint */
-    lmp_chan_init(&aos_rpc->chan);
+    lmp_chan_init(&aos_lmp->chan);
 
     // struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
     // assert(ep);
-    err = endpoint_create(256, &aos_rpc->chan.local_cap, &aos_rpc->chan.endpoint);
+    err = endpoint_create(256, &aos_lmp->chan.local_cap, &aos_lmp->chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not create endpoint in child \n");
         return err;
     }
-    aos_rpc->chan.buflen_words = 256;
+    aos_lmp->chan.buflen_words = 256;
 
     /* set remote endpoint to init's endpoint */
-    //aos_rpc->chan.remote_cap = cap_initep;
+    //aos_lmp->chan.remote_cap = cap_initep;
 
     /* send local ep to init */
-    err = lmp_chan_send0(&aos_rpc->chan, LMP_SEND_FLAGS_DEFAULT, aos_rpc->chan.local_cap);
+    err = lmp_chan_send0(&aos_lmp->chan, LMP_SEND_FLAGS_DEFAULT, aos_lmp->chan.local_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not send child endpoint cap to init\n");
         return err;
     }
 
-    err = aos_rpc_register_recv(aos_rpc, aos_rpc_process_msg);
+    err = aos_rpc_register_recv(aos_lmp, aos_rpc_process_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not register recv handler in child \n");
         return err;
     }
 
 
-    while (!lmp_chan_can_recv(&aos_rpc->chan)) {
+    while (!lmp_chan_can_recv(&aos_lmp->chan)) {
     }
 
     err = event_dispatch(get_default_waitset());
@@ -504,7 +501,7 @@ errval_t aos_rpc_create_msg(struct aos_rpc_msg **ret_msg, enum aos_rpc_msg_type 
  *
  * @return
  */
-errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
+errval_t aos_rpc_send_msg(struct aos_lmp *rpc, struct aos_rpc_msg *msg)
 {
     errval_t err;
 
@@ -582,7 +579,7 @@ errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func)
+errval_t aos_rpc_register_recv(struct aos_lmp *rpc, process_msg_func_t process_msg_func)
 {
     errval_t err;
 
@@ -605,7 +602,7 @@ errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_m
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg, bool use_dynamic_buf)
+errval_t aos_rpc_call(struct aos_lmp *rpc, struct aos_rpc_msg *msg, bool use_dynamic_buf)
 {
     thread_mutex_lock(&rpc->lock);
     errval_t err = SYS_ERR_OK;
@@ -632,7 +629,7 @@ unwind:
     return err;
 }
 
-errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
+errval_t aos_rpc_send_number(struct aos_lmp *rpc, uintptr_t num)
 {
     errval_t err;
     struct aos_rpc_msg *msg;
@@ -653,7 +650,7 @@ errval_t aos_rpc_send_number(struct aos_rpc *rpc, uintptr_t num)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
+errval_t aos_rpc_send_string(struct aos_lmp *rpc, const char *string)
 {
     errval_t err;
 
@@ -677,7 +674,7 @@ errval_t aos_rpc_send_string(struct aos_rpc *rpc, const char *string)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment,
+errval_t aos_rpc_get_ram_cap(struct aos_lmp *rpc, size_t bytes, size_t alignment,
                              struct capref *ret_cap, size_t *ret_bytes)
 {
     errval_t err = lmp_chan_alloc_recv_slot(&rpc->chan);
@@ -723,7 +720,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
+errval_t aos_rpc_serial_getchar(struct aos_lmp *rpc, char *retc)
 {
     // TODO implement functionality to request a character from
     // the serial driver.
@@ -753,7 +750,7 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
+errval_t aos_rpc_serial_putchar(struct aos_lmp *rpc, char c)
 {
     // TODO implement functionality to send a character to the
     // serial port.
@@ -780,7 +777,7 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
     return err;
 }
 
-errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core,
+errval_t aos_rpc_process_spawn(struct aos_lmp *rpc, char *cmdline, coreid_t core,
                                domainid_t *newpid)
 {
     // TODO (M5): implement spawn new process rpc
@@ -821,7 +818,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **name)
+errval_t aos_rpc_process_get_name(struct aos_lmp *rpc, domainid_t pid, char **name)
 {
     // TODO (M5): implement name lookup for process given a process id
     errval_t err;
@@ -867,7 +864,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
  * @param pid_count 
  * @return errval_t 
  */
-errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
+errval_t aos_rpc_process_get_all_pids(struct aos_lmp *rpc, domainid_t **pids,
                                       size_t *pid_count)
 {
     DEBUG_PRINTF("get all pids!\n");
@@ -906,7 +903,7 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
 /**
  * \brief Returns the RPC channel to init.
  */
-struct aos_rpc *aos_rpc_get_init_channel(void)
+struct aos_lmp *aos_rpc_get_init_channel(void)
 {
     return get_init_rpc();
 }
@@ -914,7 +911,7 @@ struct aos_rpc *aos_rpc_get_init_channel(void)
 /**
  * \brief Returns the channel to the memory server
  */
-struct aos_rpc *aos_rpc_get_memory_channel(void)
+struct aos_lmp *aos_rpc_get_memory_channel(void)
 {
     // TODO: Return channel to talk to memory server process (or whoever
     // implements memory server functionality)
@@ -924,7 +921,7 @@ struct aos_rpc *aos_rpc_get_memory_channel(void)
 /**
  * \brief Returns the channel to the process manager
  */
-struct aos_rpc *aos_rpc_get_process_channel(void)
+struct aos_lmp *aos_rpc_get_process_channel(void)
 {
     // TODO: Return channel to talk to process server process (or whoever
     // implements process server functionality)
@@ -934,14 +931,14 @@ struct aos_rpc *aos_rpc_get_process_channel(void)
 /**
  * \brief Returns the channel to the serial console
  */
-struct aos_rpc *aos_rpc_get_serial_channel(void)
+struct aos_lmp *aos_rpc_get_serial_channel(void)
 {
     // TODO: Return channel to talk to serial driver/terminal process (whoever
     // implements print/read functionality)
     return get_init_rpc();
 }
 
-errval_t aos_rpc_setup_local_chan(struct aos_rpc *rpc, struct capref cap_ep){
+errval_t aos_rpc_setup_local_chan(struct aos_lmp *rpc, struct capref cap_ep){
     // setup endpoint of init
     lmp_chan_init(&rpc->chan);
     errval_t err = lmp_endpoint_create_in_slot(512, cap_ep,
@@ -958,7 +955,7 @@ errval_t aos_rpc_setup_local_chan(struct aos_rpc *rpc, struct capref cap_ep){
 }
 
 
-errval_t aos_rpc_parent_init(struct aos_rpc *rpc){
+errval_t aos_rpc_parent_init(struct aos_lmp *rpc){
     rpc->is_busy = false;
     rpc->buf = malloc(BASE_PAGE_SIZE);
     if(!rpc->buf){

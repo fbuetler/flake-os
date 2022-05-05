@@ -21,7 +21,7 @@
 #include <aos/paging.h>
 #include <aos/deferred.h>
 
-static struct aos_rpc *init_rpc;
+static struct aos_lmp *init_rpc;
 
 int main(int argc, char *argv[])
 {

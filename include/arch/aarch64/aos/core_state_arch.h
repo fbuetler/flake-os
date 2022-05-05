@@ -20,7 +20,7 @@
 struct core_state_arch {
     struct core_state_generic c;
     // TODO: put your core state here...
-    struct aos_rpc *mem_rpc;
+    struct rpc *mem_rpc;
 };
 
 #endif

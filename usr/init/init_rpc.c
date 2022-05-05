@@ -19,7 +19,7 @@
 #define TERMINAL_SERVER_CORE 1
 
 
-void aos_process_ram_cap_request(struct aos_rpc *rpc)
+void aos_process_ram_cap_request(struct aos_lmp *rpc)
 {
     errval_t err;
 
@@ -67,7 +67,7 @@ void aos_process_ram_cap_request(struct aos_rpc *rpc)
     }
 }
 
-void aos_process_spawn_request(struct aos_rpc *rpc)
+void aos_process_spawn_request(struct aos_lmp *rpc)
 {
     errval_t err;
 
@@ -129,7 +129,7 @@ void aos_process_spawn_request(struct aos_rpc *rpc)
     }
 }
 
-errval_t aos_process_serial_write_char(struct aos_rpc *rpc)
+errval_t aos_process_serial_write_char(struct aos_lmp *rpc)
 {
     errval_t err;
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
@@ -174,7 +174,7 @@ errval_t aos_process_serial_write_char(struct aos_rpc *rpc)
     return SYS_ERR_OK;
 }
 
-errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
+errval_t aos_process_serial_read_char_request(struct aos_lmp *rpc)
 {
     // grading
     grading_rpc_handler_serial_getchar();
@@ -228,7 +228,7 @@ errval_t aos_process_serial_read_char_request(struct aos_rpc *rpc)
     return SYS_ERR_OK;
 }
 
-static void aos_process_pid2name_request(struct aos_rpc *rpc)
+static void aos_process_pid2name_request(struct aos_lmp *rpc)
 {
     errval_t err;
 
@@ -313,7 +313,7 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
     return SYS_ERR_OK;
 }
 
-static errval_t aos_process_ump_bind_request(struct aos_rpc *rpc)
+static errval_t aos_process_ump_bind_request(struct aos_lmp *rpc)
 {
     DEBUG_PRINTF("received ump bind request\n");
     errval_t err;
@@ -374,7 +374,7 @@ static errval_t aos_process_ump_bind_request(struct aos_rpc *rpc)
     return SYS_ERR_OK;
 }
 
-static errval_t aos_process_get_all_pids_request(struct aos_rpc *rpc)
+static errval_t aos_process_get_all_pids_request(struct aos_lmp *rpc)
 {
     // grading
     grading_rpc_handler_process_get_all_pids();
@@ -434,7 +434,7 @@ unwind:
 }
 
 
-errval_t init_process_msg(struct aos_rpc *rpc)
+errval_t init_process_msg(struct aos_lmp *rpc)
 {
     // refill slot allocator
     struct slot_alloc_state *s = get_slot_alloc_state();

@@ -220,7 +220,7 @@ errval_t ump_receive(struct ump_chan *ump, aos_rpc_msg_type_t *rettype, char **r
 }
 
 
-errval_t ump_bind(struct aos_rpc *rpc, struct ump_chan *ump, coreid_t core,
+errval_t ump_bind(struct aos_lmp *rpc, struct ump_chan *ump, coreid_t core,
                   enum aos_rpc_service service)
 {
     // 1. The client allocates and maps a region of shared memory (the cframe in Figure 8.11.)

@@ -22,7 +22,7 @@ struct srv_entry {
 
 struct nameservice_chan 
 {
-	struct aos_rpc rpc;
+	struct aos_lmp rpc;
 	char *name;
 };
 

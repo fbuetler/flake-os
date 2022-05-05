@@ -25,7 +25,8 @@ __BEGIN_DECLS
 typedef void (*domain_spanned_callback_t)(void *arg, errval_t err);
 
 struct aos_chan;
-struct aos_rpc;
+struct aos_lmp;
+struct rpc;
 struct waitset;
 
 struct waitset *get_default_waitset(void);
@@ -38,8 +39,8 @@ domainid_t disp_get_domain_id(void);
 coreid_t disp_handle_get_core_id(dispatcher_handle_t handle);
 void set_init_chan(struct aos_chan *initchan);
 struct aos_chan *get_init_chan(void);
-void set_init_rpc(struct aos_rpc *initrpc);
-struct aos_rpc *get_init_rpc(void);
+void set_init_rpc(struct rpc *initrpc);
+struct aos_lmp *get_init_rpc(void);
 struct morecore_state *get_morecore_state(void);
 struct paging_state *get_current_paging_state(void);
 void set_current_paging_state(struct paging_state *st);
@@ -47,8 +48,8 @@ struct ram_alloc_state *get_ram_alloc_state(void);
 struct slot_alloc_state *get_slot_alloc_state(void);
 
 
-void set_init_mem_rpc(struct aos_rpc *mem_rpc);
-struct aos_rpc *get_init_mem_rpc(void);
+void set_init_mem_rpc(struct rpc *mem_rpc);
+struct aos_lmp *get_init_mem_rpc(void);
 
 __END_DECLS
 

@@ -22,9 +22,9 @@
 // forward declaration
 struct aos_rpc_msg;
 
-typedef errval_t (*process_msg_func_t)(struct aos_rpc *);
+typedef errval_t (*process_msg_func_t)(struct aos_lmp *);
 /* An RPC binding, which may be transported over LMP or UMP. */
-struct aos_rpc {
+struct aos_lmp {
     struct thread_mutex lock;
     // TODO(M3): Add state
     struct lmp_chan chan;
@@ -70,7 +70,7 @@ typedef enum aos_rpc_msg_type {
 struct aos_rpc_msg {
     uint16_t header_bytes;
     uint16_t payload_bytes;
-    enum aos_rpc_msg_type message_type;
+    aos_rpc_msg_type_t message_type;
     struct capref cap;
     char payload[0];
 };
@@ -90,23 +90,23 @@ void aos_process_number(struct aos_rpc_msg *msg);
 void aos_process_string(struct aos_rpc_msg *msg);
 
 /**
- * @brief Initialize an aos_rpc struct from parent to child
+ * @brief Initialize an aos_lmp struct from parent to child
  */
-errval_t aos_rpc_init_handshake_to_child(struct aos_rpc *init_rpc, struct aos_rpc *child_rpc, struct capref recv_cap);
+errval_t aos_rpc_init_handshake_to_child(struct aos_lmp *init_rpc, struct aos_lmp *child_rpc, struct capref recv_cap);
 /**
- * \brief Initialize an aos_rpc struct from child to parent.
+ * \brief Initialize an aos_lmp struct from child to parent.
  */
-errval_t aos_rpc_init(struct aos_rpc *aos_rpc, enum aos_rpc_channel_type chan_type);
+errval_t aos_lmp_init(struct aos_lmp *aos_lmp, enum aos_rpc_channel_type chan_type);
 
-errval_t aos_rpc_parent_init(struct aos_rpc *rpc);
+errval_t aos_rpc_parent_init(struct aos_lmp *rpc);
 
 /**
  * \brief Setup a recv endpoint for rpc
  */
-errval_t aos_rpc_set_recv_endpoint(struct aos_rpc *rpc, struct capref *ret_recv_ep_cap);
+errval_t aos_rpc_set_recv_endpoint(struct aos_lmp *rpc, struct capref *ret_recv_ep_cap);
 
 
-errval_t aos_rpc_setup_local_chan(struct aos_rpc *rpc, struct capref cap_ep);
+errval_t aos_rpc_setup_local_chan(struct aos_lmp *rpc, struct capref cap_ep);
 
 /**
  * @brief Helper function to create a message
@@ -119,46 +119,46 @@ errval_t aos_rpc_create_msg_no_pagefault(struct aos_rpc_msg **ret_msg, enum aos_
 /**
  * @brief Asynchronously send a message
  */
-errval_t aos_rpc_send_msg(struct aos_rpc *rpc, struct aos_rpc_msg *msg);
+errval_t aos_rpc_send_msg(struct aos_lmp *rpc, struct aos_rpc_msg *msg);
 
 /**
  * @brief Register a receive handler that should be called on icoming messages
  */
-errval_t aos_rpc_register_recv(struct aos_rpc *rpc, process_msg_func_t process_msg_func);
+errval_t aos_rpc_register_recv(struct aos_lmp *rpc, process_msg_func_t process_msg_func);
 
 /**
  * @brief Synchronously send a message
  */
-errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg *msg, bool use_dynamic_buf);
+errval_t aos_rpc_call(struct aos_lmp *rpc, struct aos_rpc_msg *msg, bool use_dynamic_buf);
 
 /**
  * \brief Send a number.
  */
-errval_t aos_rpc_send_number(struct aos_rpc *chan, uintptr_t val);
+errval_t aos_rpc_send_number(struct aos_lmp *chan, uintptr_t val);
 
 /**
  * \brief Send a string.
  */
-errval_t aos_rpc_send_string(struct aos_rpc *chan, const char *string);
+errval_t aos_rpc_send_string(struct aos_lmp *chan, const char *string);
 
 /**
  * \brief Request a RAM capability with >= request_bits of size over the given
  * channel.
  */
-errval_t aos_rpc_get_ram_cap(struct aos_rpc *chan, size_t bytes, size_t alignment,
+errval_t aos_rpc_get_ram_cap(struct aos_lmp *chan, size_t bytes, size_t alignment,
                              struct capref *retcap, size_t *ret_bytes);
 
 
 /**
  * \brief Get one character from the serial port
  */
-errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc);
+errval_t aos_rpc_serial_getchar(struct aos_lmp *chan, char *retc);
 
 
 /**
  * \brief Send one character to the serial port
  */
-errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c);
+errval_t aos_rpc_serial_putchar(struct aos_lmp *chan, char c);
 
 /**
  * \brief Request that the process manager start a new process
@@ -166,7 +166,7 @@ errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c);
  *           path prefix) and optionally any arguments to pass to it
  * \arg newpid the process id of the newly-spawned process
  */
-errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *cmdline, coreid_t core,
+errval_t aos_rpc_process_spawn(struct aos_lmp *chan, char *cmdline, coreid_t core,
                                domainid_t *newpid);
 
 /**
@@ -176,7 +176,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *chan, char *cmdline, coreid_t cor
  * that is allocated by the rpc implementation. Freeing is the caller's
  * responsibility.
  */
-errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid, char **name);
+errval_t aos_rpc_process_get_name(struct aos_lmp *chan, domainid_t pid, char **name);
 
 /**
  * \brief Get PIDs of all running processes.
@@ -185,27 +185,27 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *chan, domainid_t pid, char **n
  * caller's  responsibility.
  * \arg pid_count The number of entries in `pids' if the call was successful
  */
-errval_t aos_rpc_process_get_all_pids(struct aos_rpc *chan, domainid_t **pids,
+errval_t aos_rpc_process_get_all_pids(struct aos_lmp *chan, domainid_t **pids,
                                       size_t *pid_count);
 
 /**
  * \brief Returns the RPC channel to init.
  */
-struct aos_rpc *aos_rpc_get_init_channel(void);
+struct aos_lmp *aos_rpc_get_init_channel(void);
 
 /**
  * \brief Returns the channel to the memory server
  */
-struct aos_rpc *aos_rpc_get_memory_channel(void);
+struct aos_lmp *aos_rpc_get_memory_channel(void);
 
 /**
  * \brief Returns the channel to the process manager
  */
-struct aos_rpc *aos_rpc_get_process_channel(void);
+struct aos_lmp *aos_rpc_get_process_channel(void);
 
 /**
  * \brief Returns the channel to the serial console
  */
-struct aos_rpc *aos_rpc_get_serial_channel(void);
+struct aos_lmp *aos_rpc_get_serial_channel(void);
 
 #endif  // _LIB_BARRELFISH_AOS_MESSAGES_H

@@ -22,12 +22,12 @@
 #include <aos/deferred.h>
 #include <aos/ump_chan.h>
 
-static struct aos_rpc *init_rpc;
+static struct aos_lmp *init_rpc;
 
 
 __attribute__((unused))
 static void test_terminal_write(void){
-    struct aos_rpc *serial_rpc = aos_rpc_get_serial_channel();
+    struct aos_lmp *serial_rpc = aos_rpc_get_serial_channel();
     printf("this is very very slow\n");
 
     debug_printf("enter char: ");
@@ -203,6 +203,5 @@ Requirement was: can use rpc service of any core:
     - serial driver: access over: relayed UMP msg
 
 There shall be no way to register a new service dynamically
-
 
 */
