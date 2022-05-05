@@ -1064,5 +1064,5 @@ void run_m6_tests(void)
 }
 
 void run_tests(void){
-    run_m5_tests();
+    run_m6_tests();
 }

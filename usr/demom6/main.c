@@ -17,7 +17,7 @@
 
 #include <aos/aos.h>
 #include <aos/aos_lmp.h>
-#include <aos/rpc.h>
+#include <aos/aos_rpc.h>
 #include <aos/waitset.h>
 #include <aos/paging.h>
 #include <aos/deferred.h>
@@ -28,7 +28,7 @@ static struct aos_lmp *init_rpc;
 
 __attribute__((unused))
 static void test_terminal_write(void){
-    struct rpc *serial_rpc = aos_rpc_get_serial_channel();
+    struct aos_rpc *serial_rpc = aos_rpc_get_serial_channel();
     printf("this is very very slow\n");
 
     debug_printf("enter char: ");
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
             e.g memory server, serial server
     */
 
-    struct rpc c_rpc;
+    struct aos_rpc c_rpc;
 
     /*
         1. Bind to new channel on opposite core

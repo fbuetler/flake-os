@@ -200,7 +200,7 @@ struct aos_chan *get_init_chan(void)
 /**
  * \brief Set the init rpc channel on the domain state
  */
-void set_init_rpc(struct rpc *initrpc)
+void set_init_rpc(struct aos_rpc *initrpc)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
@@ -210,7 +210,7 @@ void set_init_rpc(struct rpc *initrpc)
 /**
  * \brief Returns the RPC channel to init 
  */
-struct rpc *get_init_rpc(void)
+struct aos_rpc *get_init_rpc(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
@@ -221,7 +221,7 @@ struct rpc *get_init_rpc(void)
 /**
  * \brief Set the init mem rpc channel on the domain state
  */
-void set_init_mem_rpc(struct rpc *mem_rpc)
+void set_init_mem_rpc(struct aos_rpc *mem_rpc)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
@@ -231,7 +231,7 @@ void set_init_mem_rpc(struct rpc *mem_rpc)
 /**
  * \brief Returns the mem RPC channel to init
  */
-struct rpc *get_init_mem_rpc(void)
+struct aos_rpc *get_init_mem_rpc(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);

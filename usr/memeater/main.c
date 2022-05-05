@@ -17,11 +17,11 @@
 
 #include <aos/aos.h>
 #include <aos/aos_lmp.h>
-#include <aos/rpc.h>
+#include <aos/aos_rpc.h>
 #include <aos/waitset.h>
 #include <aos/paging.h>
 
-static struct rpc *init_rpc, *mem_rpc;
+static struct aos_rpc *init_rpc, *mem_rpc;
 
 const char *str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, "
                   "sed do eiusmod tempor incididunt ut labore et dolore magna "

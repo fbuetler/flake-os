@@ -25,8 +25,7 @@
 #include <aos/paging.h>
 #include <aos/systime.h>
 #include <barrelfish_kpi/domain_params.h>
-#include <aos/aos_lmp.h>
-#include <aos/rpc.h>
+#include <aos/aos_rpc.h>
 #include <spawn/spawn.h>
 #include <aos/deferred.h>
 
@@ -83,7 +82,7 @@ __attribute__((__used__)) static size_t syscall_terminal_write(const char *buf, 
 
 __attribute__((__used__)) static size_t terminal_write(const char *buf, size_t len)
 {
-    struct rpc *rpc = aos_rpc_get_serial_channel();
+    struct aos_rpc *rpc = aos_rpc_get_serial_channel();
 
     if (!rpc || init_domain) {
         return syscall_terminal_write(buf, len);
@@ -99,7 +98,7 @@ __attribute__((__used__)) static size_t terminal_write(const char *buf, size_t l
 __attribute__((__used__)) static size_t terminal_read(char *buf, size_t len)
 {
     errval_t err;
-    struct rpc *rpc = get_init_rpc();
+    struct aos_rpc *rpc = get_init_rpc();
     if (1) {
         int i = 0;
         while (i++ < len) {
@@ -127,8 +126,8 @@ __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t le
     return 0;
 }
 
-static struct rpc rpc;
-static struct rpc mem_rpc;
+static struct aos_rpc aos_rpc;
+static struct aos_rpc mem_rpc;
 
 /* Set libc function pointers */
 void barrelfish_libc_glue_init(void)
@@ -217,8 +216,8 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return SYS_ERR_OK;
     }
 
-    rpc.is_lmp = mem_rpc.is_lmp = true;
-    struct aos_lmp *lmp = &rpc.u.lmp;
+    aos_rpc.is_lmp = mem_rpc.is_lmp = true;
+    struct aos_lmp *lmp = &aos_rpc.u.lmp;
     struct aos_lmp *mem_lmp = &mem_rpc.u.lmp;
 
     err = aos_lmp_init(lmp, AOS_RPC_BASE_CHANNEL);
@@ -233,7 +232,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return err;
     }
 
-    set_init_rpc(&rpc);
+    set_init_rpc(&aos_rpc);
     set_init_mem_rpc(&mem_rpc);
     // reset the RAM allocator to use ram_alloc_remote
     //DEBUG_PRINTF("Use remote RAM allocator\n");
