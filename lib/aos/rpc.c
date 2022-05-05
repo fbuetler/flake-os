@@ -12,14 +12,11 @@ void rpc_init_from_lmp(struct rpc *rpc, struct aos_lmp *chan){
 
 // TODO-refactor: currently only for static bufs if lmp (no too large messages)
 errval_t rpc_call(struct rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg){
-    // TODO-refactor 
-    msg.cap = NULL_CAP;
-
     errval_t err = SYS_ERR_OK;
-    if(rpc->is_lmp){
-        // TODO-refactor: dynamic sizes
-        char buf[BASE_PAGE_SIZE];
 
+    // TODO-refactor: dynamic sizes
+    char buf[BASE_PAGE_SIZE];
+    if(rpc->is_lmp){
         struct aos_rpc_msg *lmp_msg;
         err = aos_rpc_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload, msg.cap, (struct aos_rpc_msg *)buf);
         if(err_is_fail(err)){
@@ -35,7 +32,22 @@ errval_t rpc_call(struct rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg){
         retmsg->payload = rpc->u.lmp.recv_msg->payload;
         retmsg->bytes = rpc->u.lmp.recv_msg->payload_bytes;
         retmsg->type = rpc->u.lmp.recv_msg->message_type;
+        retmsg->cap = rpc->u.lmp.recv_msg->cap;
+
+        if(!capcmp(retmsg->cap, NULL_CAP)){
+            err = lmp_chan_alloc_recv_slot(&rpc->u.lmp.chan);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to allocated receive slot");
+                err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
+                return err;
+            }  
+        }
+
+
     } else {
+        if(!capcmp(msg.cap, NULL_CAP)) {
+            // TODO-refactor 
+        }
         return ump_call(&rpc->u.ump, msg.type, msg.payload, msg.bytes, &retmsg->type, &retmsg->payload, &retmsg->bytes);
     }
 

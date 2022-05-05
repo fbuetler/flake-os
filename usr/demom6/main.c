@@ -74,7 +74,8 @@ int main(int argc, char *argv[])
     struct rpc_msg request = {
         .type = AosRpcPing,
         .payload = "",
-        .bytes = 1
+        .bytes = 1,
+        .cap = NULL_CAP
     };
 
     struct rpc_msg response;
@@ -91,7 +92,8 @@ int main(int argc, char *argv[])
     request = (struct rpc_msg){
         .type = AosRpcSpawnRequest,
         .payload = module,
-        .bytes = strlen(module)
+        .bytes = strlen(module),
+        .cap = NULL_CAP
     };
     err = rpc_call(&c_rpc, request, &response);
     assert(err_is_ok(err));
@@ -103,7 +105,8 @@ int main(int argc, char *argv[])
     request = (struct rpc_msg){
         .type = AosRpcClose,
         .payload = "",
-        .bytes = 1
+        .bytes = 1,
+        .cap = NULL_CAP
     };
 
     err = rpc_call(&c_rpc, request, &response);

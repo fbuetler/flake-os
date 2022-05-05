@@ -46,7 +46,7 @@ static errval_t request_and_map_memory(void)
 
   
     struct capref cap1;
-    err = aos_rpc_get_ram_cap(&mem_rpc->u.lmp, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
+    err = aos_rpc_get_ram_cap(mem_rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not get BASE_PAGE_SIZE cap\n");
         return err;

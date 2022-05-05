@@ -301,7 +301,7 @@ errval_t ump_call(struct ump_chan *ump, aos_rpc_msg_type_t send_type, char *send
 
     thread_mutex_lock(&ump->chan_lock);
 
-    err =ump_send(ump, send_type, send_payload, send_len);
+    err = ump_send(ump, send_type, send_payload, send_len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to send in ump_call\n");
         err = err_push(err, LIB_ERR_UMP_SEND);

@@ -147,7 +147,7 @@ errval_t aos_rpc_send_string(struct rpc *rpc, const char *string);
  * \brief Request a RAM capability with >= request_bits of size over the given
  * channel.
  */
-errval_t aos_rpc_get_ram_cap(struct aos_lmp *chan, size_t bytes, size_t alignment,
+errval_t aos_rpc_get_ram_cap(struct rpc *chan, size_t bytes, size_t alignment,
                              struct capref *retcap, size_t *ret_bytes);
 
 

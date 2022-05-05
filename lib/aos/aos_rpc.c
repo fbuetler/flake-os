@@ -671,6 +671,7 @@ errval_t aos_rpc_send_number(struct rpc *rpc, uintptr_t num)
         .type = AosRpcSendNumber,
         .payload = (char *)&num,
         .bytes = sizeof(num),
+        .cap = NULL_CAP
     };
 
     struct rpc_msg response;
@@ -702,7 +703,8 @@ errval_t aos_rpc_send_string(struct rpc *rpc, const char *string)
     struct rpc_msg request = {
         .type = AosRpcSendString,
         .payload = (void *)string,
-        .bytes = strlen(string)
+        .bytes = strlen(string),
+        .cap = NULL_CAP
     };
 
     struct rpc_msg response;
@@ -723,48 +725,49 @@ errval_t aos_rpc_send_string(struct rpc *rpc, const char *string)
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_get_ram_cap(struct aos_lmp *rpc, size_t bytes, size_t alignment,
+errval_t aos_rpc_get_ram_cap(struct rpc *rpc, size_t bytes, size_t alignment,
                              struct capref *ret_cap, size_t *ret_bytes)
 {
-    errval_t err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    errval_t err = lmp_chan_alloc_recv_slot(&rpc->u.lmp.chan);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated receive slot");
         err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
         abort();
     }  
 
+
     size_t payload_size = 2 * sizeof(size_t);
     char payload[payload_size];
     ((size_t *)payload)[0] = bytes;
     ((size_t *)payload)[1] = alignment;
 
-    struct aos_rpc_msg *msg;
+    struct rpc_msg request = {
+        .type = AosRpcRamCapRequest,
+        .payload = payload,
+        .bytes = payload_size,
+        .cap = NULL_CAP
+    };
 
-    char buf[AOS_RPC_MSG_SIZE(payload_size)];
-    err = aos_rpc_create_msg_no_pagefault(&msg, AosRpcRamCapRequest, payload_size, (void *)payload, NULL_CAP, (struct aos_rpc_msg*)buf);
+    struct rpc_msg response;
+
+    err = rpc_call(rpc, request, &response);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
 
-    err = lmp_chan_alloc_recv_slot(&rpc->chan);
+    err = lmp_chan_alloc_recv_slot(&rpc->u.lmp.chan);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated receive slot");
         err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
         abort();
     }
 
-    err = aos_rpc_call(rpc, msg, false);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send message");
-        return err_push(err, LIB_ERR_RPC_SEND);
+    if(response.type != AosRpcRamCapResponse){
+        DEBUG_PRINTF("message type is not RamCapResponse, it's %d\n", response.type);
     }
 
-    if(rpc->recv_msg->message_type != AosRpcRamCapResponse){
-        DEBUG_PRINTF("message type is not RamCapResponse, it's %d\n", rpc->recv_msg->message_type);
-    }
-
-    *ret_cap = (struct capref)rpc->recv_msg->cap;
+    *ret_cap = response.cap;
 
     return SYS_ERR_OK;
 }
@@ -776,7 +779,8 @@ errval_t aos_rpc_serial_getchar(struct rpc *rpc, char *retc)
     struct rpc_msg request = {
         .type = AosRpcSerialReadChar,
         .payload = NULL,
-        .bytes = 0
+        .bytes = 0,
+        .cap = NULL_CAP
     };
     struct rpc_msg response;
 
@@ -798,7 +802,8 @@ errval_t aos_rpc_serial_putchar(struct rpc *rpc, char c)
     struct rpc_msg request = {
         .type = AosRpcSerialWriteChar,
         .payload = &c,
-        .bytes = sizeof(char)
+        .bytes = sizeof(char),
+        .cap = NULL_CAP
     };
 
     struct rpc_msg response;
@@ -833,6 +838,7 @@ errval_t aos_rpc_process_spawn(struct rpc *rpc, char *cmdline, coreid_t core,
         .type = AosRpcSpawnRequest,
         .payload = payload,
         .bytes = payload_size,
+        .cap = NULL_CAP
     };
 
     struct rpc_msg response;
@@ -856,7 +862,8 @@ errval_t aos_rpc_process_get_name(struct rpc *rpc, domainid_t pid, char **name)
     struct rpc_msg request={
         .type = AosRpcPid2Name,
         .payload = (void *)&pid,
-        .bytes = sizeof(domainid_t)
+        .bytes = sizeof(domainid_t),
+        .cap = NULL_CAP
     };
 
     struct rpc_msg response;
@@ -917,7 +924,8 @@ errval_t aos_rpc_process_get_all_pids(struct rpc *rpc, domainid_t **pids,
     struct rpc_msg request={
         .type = AosRpcGetAllPids,
         .payload = NULL,
-        .bytes = 0
+        .bytes = 0,
+        .cap = NULL_CAP
     };
 
     struct rpc_msg response;

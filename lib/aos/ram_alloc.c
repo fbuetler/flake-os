@@ -28,14 +28,14 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
     // TODO(M3): Implement me!
     errval_t err;
 
-    struct aos_lmp *memory_rpc = &aos_rpc_get_memory_channel()->u.lmp;
+    struct rpc *memory_rpc = aos_rpc_get_memory_channel();
     if (!memory_rpc) {
         thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_PRINTF("ERROR: no memory server found!\n");
         abort();
     }
 
-    err = lmp_chan_alloc_recv_slot(&memory_rpc->chan);
+    err = lmp_chan_alloc_recv_slot(&memory_rpc->u.lmp.chan);
     if (err_is_fail(err)) {
         thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_ERR(err, "failed to allocated receive slot");
@@ -44,6 +44,7 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
     }
 
     size_t allocated_size;
+
     err = aos_rpc_get_ram_cap(memory_rpc, size, alignment, ret, &allocated_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get remote ram cap");
