@@ -27,7 +27,7 @@ errval_t rpc_call(struct rpc *rpc, struct rpc_msg msg, struct rpc_msg *retmsg, b
             DEBUG_ERR(err, "failed to create message");
             return err;
         }
-        err = aos_rpc_call(&rpc->u.lmp, lmp_msg, is_dynamic);
+        err = aos_lmp_call(&rpc->u.lmp, lmp_msg, is_dynamic);
         if(err_is_fail(err)){
             DEBUG_ERR(err, "failed to send lmp message");
             return err;

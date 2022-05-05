@@ -44,11 +44,13 @@ int main(int argc, char *argv[])
 {
     errval_t err = SYS_ERR_OK;
 
-
     init_rpc = &aos_rpc_get_init_channel()->u.lmp;
     if (!init_rpc) {
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
+
+    //test_terminal_write();
+    // return 0;
 
     /*
         - bind to any RPC server:  we have on init: base-server, mem-server
@@ -101,7 +103,6 @@ int main(int argc, char *argv[])
     /*
         3. Close the channel again
     */
-
     request = (struct rpc_msg){
         .type = AosRpcClose,
         .payload = "",
@@ -162,7 +163,7 @@ rpc_call: chan, msg{
     if chan.is_ump:
         return ump_call
     else:
-        return aos_rpc_call
+        return aos_lmp_call
 }
 
 - change ump msg types to aos_rpc_msg_type

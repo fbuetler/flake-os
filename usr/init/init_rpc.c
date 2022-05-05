@@ -61,7 +61,7 @@ void aos_process_ram_cap_request(struct aos_lmp *rpc)
     // DEBUG_PRINTF("%.*s\n", 256, buf1);
 
     // send response
-    err = aos_rpc_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ram cap response\n");
     }
@@ -122,7 +122,7 @@ void aos_process_spawn_request(struct aos_lmp *rpc)
         return;
     }
 
-    err = aos_rpc_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
         return;
@@ -165,7 +165,7 @@ errval_t aos_process_serial_write_char(struct aos_lmp *rpc)
         return err;
     }
 
-    err = aos_rpc_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending serial read char response\n");
         return err;
@@ -219,7 +219,7 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *rpc)
         return err;
     }
 
-    err = aos_rpc_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending serial read char response\n");
         return err;
@@ -282,7 +282,7 @@ static void aos_process_pid2name_request(struct aos_lmp *rpc)
         return;
     }
 
-    err = aos_rpc_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
         return;
@@ -367,7 +367,7 @@ static errval_t aos_process_ump_bind_request(struct aos_lmp *rpc)
         return err;
     }
     // send response
-    err = aos_rpc_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ump cap response\n");
     }
@@ -420,7 +420,7 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *rpc)
         goto unwind;
     }
 
-    err = aos_rpc_send_msg(rpc, reply);
+    err = aos_lmp_send_msg(rpc, reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending  response\n");
         goto unwind;

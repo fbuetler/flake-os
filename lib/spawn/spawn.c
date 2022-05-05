@@ -730,12 +730,12 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     DEBUG_TRACEF("Setup channel to child\n");
 
     struct capref recv_ep_cap1, recv_ep_cap2;
-    err = aos_rpc_set_recv_endpoint(&si->lmp, &recv_ep_cap1);
+    err = aos_lmp_set_recv_endpoint(&si->lmp, &recv_ep_cap1);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed to set recv endpoint for rpc");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
-    err = aos_rpc_set_recv_endpoint(&si->mem_lmp, &recv_ep_cap2);
+    err = aos_lmp_set_recv_endpoint(&si->mem_lmp, &recv_ep_cap2);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed to set recv endpoint for mem_rpc");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
@@ -755,13 +755,13 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     // perform handshakes with child process 
     // for both rpc channels
 
-    err = aos_rpc_init_handshake_to_child(&init_spawninfo.lmp, &si->lmp, recv_ep_cap1);
+    err = aos_lmp_init_handshake_to_child(&init_spawninfo.lmp, &si->lmp, recv_ep_cap1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     } 
 
-    err = aos_rpc_init_handshake_to_child(&init_spawninfo.mem_lmp, &si->mem_lmp, recv_ep_cap2);
+    err = aos_lmp_init_handshake_to_child(&init_spawninfo.mem_lmp, &si->mem_lmp, recv_ep_cap2);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup mem rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
@@ -799,12 +799,12 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    err = aos_rpc_parent_init(&si->lmp);
+    err = aos_lmp_parent_init(&si->lmp);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed to setup rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
-    err = aos_rpc_parent_init(&si->mem_lmp);
+    err = aos_lmp_parent_init(&si->mem_lmp);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed to setup mem rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);

@@ -203,13 +203,13 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         }
 
         // setup endpoint of init
-        err = aos_rpc_setup_local_chan(&init_spawninfo.lmp, cap_initep);
+        err = aos_lmp_setup_local_chan(&init_spawninfo.lmp, cap_initep);
         if(err_is_fail(err)){
             DEBUG_ERR(err, "failed to setup local rpc channel for init");
             return err;
         }        
         // setup endpoint for memory requests
-        err = aos_rpc_setup_local_chan(&init_spawninfo.mem_lmp, cap_initmemep);
+        err = aos_lmp_setup_local_chan(&init_spawninfo.mem_lmp, cap_initmemep);
         if(err_is_fail(err)){
             DEBUG_ERR(err, "failed to setup local mem rpc channel for init");
             return err;
