@@ -47,6 +47,7 @@ errval_t rpc_call(struct aos_rpc *rpc, struct rpc_msg msg, struct rpc_msg *retms
             }  
         }
 
+
     } else {
         if(!capcmp(msg.cap, NULL_CAP)) {
             // TODO-refactor 
@@ -90,6 +91,7 @@ errval_t aos_rpc_send_number(struct aos_rpc *aos_rpc, uintptr_t num)
 errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment,
                              struct capref *ret_cap, size_t *ret_bytes)
 {
+
     errval_t err = lmp_chan_alloc_recv_slot(&rpc->u.lmp.chan);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated receive slot");
@@ -116,13 +118,6 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
-    }
-
-    err = lmp_chan_alloc_recv_slot(&rpc->u.lmp.chan);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to allocated receive slot");
-        err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
-        abort();
     }
 
     if(response.type != AosRpcRamCapResponse){
