@@ -573,13 +573,15 @@ int main(int argc, char *argv[])
         .slot = ARGCN_SLOT_DEVFRAME,
     };
 
-    err = paging_map_frame_complete(get_current_paging_state(), (void **)&st->d_vaddr,
-                                    devframe_cap);
+    size_t devframe_bytes;
+    get_phys_addr(devframe_cap, NULL, &devframe_bytes);
+    err = paging_map_frame_attr(get_current_paging_state(), (void **)&st->d_vaddr,
+                                devframe_bytes, devframe_cap,
+                                VREGION_FLAGS_READ_WRITE_NOCACHE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map dev frame");
         return err;
     }
-
 
     if ((void *)st->d_vaddr == NULL) {
         USER_PANIC("ENET: No register region mapped \n");
