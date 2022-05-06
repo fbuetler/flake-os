@@ -565,9 +565,22 @@ int main(int argc, char *argv[])
         1, sizeof(struct enet_driver_state));
     assert(st != NULL);
 
-    /* TODO Net Project: get the capability to the register region
-     * and then map it so it is accessible.
-     * TODO set st->d_vaddr to the memory mapped register region */
+    // Net Project: get the capability to the register region
+    // and then map it so it is accessible.
+    // set st->d_vaddr to the memory mapped register region
+    struct capref devframe_cap = (struct capref) {
+        .cnode = cnode_arg,
+        .slot = ARGCN_SLOT_DEVFRAME,
+    };
+
+    err = paging_map_frame_complete(get_current_paging_state(), (void **)&st->d_vaddr,
+                                    devframe_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map dev frame");
+        return err;
+    }
+
+
     if ((void *)st->d_vaddr == NULL) {
         USER_PANIC("ENET: No register region mapped \n");
     }

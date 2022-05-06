@@ -27,7 +27,7 @@
                 "enet_module.c"
             ],
     mackerelDevices = ["imx8x/enet"],
-    addLibraries = libDeps ["devif_backend_enet", "netutil"],
+    addLibraries = libDeps ["devif_backend_enet", "netutil", "grading" ],
     architectures = ["armv8"]
   }
 ]

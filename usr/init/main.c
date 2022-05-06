@@ -84,6 +84,10 @@ static int bsp_main(int argc, char *argv[])
     // run_m5_tests();
     // run_m6_tests();
 
+    err = spawn_enet_driver(NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn driver");
+    }
 
     // Grading
     grading_test_late();
