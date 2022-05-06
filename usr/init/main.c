@@ -73,7 +73,7 @@ static int bsp_main(int argc, char *argv[])
     // run_m4_tests();
 
     // TODO: Spawn system processes, boot second core etc. here
-    uint8_t number_of_cores_to_boot = 1;
+    uint8_t number_of_cores_to_boot = 0;
     for (int i = 1; i <= number_of_cores_to_boot; i++) {
         err = boot_core(i);
         if (err_is_fail(err)) {
@@ -81,7 +81,9 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
-    run_tests();
+    // run_m5_tests();
+    // run_m6_tests();
+
 
     // Grading
     grading_test_late();
@@ -125,7 +127,8 @@ static int app_main(int argc, char *argv[])
 
     grading_test_early();
 
-    run_tests();
+    // run_m5_tests();
+    // run_m6_tests();
 
     grading_test_late();
 
