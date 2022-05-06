@@ -38,6 +38,7 @@ struct spawninfo {
     //           capabilities or paging state
     struct cnoderef rootcn;
     struct cnoderef taskcn;
+    struct cnoderef argcn;
     struct cnoderef base_pagecn;
     struct cnoderef pagecn;
 
@@ -64,10 +65,19 @@ struct spawninfo init_spawninfo;
 
 void spawn_init(void);
 
-// Start a child process using the multiboot command line. Fills in si.
+// ONLY setup a the dispatcher for a binary in the bootmodule WITHOUT invoking it
+errval_t spawn_setup_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid);
+
+// ONLY setup a the dispatcher for a binary in the filesystem WITHOUT invoking it
+errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid);
+
+// ONLY invoke a dispatcher
+errval_t spawn_invoke_dispatcher(struct spawninfo *si);
+
+// setup AND invoke a dispatcher for a binary in the bootmodule
 errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid);
 
-// Start a child with an explicit command line. Fills in si.
+// setup AND invoke a dispatcher for a binary in the filesystem
 errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid);
 
 errval_t spawn_get_process_by_pid(domainid_t pid, struct spawninfo **retinfo);
