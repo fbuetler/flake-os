@@ -566,7 +566,7 @@ __attribute__((unused)) static void test_spawn_single_process(void)
 {
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
-    errval_t err = start_process("hello", si, pid);
+    errval_t err = spawn_process("hello", si, pid);
     assert(err_is_ok(err));
 }
 
@@ -752,7 +752,7 @@ __attribute__((unused)) static void test_spawn_process(char *binary)
 {
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
-    errval_t err = start_process(binary, si, pid);
+    errval_t err = spawn_process(binary, si, pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn %s\n", binary);
     }
@@ -769,7 +769,7 @@ __attribute__((unused)) static void test_spawn_multiple_memeaters(void)
     for (int i = 0; i < 5; i++) {
         struct spawninfo *si = malloc(sizeof(struct spawninfo));
         domainid_t *pid = malloc(sizeof(domainid_t));
-        errval_t err = start_process("memeater", si, pid);
+        errval_t err = spawn_process("memeater", si, pid);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to spawn memeater");
         }
@@ -887,7 +887,7 @@ __attribute__((unused)) static void test_page_fault_in_spawnee(void)
 
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
-    err = start_process("selfpaging", si, pid);
+    err = spawn_process("selfpaging", si, pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn selfpaging");
     }
@@ -900,7 +900,7 @@ __attribute__((unused)) static void test_page_fault_already_handled(void)
 
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
-    err = start_process("selfpaging_already_handled", si, pid);
+    err = spawn_process("selfpaging_already_handled", si, pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn selfpaging_handled");
     }
