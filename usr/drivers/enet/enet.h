@@ -14,9 +14,9 @@
 //#define ENET_DEBUG_OPTION 1
 
 #if defined(ENET_DEBUG_OPTION)
-#define ENET_DEBUG(x...) debug_printf("[enet] " x);
+#    define ENET_DEBUG(x...) debug_printf("[enet] " x);
 #else
-#define ENET_DEBUG(fmt, ...) ((void)0)
+#    define ENET_DEBUG(fmt, ...) ((void)0)
 #endif
 
 
@@ -35,16 +35,16 @@
 #define ENET_RX_EMPTY 0x8000
 #define ENET_SC_WRAP ((ushort)0x2000)
 #define ENET_RX_intr ((ushort)0x1000)
-#define ENET_RX_LAST ((ushort) 0x0800)
-#define ENET_RX_FIRST ((ushort) 0x0400)
-#define ENET_RX_MISS ((ushort) 0x0100)
-#define ENET_RX_LG ((ushort) 0x0020)
-#define ENET_RX_NO ((ushort) 0x0010)
-#define ENET_RX_SH ((ushort) 0x0008)
-#define ENET_RX_CR ((ushort) 0x0004)
-#define ENET_RX_OV ((ushort) 0x0002)
-#define ENET_RX_CL ((ushort) 0x0001)
-#define ENET_RX_STATS ((ushort) 0x013f)
+#define ENET_RX_LAST ((ushort)0x0800)
+#define ENET_RX_FIRST ((ushort)0x0400)
+#define ENET_RX_MISS ((ushort)0x0100)
+#define ENET_RX_LG ((ushort)0x0020)
+#define ENET_RX_NO ((ushort)0x0010)
+#define ENET_RX_SH ((ushort)0x0008)
+#define ENET_RX_CR ((ushort)0x0004)
+#define ENET_RX_OV ((ushort)0x0002)
+#define ENET_RX_CL ((ushort)0x0001)
+#define ENET_RX_STATS ((ushort)0x013f)
 
 #define ENET_TX_READY 0x8000
 #define ENET_TX_WRAP 0x2000
@@ -54,7 +54,7 @@
 struct region_entry {
     uint32_t rid;
     struct dmem mem;
-    struct region_entry* next;
+    struct region_entry *next;
 };
 
 struct enet_queue {
@@ -62,14 +62,14 @@ struct enet_queue {
     size_t size;
 
     // stop and wake threashold
-    uint16_t stop_th; 
+    uint16_t stop_th;
     uint16_t wake_th;
-    char* tso_hdr;
+    char *tso_hdr;
 
 
     struct capref regs;
     struct dmem desc_mem;
-    enet_t* d;
+    enet_t *d;
 
     // hd + tail
     size_t head;
@@ -82,7 +82,7 @@ struct enet_queue {
     enet_bufdesc_array_t *ring;
     struct devq_buf *ring_bufs;
 
-    struct region_entry* regions;
+    struct region_entry *regions;
 };
 
 struct enet_driver_state {
@@ -90,9 +90,9 @@ struct enet_driver_state {
     struct capref regs;
     lvaddr_t d_vaddr;
 
-    struct enet_queue* rxq;
-    struct enet_queue* txq;
-    enet_t* d;
+    struct enet_queue *rxq;
+    struct enet_queue *txq;
+    enet_t *d;
     uint64_t mac;
 
     uint32_t phy_id;
@@ -104,4 +104,4 @@ struct enet_driver_state {
 #define ENET_HASH_BITS 6
 #define ENET_CRC32_POLY 0xEDB88320
 
-#endif // ndef ENET_H_
+#endif  // ndef ENET_H_

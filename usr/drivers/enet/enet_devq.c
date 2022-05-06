@@ -25,9 +25,9 @@
 
 #include "enet.h"
 
-static struct region_entry* get_region(struct enet_queue* q, regionid_t rid)
+static struct region_entry *get_region(struct enet_queue *q, regionid_t rid)
 {
-    struct region_entry* entry = q->regions;
+    struct region_entry *entry = q->regions;
     while (entry != NULL) {
         if (entry->rid == rid) {
             return entry;
@@ -37,38 +37,38 @@ static struct region_entry* get_region(struct enet_queue* q, regionid_t rid)
     return NULL;
 }
 
-static errval_t enet_register(struct devq* q, struct capref cap, regionid_t rid)
+static errval_t enet_register(struct devq *q, struct capref cap, regionid_t rid)
 {
     errval_t err;
-    struct enet_queue* queue = (struct enet_queue*) q;
+    struct enet_queue *queue = (struct enet_queue *)q;
 
     // keep track of regions since we need the virtual address ...
-    struct region_entry* entry = calloc(1, sizeof(struct region_entry));
+    struct region_entry *entry = calloc(1, sizeof(struct region_entry));
     assert(entry);
     entry->rid = rid;
     entry->next = NULL;
-    
+
     struct frame_identity id;
     err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         return err;
     }
 
-    void* va;
-    err = paging_map_frame_attr(get_current_paging_state(), &va, id.bytes,
-                                cap, VREGION_FLAGS_READ_WRITE);
+    void *va;
+    err = paging_map_frame_attr(get_current_paging_state(), &va, id.bytes, cap,
+                                VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         return err;
     }
 
     entry->mem.devaddr = id.base;
-    entry->mem.vbase = (lvaddr_t) va;
+    entry->mem.vbase = (lvaddr_t)va;
     entry->mem.mem = cap;
     entry->mem.size = id.bytes;
-    
+
     ENET_DEBUG("register region id %d base=%lx \n", rid, entry->mem.devaddr);
     // linked list of regions
-    struct region_entry* cur = queue->regions;
+    struct region_entry *cur = queue->regions;
     if (cur == NULL) {
         queue->regions = entry;
         return SYS_ERR_OK;
@@ -77,15 +77,15 @@ static errval_t enet_register(struct devq* q, struct capref cap, regionid_t rid)
     while (cur->next != NULL) {
         cur = cur->next;
     }
-    
+
     cur->next = entry;
 
-    ENET_DEBUG("registerd region id %d base=%p len=%ld \n", rid, 
-                (void*) entry->mem.vbase, entry->mem.size);
+    ENET_DEBUG("registerd region id %d base=%p len=%ld \n", rid, (void *)entry->mem.vbase,
+               entry->mem.size);
     return SYS_ERR_OK;
 }
 
-static inline size_t enet_full_slots(struct enet_queue* q)
+static inline size_t enet_full_slots(struct enet_queue *q)
 {
     size_t head = q->head;
     size_t tail = q->tail;
@@ -99,30 +99,27 @@ static inline size_t enet_full_slots(struct enet_queue* q)
 }
 
 
-static void enet_activate_tx_ring(enet_t * d)
+static void enet_activate_tx_ring(enet_t *d)
 {
     // bit is always set to 1 only when ring is empty then it is set to 0
-    enet_tdar_tdar_wrf(d, 1); 
+    enet_tdar_tdar_wrf(d, 1);
 }
 
-static void enet_activate_rx_ring(enet_t* d)
+static void enet_activate_rx_ring(enet_t *d)
 {
     // bit is always set to 1 only when ring is empty then it is set to 0
-    enet_rdar_rdar_wrf(d, 1); 
+    enet_rdar_rdar_wrf(d, 1);
 }
 
-static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
-                                genoffset_t* offset,
-                                genoffset_t* length,
-                                genoffset_t* valid_data,
-                                genoffset_t* valid_length,
-                                uint64_t* flags)
+static errval_t enet_rx_dequeue(struct devq *que, regionid_t *rid, genoffset_t *offset,
+                                genoffset_t *length, genoffset_t *valid_data,
+                                genoffset_t *valid_length, uint64_t *flags)
 {
-    struct enet_queue* q = (struct enet_queue*) que;      
+    struct enet_queue *q = (struct enet_queue *)que;
     enet_bufdesc_t desc = q->ring[q->head];
-    struct devq_buf* buf = &q->ring_bufs[q->head];
+    struct devq_buf *buf = &q->ring_bufs[q->head];
 
-    cpu_dcache_wbinv_range((lvaddr_t) &q->ring[q->head], sizeof(enet_bufdesc_t));
+    cpu_dcache_wbinv_range((lvaddr_t)&q->ring[q->head], sizeof(enet_bufdesc_t));
 
     uint16_t status = enet_bufdesc_sc_extract(desc);
 
@@ -131,16 +128,15 @@ static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
     }
 
     /*
-    ENET_DEBUG("Try dequeue %d RADR %d ENABLED %d STATUS %lx \n", q->head, 
+    ENET_DEBUG("Try dequeue %d RADR %d ENABLED %d STATUS %lx \n", q->head,
                enet_rdar_rdar_rdf(q->d), enet_ecr_etheren_rdf(q->d), status);
     */
     if (!(status & ENET_RX_EMPTY)) {
         // TODO error handling!
         *valid_length = enet_bufdesc_len_extract(desc);
-        ENET_DEBUG("Received Packet len=%lu entry=%zu \n", *valid_length,
-                   q->head);
-        ENET_DEBUG("offset=%lu length=%lu valid_data=%lu rid=%lu \n",
-                   buf->offset, buf->length, 0, buf->rid);
+        ENET_DEBUG("Received Packet len=%lu entry=%zu \n", *valid_length, q->head);
+        ENET_DEBUG("offset=%lu length=%lu valid_data=%lu rid=%lu \n", buf->offset,
+                   buf->length, 0, buf->rid);
         *offset = buf->offset;
         *valid_data = 0;
         *length = 2048;
@@ -154,36 +150,32 @@ static errval_t enet_rx_dequeue(struct devq* que, regionid_t* rid,
 
     // remove chached stuff in buffer
     struct region_entry *entry = get_region(q, *rid);
-    assert(entry);    
-    lvaddr_t vaddr = (lvaddr_t) entry->mem.vbase + *offset + *valid_data;
-    cpu_dcache_wb_range(vaddr, *valid_length);    
+    assert(entry);
+    lvaddr_t vaddr = (lvaddr_t)entry->mem.vbase + *offset + *valid_data;
+    cpu_dcache_wb_range(vaddr, *valid_length);
 
     dmb();
-    
+
     enet_bufdesc_sc_insert(desc, status);
-    
-    q->head = (q->head+1) & (q->size -1);
+
+    q->head = (q->head + 1) & (q->size - 1);
 
 
-    return  SYS_ERR_OK;
+    return SYS_ERR_OK;
 }
 
-static errval_t enet_tx_dequeue(struct devq* que, regionid_t* rid,
-                                genoffset_t* offset,
-                                genoffset_t* length,
-                                genoffset_t* valid_data,
-                                genoffset_t* valid_length,
-                                uint64_t* flags)
+static errval_t enet_tx_dequeue(struct devq *que, regionid_t *rid, genoffset_t *offset,
+                                genoffset_t *length, genoffset_t *valid_data,
+                                genoffset_t *valid_length, uint64_t *flags)
 {
-    struct enet_queue* q = (struct enet_queue*) que;      
+    struct enet_queue *q = (struct enet_queue *)que;
 
     if (enet_full_slots(q)) {
         enet_bufdesc_t desc = q->ring[q->head];
         dmb();
-        cpu_dcache_wb_range((lvaddr_t) &q->ring[q->head], 
-                               sizeof(enet_bufdesc_t));
+        cpu_dcache_wb_range((lvaddr_t)&q->ring[q->head], sizeof(enet_bufdesc_t));
         desc = q->ring[q->head];
-        struct devq_buf* buf= &q->ring_bufs[q->head];
+        struct devq_buf *buf = &q->ring_bufs[q->head];
 
         if (!(enet_bufdesc_sc_extract(desc) & ENET_TX_READY)) {
             ENET_DEBUG("We sent something!! \n");
@@ -201,17 +193,16 @@ static errval_t enet_tx_dequeue(struct devq* que, regionid_t* rid,
     }
 
     ENET_DEBUG("Deq TX head=%zu \n", q->head);
-    q->head = (q->head + 1) & (q->size -1);
+    q->head = (q->head + 1) & (q->size - 1);
     return SYS_ERR_OK;
 }
 
 
-static errval_t enet_tx_enqueue(struct devq* que, regionid_t rid, genoffset_t offset,
+static errval_t enet_tx_enqueue(struct devq *que, regionid_t rid, genoffset_t offset,
                                 genoffset_t length, genoffset_t valid_data,
                                 genoffset_t valid_length, uint64_t flags)
 {
-    
-    struct enet_queue* q = (struct enet_queue*) que;   
+    struct enet_queue *q = (struct enet_queue *)que;
 
     assert(valid_length > 0 && valid_length < ENET_MAX_PKT_SIZE);
 
@@ -222,20 +213,20 @@ static errval_t enet_tx_enqueue(struct devq* que, regionid_t rid, genoffset_t of
     lpaddr_t addr = 0;
     lvaddr_t vaddr = 0;
     struct region_entry *entry = get_region(q, rid);
-    assert(entry);    
-    addr = (lpaddr_t) entry->mem.devaddr + offset + valid_data;
-    vaddr = (lvaddr_t) entry->mem.vbase + offset + valid_data;
-    
-    struct devq_buf* buf= &q->ring_bufs[q->tail];
+    assert(entry);
+    addr = (lpaddr_t)entry->mem.devaddr + offset + valid_data;
+    vaddr = (lvaddr_t)entry->mem.vbase + offset + valid_data;
+
+    struct devq_buf *buf = &q->ring_bufs[q->tail];
     buf->offset = offset;
     buf->length = length;
     buf->valid_length = valid_length;
     buf->valid_data = valid_data;
     buf->rid = rid;
     buf->flags = flags;
- 
+
     // TODO alignment
-    
+
     enet_bufdesc_t desc = q->ring[q->tail];
     enet_bufdesc_addr_insert(desc, addr);
     enet_bufdesc_len_insert(desc, valid_length);
@@ -243,94 +234,94 @@ static errval_t enet_tx_enqueue(struct devq* que, regionid_t rid, genoffset_t of
     cpu_dcache_wb_range(vaddr, valid_length);
     dmb();
 
-    if (q->tail == (q->size -1)) {
-        enet_bufdesc_sc_insert(desc, ENET_TX_READY | ENET_TX_CRC | 
-                               ENET_TX_LAST | ENET_TX_WRAP);
+    if (q->tail == (q->size - 1)) {
+        enet_bufdesc_sc_insert(desc,
+                               ENET_TX_READY | ENET_TX_CRC | ENET_TX_LAST | ENET_TX_WRAP);
     } else {
         enet_bufdesc_sc_insert(desc, ENET_TX_READY | ENET_TX_CRC | ENET_TX_LAST);
     }
 
-    cpu_dcache_wb_range((lvaddr_t) &q->ring[q->tail], sizeof(enet_bufdesc_t));
+    cpu_dcache_wb_range((lvaddr_t)&q->ring[q->tail], sizeof(enet_bufdesc_t));
 
     // activate TX
     enet_activate_tx_ring(q->d);
 
     // wait until sent
     int timeout = 5000;
-    while(timeout--) {
+    while (timeout--) {
         if (!(enet_tdar_tdar_rdf(q->d))) {
             break;
         }
-        cpu_dcache_wb_range((lvaddr_t) &q->ring[q->tail], sizeof(enet_bufdesc_t));
+        cpu_dcache_wb_range((lvaddr_t)&q->ring[q->tail], sizeof(enet_bufdesc_t));
     }
 
     if (timeout == 0) {
         ENET_DEBUG("Failed sending!! \n");
         return NIC_ERR_TX_PKT;
     } else {
-        q->tail = (q->tail + 1) & (q->size -1);
+        q->tail = (q->tail + 1) & (q->size - 1);
     }
 
     return SYS_ERR_OK;
 }
-static errval_t enet_rx_enqueue(struct devq* que, regionid_t rid, genoffset_t offset,
+static errval_t enet_rx_enqueue(struct devq *que, regionid_t rid, genoffset_t offset,
                                 genoffset_t length, genoffset_t valid_data,
                                 genoffset_t valid_length, uint64_t flags)
 {
-    struct enet_queue* q = (struct enet_queue*) que;   
-    //enet_bufdesc_addr_insert(desc, );
+    struct enet_queue *q = (struct enet_queue *)que;
+    // enet_bufdesc_addr_insert(desc, );
     struct region_entry *entry = get_region(q, rid);
-    assert(entry);    
-    
+    assert(entry);
+
     assert(valid_length > 0 && length <= ENET_MAX_BUF_SIZE);
 
     if (enet_full_slots(q) == q->size) {
         return DEVQ_ERR_QUEUE_FULL;
     }
-  
+
     lpaddr_t addr = 0;
-    addr = (lpaddr_t) entry->mem.devaddr + offset;
- 
-    struct devq_buf* buf= &q->ring_bufs[q->tail];
+    addr = (lpaddr_t)entry->mem.devaddr + offset;
+
+    struct devq_buf *buf = &q->ring_bufs[q->tail];
     buf->offset = offset;
     buf->length = length;
     buf->valid_length = valid_length;
     buf->valid_data = valid_data;
     buf->rid = rid;
     buf->flags = flags;
-   
+
     enet_bufdesc_t desc = q->ring[q->tail];
     enet_bufdesc_addr_insert(desc, addr);
     enet_bufdesc_len_insert(desc, 0);
 
     dmb();
-    if (q->tail == (q->size -1)) {
+    if (q->tail == (q->size - 1)) {
         enet_bufdesc_sc_insert(desc, ENET_SC_WRAP | ENET_RX_EMPTY);
     } else {
         enet_bufdesc_sc_insert(desc, ENET_RX_EMPTY);
     }
 
-    arm64_dcache_wb_range((lvaddr_t) &q->ring[q->tail], sizeof(enet_bufdesc_t));
-    /*ENET_DEBUG("enqueue ring_buf[%d]=%p phys=%lx offset=%lx length=%zu\n", q->tail, 
+    arm64_dcache_wb_range((lvaddr_t)&q->ring[q->tail], sizeof(enet_bufdesc_t));
+    /*ENET_DEBUG("enqueue ring_buf[%d]=%p phys=%lx offset=%lx length=%zu\n", q->tail,
                 q->ring[q->tail], addr, offset, length);
     */
     // activate RX (This is only needed if ring is empty)
     enet_activate_rx_ring(q->d);
 
-    q->tail = (q->tail + 1) & (q->size -1);
+    q->tail = (q->tail + 1) & (q->size - 1);
     return SYS_ERR_OK;
 }
 
-errval_t enet_rx_queue_create(struct enet_queue ** q, enet_t *dev)
+errval_t enet_rx_queue_create(struct enet_queue **q, enet_t *dev)
 {
     errval_t err;
     ENET_DEBUG("Allocating rx device queue \n");
-    struct enet_queue* rxq;
+    struct enet_queue *rxq;
     rxq = calloc(1, sizeof(struct enet_queue));
     assert(rxq);
 
     rxq->size = RX_RING_SIZE;
- 
+
     /* Initialize Mackerel binding */
     rxq->d = dev;
 
@@ -339,7 +330,7 @@ errval_t enet_rx_queue_create(struct enet_queue ** q, enet_t *dev)
     // TODO check for advanced descriptors
     // TODO linking iommu driverkit library does not seem to work ...
     ENET_DEBUG("Allocating RX descriptor ring \n");
-    size_t tot_size = (rxq->size)*sizeof(enet_bufdesc_t);
+    size_t tot_size = (rxq->size) * sizeof(enet_bufdesc_t);
     err = frame_alloc(&(rxq->desc_mem.mem), tot_size, (size_t *)&(rxq->desc_mem.size));
     if (err_is_fail(err)) {
         return err;
@@ -347,9 +338,8 @@ errval_t enet_rx_queue_create(struct enet_queue ** q, enet_t *dev)
 
     ENET_DEBUG("Mapping RX descriptor ring\n");
     err = paging_map_frame_attr(get_current_paging_state(),
-                                (void**) &(rxq->desc_mem.vbase), tot_size,
-                                rxq->desc_mem.mem,
-                                VREGION_FLAGS_READ_WRITE_NOCACHE);
+                                (void **)&(rxq->desc_mem.vbase), tot_size,
+                                rxq->desc_mem.mem, VREGION_FLAGS_READ_WRITE_NOCACHE);
     if (err_is_fail(err)) {
         cap_destroy(rxq->desc_mem.mem);
         DEBUG_ERR(err, "vspace_map_one_frame failed");
@@ -363,13 +353,13 @@ errval_t enet_rx_queue_create(struct enet_queue ** q, enet_t *dev)
     }
 
     rxq->desc_mem.devaddr = id.base;
-    rxq->ring = (void*) rxq->desc_mem.vbase;
+    rxq->ring = (void *)rxq->desc_mem.vbase;
     assert(rxq->ring);
     assert((rxq->desc_mem.devaddr & rxq->align) == 0);
 
     enet_rdsr_wr(rxq->d, rxq->desc_mem.devaddr);
 
-    memset(rxq->ring, 0, rxq->size*sizeof(enet_bufdesc_t));
+    memset(rxq->ring, 0, rxq->size * sizeof(enet_bufdesc_t));
 
     rxq->ring_bufs = calloc(rxq->size, sizeof(struct devq_buf));
     assert(rxq->ring_bufs);
@@ -406,14 +396,14 @@ errval_t enet_rx_queue_create(struct enet_queue ** q, enet_t *dev)
 }
 
 
-errval_t enet_tx_queue_create(struct enet_queue ** q, struct enet_t* dev)
+errval_t enet_tx_queue_create(struct enet_queue **q, struct enet_t *dev)
 {
     errval_t err;
     ENET_DEBUG("Allocating rx device queue \n");
-    struct enet_queue* txq;
+    struct enet_queue *txq;
     txq = calloc(1, sizeof(struct enet_queue));
     txq->size = TX_RING_SIZE;
-    
+
     /* Initialize Mackerel binding */
     txq->d = dev;
     assert(txq->d);
@@ -421,7 +411,7 @@ errval_t enet_tx_queue_create(struct enet_queue ** q, struct enet_t* dev)
     txq->align = 0x3f;
 
     ENET_DEBUG("Allocating TX descriptor ring \n");
-    size_t tot_size = (txq->size)*sizeof(enet_bufdesc_t);
+    size_t tot_size = (txq->size) * sizeof(enet_bufdesc_t);
     err = frame_alloc(&(txq->desc_mem.mem), tot_size, (size_t *)&(txq->desc_mem.size));
     if (err_is_fail(err)) {
         return err;
@@ -429,7 +419,7 @@ errval_t enet_tx_queue_create(struct enet_queue ** q, struct enet_t* dev)
 
     ENET_DEBUG("Mapping RX/TX descriptor ring\n");
     err = paging_map_frame_attr(get_current_paging_state(),
-                                (void**) &(txq->desc_mem.vbase), tot_size,
+                                (void **)&(txq->desc_mem.vbase), tot_size,
                                 txq->desc_mem.mem, VREGION_FLAGS_READ_WRITE_NOCACHE);
     if (err_is_fail(err)) {
         cap_destroy(txq->desc_mem.mem);
@@ -444,14 +434,14 @@ errval_t enet_tx_queue_create(struct enet_queue ** q, struct enet_t* dev)
     }
 
     txq->desc_mem.devaddr = id.base;
-    txq->ring = (void*) txq->desc_mem.vbase;
+    txq->ring = (void *)txq->desc_mem.vbase;
     assert(txq->ring);
     assert((txq->desc_mem.devaddr & txq->align) == 0);
 
     // Tell card beginning of rx/tx rings
     enet_tdsr_wr(txq->d, txq->desc_mem.devaddr);
 
-    memset(txq->ring, 0, txq->size*sizeof(enet_bufdesc_t));
+    memset(txq->ring, 0, txq->size * sizeof(enet_bufdesc_t));
 
     txq->ring_bufs = calloc(txq->size, sizeof(struct devq_buf));
     assert(txq->ring_bufs);

@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Physical memory map for NXP i.MX8X SoC family. 
+ * \brief Physical memory map for NXP i.MX8X SoC family.
  */
 
 /*
@@ -9,7 +9,7 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, CAB F.78, Universitaetstrasse 6, CH-8092 Zurich. 
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstrasse 6, CH-8092 Zurich.
  * Attn: Systems Group.
  */
 
@@ -24,7 +24,7 @@
 
 /*
  * UART
- */ 
+ */
 
 #define IMX8X_UART0_BASE 0x5A060000
 #define IMX8X_UART1_BASE 0x5A070000
@@ -34,7 +34,7 @@
 
 /*
  * ENET
- */ 
+ */
 
 #define IMX8X_ENET_BASE 0x5B040000
 #define IMX8X_ENET_SIZE 0x1000
@@ -48,8 +48,8 @@
 /*
  * SDHC
  */
-#define IMX8X_SDHC1_BASE 0x5B010000   /* connected to the onboard flash */
-#define IMX8X_SDHC2_BASE 0x5B020000   /* connected to the SD card*/
+#define IMX8X_SDHC1_BASE 0x5B010000 /* connected to the onboard flash */
+#define IMX8X_SDHC2_BASE 0x5B020000 /* connected to the SD card*/
 #define IMX8X_SDHC_SIZE 0x1000
 
 #endif  // IMX8X_MAP_H
