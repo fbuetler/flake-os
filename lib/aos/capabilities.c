@@ -34,6 +34,11 @@ struct cnoderef cnode_root = ROOT_CNODE_INIT;
         .croot = CPTR_ROOTCN, .cnode = CPTR_TASKCN_BASE, .level = CNODE_TYPE_OTHER,      \
     }
 
+#define ARG_CNODE_INIT                                                                   \
+    {                                                                                    \
+        .croot = CPTR_ROOTCN, .cnode = CPTR_ARGCN_BASE, .level = CNODE_TYPE_OTHER,       \
+    }
+
 #define PAGE_CNODE_INIT                                                                  \
     {                                                                                    \
         .croot = CPTR_ROOTCN, .cnode = CPTR_PAGECN_BASE, .level = CNODE_TYPE_OTHER,      \
@@ -46,6 +51,9 @@ struct cnoderef cnode_root = ROOT_CNODE_INIT;
 
 /// Task CNode
 struct cnoderef cnode_task = TASK_CNODE_INIT;
+
+/// Arg CNode
+struct cnoderef cnode_arg = ARG_CNODE_INIT;
 
 /// Base CNode
 struct cnoderef cnode_base = {

@@ -124,6 +124,13 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         return err_push(err, SPAWN_ERR_CREATE_TASKCN);
     }
 
+    // create arg cnode
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_ARGCN, &si->argcn);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create arg cnode");
+        return err_push(err, SPAWN_ERR_CREATE_ARGCN);
+    }
+
     // create slot alloc cnodes
     err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_SLOT_ALLOC0, NULL);
     if (err_is_fail(err)) {
@@ -610,10 +617,24 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
  * @param si spawninfo
  * @return errval_t
  */
-static errval_t spawn_invoke_dispatcher(struct spawninfo *si)
+errval_t spawn_invoke_dispatcher(struct spawninfo *si)
 {
     errval_t err;
 
+    // setup rpc channels to child process
+    struct capref base_recv_ep_cap, memory_recv_ep_cap;
+    err = aos_lmp_set_recv_endpoint(&si->lmp, &base_recv_ep_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to set recv endpoint for rpc");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
+    }
+    err = aos_lmp_set_recv_endpoint(&si->mem_lmp, &memory_recv_ep_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to set recv endpoint for mem_rpc");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
+    }
+
+    // make child process runnable
     err = invoke_dispatcher(si->dispatcher_cap, cap_dispatcher, si->rootcn_cap,
                             si->rootvn_cap, si->dispatcher_frame_cap, true);
     if (err_is_fail(err)) {
@@ -621,26 +642,24 @@ static errval_t spawn_invoke_dispatcher(struct spawninfo *si)
         return err_push(err, SPAWN_ERR_DISPATCHER_SETUP);
     }
 
+    // perform handshakes with child process for both rpc channels
+    err = aos_lmp_init_handshake_to_child(&init_spawninfo.lmp, &si->lmp, base_recv_ep_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup rpc channel to child");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
+    }
+
+    err = aos_lmp_init_handshake_to_child(&init_spawninfo.mem_lmp, &si->mem_lmp,
+                                          memory_recv_ep_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup mem rpc channel to child");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
+    }
+
     return SYS_ERR_OK;
 }
-/**
- * (M2): Implement this function.
- * \brief Spawn a new dispatcher called 'argv[0]' with 'argc' arguments.
- *
- * This function spawns a new dispatcher running the ELF binary called
- * 'argv[0]' with 'argc' - 1 additional arguments. It fills out 'si'
- * and 'pid'.
- *
- * \param argc The number of command line arguments. Must be > 0.
- * \param argv An array storing 'argc' command line arguments.
- * \param si A pointer to the spawninfo struct representing
- * the child. It will be filled out by this function. Must not be NULL.
- * \param pid A pointer to a domainid_t variable that will be
- * assigned to by this function. Must not be NULL.
- * \return Either SYS_ERR_OK if no error occured or an error
- * indicating what went wrong otherwise.
- */
-errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid)
+
+errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid)
 {
     // - Initialize the spawn_info struct
     // - Get the module from the multiboot image
@@ -726,66 +745,10 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
     si->pid = *pid;
     spawn_add_process(si);
 
-    DEBUG_TRACEF("Setup channel to child\n");
-
-    struct capref recv_ep_cap1, recv_ep_cap2;
-    err = aos_lmp_set_recv_endpoint(&si->lmp, &recv_ep_cap1);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to set recv endpoint for rpc");
-        return err_push(err, SPAWN_ERR_SETUP_RPC);
-    }
-    err = aos_lmp_set_recv_endpoint(&si->mem_lmp, &recv_ep_cap2);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to set recv endpoint for mem_rpc");
-        return err_push(err, SPAWN_ERR_SETUP_RPC);
-    }
-
-    // same for the memory channel
-    // spawn dispatcher only after recv slots have been set
-
-    DEBUG_TRACEF("Invoke dispatcher\n");
-    // invoke the dispatcher
-    err = spawn_invoke_dispatcher(si);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to invoke the dispatcher");
-        return err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
-    }
-
-    // perform handshakes with child process
-    // for both rpc channels
-
-    err = aos_lmp_init_handshake_to_child(&init_spawninfo.lmp, &si->lmp, recv_ep_cap1);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup rpc channel to child");
-        return err_push(err, SPAWN_ERR_SETUP_RPC);
-    }
-
-    err = aos_lmp_init_handshake_to_child(&init_spawninfo.mem_lmp, &si->mem_lmp,
-                                          recv_ep_cap2);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup mem rpc channel to child");
-        return err_push(err, SPAWN_ERR_SETUP_RPC);
-    }
-
-    DEBUG_PRINTF("Spawn complete\n");
     return SYS_ERR_OK;
 }
 
-
-/**
- * (M2): Implement this function.
- * \brief Spawn a new dispatcher executing 'binary_name'
- *
- * \param binary_name The name of the binary.
- * \param si A pointer to a spawninfo struct that will be
- * filled out by spawn_load_by_name. Must not be NULL.
- * \param pid A pointer to a domainid_t that will be
- * filled out by spawn_load_by_name. Must not be NULL.
- *
- * \return Either SYS_ERR_OK if no error occured or an error
- * indicating what went wrong otherwise.
- */
-errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid)
+errval_t spawn_setup_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid)
 {
     // - Get the mem_region from the multiboot image
     // - Fill in argc/argv from the multiboot command line
@@ -841,12 +804,83 @@ errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t 
 
     DEBUG_TRACEF("Run binary from multiboot module\n");
     // spawn multiboot image
-    err = spawn_load_argv(argc, argv, si, pid);
+    err = spawn_setup_argv(argc, argv, si, pid);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("Spawn dispatcher: failed to spawn a new dispatcher\n");
         return err;
     }
 
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * (M2): Implement this function.
+ * \brief Spawn a new dispatcher called 'argv[0]' with 'argc' arguments.
+ *
+ * This function spawns a new dispatcher running the ELF binary called
+ * 'argv[0]' with 'argc' - 1 additional arguments. It fills out 'si'
+ * and 'pid'.
+ *
+ * \param argc The number of command line arguments. Must be > 0.
+ * \param argv An array storing 'argc' command line arguments.
+ * \param si A pointer to the spawninfo struct representing
+ * the child. It will be filled out by this function. Must not be NULL.
+ * \param pid A pointer to a domainid_t variable that will be
+ * assigned to by this function. Must not be NULL.
+ * \return Either SYS_ERR_OK if no error occured or an error
+ * indicating what went wrong otherwise.
+ */
+errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid)
+{
+    errval_t err;
+
+    err = spawn_setup_argv(argc, argv, si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup with argv");
+        return err;
+    }
+
+    // invoke the dispatcher
+    err = spawn_invoke_dispatcher(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to invoke the dispatcher");
+        return err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+/**
+ * (M2): Implement this function.
+ * \brief Spawn a new dispatcher executing 'binary_name'
+ *
+ * \param binary_name The name of the binary.
+ * \param si A pointer to a spawninfo struct that will be
+ * filled out by spawn_load_by_name. Must not be NULL.
+ * \param pid A pointer to a domainid_t that will be
+ * filled out by spawn_load_by_name. Must not be NULL.
+ *
+ * \return Either SYS_ERR_OK if no error occured or an error
+ * indicating what went wrong otherwise.
+ */
+errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid)
+{
+    errval_t err;
+
+    err = spawn_setup_by_name(binary_name, si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup with argv");
+        return err;
+    }
+
+    // invoke the dispatcher
+    err = spawn_invoke_dispatcher(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to invoke the dispatcher");
+        return err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
+    }
 
     return SYS_ERR_OK;
 }

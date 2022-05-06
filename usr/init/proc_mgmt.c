@@ -12,6 +12,9 @@
 #include <aos/aos_rpc.h>
 #include <spawn/spawn.h>
 
+#include <maps/qemu_map.h>
+#include <maps/imx8x_map.h>
+
 
 errval_t process_get_all_pids(size_t *ret_nr_of_pids, domainid_t **ret_pids)
 {
@@ -60,6 +63,59 @@ errval_t process_spawn_request(char *cmd, domainid_t *pid)
     return err;
 }
 
+static errval_t register_receive_handlers(struct spawninfo *si)
+{
+    errval_t err;
+
+    // setup handler for the process
+    err = aos_lmp_register_recv(&si->lmp, init_process_msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register receive handler");
+        return err;
+    }
+    err = aos_lmp_register_recv(&si->mem_lmp, init_process_msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register receive handler");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t setup_process(char *cmd, struct spawninfo *si, domainid_t *pid)
+{
+    errval_t err;
+
+    err = spawn_setup_by_name(cmd, si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn \"%s\"", cmd);
+        return err_push(err, SPAWN_ERR_LOAD);
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t dispatch_process(struct spawninfo *si)
+{
+    errval_t err;
+
+    err = spawn_invoke_dispatcher(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to dispatch process");
+        return err;
+    }
+
+
+    err = register_receive_handlers(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register receive handler for channel to %s in init\n",
+                  si->binary_name);
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
 errval_t spawn_process(char *cmd, struct spawninfo *si, domainid_t *pid)
 {
     errval_t err;
@@ -70,14 +126,7 @@ errval_t spawn_process(char *cmd, struct spawninfo *si, domainid_t *pid)
         return err_push(err, SPAWN_ERR_LOAD);
     }
 
-    // setup handler for the process
-    err = aos_lmp_register_recv(&si->lmp, init_process_msg);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to register receive handler for channel to %s in init\n",
-                  cmd);
-        return err;
-    }
-    err = aos_lmp_register_recv(&si->mem_lmp, init_process_msg);
+    err = register_receive_handlers(si);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to register receive handler for channel to %s in init\n",
                   cmd);
@@ -125,5 +174,131 @@ errval_t process_read_char_request(char *c)
     if (err_is_fail(err)) {
         return err;
     }
+    return SYS_ERR_OK;
+}
+
+static errval_t setup_driver_devframe(struct spawninfo *si, gensize_t register_base,
+                                      gensize_t register_size)
+{
+    errval_t err;
+    struct capref device_cap = (struct capref) {
+        .cnode = cnode_task,
+        .slot = TASKCN_SLOT_DEV,
+    };
+
+    struct capref devframe_cap = (struct capref) {
+        .cnode = si->argcn,
+        .slot = ARGCN_SLOT_DEVFRAME,
+    };
+
+    genpaddr_t dev_addr;
+    err = get_phys_addr(device_cap, &dev_addr, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get physical address of cap");
+    }
+
+    err = cap_retype(devframe_cap, device_cap, register_base - dev_addr, ObjType_DevFrame,
+                     register_size, 1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to retype cap");
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t spawn_lpuart_driver(struct spawninfo **retsi)
+{
+    errval_t err;
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = setup_process("shell", si,
+                        pid);  // TODO thierry: change to correct binary name
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn shell driver");
+    }
+
+    // TODO thierry check if thats everything you need
+    // NOTE: will only run with IMX8X
+    // use to run with board: IMX8X_UART0_BASE, IMX8X_UART_SIZE
+    err = setup_driver_devframe(si, QEMU_UART_BASE, QEMU_UART_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup driver dev frame");
+        return err;
+    }
+
+    err = dispatch_process(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to dispatch process");
+        return err;
+    }
+
+    if (retsi) {
+        *retsi = si;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t spawn_sdhc_driver(struct spawninfo **retsi)
+{
+    errval_t err;
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = setup_process("fs", si, pid);  // TODO altin: change to correct binary name
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn filesystem driver");
+    }
+
+    err = dispatch_process(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to dispatch process");
+        return err;
+    }
+
+    // TODO altin check if thats everything you need
+    // NOTE: will only run with IMX8X
+    err = setup_driver_devframe(si, IMX8X_SDHC1_BASE, IMX8X_SDHC_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup driver dev frame");
+        return err;
+    }
+
+    if (retsi) {
+        *retsi = si;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t spawn_enet_driver(struct spawninfo **retsi)
+{
+    errval_t err;
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = setup_process("enet", si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn network driver");
+    }
+
+    // NOTE: will only run with IMX8X
+    err = setup_driver_devframe(si, IMX8X_ENET_BASE, IMX8X_ENET_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup driver dev frame");
+        return err;
+    }
+
+    err = dispatch_process(si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to dispatch process");
+        return err;
+    }
+
+    if (retsi) {
+        *retsi = si;
+    }
+
     return SYS_ERR_OK;
 }
