@@ -4,7 +4,7 @@
 #include <aos/aos.h>
 #include <spawn/spawn.h>
 
-errval_t start_process(char *cmd, struct spawninfo *si, domainid_t *pid);
+errval_t spawn_process(char *cmd, struct spawninfo *si, domainid_t *pid);
 
 errval_t process_spawn_request(char *cmd, domainid_t *retpid);
 
