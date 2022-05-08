@@ -1406,6 +1406,8 @@ errors sata ENET_ERR_ {
     failure PHY_RESET        "Phy reset failed",
     failure MDIO_WRITE        "Timeout while trying to write to MDIO",
     failure MDIO_READ        "Timeout while trying to reading from MDIO",
+    failure REGION_NOT_FOUND "Device region not found",
+    failure UNKNOWN_ETH_HEADER "Unkown ethernet header type",
 };
 
 // errors LPUART driver

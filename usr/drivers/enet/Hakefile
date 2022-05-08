@@ -24,7 +24,8 @@
   build application {
     target = "enet",
     cFiles = [ 
-                "enet_module.c"
+                "enet_module.c",
+                "enet_handler.c"
             ],
     mackerelDevices = ["imx8x/enet"],
     addLibraries = libDeps ["devif_backend_enet", "netutil", "grading" ],

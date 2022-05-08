@@ -651,12 +651,21 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
         return err;
     }
+
+    // TODO keep track on your own which buffers are currently owned by the device and
+    // which buffers are still owned by the process
     struct devq_buf buf;
     while (true) {
         err = devq_dequeue((struct devq *)st->rxq, &buf.rid, &buf.offset, &buf.length,
                            &buf.valid_data, &buf.valid_length, &buf.flags);
         if (err_is_ok(err)) {
             debug_printf("Received Packet of size %lu \n", buf.valid_length);
+
+            err = enet_handle_packet(st, &buf);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to handle packet");
+            }
+
             err = devq_enqueue((struct devq *)st->rxq, buf.rid, buf.offset, buf.length,
                                buf.valid_data, buf.valid_length, buf.flags);
             assert(err_is_ok(err));
