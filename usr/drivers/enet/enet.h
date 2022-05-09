@@ -10,9 +10,6 @@
 #ifndef ENET_H_
 #define ENET_H_
 
-#include <netutil/etharp.h>
-#include <netutil/ip.h>
-
 #define ENET_DEBUG_OPTION 1
 
 #if defined(ENET_DEBUG_OPTION)
@@ -110,8 +107,4 @@ struct enet_driver_state {
 
 errval_t enet_handle_packet(struct enet_driver_state *st, struct devq_buf *packet);
 
-void enet_debug_print_mac(struct eth_addr mac);
-void enet_debug_print_eth_packet(struct eth_hdr *eth, size_t eth_len);
-void enet_debug_print_arp_packet(struct arp_hdr *arp, size_t arp_len);
-void enet_debug_print_ip_packet(struct ip_hdr *ip, size_t ip_len);
 #endif  // ndef ENET_H_

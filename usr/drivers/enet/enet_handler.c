@@ -10,8 +10,10 @@
 #include <dev/imx8x/enet_dev.h>
 #include <netutil/etharp.h>
 #include <netutil/htons.h>
+#include <netutil/checksum.h>
 
 #include "enet.h"
+#include "enet_debug.h"
 
 static struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid)
 {
@@ -25,73 +27,123 @@ static struct region_entry *enet_get_region(struct region_entry *regions, uint32
     return NULL;
 }
 
-void enet_debug_print_mac(struct eth_addr mac)
+static void enet_split_mac(uint64_t mac, struct eth_addr *retmac)
 {
-    ENET_DEBUG("%02x:%02x:%02x:%02x:%02x:%02x\n", mac.addr[0], mac.addr[1], mac.addr[2],
-               mac.addr[3], mac.addr[4], mac.addr[5]);
+    // TODO maybe reverse here already to network byte order
+    retmac->addr[0] = (mac >> 40) & 0xFF;
+    retmac->addr[1] = (mac >> 32) & 0xFF;
+    retmac->addr[2] = (mac >> 24) & 0xFF;
+    retmac->addr[3] = (mac >> 16) & 0xFF;
+    retmac->addr[4] = (mac >> 8) & 0xFF;
+    retmac->addr[5] = (mac >> 0) & 0xFF;
 }
 
-void enet_debug_print_eth_packet(struct eth_hdr *eth, size_t eth_len)
+static errval_t enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_src,
+                                         uint32_t ip_src, struct eth_addr eth_dest,
+                                         uint32_t ip_dest, struct arp_hdr *retarp)
 {
-    ENET_DEBUG("ETH dest MAC: ");
-    enet_debug_print_mac(eth->dst);
+    errval_t err;
 
-    ENET_DEBUG("ETH src MAC: ");  // 3c:18:a0:b3:ed:06
-    enet_debug_print_mac(eth->src);
+    if (opcode != ARP_OP_REQ && opcode != ARP_OP_REP) {
+        err = ENET_ERR_ARP_UNKNOWN_OPCODE;
+        DEBUG_ERR(err, "unkown ARP operation");
+        return err;
+    }
 
-    ENET_DEBUG("ETH type: %04x\n", ntohs(eth->type));
+    // harware type: ethernet
+    retarp->hwtype = htons(ARP_HW_TYPE_ETH);
+    retarp->hwlen = 6;
+    // protocol type: IPv4
+    retarp->proto = htons(ARP_PROT_IP);
+    retarp->protolen = 4;
 
-    ENET_DEBUG("ETH data: (%d)\n", eth_len);
-    // char *data = (char *)eth;
-    // for (int i = ETH_HLEN; i < eth_len; i++) {
-    //     ENET_DEBUG("%d: 0x%x\n", i, data[i]);
-    // }
+    // operation: request/response
+    retarp->opcode = htons(opcode);
+
+    // sender mac
+    retarp->eth_src = eth_src;
+    // sender ip
+    retarp->ip_src = htonl(ip_src);
+    // receiver mac
+    retarp->eth_dst = eth_dest;
+    // receiver ip
+    retarp->ip_dst = htonl(ip_dest);
+
+    enet_debug_print_arp_packet(retarp);
+
+    return SYS_ERR_OK;
 }
 
-void enet_debug_print_arp_packet(struct arp_hdr *arp, size_t arp_len)
+static errval_t enet_assemble_ip_packet(uint8_t protocol, uint16_t len,
+                                        struct ip_hdr *retip)
 {
-    ENET_DEBUG("ARP data: (%d)\n", arp_len);
-    // char *data = (char *)arp;
-    // for (int i = ARP_HLEN; i < arp_len; i++) {
-    //     ENET_DEBUG("%d: 0x%x\n", i, data[i]);
-    // }
+    errval_t err;
+
+    if (protocol != IP_PROTO_ICMP && protocol != IP_PROTO_IGMP && protocol != IP_PROTO_UDP
+        && protocol != IP_PROTO_UDPLITE && protocol != IP_PROTO_TCP) {
+        err = ENET_ERR_IP_UNKOWN_PROTOCOL;
+        DEBUG_ERR(err, "unkown IP protocol");
+        return err;
+    }
+
+    static uint16_t id = 0;
+
+    // version and header len (stuffed): IPv4 and 20 bytes = 160 bits = 5*32 bits
+    IPH_VHL_SET(retip, 4, 5);
+    // quality of service
+    retip->tos = 0;
+    // total length
+    retip->len = htons(len);
+    // fragment id
+    retip->id = htons(id++);
+    // fragment offset
+    retip->offset = htons(0);
+    // time to live
+    retip->ttl = 128;
+    // protocol: ICMP, IGMP, UDP, UDPLITE, TCP
+    retip->proto = protocol;
+    // checksum
+    retip->chksum = htons(inet_checksum(retip, IP_HLEN));
+
+    enet_debug_print_ip_packet(retip);
+
+    return SYS_ERR_OK;
 }
 
-void enet_debug_print_ip_packet(struct ip_hdr *ip, size_t ip_len)
+static errval_t enet_assemble_enet_packet(uint16_t type, struct eth_addr eth_src,
+                                          struct eth_addr eth_dest, struct eth_hdr *reteth)
 {
-    ENET_DEBUG("IP verion/header length: 0x%x\n", ip->v_hl);
-    ENET_DEBUG("IP type: 0x%x\n", ip->tos);
-    ENET_DEBUG("IP total length: 0x%02x\n", ntohs(ip->len));
-    ENET_DEBUG("IP id: 0x%02x\n", ntohs(ip->id));
-    ENET_DEBUG("IP fragement offset: 0x%02x\n", ntohs(ip->offset));
-    ENET_DEBUG("IP TTL: 0x%x\n", ip->ttl);
-    ENET_DEBUG("IP proto: 0x%x\n", ip->proto);
-    ENET_DEBUG("IP checksum: 0x%02x\n", ntohs(ip->chksum));
+    // errval_t err;
 
-    ip_addr_t src = ntohl(ip->src);
-    ip_addr_t dest = ntohl(ip->dest);
-    ENET_DEBUG("IP src: %d.%d.%d.%d\n", (src >> 24) & 0xFF, (src >> 16) & 0xFF,
-               (src >> 8) & 0xFF, src & 0xFF);
-    ENET_DEBUG("IP dest: %d.%d.%d.%d\n", (dest >> 24) & 0xFF, (dest >> 16) & 0xFF,
-               (dest >> 8) & 0xFF, dest & 0xFF);
+    reteth->src = eth_src;
+    reteth->dst = eth_dest;
+    reteth->type = htons(type);
 
-    ENET_DEBUG("IP data: (%d)\n", ip_len);
-    // char *data = (char *)ip;
-    // for (int i = IP_HLEN; i < ip_len; i++) {
-    //     ENET_DEBUG("%d: 0x%x\n", i, data[i]);
+    // switch (type) {
+    // case ETH_TYPE_ARP:
+    //     break;
+    // case ETH_TYPE_IP:
+    //     break;
+    // default:
+    //     err = ENET_ERR_ETH_UNKNOWN_TYPE;
+    //     DEBUG_ERR(err, "unkown ETH type");
+    //     return err;
     // }
+
+    enet_debug_print_eth_packet(reteth);
+
+    return SYS_ERR_OK;
 }
 
 static errval_t enet_handle_arp_packet(struct enet_driver_state *st,
-                                       struct eth_hdr *eth_header, size_t eth_len)
+                                       struct eth_hdr *eth_header)
 {
     // errval_t err;
     ENET_DEBUG("got ARP packet\n");
 
     struct arp_hdr *arp_header = (struct arp_hdr *)((char *)eth_header + ETH_HLEN);
-    size_t arp_len = eth_len;
 
-    enet_debug_print_arp_packet(arp_header, arp_len);
+    enet_debug_print_arp_packet(arp_header);
 
     // TODO handle requests/replies
 
@@ -99,15 +151,14 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st,
 }
 
 static errval_t enet_handle_ip_packet(struct enet_driver_state *st,
-                                      struct eth_hdr *eth_header, size_t eth_len)
+                                      struct eth_hdr *eth_header)
 {
     // errval_t err;
     ENET_DEBUG("got IP packet\n");
 
     struct ip_hdr *ip_header = (struct ip_hdr *)((char *)eth_header + ETH_HLEN);
-    size_t ip_len = eth_len;
 
-    enet_debug_print_ip_packet(ip_header, ip_len);
+    enet_debug_print_ip_packet(ip_header);
 
     // TODO handle requests/replies
 
@@ -127,20 +178,19 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct devq_buf *packe
 
     struct eth_hdr *eth_header = (struct eth_hdr *)region->mem.vbase + packet->offset
                                  + packet->valid_data;
-    size_t eth_len = packet->valid_length;
 
-    // enet_debug_print_eth_packet(eth_header, eth_len);
+    // enet_debug_print_eth_packet(eth_header);
 
     switch (ntohs(eth_header->type)) {
     case ETH_TYPE_ARP:
-        err = enet_handle_arp_packet(st, eth_header, eth_len);
+        err = enet_handle_arp_packet(st, eth_header);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle ARP packet");
             return err;
         }
         break;
     case ETH_TYPE_IP:
-        err = enet_handle_ip_packet(st, eth_header, eth_len);
+        err = enet_handle_ip_packet(st, eth_header);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle IP packet");
             return err;

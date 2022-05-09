@@ -1408,6 +1408,9 @@ errors sata ENET_ERR_ {
     failure MDIO_READ        "Timeout while trying to reading from MDIO",
     failure REGION_NOT_FOUND "Device region not found",
     failure UNKNOWN_ETH_HEADER "Unkown ethernet header type",
+    failure ARP_UNKNOWN_OPCODE "Unkown ARP operation",
+    failure ETH_UNKNOWN_TYPE "Unkown ETH type",
+    failure IP_UNKOWN_PROTOCOL "Uknown IP protocol",
 };
 
 // errors LPUART driver

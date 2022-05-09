@@ -1,0 +1,61 @@
+
+#include <netutil/etharp.h>
+#include <netutil/ip.h>
+
+#include "enet_debug.h"
+
+void enet_debug_print_mac(struct eth_addr mac)
+{
+    ENET_DEBUG("%02x:%02x:%02x:%02x:%02x:%02x\n", mac.addr[0], mac.addr[1], mac.addr[2],
+               mac.addr[3], mac.addr[4], mac.addr[5]);
+}
+
+void enet_debug_print_eth_packet(struct eth_hdr *eth)
+{
+    ENET_DEBUG("ETH dest MAC: ");
+    enet_debug_print_mac(eth->dst);
+
+    ENET_DEBUG("ETH src MAC: ");  // 3c:18:a0:b3:ed:06
+    enet_debug_print_mac(eth->src);
+
+    ENET_DEBUG("ETH type: %04x\n", ntohs(eth->type));
+}
+
+void enet_debug_print_arp_packet(struct arp_hdr *arp)
+{
+    ENET_DEBUG("ARP hw type: 0x%02x\n", ntohs(arp->hwtype));
+    ENET_DEBUG("ARP proto: 0x%02x\n", ntohs(arp->proto));
+    ENET_DEBUG("ARP hw len: 0x%x\n", arp->hwlen);
+    ENET_DEBUG("ARP proto len: 0x%x\n", arp->protolen);
+    ENET_DEBUG("ARP op code: 0x%02x\n", ntohs(arp->opcode));
+
+    ip_addr_t src = ntohl(arp->ip_src);
+    ip_addr_t dest = ntohl(arp->ip_dst);
+    ENET_DEBUG("ARP eth src: 0x%02x");
+    enet_debug_print_mac(arp->eth_src);
+    ENET_DEBUG("ARP ip src: %d.%d.%d.%d\n", (src >> 24) & 0xFF, (src >> 16) & 0xFF,
+               (src >> 8) & 0xFF, src & 0xFF);
+    ENET_DEBUG("ARP eth dest: 0x%02x");
+    enet_debug_print_mac(arp->eth_dst);
+    ENET_DEBUG("ARP ip dest: %d.%d.%d.%d\n", (dest >> 24) & 0xFF, (dest >> 16) & 0xFF,
+               (dest >> 8) & 0xFF, dest & 0xFF);
+}
+
+void enet_debug_print_ip_packet(struct ip_hdr *ip)
+{
+    ENET_DEBUG("IP verion/header length: 0x%x\n", ip->v_hl);
+    ENET_DEBUG("IP type: 0x%x\n", ip->tos);
+    ENET_DEBUG("IP total length: 0x%02x\n", ntohs(ip->len));
+    ENET_DEBUG("IP id: 0x%02x\n", ntohs(ip->id));
+    ENET_DEBUG("IP fragement offset: 0x%02x\n", ntohs(ip->offset));
+    ENET_DEBUG("IP TTL: 0x%x\n", ip->ttl);
+    ENET_DEBUG("IP protocol: 0x%x\n", ip->proto);
+    ENET_DEBUG("IP checksum: 0x%02x\n", ntohs(ip->chksum));
+
+    ip_addr_t src = ntohl(ip->src);
+    ip_addr_t dest = ntohl(ip->dest);
+    ENET_DEBUG("IP src: %d.%d.%d.%d\n", (src >> 24) & 0xFF, (src >> 16) & 0xFF,
+               (src >> 8) & 0xFF, src & 0xFF);
+    ENET_DEBUG("IP dest: %d.%d.%d.%d\n", (dest >> 24) & 0xFF, (dest >> 16) & 0xFF,
+               (dest >> 8) & 0xFF, dest & 0xFF);
+}
