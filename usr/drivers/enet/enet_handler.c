@@ -15,7 +15,7 @@
 #include "enet.h"
 #include "enet_debug.h"
 
-static struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid)
+struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid)
 {
     struct region_entry *r = regions;
     while (r != NULL) {
@@ -27,7 +27,7 @@ static struct region_entry *enet_get_region(struct region_entry *regions, uint32
     return NULL;
 }
 
-static void enet_split_mac(uint64_t mac, struct eth_addr *retmac)
+__attribute__((unused)) static void enet_split_mac(uint64_t mac, struct eth_addr *retmac)
 {
     // TODO maybe reverse here already to network byte order
     retmac->addr[0] = (mac >> 40) & 0xFF;
@@ -38,9 +38,10 @@ static void enet_split_mac(uint64_t mac, struct eth_addr *retmac)
     retmac->addr[5] = (mac >> 0) & 0xFF;
 }
 
-static errval_t enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_src,
-                                         uint32_t ip_src, struct eth_addr eth_dest,
-                                         uint32_t ip_dest, struct arp_hdr *retarp)
+__attribute__((unused)) static errval_t
+enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_src, uint32_t ip_src,
+                         struct eth_addr eth_dest, uint32_t ip_dest,
+                         struct arp_hdr *retarp)
 {
     errval_t err;
 
@@ -74,8 +75,8 @@ static errval_t enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_sr
     return SYS_ERR_OK;
 }
 
-static errval_t enet_assemble_ip_packet(uint8_t protocol, uint16_t len,
-                                        struct ip_hdr *retip)
+__attribute__((unused)) static errval_t
+enet_assemble_ip_packet(uint8_t protocol, uint16_t len, struct ip_hdr *retip)
 {
     errval_t err;
 
@@ -110,8 +111,9 @@ static errval_t enet_assemble_ip_packet(uint8_t protocol, uint16_t len,
     return SYS_ERR_OK;
 }
 
-static errval_t enet_assemble_enet_packet(uint16_t type, struct eth_addr eth_src,
-                                          struct eth_addr eth_dest, struct eth_hdr *reteth)
+__attribute__((unused)) static errval_t
+enet_assemble_enet_packet(uint16_t type, struct eth_addr eth_src,
+                          struct eth_addr eth_dest, struct eth_hdr *reteth)
 {
     // errval_t err;
 

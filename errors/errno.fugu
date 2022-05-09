@@ -1411,6 +1411,8 @@ errors sata ENET_ERR_ {
     failure ARP_UNKNOWN_OPCODE "Unkown ARP operation",
     failure ETH_UNKNOWN_TYPE "Unkown ETH type",
     failure IP_UNKOWN_PROTOCOL "Uknown IP protocol",
+    failure SAFE_INVALID_BUFFER_SIZE "Invalid buffer size",
+    failure SAFE_NO_FREE_BUFFER "No free buffer found",
 };
 
 // errors LPUART driver

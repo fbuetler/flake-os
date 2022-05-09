@@ -1,7 +1,17 @@
 
+#include <devif/queue_interface_backend.h>
+#include <devif/backends/net/enet_devif.h>
+#include <aos/aos.h>
+#include <aos/deferred.h>
+#include <driverkit/driverkit.h>
+#include <dev/imx8x/enet_dev.h>
+
+#include <netutil/htons.h>
+#include <netutil/checksum.h>
 #include <netutil/etharp.h>
 #include <netutil/ip.h>
 
+#include "enet.h"
 #include "enet_debug.h"
 
 void enet_debug_print_mac(struct eth_addr mac)

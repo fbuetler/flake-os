@@ -26,6 +26,7 @@
 
 
 #include "enet.h"
+#include "enet_safe_queue.h"
 
 #define PHY_ID 0x2
 
@@ -652,8 +653,40 @@ int main(int argc, char *argv[])
         return err;
     }
 
-    // TODO keep track on your own which buffers are currently owned by the device and
-    // which buffers are still owned by the process
+    // init safe transmission queue
+    err = safe_create(&st->safe_txq, st->txq);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to initialize safe txq");
+        return err;
+    }
+
+    // fill safe transmission queue with free buffers
+    for (int i = 0; i < st->txq->size - 1; i++) {
+        struct devq_buf *buf = (struct devq_buf *)malloc(sizeof(struct devq_buf));
+        if (!buf) {
+            err = LIB_ERR_MALLOC_FAIL;
+            return err;
+        }
+
+        buf->rid = rid;
+        buf->offset = i * 2048;
+        buf->length = 2048;
+        buf->valid_data = 0;
+        buf->valid_length = 2048;
+        buf->flags = 0;
+
+        struct safe_free_node *free_node = (struct safe_free_node *)malloc(
+            sizeof(struct safe_free_node));
+        if (!buf) {
+            err = LIB_ERR_MALLOC_FAIL;
+            return err;
+        }
+
+        free_node->buf = buf;
+        free_node->next = st->safe_txq->free;
+        st->safe_txq->free = free_node;
+    }
+
     struct devq_buf buf;
     while (true) {
         err = devq_dequeue((struct devq *)st->rxq, &buf.rid, &buf.offset, &buf.length,

@@ -10,6 +10,9 @@
 #ifndef ENET_H_
 #define ENET_H_
 
+#include <driverkit/driverkit.h>
+#include <dev/imx8x/enet_dev.h>
+
 #define ENET_DEBUG_OPTION 1
 
 #if defined(ENET_DEBUG_OPTION)
@@ -93,6 +96,7 @@ struct enet_driver_state {
 
     struct enet_queue *rxq;
     struct enet_queue *txq;
+    struct safe_q *safe_txq;
     enet_t *d;
     uint64_t mac;
 
@@ -106,5 +110,7 @@ struct enet_driver_state {
 #define ENET_CRC32_POLY 0xEDB88320
 
 errval_t enet_handle_packet(struct enet_driver_state *st, struct devq_buf *packet);
+
+struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid);
 
 #endif  // ndef ENET_H_
