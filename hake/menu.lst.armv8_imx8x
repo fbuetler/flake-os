@@ -11,3 +11,4 @@ module  /armv8/sbin/memeater
 module  /armv8/sbin/selfpaging
 module  /armv8/sbin/selfpaging_already_handled
 module  /armv8/sbin/demom5
+module  /armv8/sbin/demom6

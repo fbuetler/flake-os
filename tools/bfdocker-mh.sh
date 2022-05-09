@@ -28,5 +28,6 @@ mkdir -p $BF_BUILD
 
 # run the command in the docker image with the same userid to avoid
 # permission problems later.
+echo "$@"
 docker run -u $(id -u) -t -i \
     --mount type=bind,source=$BF_SOURCE,target=/source --privileged $BF_DOCKER "$@"
