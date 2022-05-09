@@ -39,14 +39,11 @@
 #include "mem_alloc.h"
 #include "custom_tests.h"
 
-#include "fs_test.h"
 
 struct bootinfo *bi;
 
 coreid_t my_core_id;
 struct platform_info platform_info;
-
-
 
 static int bsp_main(int argc, char *argv[])
 {
@@ -84,8 +81,9 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
-    run_fs_sketch();
-    //run_tests();
+    // run_m5_tests();
+    // run_m6_tests();
+
 
     // Grading
     grading_test_late();
@@ -109,7 +107,6 @@ static int bsp_main(int argc, char *argv[])
 
     return EXIT_SUCCESS;
 }
-
 
 static int app_main(int argc, char *argv[])
 {

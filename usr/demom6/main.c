@@ -20,12 +20,23 @@
 #include <aos/waitset.h>
 #include <aos/paging.h>
 #include <aos/deferred.h>
-#include <drivers/sdhc.h>
 
 static struct aos_rpc *init_rpc;
 
-#define SDHC2_BASE 0x5B020000
-#define SDHC2_SIZE (0x5B02FFFF - SDHC2_BASE + 1)
+
+__attribute__((unused)) static void test_terminal_write(void)
+{
+    struct aos_rpc *serial_rpc = aos_rpc_get_serial_channel();
+    printf("this is very very slow\n");
+
+    debug_printf("enter char: ");
+    char c;
+    errval_t err = aos_rpc_serial_getchar(serial_rpc, &c);
+    assert(err_is_ok(err));
+    debug_printf("\n");
+
+    debug_printf("received char: %c\n", c);
+}
 
 int main(int argc, char *argv[])
 {
@@ -36,10 +47,168 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "init RPC channel NULL?\n");
     }
 
-    // need to map sdhc2 base for the sdcard driver
+    // test_terminal_write();
+    //  return 0;
 
+    /*
+        - bind to any RPC server:  we have on init: base-server, mem-server
+            e.g memory server, serial server
+    */
 
+    struct aos_rpc c_rpc;
 
-    DEBUG_PRINTF("done here\n");
+    /*
+        1. Bind to new channel on opposite core
+    */
+
+    coreid_t core = !disp_get_current_core_id();
+    err = aos_rpc_bind(init_rpc, &c_rpc, core, AOS_RPC_BASE_SERVICE);
+    assert(err_is_ok(err));
+
+    debug_printf("channel is set up!\n");
+
+    /*
+        2. Send Ping to new channel -> await Pong
+    */
+
+    struct aos_rpc_msg request
+        = { .type = AosRpcPing, .payload = "", .bytes = 1, .cap = NULL_CAP };
+
+    struct aos_rpc_msg response;
+
+    err = aos_rpc_call(&c_rpc, request, &response, false);
+    assert(response.type == AosRpcPong);
+    debug_printf("PING: %s\n", response.payload);
+    /*
+        3. Spawn the hello process on opposite core
+    */
+
+    char *module = "hello";
+
+    request = (struct aos_rpc_msg) { .type = AosRpcSpawnRequest,
+                                     .payload = module,
+                                     .bytes = strlen(module),
+                                     .cap = NULL_CAP };
+    err = aos_rpc_call(&c_rpc, request, &response, false);
+    assert(err_is_ok(err));
+
+    /*
+        3. Close the channel again
+    */
+    request = (struct aos_rpc_msg) {
+        .type = AosRpcClose, .payload = "", .bytes = 1, .cap = NULL_CAP
+    };
+
+    err = aos_rpc_call(&c_rpc, request, &response, false);
+    assert(err_is_ok(err));
+
+    debug_printf("channel is closed\n");
     return EXIT_SUCCESS;
 }
+
+
+/*
+    aos_rpc
+        -> ump
+            -> process_msg
+        -> lmp
+            if same core:
+                -> process_msg
+            else:
+                relay
+*/
+
+/*
+
+some process:
+    rpc_bind("mem", "serial") -> mem_binding, serial_binding
+    rpc_putchar(serial_binding, 'f') -> works
+    rpc_putchar(mem_binding, 'w') -> error, wrong server
+
+rpc_bind(endpoint):
+    where is endpoint (based on some list of endpoints)
+    setup appropriate channel
+    create and return binding
+*/
+
+
+/*
+
+DEMO TODO:
+    -
+
+-----------
+LMP&UMP unification
+
+struct rpc_chan{
+    is_ump: bool
+    chan: union{ aos_ump, aos_rpc }
+};
+
+rpc_call: chan, msg{
+    if chan.is_ump:
+        return aos_ump_call
+    else:
+        return aos_lmp_call
+}
+
+- change ump msg types to aos_rpc_msg_type
+
+- bind:
+    always creates a UMP channel
+
+- rpc_send:
+    if chan.is_ump:
+        return aos_ump_send
+    else:
+        return aos_rpc_send
+
+- rpc_receive:
+    if chan.is_ump:
+        return aos_ump_receive
+    else:
+        return aos_rpc_receive_blocking
+
+interface:
+    - rpc_bind
+    - rpc_send
+    - rpc_recv
+    - rpc_call  (send & receive)
+
+*/
+
+
+/*
+
+You should now extend your UMP protocol, to allow all RPC operations to be for-
+warded between cores. A sufficient implementation is to route all RPC calls via the
+init process (or equivalent), which forwards them on behalf of user-level applica-
+tions.
+
+You must be able to reach any RPC server on core 0, from an application on core 1,
+and vice versa. You should provide an interface for applications to bind to servers,
+and then use this binding to make RPCs.
+
+
+
+-------------------------------
+
+init as monitor:
+    RPC Services:
+        - core 0:
+            - base-server
+            (- mem-server)
+            - serial-driver
+        - core 1:
+            - base-server
+
+call to bind(core, service):
+    create a direct UMP channel to that service
+
+Requirement was: can use rpc service of any core:
+    - Design decision: Memory Server can only be accessed from same core
+    - serial driver: access over: relayed UMP msg
+
+There shall be no way to register a new service dynamically
+
+*/

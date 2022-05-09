@@ -6,8 +6,6 @@
 FROM ubuntu:20.04
 MAINTAINER Reto Achermann <achreto@cs.ubc.ca>
 
-RUN apt-get update && apt-get install -y bear
-
 COPY install.sh /install.sh
 COPY entrypoint.sh /entrypoint.sh
 
