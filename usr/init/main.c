@@ -83,7 +83,7 @@ static int bsp_main(int argc, char *argv[])
 
     // run_m5_tests();
     // run_m6_tests();
-
+    run_tests();
 
     // Grading
     grading_test_late();

@@ -246,22 +246,22 @@ errval_t spawn_sdhc_driver(struct spawninfo **retsi)
 
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
-    err = setup_process("fs", si, pid);  // TODO altin: change to correct binary name
+    err = setup_process("fs", si, pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn filesystem driver");
+    }
+
+    // TODO altin check if thats everything you need
+    // NOTE: will only run with IMX8X
+    err = setup_driver_devframe(si, IMX8X_SDHC2_BASE, IMX8X_SDHC_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup driver dev frame");
+        return err;
     }
 
     err = dispatch_process(si);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to dispatch process");
-        return err;
-    }
-
-    // TODO altin check if thats everything you need
-    // NOTE: will only run with IMX8X
-    err = setup_driver_devframe(si, IMX8X_SDHC1_BASE, IMX8X_SDHC_SIZE);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup driver dev frame");
         return err;
     }
 
