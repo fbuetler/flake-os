@@ -47,10 +47,10 @@ static errval_t enet_assemble_eth_packet(uint16_t type, struct eth_addr eth_src,
     return SYS_ERR_OK;
 }
 
-__attribute__((unused)) static errval_t
-enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_src, ip_addr_t ip_src,
-                         struct eth_addr eth_dest, ip_addr_t ip_dest,
-                         struct eth_hdr **retarp, size_t *retarp_size)
+static errval_t enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_src,
+                                         ip_addr_t ip_src, struct eth_addr eth_dest,
+                                         ip_addr_t ip_dest, struct eth_hdr **retarp,
+                                         size_t *retarp_size)
 {
     errval_t err;
 
@@ -151,15 +151,48 @@ enet_assemble_ip_packet(struct eth_addr eth_src, ip_addr_t ip_src,
 
 static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
-    // errval_t err;
-    ENET_DEBUG("got ARP packet\n");
+    errval_t err;
 
     struct arp_hdr *arp = (struct arp_hdr *)((char *)eth + ETH_HLEN);
 
     enet_debug_print_eth_packet(eth);
     enet_debug_print_arp_packet(arp);
 
-    // TODO handle requests/replies
+    DEBUG_PRINTF("MY MAC: 0x%lx\n", st->mac);
+
+    switch (ntohs(arp->opcode)) {
+    case ARP_OP_REQ:
+        // ignore requests that are not for us
+        if (ntohl(arp->ip_dst) != ENET_STATIC_IP) {
+            break;
+        }
+
+        // answer requests that are for us
+        struct eth_hdr *resp_arp;
+        size_t resp_arp_size;
+        err = enet_assemble_arp_packet(ARP_OP_REP, enet_split_mac(st->mac),
+                                       ENET_STATIC_IP, arp->eth_src, ntohl(arp->ip_src),
+                                       &resp_arp, &resp_arp_size);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to assemble arp packet");
+            return err;
+        }
+
+        err = safe_enqueue(st->safe_txq, (void *)resp_arp, resp_arp_size);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to enqueue buffer");
+            return err;
+        }
+
+        break;
+    case ARP_OP_REP:
+        // TODO store mapping
+        break;
+    default:
+        err = ENET_ERR_ARP_UNKNOWN_OPCODE;
+        DEBUG_ERR(err, "unkown ARP opcode received: 0x%04x", ntohs(arp->opcode));
+        return err;
+    }
 
     return SYS_ERR_OK;
 }
@@ -174,28 +207,6 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
     enet_debug_print_ip_packet(ip);
 
     // TODO handle requests/replies
-
-    // HIJACK START
-    DEBUG_PRINTF("ASSEMBLE PACKET\n");
-    errval_t err;
-
-    struct eth_addr broadcast = enet_split_mac(ETH_BROADCAST);
-    struct eth_addr eth_src = enet_split_mac(st->mac);
-    struct eth_hdr *arp;
-    size_t arp_size;
-    err = enet_assemble_arp_packet(ARP_OP_REQ, eth_src, ENET_STATIC_IP, broadcast,
-                                   ntohl(ip->src), &arp, &arp_size);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to assemble arp packet");
-        return err;
-    }
-
-    err = safe_enqueue(st->safe_txq, (void *)arp, arp_size);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to enqueue buffer");
-        return err;
-    }
-    // HIJACK END
 
     return SYS_ERR_OK;
 }

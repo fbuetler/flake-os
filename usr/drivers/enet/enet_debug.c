@@ -22,11 +22,11 @@ void enet_debug_print_mac(struct eth_addr mac)
 
 void enet_debug_print_eth_packet(struct eth_hdr *eth)
 {
-    ENET_DEBUG("ETH src MAC: ");  // 3c:18:a0:b3:ed:06
+    ENET_DEBUG("ETH src MAC: ");  // laptop: 3c:18:a0:b3:ed:06
     enet_debug_print_mac(eth->src);
 
     ENET_DEBUG("ETH dest MAC: ");
-    enet_debug_print_mac(eth->dst);
+    enet_debug_print_mac(eth->dst);  // board: 00:14:2d:64:13:cd
 
     ENET_DEBUG("ETH type: %04x\n", ntohs(eth->type));
 }
