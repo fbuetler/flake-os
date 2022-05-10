@@ -282,7 +282,18 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
     enet_debug_print_eth_packet(eth);
     enet_debug_print_ip_packet(ip);
 
-    // TODO handle requests/replies
+    // drop fragemented packets
+    if (ip->offset & IP_MF) {
+        IP_DEBUG("Dropping fragemented packets\n");
+        return SYS_ERR_OK;
+    }
+
+    // control checksum
+    if (inet_checksum(ip, IP_HLEN)) {
+        IP_DEBUG("Dropping packet with invalid checksum\n");
+        return SYS_ERR_OK;
+    }
+
 
     return SYS_ERR_OK;
 }
