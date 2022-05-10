@@ -14,11 +14,6 @@
 
 #define SAFE_BUF_SIZE 2048
 
-typedef struct {
-    char *data[SAFE_BUF_SIZE];
-    size_t length;
-} safe_region_t;
-
 struct safe_free_node {
     struct devq_buf *buf;
     struct safe_free_node *next;
@@ -32,6 +27,6 @@ struct safe_q {
 };
 
 errval_t safe_create(struct safe_q **q, struct enet_queue *other_q);
-errval_t safe_enqueue(struct safe_q *q, safe_region_t *region);
+errval_t safe_enqueue(struct safe_q *q, void *buf, size_t length);
 
 #endif /* ENET_SAFE_H_ */

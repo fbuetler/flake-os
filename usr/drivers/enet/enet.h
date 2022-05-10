@@ -53,7 +53,7 @@
 #define ENET_TX_LAST 0x0800
 #define ENET_TX_CRC 0x0400
 
-#define ENET_STATIC_IP MK_IP(10, 42, 0, 27);
+#define ENET_STATIC_IP MK_IP(10, 42, 0, 27)
 
 struct region_entry {
     uint32_t rid;

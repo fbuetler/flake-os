@@ -13,6 +13,7 @@
 #include <netutil/checksum.h>
 
 #include "enet.h"
+#include "enet_safe_queue.h"
 #include "enet_debug.h"
 
 struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid)
@@ -25,17 +26,6 @@ struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid)
         r = r->next;
     }
     return NULL;
-}
-
-__attribute__((unused)) static void enet_split_mac(uint64_t mac, struct eth_addr *retmac)
-{
-    // TODO maybe reverse here already to network byte order
-    retmac->addr[0] = (mac >> 40) & 0xFF;
-    retmac->addr[1] = (mac >> 32) & 0xFF;
-    retmac->addr[2] = (mac >> 24) & 0xFF;
-    retmac->addr[3] = (mac >> 16) & 0xFF;
-    retmac->addr[4] = (mac >> 8) & 0xFF;
-    retmac->addr[5] = (mac >> 0) & 0xFF;
 }
 
 __attribute__((unused)) static errval_t
@@ -111,9 +101,10 @@ enet_assemble_ip_packet(uint8_t protocol, uint16_t len, struct ip_hdr *retip)
     return SYS_ERR_OK;
 }
 
-__attribute__((unused)) static errval_t
-enet_assemble_enet_packet(uint16_t type, struct eth_addr eth_src,
-                          struct eth_addr eth_dest, struct eth_hdr *reteth)
+__attribute__((unused)) static errval_t enet_assemble_eth_packet(uint16_t type,
+                                                                 struct eth_addr eth_src,
+                                                                 struct eth_addr eth_dest,
+                                                                 struct eth_hdr *reteth)
 {
     // errval_t err;
 
@@ -156,13 +147,52 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st,
                                       struct eth_hdr *eth_header)
 {
     // errval_t err;
-    ENET_DEBUG("got IP packet\n");
+    DEBUG_PRINTF("RECEIVED IP PACKET\n");
 
     struct ip_hdr *ip_header = (struct ip_hdr *)((char *)eth_header + ETH_HLEN);
 
     enet_debug_print_ip_packet(ip_header);
 
     // TODO handle requests/replies
+
+    // HIJACK START
+    DEBUG_PRINTF("ASSEMBLE PACKET\n");
+    errval_t err;
+
+    struct eth_addr broadcast = (struct eth_addr) { .addr = {
+                                                        0xFF,
+                                                        0xFF,
+                                                        0xFF,
+                                                        0xFF,
+                                                        0xFF,
+                                                        0xFF,
+                                                    } };
+    struct eth_addr eth_src = (struct eth_addr) {
+        .addr = { (((st->mac) >> 40) & 0xFF), (((st->mac) >> 32) & 0xFF),
+                  (((st->mac) >> 24) & 0xFF), (((st->mac) >> 16) & 0xFF),
+                  (((st->mac) >> 8) & 0xFF), (((st->mac) >> 0) & 0xFF) }
+    };
+
+    struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + ARP_HLEN);
+    err = enet_assemble_eth_packet(ETH_TYPE_ARP, eth_src, broadcast, eth);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to assemble eth packet");
+        return err;
+    }
+
+    struct arp_hdr *arp = (struct arp_hdr *)((char *)eth + ETH_HLEN);
+    err = enet_assemble_arp_packet(ARP_OP_REQ, eth_src, ENET_STATIC_IP, broadcast,
+                                   ntohl(ip_header->src), arp);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to assemble arp packet");
+        return err;
+    }
+
+    DEBUG_PRINTF("READY TO SENT\n");
+
+    safe_enqueue(st->safe_txq, (void *)eth, ETH_HLEN + ARP_HLEN);
+
+    // HIJACK END
 
     return SYS_ERR_OK;
 }

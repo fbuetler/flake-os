@@ -35,8 +35,8 @@ static errval_t safe_dequeue(struct safe_q *q)
         err = devq_dequeue(&q->q->q, &buf->rid, &buf->offset, &buf->length,
                            &buf->valid_data, &buf->valid_length, &buf->flags);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to dequeue buffer");
-            return err;
+            // this should by design fail
+            return SYS_ERR_OK;
         }
 
         struct safe_free_node *free_node = (struct safe_free_node *)malloc(
@@ -77,15 +77,19 @@ static errval_t safe_get_free_buf(struct safe_q *q, struct devq_buf **retbuf)
     return SYS_ERR_OK;
 }
 
-errval_t safe_enqueue(struct safe_q *q, safe_region_t *safe_buf)
+errval_t safe_enqueue(struct safe_q *q, void *data, size_t data_len)
 {
     errval_t err;
 
-    if (safe_buf->length >= SAFE_BUF_SIZE) {
+    if (data_len >= SAFE_BUF_SIZE) {
         err = ENET_ERR_SAFE_INVALID_BUFFER_SIZE;
         DEBUG_ERR(err, "buffer size exceeds maximum size");
         return err;
     }
+
+    // for (int i = 0; i < data_len; i++) {
+    //     DEBUG_PRINTF("%02d: 0x%lx = 0x%02x\n", i, &((char *)data)[i], ((char *)data)[i]);
+    // }
 
     struct devq_buf *buf;
     err = safe_get_free_buf(q, &buf);
@@ -102,7 +106,8 @@ errval_t safe_enqueue(struct safe_q *q, safe_region_t *safe_buf)
     }
 
     lvaddr_t valid_data_base = region->mem.vbase + buf->offset + buf->valid_data;
-    memcpy((void *)valid_data_base, safe_buf->data, safe_buf->length);
+    memcpy((void *)valid_data_base, data, data_len);
+    buf->valid_length = data_len;
 
     return devq_enqueue(&q->q->q, buf->rid, buf->offset, buf->length, buf->valid_data,
                         buf->valid_length, buf->flags);
