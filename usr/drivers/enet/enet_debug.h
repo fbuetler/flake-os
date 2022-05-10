@@ -8,6 +8,7 @@
 #include <collections/hash_table.h>
 
 void enet_debug_print_mac(struct eth_addr mac);
+void enet_debug_print_ip(ip_addr_t ip);
 
 void enet_debug_print_eth_packet(struct eth_hdr *eth);
 void enet_debug_print_arp_packet(struct arp_hdr *arp);

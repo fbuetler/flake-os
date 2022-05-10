@@ -20,6 +20,12 @@ void enet_debug_print_mac(struct eth_addr mac)
                mac.addr[3], mac.addr[4], mac.addr[5]);
 }
 
+void enet_debug_print_ip(ip_addr_t ip)
+{
+    ENET_DEBUG("%d.%d.%d.%d\n", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF,
+               ip & 0xFF);
+}
+
 void enet_debug_print_eth_packet(struct eth_hdr *eth)
 {
     ENET_DEBUG("ETH src MAC: ");  // laptop: 3c:18:a0:b3:ed:06
@@ -43,12 +49,12 @@ void enet_debug_print_arp_packet(struct arp_hdr *arp)
     ip_addr_t dest = ntohl(arp->ip_dst);
     ENET_DEBUG("ARP eth src:");
     enet_debug_print_mac(arp->eth_src);
-    ENET_DEBUG("ARP ip src: %d.%d.%d.%d\n", (src >> 24) & 0xFF, (src >> 16) & 0xFF,
-               (src >> 8) & 0xFF, src & 0xFF);
+    ENET_DEBUG("ARP ip src:");
+    enet_debug_print_ip(src);
     ENET_DEBUG("ARP eth dest:");
     enet_debug_print_mac(arp->eth_dst);
-    ENET_DEBUG("ARP ip dest: %d.%d.%d.%d\n", (dest >> 24) & 0xFF, (dest >> 16) & 0xFF,
-               (dest >> 8) & 0xFF, dest & 0xFF);
+    ENET_DEBUG("ARP ip dest:");
+    enet_debug_print_ip(dest);
 }
 
 void enet_debug_print_ip_packet(struct ip_hdr *ip)
@@ -64,10 +70,10 @@ void enet_debug_print_ip_packet(struct ip_hdr *ip)
 
     ip_addr_t src = ntohl(ip->src);
     ip_addr_t dest = ntohl(ip->dest);
-    ENET_DEBUG("IP src: %d.%d.%d.%d\n", (src >> 24) & 0xFF, (src >> 16) & 0xFF,
-               (src >> 8) & 0xFF, src & 0xFF);
-    ENET_DEBUG("IP dest: %d.%d.%d.%d\n", (dest >> 24) & 0xFF, (dest >> 16) & 0xFF,
-               (dest >> 8) & 0xFF, dest & 0xFF);
+    ENET_DEBUG("IP src:");
+    enet_debug_print_ip(src);
+    ENET_DEBUG("IP dest:");
+    enet_debug_print_ip(dest);
 }
 
 void enet_debug_print_arp_table(collections_hash_table *arp_table)
@@ -91,6 +97,7 @@ void enet_debug_print_arp_table(collections_hash_table *arp_table)
                    (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF, ((*eth >> 40) & 0xFF),
                    ((*eth >> 32) & 0xFF), ((*eth >> 24) & 0xFF), ((*eth >> 16) & 0xFF),
                    ((*eth >> 8) & 0xFF), ((*eth >> 0) & 0xFF));
+        DEBUG_PRINTF("0x%lx\n", ip);
     } while (1);
     ENET_DEBUG("=========================================\n");
 
