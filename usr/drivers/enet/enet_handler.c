@@ -28,10 +28,29 @@ struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid)
     return NULL;
 }
 
+static struct eth_addr enet_split_mac(uint64_t mac)
+{
+    return (struct eth_addr) { .addr = { (((mac) >> 40) & 0xFF), (((mac) >> 32) & 0xFF),
+                                         (((mac) >> 24) & 0xFF), (((mac) >> 16) & 0xFF),
+                                         (((mac) >> 8) & 0xFF), (((mac) >> 0) & 0xFF) } };
+}
+
+static errval_t enet_assemble_eth_packet(uint16_t type, struct eth_addr eth_src,
+                                         struct eth_addr eth_dest, struct eth_hdr *reteth)
+{
+    reteth->src = eth_src;
+    reteth->dst = eth_dest;
+    reteth->type = htons(type);
+
+    enet_debug_print_eth_packet(reteth);
+
+    return SYS_ERR_OK;
+}
+
 __attribute__((unused)) static errval_t
-enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_src, uint32_t ip_src,
-                         struct eth_addr eth_dest, uint32_t ip_dest,
-                         struct arp_hdr *retarp)
+enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_src, ip_addr_t ip_src,
+                         struct eth_addr eth_dest, ip_addr_t ip_dest,
+                         struct eth_hdr **retarp, size_t *retarp_size)
 {
     errval_t err;
 
@@ -41,32 +60,46 @@ enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_src, uint32_t ip_s
         return err;
     }
 
+    struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + ARP_HLEN);
+    err = enet_assemble_eth_packet(ETH_TYPE_ARP, eth_src, eth_dest, eth);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to assemble eth packet");
+        return err;
+    }
+
+    struct arp_hdr *arp = (struct arp_hdr *)((char *)eth + ETH_HLEN);
+
     // harware type: ethernet
-    retarp->hwtype = htons(ARP_HW_TYPE_ETH);
-    retarp->hwlen = 6;
+    arp->hwtype = htons(ARP_HW_TYPE_ETH);
+    arp->hwlen = 6;
     // protocol type: IPv4
-    retarp->proto = htons(ARP_PROT_IP);
-    retarp->protolen = 4;
+    arp->proto = htons(ARP_PROT_IP);
+    arp->protolen = 4;
 
     // operation: request/response
-    retarp->opcode = htons(opcode);
+    arp->opcode = htons(opcode);
 
     // sender mac
-    retarp->eth_src = eth_src;
+    arp->eth_src = eth_src;
     // sender ip
-    retarp->ip_src = htonl(ip_src);
+    arp->ip_src = htonl(ip_src);
     // receiver mac
-    retarp->eth_dst = eth_dest;
+    arp->eth_dst = eth_dest;
     // receiver ip
-    retarp->ip_dst = htonl(ip_dest);
+    arp->ip_dst = htonl(ip_dest);
 
-    enet_debug_print_arp_packet(retarp);
+    enet_debug_print_arp_packet(arp);
+
+    *retarp = eth;
+    *retarp_size = ETH_HLEN + ARP_HLEN;
 
     return SYS_ERR_OK;
 }
 
 __attribute__((unused)) static errval_t
-enet_assemble_ip_packet(uint8_t protocol, uint16_t len, struct ip_hdr *retip)
+enet_assemble_ip_packet(struct eth_addr eth_src, ip_addr_t ip_src,
+                        struct eth_addr eth_dest, ip_addr_t ip_dest, uint8_t protocol,
+                        uint16_t len, struct eth_hdr **retip, size_t *retip_size)
 {
     errval_t err;
 
@@ -77,53 +110,41 @@ enet_assemble_ip_packet(uint8_t protocol, uint16_t len, struct ip_hdr *retip)
         return err;
     }
 
+    struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + IP_HLEN);
+    err = enet_assemble_eth_packet(ETH_TYPE_IP, eth_src, eth_dest, eth);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to assemble eth packet");
+        return err;
+    }
+
+    struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
+
     static uint16_t id = 0;
 
     // version and header len (stuffed): IPv4 and 20 bytes = 160 bits = 5*32 bits
-    IPH_VHL_SET(retip, 4, 5);
+    IPH_VHL_SET(ip, 4, 5);
     // quality of service
-    retip->tos = 0;
+    ip->tos = 0;
     // total length
-    retip->len = htons(len);
+    ip->len = htons(len);
     // fragment id
-    retip->id = htons(id++);
+    ip->id = htons(id++);
     // fragment offset
-    retip->offset = htons(0);
+    ip->offset = htons(0);
     // time to live
-    retip->ttl = 128;
+    ip->ttl = 128;
     // protocol: ICMP, IGMP, UDP, UDPLITE, TCP
-    retip->proto = protocol;
+    ip->proto = protocol;
     // checksum
-    retip->chksum = htons(inet_checksum(retip, IP_HLEN));
+    ip->chksum = htons(inet_checksum(ip, IP_HLEN));
 
-    enet_debug_print_ip_packet(retip);
+    ip->src = ip_src;
+    ip->dest = ip_dest;
 
-    return SYS_ERR_OK;
-}
+    enet_debug_print_ip_packet(ip);
 
-__attribute__((unused)) static errval_t enet_assemble_eth_packet(uint16_t type,
-                                                                 struct eth_addr eth_src,
-                                                                 struct eth_addr eth_dest,
-                                                                 struct eth_hdr *reteth)
-{
-    // errval_t err;
-
-    reteth->src = eth_src;
-    reteth->dst = eth_dest;
-    reteth->type = htons(type);
-
-    // switch (type) {
-    // case ETH_TYPE_ARP:
-    //     break;
-    // case ETH_TYPE_IP:
-    //     break;
-    // default:
-    //     err = ENET_ERR_ETH_UNKNOWN_TYPE;
-    //     DEBUG_ERR(err, "unkown ETH type");
-    //     return err;
-    // }
-
-    enet_debug_print_eth_packet(reteth);
+    *retip = eth;
+    *retip_size = ETH_HLEN + IP_HLEN;
 
     return SYS_ERR_OK;
 }
@@ -135,6 +156,7 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
 
     struct arp_hdr *arp = (struct arp_hdr *)((char *)eth + ETH_HLEN);
 
+    enet_debug_print_eth_packet(eth);
     enet_debug_print_arp_packet(arp);
 
     // TODO handle requests/replies
@@ -145,10 +167,10 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
 static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
     // errval_t err;
-    DEBUG_PRINTF("RECEIVED IP PACKET\n");
 
     struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
 
+    enet_debug_print_eth_packet(eth);
     enet_debug_print_ip_packet(ip);
 
     // TODO handle requests/replies
@@ -157,39 +179,22 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
     DEBUG_PRINTF("ASSEMBLE PACKET\n");
     errval_t err;
 
-    struct eth_addr broadcast = (struct eth_addr) { .addr = {
-                                                        0xFF,
-                                                        0xFF,
-                                                        0xFF,
-                                                        0xFF,
-                                                        0xFF,
-                                                        0xFF,
-                                                    } };
-    struct eth_addr eth_src = (struct eth_addr) {
-        .addr = { (((st->mac) >> 40) & 0xFF), (((st->mac) >> 32) & 0xFF),
-                  (((st->mac) >> 24) & 0xFF), (((st->mac) >> 16) & 0xFF),
-                  (((st->mac) >> 8) & 0xFF), (((st->mac) >> 0) & 0xFF) }
-    };
-
-    struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + ARP_HLEN);
-    err = enet_assemble_eth_packet(ETH_TYPE_ARP, eth_src, broadcast, eth);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to assemble eth packet");
-        return err;
-    }
-
-    struct arp_hdr *arp = (struct arp_hdr *)((char *)eth + ETH_HLEN);
+    struct eth_addr broadcast = enet_split_mac(ETH_BROADCAST);
+    struct eth_addr eth_src = enet_split_mac(st->mac);
+    struct eth_hdr *arp;
+    size_t arp_size;
     err = enet_assemble_arp_packet(ARP_OP_REQ, eth_src, ENET_STATIC_IP, broadcast,
-                                   ntohl(ip->src), arp);
+                                   ntohl(ip->src), &arp, &arp_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to assemble arp packet");
         return err;
     }
 
-    DEBUG_PRINTF("READY TO SENT\n");
-
-    safe_enqueue(st->safe_txq, (void *)eth, ETH_HLEN + ARP_HLEN);
-
+    err = safe_enqueue(st->safe_txq, (void *)arp, arp_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to enqueue buffer");
+        return err;
+    }
     // HIJACK END
 
     return SYS_ERR_OK;
@@ -213,6 +218,7 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct devq_buf *packe
 
     switch (ntohs(eth->type)) {
     case ETH_TYPE_ARP:
+        DEBUG_PRINTF("RECEIVED ARP PACKET\n");
         err = enet_handle_arp_packet(st, eth);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle ARP packet");
@@ -220,6 +226,7 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct devq_buf *packe
         }
         break;
     case ETH_TYPE_IP:
+        DEBUG_PRINTF("RECEIVED IP PACKET\n");
         err = enet_handle_ip_packet(st, eth);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle IP packet");

@@ -24,6 +24,8 @@
 
 #define ETH_ADDR_LEN 6
 
+#define ETH_BROADCAST 0xFFFFFFFFFFFF
+
 struct eth_addr {
     uint8_t addr[6];
 } __attribute__((__packed__));
