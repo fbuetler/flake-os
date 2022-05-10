@@ -1410,9 +1410,10 @@ errors sata ENET_ERR_ {
     failure UNKNOWN_ETH_HEADER "Unkown ethernet header type",
     failure ARP_UNKNOWN_OPCODE "Unkown ARP operation",
     failure ETH_UNKNOWN_TYPE "Unkown ETH type",
-    failure IP_UNKOWN_PROTOCOL "Uknown IP protocol",
+    failure IP_UNKOWN_PROTOCOL "Unknown IP protocol",
     failure SAFE_INVALID_BUFFER_SIZE "Invalid buffer size",
     failure SAFE_NO_FREE_BUFFER "No free buffer found",
+    failure ARP_RESOLUTION "Timeout while resolving IP to MAC",
 };
 
 // errors LPUART driver

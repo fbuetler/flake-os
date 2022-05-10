@@ -156,6 +156,51 @@ enet_assemble_ip_packet(struct eth_addr eth_src, ip_addr_t ip_src,
     return SYS_ERR_OK;
 }
 
+__attribute__((unused)) static errval_t enet_get_mac_by_ip(struct enet_driver_state *st,
+                                                           ip_addr_t ip_dest,
+                                                           struct eth_addr *retmac)
+{
+    errval_t err;
+
+    // get from cache if available
+    uint64_t *mac = (uint64_t *)collections_hash_find(st->arp_table, ip_dest);
+    if (mac) {
+        *retmac = enet_split_mac(*mac);
+        return SYS_ERR_OK;
+    }
+
+    // otherwise broadcast request
+    struct eth_hdr *arp;
+    size_t arp_size;
+    err = enet_assemble_arp_packet(ARP_OP_REQ, enet_split_mac(st->mac), ENET_STATIC_IP,
+                                   enet_split_mac(ETH_BROADCAST), ip_dest, &arp,
+                                   &arp_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to assemble arp packet");
+        return err;
+    }
+
+    err = safe_enqueue(st->safe_txq, (void *)arp, arp_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to enqueue buffer");
+        return err;
+    }
+
+    // wait until response is here
+    size_t retries = 0;
+    size_t max_retries = 256;
+    while (retries < max_retries) {
+        mac = (uint64_t *)collections_hash_find(st->arp_table, ip_dest);
+        if (mac) {
+            *retmac = enet_split_mac(*mac);
+            return SYS_ERR_OK;
+        }
+        retries++;
+    }
+
+    return ENET_ERR_ARP_RESOLUTION;
+}
+
 static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
     errval_t err;
