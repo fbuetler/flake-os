@@ -12,6 +12,7 @@
 
 #include <driverkit/driverkit.h>
 #include <dev/imx8x/enet_dev.h>
+#include <collections/hash_table.h>
 
 #define ENET_DEBUG_OPTION 1
 
@@ -104,6 +105,8 @@ struct enet_driver_state {
 
     struct capref rx_mem;
     struct capref tx_mem;
+
+    collections_hash_table *arp_table;
 };
 
 #define ENET_HASH_BITS 6

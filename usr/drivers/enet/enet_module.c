@@ -687,6 +687,8 @@ int main(int argc, char *argv[])
         st->safe_txq->free = free_node;
     }
 
+    collections_hash_create(&st->arp_table, free);
+
     struct devq_buf buf;
     while (true) {
         err = devq_dequeue((struct devq *)st->rxq, &buf.rid, &buf.offset, &buf.length,

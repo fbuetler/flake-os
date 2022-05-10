@@ -30,9 +30,16 @@ struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid)
 
 static struct eth_addr enet_split_mac(uint64_t mac)
 {
-    return (struct eth_addr) { .addr = { (((mac) >> 40) & 0xFF), (((mac) >> 32) & 0xFF),
-                                         (((mac) >> 24) & 0xFF), (((mac) >> 16) & 0xFF),
-                                         (((mac) >> 8) & 0xFF), (((mac) >> 0) & 0xFF) } };
+    return (struct eth_addr) { .addr = { ((mac >> 40) & 0xFF), ((mac >> 32) & 0xFF),
+                                         ((mac >> 24) & 0xFF), ((mac >> 16) & 0xFF),
+                                         ((mac >> 8) & 0xFF), ((mac >> 0) & 0xFF) } };
+}
+
+static uint64_t enet_fuse_mac(struct eth_addr mac)
+{
+    return ((uint64_t)mac.addr[0] << 40) | ((uint64_t)mac.addr[1] << 32)
+           | ((uint64_t)mac.addr[2] << 24) | ((uint64_t)mac.addr[3] << 16)
+           | ((uint64_t)mac.addr[4] << 8) | ((uint64_t)mac.addr[5] << 0);
 }
 
 static errval_t enet_assemble_eth_packet(uint16_t type, struct eth_addr eth_src,
@@ -158,8 +165,6 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
     enet_debug_print_eth_packet(eth);
     enet_debug_print_arp_packet(arp);
 
-    DEBUG_PRINTF("MY MAC: 0x%lx\n", st->mac);
-
     switch (ntohs(arp->opcode)) {
     case ARP_OP_REQ:
         // ignore requests that are not for us
@@ -184,9 +189,22 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
             return err;
         }
 
+        // TODO store ip->mac mapping of sender
+
         break;
-    case ARP_OP_REP:
-        // TODO store mapping
+    case ARP_OP_REP:;  // empty statement
+        // store IP to MAC mapping
+        uint64_t *eth_src = malloc(sizeof(uint64_t));
+        *eth_src = enet_fuse_mac(arp->eth_src);
+        if (collections_hash_find(st->arp_table, arp->ip_src)) {
+            collections_hash_delete(st->arp_table, arp->ip_src);
+            collections_hash_insert(st->arp_table, arp->ip_src, eth_src);
+        } else {
+            collections_hash_insert(st->arp_table, arp->ip_src, eth_src);
+        }
+
+        enet_debug_print_arp_table(st->arp_table);
+
         break;
     default:
         err = ENET_ERR_ARP_UNKNOWN_OPCODE;
