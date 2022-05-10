@@ -234,12 +234,22 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
             return err;
         }
 
-        // TODO store ip->mac mapping of sender
+        // store ip->mac mapping of sender
+        uint64_t *eth_src = (uint64_t *)malloc(sizeof(uint64_t));
+        *eth_src = enet_fuse_mac(arp->eth_src);
+        if (collections_hash_find(st->arp_table, arp->ip_src)) {
+            collections_hash_delete(st->arp_table, arp->ip_src);
+            collections_hash_insert(st->arp_table, arp->ip_src, eth_src);
+        } else {
+            collections_hash_insert(st->arp_table, arp->ip_src, eth_src);
+        }
+
+        enet_debug_print_arp_table(st->arp_table);
 
         break;
     case ARP_OP_REP:;  // empty statement
         // store IP to MAC mapping
-        uint64_t *eth_src = malloc(sizeof(uint64_t));
+        eth_src = (uint64_t *)malloc(sizeof(uint64_t));
         *eth_src = enet_fuse_mac(arp->eth_src);
         if (collections_hash_find(st->arp_table, arp->ip_src)) {
             collections_hash_delete(st->arp_table, arp->ip_src);
