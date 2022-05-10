@@ -128,30 +128,28 @@ __attribute__((unused)) static errval_t enet_assemble_eth_packet(uint16_t type,
     return SYS_ERR_OK;
 }
 
-static errval_t enet_handle_arp_packet(struct enet_driver_state *st,
-                                       struct eth_hdr *eth_header)
+static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
     // errval_t err;
     ENET_DEBUG("got ARP packet\n");
 
-    struct arp_hdr *arp_header = (struct arp_hdr *)((char *)eth_header + ETH_HLEN);
+    struct arp_hdr *arp = (struct arp_hdr *)((char *)eth + ETH_HLEN);
 
-    enet_debug_print_arp_packet(arp_header);
+    enet_debug_print_arp_packet(arp);
 
     // TODO handle requests/replies
 
     return SYS_ERR_OK;
 }
 
-static errval_t enet_handle_ip_packet(struct enet_driver_state *st,
-                                      struct eth_hdr *eth_header)
+static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
     // errval_t err;
     DEBUG_PRINTF("RECEIVED IP PACKET\n");
 
-    struct ip_hdr *ip_header = (struct ip_hdr *)((char *)eth_header + ETH_HLEN);
+    struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
 
-    enet_debug_print_ip_packet(ip_header);
+    enet_debug_print_ip_packet(ip);
 
     // TODO handle requests/replies
 
@@ -182,7 +180,7 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st,
 
     struct arp_hdr *arp = (struct arp_hdr *)((char *)eth + ETH_HLEN);
     err = enet_assemble_arp_packet(ARP_OP_REQ, eth_src, ENET_STATIC_IP, broadcast,
-                                   ntohl(ip_header->src), arp);
+                                   ntohl(ip->src), arp);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to assemble arp packet");
         return err;
@@ -208,21 +206,21 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct devq_buf *packe
         return err;
     }
 
-    struct eth_hdr *eth_header = (struct eth_hdr *)region->mem.vbase + packet->offset
-                                 + packet->valid_data;
+    struct eth_hdr *eth = (struct eth_hdr *)((char *)region->mem.vbase + packet->offset
+                                             + packet->valid_data);
 
-    // enet_debug_print_eth_packet(eth_header);
+    // enet_debug_print_eth_packet(eth);
 
-    switch (ntohs(eth_header->type)) {
+    switch (ntohs(eth->type)) {
     case ETH_TYPE_ARP:
-        err = enet_handle_arp_packet(st, eth_header);
+        err = enet_handle_arp_packet(st, eth);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle ARP packet");
             return err;
         }
         break;
     case ETH_TYPE_IP:
-        err = enet_handle_ip_packet(st, eth_header);
+        err = enet_handle_ip_packet(st, eth);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle IP packet");
             return err;
@@ -230,8 +228,7 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct devq_buf *packe
         break;
     default:
         err = ENET_ERR_UNKNOWN_ETH_HEADER;
-        DEBUG_ERR(err, "unkown ethernet header type received: 0x%04x",
-                  ntohs(eth_header->type));
+        DEBUG_ERR(err, "unkown ethernet header type received: 0x%04x", ntohs(eth->type));
         return err;
     }
 
