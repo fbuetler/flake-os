@@ -243,6 +243,19 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         return err_push(err, LIB_ERR_CAP_COPY);
     }
 
+    // map interrupt handler table in child
+
+    struct capref cap_irq_c = {
+        .cnode = si->taskcn,
+        .slot = TASKCN_SLOT_IRQ
+    };
+
+    err = cap_copy(cap_irq_c, cap_irq);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to irq cap");
+        return err_push(err, LIB_ERR_CAP_COPY);
+    }
+
     return SYS_ERR_OK;
 }
 
