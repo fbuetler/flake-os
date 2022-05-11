@@ -19,7 +19,10 @@
 
 #define RECV_BUFFER_SIZE 1024
 
-errval_t write_str(char *str, size_t len);
+errval_t write_str(char *str);
+errval_t write_nstr(char *str, size_t len);
+
+int num_builtins(void);
 
 struct shell_state {
     struct pl011_s *uart_state;
@@ -31,19 +34,102 @@ struct receive_state {
     size_t tail;
     size_t count;
     char data[RECV_BUFFER_SIZE];
+} recv_state;
+
+
+char *builtin_str[] = {
+    "help",
+    "exit"
 };
+
+void shell_help(char **args);
+void shell_exit(char **args);
+
+
+void (*builtin_func[]) (char **) = {
+    &shell_help,
+    &shell_exit
+};
+
+int num_builtins(void) {
+    return sizeof(builtin_str) / sizeof(char *);
+}
+
+void shell_help(char **args) {
+    write_str("Available commands:\n");
+    write_str("help: This message\n");
+    write_str("exit: NYI\n");
+}
+
+void shell_exit(char **args) {
+    write_str("2222\n");
+}
+
+
+static void handle_line(void) {
+    size_t token_counter ;
+    char *tokens[RECV_BUFFER_SIZE];
+
+    token_counter = 0;
+    char *line = &recv_state.data[recv_state.head];
+
+    // tokenize
+    char *token;
+    token = strtok(line, " ");
+
+    while (token != NULL) {
+        tokens[token_counter++] = token;
+        token = strtok(NULL, " ");
+    }
+    tokens[token_counter] = NULL;
+
+    // parsing
+    if(tokens[0] == NULL) {
+        char *o = "No command was entered. Type 'help' for help\n";
+        write_str(o);
+    } else {
+        for (int i = 0; i < num_builtins(); i++) {
+            if (strcmp(tokens[0], builtin_str[i]) == 0) {
+                builtin_func[i](tokens);
+                return;
+            }
+        }
+        char *o = "Unknown command. Type 'help' for help\n";
+        write_str(o);
+    }
+}
 
 __attribute__((unused))
 static void interrupt_handler(void *arg) {
-    DEBUG_PRINTF("Inside interrupt handler of shell \n");
-    /*
-    errvalt err;
     char c;
-    err = pl011_getchar(s, &c);
-    */
+    pl011_getchar(shell_state.uart_state, &c);
+
+    if (c == 4 || c == 10 || c == 13) {
+        // 4: EOT, 10: NL, 13: CR
+        /* Enter is pressed. Parse the line and execute the command */
+        recv_state.data[recv_state.tail++] = '\0';
+        pl011_putchar(shell_state.uart_state, '\n');
+        handle_line();
+        recv_state.count = 0;
+        recv_state.head = recv_state.tail;
+        write_str("> ");
+    } else {
+        // todo: handle overflow
+        recv_state.count += 1;
+        recv_state.data[recv_state.tail++] = c;
+        pl011_putchar(shell_state.uart_state, c);
+    }
 }
 
-errval_t write_str(char *str, size_t len) {
+errval_t write_str(char *str) {
+    errval_t err = SYS_ERR_OK;
+    for (int i = 0; i < strlen(str); ++i) {
+        pl011_putchar(shell_state.uart_state, str[i]);
+    }
+    return err;
+}
+
+errval_t write_nstr(char *str, size_t len) {
     errval_t err = SYS_ERR_OK;
     for (int i = 0; i < len; ++i) {
         pl011_putchar(shell_state.uart_state, str[i]);
@@ -51,89 +137,9 @@ errval_t write_str(char *str, size_t len) {
     return err;
 }
 
-static void read_line(struct receive_state *recv_state) {
-    errval_t err;
-    char c;
-
-    recv_state->count = 0;
-    recv_state->head = recv_state->tail;
-
-    while(true) {
-        do {
-            err = pl011_getchar(shell_state.uart_state, &c);
-        } while (err == LPUART_ERR_NO_DATA);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Could not fetch char from pl011 uart \n");
-            abort();
-        }
-        // 4: EOT, 10: NL, 13: CR
-        if (c == 4 || c == 10 || c == 13) {
-            recv_state->data[recv_state->tail++] = '\0';
-            pl011_putchar(shell_state.uart_state, '\n');
-            return;
-        } else {
-            // ToDo: handle buffer overflow
-            recv_state->count += 1;
-            recv_state->data[recv_state->tail++] = c;
-        }
-        pl011_putchar(shell_state.uart_state, c);
-    }
-}
-
-static void listen(void) {
-    struct receive_state recv_state;
-    recv_state.head = 0;
-    recv_state.tail = 0;
-    recv_state.count = 0;
-    memset(recv_state.data, 0, RECV_BUFFER_SIZE);
-
-    size_t token_counter ;
-    char *tokens[1024];
-
-    while(true) {
-        write_str("> ", 2);
-        read_line(&recv_state);
-        token_counter = 0;
-        char *line = &recv_state.data[recv_state.head];
-
-
-        // tokenize
-        char *token;
-        token = strtok(line, " ");
-
-        while (token != NULL) {
-            //DEBUG_PRINTF("token: %s \n", token);
-            tokens[token_counter++] = token;
-            token = strtok(NULL, " ");
-        }
-        tokens[token_counter] = NULL;
-
-        // parsing
-        if(tokens[0] == NULL) {
-            DEBUG_PRINTF("No command was entered? \n");
-        } else {
-            if(strcmp(tokens[0], "exit") == 0) {
-                return;
-            } else if (strcmp(tokens[0], "help") == 0) {
-                char *o = "help called. Available commands:\n";
-                write_str(o, strlen(o));
-                o = "help: this message\n";
-                write_str(o, strlen(o));
-                o = "exit: terminate the shell\n";
-                write_str(o, strlen(o));
-            } else {
-                char *o = "Unknown command\n";
-                write_str(o, strlen(o));
-            }
-        }
-
-
-    }
-}
-
 int main(int argc, char *argv[])
 {
-    DEBUG_PRINTF("Shell Started\n");
+    DEBUG_PRINTF("shell starting\n");
 
     errval_t err;
 
@@ -146,7 +152,7 @@ int main(int argc, char *argv[])
 
     struct capref devframe_gic = (struct capref) {
         .cnode = cnode_arg,
-        .slot = ARGCN_SLOT_DEVFRAME
+        .slot = ARGCN_SLOT_DEVFRAME_IRQ
     };
 
     err = paging_map_frame_attr(get_current_paging_state(), &vbase_gic, PAGE_SIZE,
@@ -169,7 +175,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /* Initialize the LPUART driver*/
+    /* Initialize the PL011 UART driver*/
 
     struct capref devframe_pl011 = (struct capref) {
         .cnode = cnode_arg,
@@ -197,9 +203,9 @@ int main(int argc, char *argv[])
     }
 
     /* Obtain the IRQ destination cap and attach a handler to it */
-#if 0
+
     struct capref dst_cap;
-    int vec_hint = QEMU_UART_INT; // ToDo: what value is expected? They are in lpuart.h
+    int vec_hint = QEMU_UART_INT; // ToDo: Change this if you're running on the board
     err = inthandler_alloc_dest_irq_cap(vec_hint, &dst_cap);
 
     if(err_is_fail(err)) {
@@ -207,7 +213,10 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    err = inthandler_setup(dst_cap, get_default_waitset(), MKCLOSURE(interrupt_handler, NULL));
+    // ToDo: maybe better to use get_default_waitset(), but this throws an error. So use a new one for now
+    struct waitset ws;
+    waitset_init(&ws);
+    err = inthandler_setup(dst_cap, &ws, MKCLOSURE(interrupt_handler, NULL));
 
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "Could not setup inthandler \n");
@@ -219,31 +228,33 @@ int main(int argc, char *argv[])
     uint16_t interrupt_priority = 0; // ToDo: couldn't find correct ARM documentation for this
     uint8_t cpu_targets = 1; // ToDo: add multicore support ? Read from gds?
 
-    gic_dist_enable_interrupt(gds, QEMU_UART_INT, cpu_targets, interrupt_priority);
+    // ToDo: Change int_id if you're running on the board
+    err = gic_dist_enable_interrupt(gds, QEMU_UART_INT, cpu_targets, interrupt_priority);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not setup gic interrupt handler \n");
+        return -1;
+    }
 
+    /* Enable the interrupt in the PL011 UART */
 
-    /* Enable the interrupt in the LPUART */
-
-    err = pl011_enable_interrupt(s_pl);
+    err = pl011_enable_interrupt(shell_state.uart_state);
     //err = lpuart_enable_interrupt(s_lp);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "Could not enable interrupts for pl011 \n");
         return -1;
     }
-#endif
 
-    listen();
-    /* done? */
+    DEBUG_PRINTF("shell ready\n");
+    write_str("> ");
 
-#if 0
     while (true) {
-        err = event_dispatch(get_default_waitset());
+        err = event_dispatch(&ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             abort();
         }
     }
-#endif
+
     DEBUG_PRINTF("Exiting Shell \n");
 
 
