@@ -103,10 +103,10 @@ static errval_t enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_sr
     return SYS_ERR_OK;
 }
 
-__attribute__((unused)) static errval_t
-enet_assemble_ip_packet(struct eth_addr eth_src, ip_addr_t ip_src,
-                        struct eth_addr eth_dest, ip_addr_t ip_dest, uint8_t protocol,
-                        uint16_t len, struct eth_hdr **retip, size_t *retip_size)
+static errval_t enet_assemble_ip_packet(struct eth_addr eth_src, ip_addr_t ip_src,
+                                        struct eth_addr eth_dest, ip_addr_t ip_dest,
+                                        uint8_t protocol, uint16_t len,
+                                        struct ip_hdr *retip)
 {
     errval_t err;
 
@@ -117,41 +117,81 @@ enet_assemble_ip_packet(struct eth_addr eth_src, ip_addr_t ip_src,
         return err;
     }
 
-    struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + IP_HLEN);
+    static uint16_t id = 0;
+
+    // version and header len (stuffed): IPv4 and 20 bytes = 160 bits = 5*32 bits
+    IPH_VHL_SET(retip, 4, 5);
+    // quality of service
+    retip->tos = 0;
+    // total length
+    retip->len = htons(len);
+    // fragment id
+    retip->id = htons(id++);
+    // fragment offset
+    retip->offset = htons(IP_DF);
+    // time to live
+    retip->ttl = 128;
+    // protocol: ICMP, IGMP, UDP, UDPLITE, TCP
+    retip->proto = protocol;
+    // source/dest IP
+    retip->src = htonl(ip_src);
+    retip->dest = htonl(ip_dest);
+    // checksum
+    retip->chksum = 0;
+    retip->chksum = inet_checksum(retip, IP_HLEN);
+
+
+    enet_debug_print_ip_packet(retip);
+
+    return SYS_ERR_OK;
+}
+
+static errval_t enet_assemble_icmp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
+                                          struct eth_addr eth_dest, ip_addr_t ip_dest,
+                                          uint8_t type, uint16_t id, uint16_t seqno,
+                                          char *payload, size_t payload_size,
+                                          struct eth_hdr **reticmp, size_t *reticmp_size)
+{
+    errval_t err;
+
+    if (type != ICMP_ER && type != ICMP_ECHO) {
+        err = ENET_ERR_ICMP_UNKNOWN_TYPE;
+        DEBUG_ERR(err, "unkown ICMP type");
+        return err;
+    }
+
+    struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + IP_HLEN + ICMP_HLEN
+                                                   + payload_size);
     err = enet_assemble_eth_packet(ETH_TYPE_IP, eth_src, eth_dest, eth);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to assemble eth packet");
+        DEBUG_ERR(err, "failed to assemble ETH packet");
         return err;
     }
 
     struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
+    err = enet_assemble_ip_packet(eth_src, ip_src, eth_dest, ip_dest, IP_PROTO_ICMP,
+                                  IP_HLEN + ICMP_HLEN + payload_size, ip);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to assemble IP packet");
+        return err;
+    }
 
-    static uint16_t id = 0;
+    struct icmp_echo_hdr *icmp = (struct icmp_echo_hdr *)((char *)ip + IP_HLEN);
 
-    // version and header len (stuffed): IPv4 and 20 bytes = 160 bits = 5*32 bits
-    IPH_VHL_SET(ip, 4, 5);
-    // quality of service
-    ip->tos = 0;
-    // total length
-    ip->len = htons(len);
-    // fragment id
-    ip->id = htons(id++);
-    // fragment offset
-    ip->offset = htons(0);
-    // time to live
-    ip->ttl = 128;
-    // protocol: ICMP, IGMP, UDP, UDPLITE, TCP
-    ip->proto = protocol;
-    // checksum
-    ip->chksum = htons(inet_checksum(ip, IP_HLEN));
+    icmp->type = type;
+    icmp->code = 0;
+    icmp->id = htons(id);
+    icmp->seqno = htons(seqno);
+    memcpy((char *)icmp + ICMP_HLEN, payload, payload_size);
 
-    ip->src = ip_src;
-    ip->dest = ip_dest;
+    icmp->chksum = 0;
+    icmp->chksum = inet_checksum(icmp, ICMP_HLEN + payload_size);
 
-    enet_debug_print_ip_packet(ip);
+    enet_debug_print_icmp_packet(icmp);
+    ICMP_DEBUG("ICMP payload size: 0x%lx\n", payload_size);
 
-    *retip = eth;
-    *retip_size = ETH_HLEN + IP_HLEN;
+    *reticmp = eth;
+    *reticmp_size = ETH_HLEN + IP_HLEN + ICMP_HLEN + payload_size;
 
     return SYS_ERR_OK;
 }
@@ -273,9 +313,63 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
     return SYS_ERR_OK;
 }
 
+
+static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth_hdr *eth)
+{
+    errval_t err;
+
+    struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
+    struct icmp_echo_hdr *icmp = (struct icmp_echo_hdr *)((char *)ip + IP_HLEN);
+
+    enet_debug_print_icmp_packet(icmp);
+
+    char *icmp_payload = (char *)icmp + ICMP_HLEN;
+    size_t icmp_payload_size = ntohs(ip->len) - IP_HLEN - ICMP_HLEN;
+    ICMP_DEBUG("ICMP payload size: 0x%lx\n", icmp_payload_size);
+
+    // control checksum
+    if (inet_checksum(icmp, ICMP_HLEN + icmp_payload_size)) {
+        ICMP_DEBUG("Dropping packet with invalid checksum: 0x%04x\n",
+                   inet_checksum(icmp, ICMP_HLEN));
+        return SYS_ERR_OK;
+    }
+
+    // handle
+    switch (icmp->type) {
+    case ICMP_ER:
+        DEBUG_PRINTF("RECEIVED ICMP ECHO REPLY PACKET\n");
+        break;
+    case ICMP_ECHO:
+        DEBUG_PRINTF("RECEIVED ICMP ECHO PACKET\n");
+        struct eth_hdr *resp_icmp;
+        size_t resp_icmp_size;
+        err = enet_assemble_icmp_packet(enet_split_mac(st->mac), ENET_STATIC_IP, eth->src,
+                                        ntohl(ip->src), ICMP_ER, ntohs(icmp->id),
+                                        ntohs(icmp->seqno), icmp_payload,
+                                        icmp_payload_size, &resp_icmp, &resp_icmp_size);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to assemble ICMP packet");
+            return err;
+        }
+
+        err = safe_enqueue(st->safe_txq, (void *)resp_icmp, resp_icmp_size);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to enqueue buffer");
+            return err;
+        }
+        break;
+    default:
+        err = ENET_ERR_ICMP_UNKNOWN_TYPE;
+        DEBUG_ERR(err, "unkown ICMP type received: 0x%04x", icmp->type);
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
 static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
-    // errval_t err;
+    errval_t err;
 
     struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
 
@@ -294,6 +388,32 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
         return SYS_ERR_OK;
     }
 
+    switch (ip->proto) {
+    case IP_PROTO_ICMP:
+        DEBUG_PRINTF("RECEIVED ICMP PACKET\n");
+        err = enet_handle_icmp_packet(st, eth);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to handle ICMP packet");
+            return err;
+        }
+        break;
+    case IP_PROTO_IGMP:
+        DEBUG_PRINTF("RECEIVED IGMP PACKET\n");
+        break;
+    case IP_PROTO_UDP:
+        DEBUG_PRINTF("RECEIVED UDP PACKET\n");
+        break;
+    case IP_PROTO_UDPLITE:
+        DEBUG_PRINTF("RECEIVED UDP LITE PACKET\n");
+        break;
+    case IP_PROTO_TCP:
+        DEBUG_PRINTF("RECEIVED TCP PACKET\n");
+        break;
+    default:
+        err = ENET_ERR_IP_UNKOWN_PROTOCOL;
+        DEBUG_ERR(err, "unkown IP protocol received: 0x%02x", ip->proto);
+        return err;
+    }
 
     return SYS_ERR_OK;
 }

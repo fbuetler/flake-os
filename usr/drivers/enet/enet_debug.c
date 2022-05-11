@@ -8,8 +8,6 @@
 
 #include <netutil/htons.h>
 #include <netutil/checksum.h>
-#include <netutil/etharp.h>
-#include <netutil/ip.h>
 
 #include "enet.h"
 #include "enet_debug.h"
@@ -80,6 +78,15 @@ void enet_debug_print_ip_packet(struct ip_hdr *ip)
     ip_addr_t dest = ntohl(ip->dest);
     IP_DEBUG("IP src: %s\n", enet_print_ip(src));
     IP_DEBUG("IP dest: %s\n", enet_print_ip(dest));
+}
+
+void enet_debug_print_icmp_packet(struct icmp_echo_hdr *icmp)
+{
+    ICMP_DEBUG("ICMP type: %02x\n", icmp->type);
+    ICMP_DEBUG("ICMP code: %02x\n", icmp->code);
+    ICMP_DEBUG("ICMP chksum: %04x\n", ntohs(icmp->chksum));
+    ICMP_DEBUG("ICMP id: %04x\n", ntohs(icmp->id));
+    ICMP_DEBUG("ICMP seqno: %04x\n", ntohs(icmp->seqno));
 }
 
 void enet_debug_print_arp_table(collections_hash_table *arp_table)

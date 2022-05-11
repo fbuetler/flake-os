@@ -1411,6 +1411,7 @@ errors sata ENET_ERR_ {
     failure ARP_UNKNOWN_OPCODE "Unkown ARP operation",
     failure ETH_UNKNOWN_TYPE "Unkown ETH type",
     failure IP_UNKOWN_PROTOCOL "Unknown IP protocol",
+    failure ICMP_UNKNOWN_TYPE "Unknown ICMP type",
     failure SAFE_INVALID_BUFFER_SIZE "Invalid buffer size",
     failure SAFE_NO_FREE_BUFFER "No free buffer found",
     failure ARP_RESOLUTION "Timeout while resolving IP to MAC",
