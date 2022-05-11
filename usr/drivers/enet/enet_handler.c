@@ -79,6 +79,23 @@ __attribute__((unused)) static errval_t enet_get_mac_by_ip(struct enet_driver_st
     return ENET_ERR_ARP_RESOLUTION;
 }
 
+static errval_t enet_update_arp_table(struct enet_driver_state *st, ip_addr_t ip,
+                                      struct eth_addr eth)
+{
+    uint64_t *eth_src = (uint64_t *)malloc(sizeof(uint64_t));
+    *eth_src = enet_fuse_mac(eth);
+    if (collections_hash_find(st->arp_table, ip)) {
+        collections_hash_delete(st->arp_table, ip);
+        collections_hash_insert(st->arp_table, ip, eth_src);
+    } else {
+        collections_hash_insert(st->arp_table, ip, eth_src);
+    }
+
+    enet_debug_print_arp_table(st->arp_table);
+
+    return SYS_ERR_OK;
+}
+
 static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
     errval_t err;
@@ -112,31 +129,21 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
             return err;
         }
 
-        // store ip->mac mapping of sender
-        uint64_t *eth_src = (uint64_t *)malloc(sizeof(uint64_t));
-        *eth_src = enet_fuse_mac(arp->eth_src);
-        if (collections_hash_find(st->arp_table, arp->ip_src)) {
-            collections_hash_delete(st->arp_table, arp->ip_src);
-            collections_hash_insert(st->arp_table, arp->ip_src, eth_src);
-        } else {
-            collections_hash_insert(st->arp_table, arp->ip_src, eth_src);
+        // store IP to MAC mapping of sender
+        err = enet_update_arp_table(st, arp->ip_src, arp->eth_src);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to update ARP table");
+            return err;
         }
-
-        enet_debug_print_arp_table(st->arp_table);
 
         break;
-    case ARP_OP_REP:;  // empty statement
+    case ARP_OP_REP:
         // store IP to MAC mapping
-        eth_src = (uint64_t *)malloc(sizeof(uint64_t));
-        *eth_src = enet_fuse_mac(arp->eth_src);
-        if (collections_hash_find(st->arp_table, arp->ip_src)) {
-            collections_hash_delete(st->arp_table, arp->ip_src);
-            collections_hash_insert(st->arp_table, arp->ip_src, eth_src);
-        } else {
-            collections_hash_insert(st->arp_table, arp->ip_src, eth_src);
+        err = enet_update_arp_table(st, arp->ip_src, arp->eth_src);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to update ARP table");
+            return err;
         }
-
-        enet_debug_print_arp_table(st->arp_table);
 
         break;
     default:
