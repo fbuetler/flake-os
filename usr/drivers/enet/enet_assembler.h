@@ -29,4 +29,10 @@ errval_t enet_assemble_icmp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
                                    char *payload, size_t payload_size,
                                    struct eth_hdr **reticmp, size_t *reticmp_size);
 
+errval_t enet_assemble_udp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
+                                  uint16_t udp_src, struct eth_addr eth_dest,
+                                  ip_addr_t ip_dest, uint16_t udp_dest, char *payload,
+                                  size_t payload_size, struct eth_hdr **retudp,
+                                  size_t *retudp_size);
+
 #endif /* ENET_ASSEMBLER_H_ */

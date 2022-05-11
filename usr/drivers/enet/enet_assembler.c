@@ -120,8 +120,21 @@ static errval_t enet_create_icmp_packet(uint8_t type, uint16_t id, uint16_t seqn
     icmp->chksum = 0;
     icmp->chksum = inet_checksum(icmp, ICMP_HLEN + payload_size);
 
-    enet_debug_print_icmp_packet(icmp);
-    ICMP_DEBUG("ICMP payload size: 0x%lx\n", payload_size);
+    enet_debug_print_icmp_packet(icmp, payload_size);
+
+    return SYS_ERR_OK;
+}
+
+static errval_t enet_create_udp_packet(uint16_t udp_src, uint16_t udp_dest, char *payload,
+                                       size_t payload_size, struct udp_hdr *udp)
+{
+    udp->src = htons(udp_src);
+    udp->dest = htons(udp_dest);
+    udp->len = htons(UDP_HLEN + payload_size);
+    memcpy((char *)udp + UDP_HLEN, payload, payload_size);
+
+    udp->chksum = 0;
+    udp->chksum = inet_checksum(udp, UDP_HLEN + payload_size);
 
     return SYS_ERR_OK;
 }
@@ -187,6 +200,43 @@ errval_t enet_assemble_icmp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
 
     *reticmp = eth;
     *reticmp_size = ETH_HLEN + IP_HLEN + ICMP_HLEN + payload_size;
+
+    return SYS_ERR_OK;
+}
+
+errval_t enet_assemble_udp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
+                                  uint16_t udp_src, struct eth_addr eth_dest,
+                                  ip_addr_t ip_dest, uint16_t udp_dest, char *payload,
+                                  size_t payload_size, struct eth_hdr **retudp,
+                                  size_t *retudp_size)
+{
+    errval_t err;
+
+    struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + IP_HLEN + UDP_HLEN
+                                                   + payload_size);
+    err = enet_create_eth_packet(eth_src, eth_dest, ETH_TYPE_IP, eth);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create ETH packet");
+        return err;
+    }
+
+    struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
+    err = enet_create_ip_packet(eth_src, ip_src, eth_dest, ip_dest, IP_PROTO_UDP,
+                                UDP_HLEN + payload_size, ip);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create IP packet");
+        return err;
+    }
+
+    struct udp_hdr *udp = (struct udp_hdr *)((char *)ip + IP_HLEN);
+    err = enet_create_udp_packet(udp_src, udp_dest, payload, payload_size, udp);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create UDP packet");
+        return err;
+    }
+
+    *retudp = eth;
+    *retudp_size = ETH_HLEN + IP_HLEN + UDP_HLEN + payload_size;
 
     return SYS_ERR_OK;
 }

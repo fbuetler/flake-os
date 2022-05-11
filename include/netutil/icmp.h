@@ -8,7 +8,7 @@
 // #define ICMP_DEBUG_OPTION 1
 
 #if defined(ICMP_DEBUG_OPTION)
-#    define ICMP_DEBUG(x...) debug_printf("[ip] " x);
+#    define ICMP_DEBUG(x...) debug_printf("[icmp] " x);
 #else
 #    define ICMP_DEBUG(fmt, ...) ((void)0)
 #endif

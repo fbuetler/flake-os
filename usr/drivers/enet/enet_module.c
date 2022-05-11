@@ -699,12 +699,13 @@ int main(int argc, char *argv[])
 
     collections_hash_create(&st->arp_table, free);
 
+    debug_printf("Ready to accept connections\n");
     struct devq_buf buf;
     while (true) {
         err = devq_dequeue((struct devq *)st->rxq, &buf.rid, &buf.offset, &buf.length,
                            &buf.valid_data, &buf.valid_length, &buf.flags);
         if (err_is_ok(err)) {
-            debug_printf("Received Packet of size %lu \n", buf.valid_length);
+            ENET_DEBUG("Received Packet of size %lu \n", buf.valid_length);
 
             struct region_entry *region = enet_get_region(st->rxq->regions, buf.rid);
             if (!region) {
@@ -715,7 +716,6 @@ int main(int argc, char *argv[])
 
             struct eth_hdr *eth = (struct eth_hdr *)((char *)region->mem.vbase
                                                      + buf.offset + buf.valid_data);
-
 
             err = enet_handle_packet(st, eth);
             if (err_is_fail(err)) {

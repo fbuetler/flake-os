@@ -7,7 +7,7 @@
 #define UDP_DEBUG_OPTION 1
 
 #if defined(UDP_DEBUG_OPTION)
-#    define UDP_DEBUG(x...) debug_printf("[ip] " x);
+#    define UDP_DEBUG(x...) debug_printf("[udp] " x);
 #else
 #    define UDP_DEBUG(fmt, ...) ((void)0)
 #endif

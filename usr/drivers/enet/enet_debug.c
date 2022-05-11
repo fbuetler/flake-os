@@ -76,13 +76,33 @@ void enet_debug_print_ip_packet(struct ip_hdr *ip)
     IP_DEBUG("IP dest: %s\n", enet_print_ip(ntohl(ip->dest)));
 }
 
-void enet_debug_print_icmp_packet(struct icmp_echo_hdr *icmp)
+void enet_debug_print_icmp_packet(struct icmp_echo_hdr *icmp, size_t payload_size)
 {
-    ICMP_DEBUG("ICMP type: %02x\n", icmp->type);
-    ICMP_DEBUG("ICMP code: %02x\n", icmp->code);
-    ICMP_DEBUG("ICMP chksum: %04x\n", ntohs(icmp->chksum));
-    ICMP_DEBUG("ICMP id: %04x\n", ntohs(icmp->id));
-    ICMP_DEBUG("ICMP seqno: %04x\n", ntohs(icmp->seqno));
+    ICMP_DEBUG("ICMP type: 0x%02x\n", icmp->type);
+    ICMP_DEBUG("ICMP code: 0x%02x\n", icmp->code);
+    ICMP_DEBUG("ICMP chksum: 0x%04x\n", ntohs(icmp->chksum));
+    ICMP_DEBUG("ICMP id: 0x%04x\n", ntohs(icmp->id));
+    ICMP_DEBUG("ICMP seqno: 0x%04x\n", ntohs(icmp->seqno));
+    ICMP_DEBUG("ICMP payload size: 0x%lx\n", payload_size);
+    // for (int i = 0; i < payload_size; i++) {
+    //     ICMP_DEBUG("%02d: 0x%02x\n", i, ((char *)icmp + ICMP_HLEN)[i]);
+    // }
+}
+
+void enet_debug_print_udp_packet(struct udp_hdr *udp)
+{
+    UDP_DEBUG("UDP src: %d\n", ntohs(udp->src));
+    UDP_DEBUG("UDP dst: %d\n", ntohs(udp->dest));
+    UDP_DEBUG("UDP len: 0x%04x\n", ntohs(udp->len));
+    UDP_DEBUG("UDP chksum: 0x%04x\n", ntohs(udp->chksum));
+    // UDP_DEBUG("HEADER\n");
+    // for (int i = 0; i < UDP_HLEN; i++) {
+    //     UDP_DEBUG("%02d: 0x%02x\n", i, ((char *)udp)[i]);
+    // }
+    // UDP_DEBUG("PAYLOAD\n");
+    // for (int i = 0; i < ntohs(udp->len) - UDP_HLEN; i++) {
+    //     UDP_DEBUG("%02d: 0x%02x\n", i, ((char *)udp + UDP_HLEN)[i]);
+    // }
 }
 
 void enet_debug_print_arp_table(collections_hash_table *arp_table)

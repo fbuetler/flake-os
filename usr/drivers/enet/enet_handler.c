@@ -102,7 +102,6 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
 
     struct arp_hdr *arp = (struct arp_hdr *)((char *)eth + ETH_HLEN);
 
-    enet_debug_print_eth_packet(eth);
     enet_debug_print_arp_packet(arp);
 
     switch (ntohs(arp->opcode)) {
@@ -163,27 +162,25 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
     struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
     struct icmp_echo_hdr *icmp = (struct icmp_echo_hdr *)((char *)ip + IP_HLEN);
 
-    enet_debug_print_icmp_packet(icmp);
-
     char *icmp_payload = (char *)icmp + ICMP_HLEN;
     size_t icmp_payload_size = ntohs(ip->len) - IP_HLEN - ICMP_HLEN;
-    ICMP_DEBUG("ICMP payload size: 0x%lx\n", icmp_payload_size);
+    enet_debug_print_icmp_packet(icmp, icmp_payload_size);
 
     // control checksum
     if (inet_checksum(icmp, ICMP_HLEN + icmp_payload_size)) {
         ICMP_DEBUG("Dropping packet with invalid checksum: 0x%04x\n",
-                   inet_checksum(icmp, ICMP_HLEN));
+                   inet_checksum(icmp, ICMP_HLEN + icmp_payload_size));
         return SYS_ERR_OK;
     }
 
     // handle
     switch (icmp->type) {
     case ICMP_ER:
-        DEBUG_PRINTF("RECEIVED ICMP ECHO REPLY PACKET\n");
+        ICMP_DEBUG("RECEIVED ICMP ECHO REPLY PACKET\n");
         // TODO handle
         break;
     case ICMP_ECHO:
-        DEBUG_PRINTF("RECEIVED ICMP ECHO PACKET\n");
+        ICMP_DEBUG("RECEIVED ICMP ECHO PACKET\n");
         struct eth_hdr *resp_icmp;
         size_t resp_icmp_size;
         err = enet_assemble_icmp_packet(enet_split_mac(st->mac), ENET_STATIC_IP, eth->src,
@@ -210,13 +207,51 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
     return SYS_ERR_OK;
 }
 
+static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_hdr *eth)
+{
+    errval_t err;
+
+    struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
+    struct udp_hdr *udp = (struct udp_hdr *)((char *)ip + IP_HLEN);
+
+    enet_debug_print_udp_packet(udp);
+
+    char *udp_payload = (char *)udp + UDP_HLEN;
+    size_t udp_payload_size = ntohs(udp->len);
+
+    // control checksum
+    if (inet_checksum(udp, UDP_HLEN + udp_payload_size)) {
+        UDP_DEBUG("Dropping packet with invalid checksum: 0x%04x\n",
+                  inet_checksum(udp, UDP_HLEN + udp_payload_size));
+        return SYS_ERR_OK;
+    }
+
+    // echo udp packet
+    struct eth_hdr *resp_udp;
+    size_t resp_udp_size;
+    err = enet_assemble_udp_packet(enet_split_mac(st->mac), ENET_STATIC_IP,
+                                   ENET_STATIC_PORT, eth->src, ntohl(ip->src),
+                                   ntohs(udp->src), udp_payload, udp_payload_size,
+                                   &resp_udp, &resp_udp_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to assemble UDP packet");
+        return err;
+    }
+
+    err = safe_enqueue(st->safe_txq, (void *)resp_udp, resp_udp_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to enqueue buffer");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
 static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
     errval_t err;
 
     struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
-
-    enet_debug_print_eth_packet(eth);
     enet_debug_print_ip_packet(ip);
 
     // drop fragemented packets
@@ -233,7 +268,7 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
 
     switch (ip->proto) {
     case IP_PROTO_ICMP:
-        DEBUG_PRINTF("RECEIVED ICMP PACKET\n");
+        ICMP_DEBUG("RECEIVED ICMP PACKET\n");
         err = enet_handle_icmp_packet(st, eth);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle ICMP packet");
@@ -244,7 +279,12 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
         DEBUG_PRINTF("RECEIVED IGMP PACKET\n");
         break;
     case IP_PROTO_UDP:
-        DEBUG_PRINTF("RECEIVED UDP PACKET\n");
+        UDP_DEBUG("RECEIVED UDP PACKET\n");
+        err = enet_handle_udp_packet(st, eth);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to handle UDP packet");
+            return err;
+        }
         break;
     case IP_PROTO_UDPLITE:
         DEBUG_PRINTF("RECEIVED UDP LITE PACKET\n");
@@ -265,11 +305,11 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
     errval_t err;
 
-    // enet_debug_print_eth_packet(eth);
+    enet_debug_print_eth_packet(eth);
 
     switch (ntohs(eth->type)) {
     case ETH_TYPE_ARP:
-        DEBUG_PRINTF("RECEIVED ARP PACKET\n");
+        ETHARP_DEBUG("RECEIVED ARP PACKET\n");
         err = enet_handle_arp_packet(st, eth);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle ARP packet");
@@ -277,7 +317,7 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct eth_hdr *eth)
         }
         break;
     case ETH_TYPE_IP:
-        DEBUG_PRINTF("RECEIVED IP PACKET\n");
+        IP_DEBUG("RECEIVED IP PACKET\n");
         err = enet_handle_ip_packet(st, eth);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle IP packet");
