@@ -47,9 +47,9 @@ __attribute__((unused)) static errval_t enet_get_mac_by_ip(struct enet_driver_st
     // otherwise broadcast request
     struct eth_hdr *arp;
     size_t arp_size;
-    err = enet_assemble_arp_packet(ARP_OP_REQ, enet_split_mac(st->mac), ENET_STATIC_IP,
-                                   enet_split_mac(ETH_BROADCAST), ip_dest, &arp,
-                                   &arp_size);
+    err = enet_assemble_arp_packet(enet_split_mac(st->mac), ENET_STATIC_IP,
+                                   enet_split_mac(ETH_BROADCAST), ip_dest, ARP_OP_REQ,
+                                   &arp, &arp_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to assemble arp packet");
         return err;
@@ -98,8 +98,8 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
         // answer requests that are for us
         struct eth_hdr *resp_arp;
         size_t resp_arp_size;
-        err = enet_assemble_arp_packet(ARP_OP_REP, enet_split_mac(st->mac),
-                                       ENET_STATIC_IP, arp->eth_src, ntohl(arp->ip_src),
+        err = enet_assemble_arp_packet(enet_split_mac(st->mac), ENET_STATIC_IP,
+                                       arp->eth_src, ntohl(arp->ip_src), ARP_OP_REP,
                                        &resp_arp, &resp_arp_size);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to assemble arp packet");

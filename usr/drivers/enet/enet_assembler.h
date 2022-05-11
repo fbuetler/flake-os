@@ -18,17 +18,10 @@
 #include <netutil/htons.h>
 #include <netutil/checksum.h>
 
-errval_t enet_assemble_eth_packet(uint16_t type, struct eth_addr eth_src,
-                                  struct eth_addr eth_dest, struct eth_hdr *reteth);
-
-errval_t enet_assemble_arp_packet(uint16_t opcode, struct eth_addr eth_src,
-                                  ip_addr_t ip_src, struct eth_addr eth_dest,
-                                  ip_addr_t ip_dest, struct eth_hdr **retarp,
+errval_t enet_assemble_arp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
+                                  struct eth_addr eth_dest, ip_addr_t ip_dest,
+                                  uint16_t opcode, struct eth_hdr **retarp,
                                   size_t *retarp_size);
-
-errval_t enet_assemble_ip_packet(struct eth_addr eth_src, ip_addr_t ip_src,
-                                 struct eth_addr eth_dest, ip_addr_t ip_dest,
-                                 uint8_t protocol, uint16_t len, struct ip_hdr *retip);
 
 errval_t enet_assemble_icmp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
                                    struct eth_addr eth_dest, ip_addr_t ip_dest,
