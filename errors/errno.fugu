@@ -1402,19 +1402,22 @@ errors aos AOS_ERR_ {
 
 // errors NIC driver
 errors sata ENET_ERR_ {
-    failure DEV_RESET        "Device reset failed",
-    failure PHY_RESET        "Phy reset failed",
-    failure MDIO_WRITE        "Timeout while trying to write to MDIO",
-    failure MDIO_READ        "Timeout while trying to reading from MDIO",
-    failure REGION_NOT_FOUND "Device region not found",
-    failure UNKNOWN_ETH_HEADER "Unkown ethernet header type",
-    failure ARP_UNKNOWN_OPCODE "Unkown ARP operation",
-    failure ETH_UNKNOWN_TYPE "Unkown ETH type",
-    failure IP_UNKOWN_PROTOCOL "Unknown IP protocol",
-    failure ICMP_UNKNOWN_TYPE "Unknown ICMP type",
-    failure SAFE_INVALID_BUFFER_SIZE "Invalid buffer size",
-    failure SAFE_NO_FREE_BUFFER "No free buffer found",
-    failure ARP_RESOLUTION "Timeout while resolving IP to MAC",
+    failure DEV_RESET                   "Device reset failed",
+    failure PHY_RESET                   "Phy reset failed",
+    failure MDIO_WRITE                  "Timeout while trying to write to MDIO",
+    failure MDIO_READ                   "Timeout while trying to reading from MDIO",
+    failure REGION_NOT_FOUND            "Device region not found",
+    failure UNKNOWN_ETH_HEADER          "Unkown ethernet header type",
+    failure ARP_UNKNOWN_OPCODE          "Unkown ARP operation",
+    failure ETH_UNKNOWN_TYPE            "Unkown ETH type",
+    failure IP_UNKOWN_PROTOCOL          "Unknown IP protocol",
+    failure ICMP_UNKNOWN_TYPE           "Unknown ICMP type",
+    failure SAFE_INVALID_BUFFER_SIZE    "Invalid buffer size",
+    failure SAFE_NO_FREE_BUFFER         "No free buffer found",
+    failure ARP_RESOLUTION              "Timeout while resolving IP to MAC",
+    failure SOCKET_EXISTS               "Socket already exists",
+    failure SOCKET_NOT_FOUND            "Socket not found",
+    failure SOCKET_EMPTY                "Socket has no inbound packets",
 };
 
 // errors LPUART driver

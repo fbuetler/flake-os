@@ -15,6 +15,8 @@
 #include <collections/hash_table.h>
 #include <netutil/etharp.h>
 
+#include "enet_socket.h"
+
 // #define ENET_DEBUG_OPTION 1
 
 #if defined(ENET_DEBUG_OPTION)
@@ -114,6 +116,7 @@ struct enet_driver_state {
     struct capref tx_mem;
 
     collections_hash_table *arp_table;
+    struct socket *sockets;
 };
 
 #define ENET_HASH_BITS 6

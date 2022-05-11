@@ -17,6 +17,8 @@
 #include "enet_debug.h"
 #include "enet_assembler.h"
 
+// #define UDP_ECHO 1
+
 static struct eth_addr enet_split_mac(uint64_t mac)
 {
     return (struct eth_addr) { .addr = { ((mac >> 40) & 0xFF), ((mac >> 32) & 0xFF),
@@ -227,6 +229,7 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     //     return SYS_ERR_OK;
     // }
 
+#ifdef UDP_ECHO
     // echo udp packet
     struct eth_hdr *resp_udp;
     size_t resp_udp_size;
@@ -245,6 +248,15 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
         return err;
     }
 
+    return SYS_ERR_OK;
+#endif
+
+    err = enet_socket_handle_inbound(st->sockets, ntohl(ip->src), ntohs(udp->src),
+                                     ntohs(udp->dest), udp_payload, udp_payload_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to handle inbound UDP packet");
+        return err;
+    }
     return SYS_ERR_OK;
 }
 
