@@ -15,6 +15,24 @@
 
 //#include <offsets.h>
 
+// basic functionality for input parsing from: https://brennan.io/2015/01/16/write-a-shell-in-c/
+
+#define RECV_BUFFER_SIZE 1024
+
+errval_t write_str(char *str, size_t len);
+
+struct shell_state {
+    struct pl011_s *uart_state;
+} shell_state;
+
+// ring buffer to recv data. tail is current position, head is initial position. tail moves for each new entry
+struct receive_state {
+    size_t head;
+    size_t tail;
+    size_t count;
+    char data[RECV_BUFFER_SIZE];
+};
+
 __attribute__((unused))
 static void interrupt_handler(void *arg) {
     DEBUG_PRINTF("Inside interrupt handler of shell \n");
@@ -25,13 +43,100 @@ static void interrupt_handler(void *arg) {
     */
 }
 
+errval_t write_str(char *str, size_t len) {
+    errval_t err = SYS_ERR_OK;
+    for (int i = 0; i < len; ++i) {
+        pl011_putchar(shell_state.uart_state, str[i]);
+    }
+    return err;
+}
+
+static void read_line(struct receive_state *recv_state) {
+    errval_t err;
+    char c;
+
+    recv_state->count = 0;
+    recv_state->head = recv_state->tail;
+
+    while(true) {
+        do {
+            err = pl011_getchar(shell_state.uart_state, &c);
+        } while (err == LPUART_ERR_NO_DATA);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Could not fetch char from pl011 uart \n");
+            abort();
+        }
+        // 4: EOT, 10: NL, 13: CR
+        if (c == 4 || c == 10 || c == 13) {
+            recv_state->data[recv_state->tail++] = '\0';
+            pl011_putchar(shell_state.uart_state, '\n');
+            return;
+        } else {
+            // ToDo: handle buffer overflow
+            recv_state->count += 1;
+            recv_state->data[recv_state->tail++] = c;
+        }
+        pl011_putchar(shell_state.uart_state, c);
+    }
+}
+
+static void listen(void) {
+    struct receive_state recv_state;
+    recv_state.head = 0;
+    recv_state.tail = 0;
+    recv_state.count = 0;
+    memset(recv_state.data, 0, RECV_BUFFER_SIZE);
+
+    size_t token_counter ;
+    char *tokens[1024];
+
+    while(true) {
+        write_str("> ", 2);
+        read_line(&recv_state);
+        token_counter = 0;
+        char *line = &recv_state.data[recv_state.head];
+
+
+        // tokenize
+        char *token;
+        token = strtok(line, " ");
+
+        while (token != NULL) {
+            //DEBUG_PRINTF("token: %s \n", token);
+            tokens[token_counter++] = token;
+            token = strtok(NULL, " ");
+        }
+        tokens[token_counter] = NULL;
+
+        // parsing
+        if(tokens[0] == NULL) {
+            DEBUG_PRINTF("No command was entered? \n");
+        } else {
+            if(strcmp(tokens[0], "exit") == 0) {
+                return;
+            } else if (strcmp(tokens[0], "help") == 0) {
+                char *o = "help called. Available commands:\n";
+                write_str(o, strlen(o));
+                o = "help: this message\n";
+                write_str(o, strlen(o));
+                o = "exit: terminate the shell\n";
+                write_str(o, strlen(o));
+            } else {
+                char *o = "Unknown command\n";
+                write_str(o, strlen(o));
+            }
+        }
+
+
+    }
+}
+
 int main(int argc, char *argv[])
 {
     DEBUG_PRINTF("Shell Started\n");
 
     errval_t err;
 
-    struct pl011_s *s_pl;
     //struct lpuart_s *s_lp;
     void *vbase_pl011;
     void *vbase_gic;
@@ -84,7 +189,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    err = pl011_init(&s_pl, (lvaddr_t *)vbase_pl011);
+    err = pl011_init(&shell_state.uart_state, (lvaddr_t *)vbase_pl011);
     //err = lpuart_init(&s_lp, (lvaddr_t *)vbase_pl011);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "Could not init pl011 uart \n");
@@ -127,22 +232,8 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    while(true) {
-        char c;
-        do {
-            err = pl011_getchar(s_pl, &c);
-        }while(err == LPUART_ERR_NO_DATA);
-        if(err_is_fail(err)) {
-            DEBUG_ERR(err, "Could not fetch char from pl011 uart \n");
-            return -1;
-        }
-        pl011_putchar(s_pl, c);
-    }
-
+    listen();
     /* done? */
-    pl011_putchar(s_pl, '\n');
-    pl011_putchar(s_pl, 'x');
-    pl011_putchar(s_pl, '\n');
 
 #if 0
     while (true) {
