@@ -13,6 +13,7 @@
 #include <driverkit/driverkit.h>
 #include <dev/imx8x/enet_dev.h>
 #include <collections/hash_table.h>
+#include <netutil/etharp.h>
 
 // #define ENET_DEBUG_OPTION 1
 
@@ -55,9 +56,12 @@
 #define ENET_TX_CRC 0x0400
 
 // debug with:
-// arping -c 1 10.42.0.27
-// ping -v -c 1 10.42.0.27
+// ARP:  arping -c 1 10.42.0.27
+//       arp -n
+// ICMP: ping -v -c 1 10.42.0.27
+// UDP:  nc -u 10.42.0.27 3027
 #define ENET_STATIC_IP MK_IP(10, 42, 0, 27)
+#define ENET_STATIC_PORT 3027
 
 struct region_entry {
     uint32_t rid;
@@ -115,7 +119,7 @@ struct enet_driver_state {
 #define ENET_HASH_BITS 6
 #define ENET_CRC32_POLY 0xEDB88320
 
-errval_t enet_handle_packet(struct enet_driver_state *st, struct devq_buf *packet);
+errval_t enet_handle_packet(struct enet_driver_state *st, struct eth_hdr *eth);
 
 struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid);
 

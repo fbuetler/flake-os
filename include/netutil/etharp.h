@@ -6,7 +6,7 @@
 #include <aos/aos.h>
 
 
-#define ETHARP_DEBUG_OPTION 1
+// #define ETHARP_DEBUG_OPTION 1
 
 #if defined(ETHARP_DEBUG_OPTION)
 #    define ETHARP_DEBUG(x...) debug_printf("[etharp] " x);

@@ -55,12 +55,10 @@ void enet_debug_print_arp_packet(struct arp_hdr *arp)
     ETHARP_DEBUG("ARP proto len: 0x%02x\n", arp->protolen);
     ETHARP_DEBUG("ARP op code: 0x%04x\n", ntohs(arp->opcode));
 
-    ip_addr_t src = ntohl(arp->ip_src);
-    ip_addr_t dest = ntohl(arp->ip_dst);
     ETHARP_DEBUG("ARP eth src: %s\n", enet_print_mac(arp->eth_src));
-    ETHARP_DEBUG("ARP ip src: %s\n", enet_print_ip(src));
+    ETHARP_DEBUG("ARP ip src: %s\n", enet_print_ip(ntohl(arp->ip_src)));
     ETHARP_DEBUG("ARP eth dest: %s\n", enet_print_mac(arp->eth_dst));
-    ETHARP_DEBUG("ARP ip dest: %s\n", enet_print_ip(dest));
+    ETHARP_DEBUG("ARP ip dest: %s\n", enet_print_ip(ntohl(arp->ip_dst)));
 }
 
 void enet_debug_print_ip_packet(struct ip_hdr *ip)
@@ -74,10 +72,8 @@ void enet_debug_print_ip_packet(struct ip_hdr *ip)
     IP_DEBUG("IP protocol: 0x%02x\n", ip->proto);
     IP_DEBUG("IP checksum: 0x%04x\n", ntohs(ip->chksum));
 
-    ip_addr_t src = ntohl(ip->src);
-    ip_addr_t dest = ntohl(ip->dest);
-    IP_DEBUG("IP src: %s\n", enet_print_ip(src));
-    IP_DEBUG("IP dest: %s\n", enet_print_ip(dest));
+    IP_DEBUG("IP src: %s\n", enet_print_ip(ntohl(ip->src)));
+    IP_DEBUG("IP dest: %s\n", enet_print_ip(ntohl(ip->dest)));
 }
 
 void enet_debug_print_icmp_packet(struct icmp_echo_hdr *icmp)

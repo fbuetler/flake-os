@@ -27,7 +27,8 @@
                 "enet_module.c",
                 "enet_handler.c",
                 "enet_debug.c",
-                "enet_safe_queue.c"
+                "enet_safe_queue.c",
+                "enet_assembler.c"
             ],
     mackerelDevices = ["imx8x/enet"],
     addLibraries = libDeps ["devif_backend_enet", "netutil", "grading" ],

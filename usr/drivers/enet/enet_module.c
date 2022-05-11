@@ -22,7 +22,6 @@
 #include <aos/deferred.h>
 #include <driverkit/driverkit.h>
 #include <dev/imx8x/enet_dev.h>
-#include <netutil/etharp.h>
 
 
 #include "enet.h"
@@ -556,6 +555,17 @@ static errval_t enet_probe(struct enet_driver_state *st)
     return SYS_ERR_OK;
 }
 
+struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid)
+{
+    struct region_entry *r = regions;
+    while (r != NULL) {
+        if (r->rid == rid) {
+            return r;
+        }
+        r = r->next;
+    }
+    return NULL;
+}
 
 int main(int argc, char *argv[])
 {
@@ -696,7 +706,18 @@ int main(int argc, char *argv[])
         if (err_is_ok(err)) {
             debug_printf("Received Packet of size %lu \n", buf.valid_length);
 
-            err = enet_handle_packet(st, &buf);
+            struct region_entry *region = enet_get_region(st->rxq->regions, buf.rid);
+            if (!region) {
+                err = ENET_ERR_REGION_NOT_FOUND;
+                DEBUG_ERR(err, "failed to find region");
+                return err;
+            }
+
+            struct eth_hdr *eth = (struct eth_hdr *)((char *)region->mem.vbase
+                                                     + buf.offset + buf.valid_data);
+
+
+            err = enet_handle_packet(st, eth);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to handle packet");
             }
