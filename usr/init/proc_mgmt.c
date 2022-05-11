@@ -212,13 +212,11 @@ errval_t spawn_lpuart_driver(struct spawninfo **retsi)
 
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
-    err = setup_process("shell", si,
-                        pid);  // TODO thierry: change to correct binary name
+    err = setup_process("shell", si, pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn shell driver");
     }
 
-    // TODO thierry check if thats everything you need
     // NOTE: will only run with IMX8X
     // use to run with board: IMX8X_UART0_BASE, IMX8X_UART_SIZE
     err = setup_driver_devframe(si, QEMU_UART_BASE, QEMU_UART_SIZE);
