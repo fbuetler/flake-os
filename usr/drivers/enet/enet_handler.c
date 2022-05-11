@@ -42,6 +42,7 @@ static uint64_t enet_fuse_mac(struct eth_addr mac)
            | ((uint64_t)mac.addr[4] << 8) | ((uint64_t)mac.addr[5] << 0);
 }
 
+// TODO refactor packet assembly line
 static errval_t enet_assemble_eth_packet(uint16_t type, struct eth_addr eth_src,
                                          struct eth_addr eth_dest, struct eth_hdr *reteth)
 {
