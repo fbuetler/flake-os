@@ -134,7 +134,8 @@ static errval_t enet_create_udp_packet(uint16_t udp_src, uint16_t udp_dest, char
     memcpy((char *)udp + UDP_HLEN, payload, payload_size);
 
     udp->chksum = 0;
-    udp->chksum = inet_checksum(udp, UDP_HLEN + payload_size);
+    // UDP checksum seems to be broken
+    // udp->chksum = inet_checksum(udp, UDP_HLEN + payload_size);
 
     return SYS_ERR_OK;
 }

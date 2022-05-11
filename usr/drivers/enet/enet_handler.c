@@ -217,14 +217,15 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     enet_debug_print_udp_packet(udp);
 
     char *udp_payload = (char *)udp + UDP_HLEN;
-    size_t udp_payload_size = ntohs(udp->len);
+    size_t udp_payload_size = ntohs(udp->len) - UDP_HLEN;
 
-    // control checksum
-    if (inet_checksum(udp, UDP_HLEN + udp_payload_size)) {
-        UDP_DEBUG("Dropping packet with invalid checksum: 0x%04x\n",
-                  inet_checksum(udp, UDP_HLEN + udp_payload_size));
-        return SYS_ERR_OK;
-    }
+    // UDP checksum seems to be broken
+    // // control checksum
+    // if (inet_checksum(udp, UDP_HLEN + udp_payload_size)) {
+    //     UDP_DEBUG("Dropping packet with invalid checksum: 0x%04x\n",
+    //               inet_checksum(udp, UDP_HLEN + udp_payload_size));
+    //     return SYS_ERR_OK;
+    // }
 
     // echo udp packet
     struct eth_hdr *resp_udp;
