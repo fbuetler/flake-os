@@ -2,14 +2,6 @@
 #include "enet_assembler.h"
 #include "enet_debug.h"
 
-// #define ENET_ASSEMBLER_DEBUG_OPTION 1
-
-#if defined(ENET_ASSEMBLER_DEBUG_OPTION)
-#    define ASSEMBLER_DEBUG(x...) debug_printf("[assemble] " x);
-#else
-#    define ASSEMBLER_DEBUG(fmt, ...) ((void)0)
-#endif
-
 static errval_t enet_create_eth_packet(struct eth_addr eth_src, struct eth_addr eth_dest,
                                        uint16_t type, struct eth_hdr *eth)
 {

@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define IP_DEBUG_OPTION 1
+// #define IP_DEBUG_OPTION 1
 
 #if defined(IP_DEBUG_OPTION)
 #    define IP_DEBUG(x...) debug_printf("[ip] " x);

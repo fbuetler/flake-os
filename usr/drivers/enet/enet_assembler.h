@@ -18,6 +18,14 @@
 #include <netutil/htons.h>
 #include <netutil/checksum.h>
 
+// #define ENET_ASSEMBLER_DEBUG_OPTION 1
+
+#if defined(ENET_ASSEMBLER_DEBUG_OPTION)
+#    define ASSEMBLER_DEBUG(x...) debug_printf("[assemble] " x);
+#else
+#    define ASSEMBLER_DEBUG(fmt, ...) ((void)0)
+#endif
+
 errval_t enet_assemble_arp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
                                   struct eth_addr eth_dest, ip_addr_t ip_dest,
                                   uint16_t opcode, struct eth_hdr **retarp,
