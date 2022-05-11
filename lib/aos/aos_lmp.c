@@ -262,7 +262,7 @@ static errval_t aos_lmp_recv_msg(struct aos_lmp *lmp)
     struct lmp_recv_msg recv_buf = LMP_RECV_MSG_INIT;
 
     err = lmp_chan_recv(&lmp->chan, &recv_buf, &msg_cap);
-    if (err_is_fail(err) && lmp_err_is_transient(err)) {
+    if (err_is_fail(err) && (lmp_err_is_transient(err) || err == LIB_ERR_NO_LMP_MSG)) {
         goto reregister;
     } else if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
@@ -547,7 +547,6 @@ errval_t aos_lmp_send_msg(struct aos_lmp *lmp, struct aos_lmp_msg *msg)
     else
         remaining = total_bytes - transferred_size;
 
-    err = SYS_ERR_OK;
     do {
         switch (DIVIDE_ROUND_UP(remaining, sizeof(uint64_t))) {
         case 0:
