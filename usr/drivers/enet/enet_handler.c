@@ -240,8 +240,8 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     return SYS_ERR_OK;
 #endif
 
-    err = enet_socket_handle_inbound(st, ntohl(ip->src), ntohs(udp->src),
-                                     ntohs(udp->dest), udp_payload, udp_payload_size);
+    err = enet_udp_socket_handle_inbound(st, ntohl(ip->src), ntohs(udp->src),
+                                         ntohs(udp->dest), udp_payload, udp_payload_size);
     if (err_is_fail(err)) {
         if (err == ENET_ERR_SOCKET_NOT_FOUND) {
             UDP_DEBUG("Destination unreachable (Port unreachable)\n");
@@ -254,7 +254,7 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
 
 #ifdef UDP_HACK
     // HACK to read packet
-    struct socket *hack_socket = st->sockets;
+    struct udp_socket *hack_socket = st->udp_sockets;
     while (hack_socket) {
         if (hack_socket->port == ntohs(udp->dest)) {
             break;
@@ -263,8 +263,8 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     }
     assert(hack_socket);
 
-    struct socket_buf *buf;
-    err = enet_socket_receive(hack_socket, &buf);
+    struct udp_socket_buf *buf;
+    err = enet_udp_socket_receive(hack_socket, &buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive");
         return err;
@@ -276,7 +276,7 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     }
 
     // hack send packet
-    err = enet_socket_send(st, ntohl(ip->src), 8051, "ciao\n", 5);
+    err = enet_udp_socket_send(st, ntohl(ip->src), 8051, "ciao\n", 5);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send");
         return err;

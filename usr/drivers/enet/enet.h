@@ -120,7 +120,7 @@ struct enet_driver_state {
     struct capref tx_mem;
 
     collections_hash_table *arp_table;
-    struct socket *sockets;
+    struct udp_socket *udp_sockets;
 };
 
 #define ENET_HASH_BITS 6

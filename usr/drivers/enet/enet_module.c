@@ -701,7 +701,7 @@ int main(int argc, char *argv[])
 
 #ifdef UDP_HACK
     // HACK to read packet
-    err = enet_create_socket(st, ENET_SOCKET_UDP, ENET_STATIC_PORT);
+    err = enet_create_udp_socket(st, ENET_SOCKET_UDP, ENET_STATIC_PORT);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create UDP socket");
         return err;
