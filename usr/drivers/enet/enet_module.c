@@ -699,12 +699,14 @@ int main(int argc, char *argv[])
 
     collections_hash_create(&st->arp_table, free);
 
+#ifdef UDP_HACK
     // HACK to read packet
     err = enet_create_socket(st, ENET_SOCKET_UDP, ENET_STATIC_PORT);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create UDP socket");
         return err;
     }
+#endif
 
     debug_printf("Ready to accept connections\n");
     struct devq_buf buf;

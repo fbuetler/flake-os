@@ -161,6 +161,10 @@ errval_t enet_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
 {
     errval_t err;
 
+    if (payload_size >= (1 << 16) - IP_HLEN - UDP_HLEN) {
+        return ENET_ERR_UDP_PAYLOAD_SIZE_EXCEEDED;
+    }
+
     struct eth_addr mac_dest;
     err = enet_get_mac_by_ip(st, ip_dest, &mac_dest);
     if (err_is_fail(err)) {
