@@ -52,7 +52,7 @@ errval_t enet_get_mac_by_ip(struct enet_driver_state *st, ip_addr_t ip_dest,
         return err;
     }
 
-#ifdef 0
+#if 0
     // wait until response is here
     size_t retries = 0;
     size_t max_retries = 512;
