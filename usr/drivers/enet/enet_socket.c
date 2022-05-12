@@ -36,7 +36,7 @@ static void enet_socket_debug_print(struct socket *sockets)
     UDP_DEBUG("==================================\n");
 }
 
-errval_t enet_create_socket(struct enet_driver_state *st, enum socket_type type,
+errval_t enet_create_socket(struct enet_driver_state *st, enum socket_proto proto,
                             uint16_t port)
 {
     if (enet_get_socket(st->sockets, port)) {
@@ -48,7 +48,7 @@ errval_t enet_create_socket(struct enet_driver_state *st, enum socket_type type,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    s->type = type;
+    s->proto = proto;
     s->port = port;
     s->inbound_head = NULL;
     s->inbound_tail = NULL;

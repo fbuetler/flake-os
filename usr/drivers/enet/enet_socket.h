@@ -21,7 +21,7 @@
 // forward declaration
 struct enet_driver_state;
 
-enum socket_type {
+enum socket_proto {
     ENET_SOCKET_UDP,
 };
 
@@ -34,7 +34,7 @@ struct socket_buf {
 };
 
 struct socket {
-    enum socket_type type;
+    enum socket_proto proto;
 
     // UDP
     uint16_t port;
@@ -44,7 +44,7 @@ struct socket {
     struct socket *next;
 };
 
-errval_t enet_create_socket(struct enet_driver_state *st, enum socket_type type,
+errval_t enet_create_socket(struct enet_driver_state *st, enum socket_proto proto,
                             uint16_t port);
 errval_t enet_destroy_socket(struct enet_driver_state *st, uint16_t port);
 
