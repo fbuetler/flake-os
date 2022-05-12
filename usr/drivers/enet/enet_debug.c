@@ -121,7 +121,6 @@ void enet_debug_print_arp_table(collections_hash_table *arp_table)
             break;
         }
 
-        ip = ntohl(ip);
         ETHARP_DEBUG("%d.%d.%d.%d - %02x:%02x:%02x:%02x:%02x:%02x\n", (ip >> 24) & 0xFF,
                      (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF,
                      ((*eth >> 40) & 0xFF), ((*eth >> 32) & 0xFF), ((*eth >> 24) & 0xFF),

@@ -10,10 +10,12 @@
 #ifndef ENET_H_
 #define ENET_H_
 
+#include <devif/queue_interface_backend.h>
 #include <driverkit/driverkit.h>
 #include <dev/imx8x/enet_dev.h>
 #include <collections/hash_table.h>
 #include <netutil/etharp.h>
+#include <netutil/ip.h>
 
 #include "enet_socket.h"
 
@@ -58,10 +60,12 @@
 #define ENET_TX_CRC 0x0400
 
 // debug with:
-// ARP:  arping -c 1 10.42.0.27
-//       arp -n
-// ICMP: ping -v -c 1 10.42.0.27
-// UDP:  nc -u 10.42.0.27 3027
+// ARP:         arping -c 1 10.42.0.27
+//              arp -n
+// ICMP:        ping -v -c 1 10.42.0.27
+// UDP client:  nc -u 10.42.0.27 3027
+//     server:  nc -l -u -p 8051 10.42.0.1
+
 #define ENET_STATIC_IP MK_IP(10, 42, 0, 27)
 #define ENET_STATIC_PORT 3027
 
@@ -125,5 +129,9 @@ struct enet_driver_state {
 errval_t enet_handle_packet(struct enet_driver_state *st, struct eth_hdr *eth);
 
 struct region_entry *enet_get_region(struct region_entry *regions, uint32_t rid);
+struct eth_addr enet_split_mac(uint64_t mac);
+uint64_t enet_fuse_mac(struct eth_addr mac);
+errval_t enet_get_mac_by_ip(struct enet_driver_state *st, ip_addr_t ip_dest,
+                            struct eth_addr *retmac);
 
 #endif  // ndef ENET_H_

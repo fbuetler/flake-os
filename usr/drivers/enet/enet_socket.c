@@ -1,5 +1,8 @@
 
 #include "enet_socket.h"
+#include "enet.h"
+#include "enet_assembler.h"
+#include "enet_safe_queue.h"
 
 static struct socket *enet_get_socket(struct socket *sockets, uint16_t port)
 {
@@ -33,9 +36,10 @@ static void enet_socket_debug_print(struct socket *sockets)
     UDP_DEBUG("==================================\n");
 }
 
-errval_t enet_create_socket(struct socket **sockets, enum socket_type type, uint16_t port)
+errval_t enet_create_socket(struct enet_driver_state *st, enum socket_type type,
+                            uint16_t port)
 {
-    if (enet_get_socket(*sockets, port)) {
+    if (enet_get_socket(st->sockets, port)) {
         return ENET_ERR_SOCKET_EXISTS;
     }
 
@@ -49,19 +53,19 @@ errval_t enet_create_socket(struct socket **sockets, enum socket_type type, uint
     s->inbound_head = NULL;
     s->inbound_tail = NULL;
 
-    s->next = *sockets;
-    *sockets = s;
+    s->next = st->sockets;
+    st->sockets = s;
 
     return SYS_ERR_OK;
 }
 
-errval_t enet_destroy_socket(struct socket *sockets, uint16_t port)
+errval_t enet_destroy_socket(struct enet_driver_state *st, uint16_t port)
 {
-    if (!sockets) {
+    if (!st->sockets) {
         return SYS_ERR_OK;
     }
 
-    struct socket *s = sockets;
+    struct socket *s = st->sockets;
     struct socket *prev_s = NULL;
     while (s) {
         if (s->port == port) {
@@ -84,7 +88,7 @@ errval_t enet_destroy_socket(struct socket *sockets, uint16_t port)
         prev_s->next = s->next;
     } else {
         // first
-        sockets = s->next;
+        st->sockets = s->next;
     }
 
     free(s);
@@ -92,11 +96,11 @@ errval_t enet_destroy_socket(struct socket *sockets, uint16_t port)
     return SYS_ERR_OK;
 }
 
-errval_t enet_socket_handle_inbound(struct socket *sockets, ip_addr_t src_ip,
+errval_t enet_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t src_ip,
                                     uint16_t src_port, uint16_t dest_port, char *payload,
                                     size_t payload_size)
 {
-    struct socket *s = enet_get_socket(sockets, dest_port);
+    struct socket *s = enet_get_socket(st->sockets, dest_port);
     if (!s) {
         return ENET_ERR_SOCKET_NOT_FOUND;
     }
@@ -128,7 +132,7 @@ errval_t enet_socket_handle_inbound(struct socket *sockets, ip_addr_t src_ip,
     }
     s->inbound_tail = buf;
 
-    enet_socket_debug_print(sockets);
+    enet_socket_debug_print(st->sockets);
 
     return SYS_ERR_OK;
 }
@@ -152,8 +156,33 @@ errval_t enet_socket_receive(struct socket *s, struct socket_buf **retbuf)
     return SYS_ERR_OK;
 }
 
-errval_t enet_socket_send(struct socket *s, struct safe_q *tx_queue)
+errval_t enet_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
+                          uint16_t port_dest, char *payload, size_t payload_size)
 {
-    // TODO
+    errval_t err;
+
+    struct eth_addr mac_dest;
+    err = enet_get_mac_by_ip(st, ip_dest, &mac_dest);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get MAC for IP");
+        return err;
+    }
+
+    struct eth_hdr *resp_udp;
+    size_t resp_udp_size;
+    err = enet_assemble_udp_packet(enet_split_mac(st->mac), ENET_STATIC_IP,
+                                   ENET_STATIC_PORT, mac_dest, ip_dest, port_dest,
+                                   payload, payload_size, &resp_udp, &resp_udp_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to assemble UDP packet");
+        return err;
+    }
+
+    err = safe_enqueue(st->safe_txq, (void *)resp_udp, resp_udp_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to enqueue buffer");
+        return err;
+    }
+
     return SYS_ERR_OK;
 }

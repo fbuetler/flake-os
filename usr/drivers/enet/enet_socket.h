@@ -18,6 +18,9 @@
 
 #include "enet_safe_queue.h"
 
+// forward declaration
+struct enet_driver_state;
+
 enum socket_type {
     ENET_SOCKET_UDP,
 };
@@ -41,15 +44,17 @@ struct socket {
     struct socket *next;
 };
 
-errval_t enet_create_socket(struct socket **sockets, enum socket_type type, uint16_t port);
-errval_t enet_destroy_socket(struct socket *sockets, uint16_t port);
+errval_t enet_create_socket(struct enet_driver_state *st, enum socket_type type,
+                            uint16_t port);
+errval_t enet_destroy_socket(struct enet_driver_state *st, uint16_t port);
 
-errval_t enet_socket_handle_inbound(struct socket *sockets, ip_addr_t ip, uint16_t port,
-                                    uint16_t dest_port, char *payload,
+errval_t enet_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t ip,
+                                    uint16_t port, uint16_t dest_port, char *payload,
                                     size_t payload_size);
 
 errval_t enet_socket_receive(struct socket *s, struct socket_buf **retbuf);
-errval_t enet_socket_send(struct socket *s, struct safe_q *tx_queue);
+errval_t enet_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
+                          uint16_t port_dest, char *payload, size_t payload_size);
 
 
 #endif /* ENET_SOCKET_H_ */

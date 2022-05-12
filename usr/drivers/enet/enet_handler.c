@@ -1,14 +1,5 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#include <devif/queue_interface_backend.h>
-#include <devif/backends/net/enet_devif.h>
 #include <aos/aos.h>
-#include <aos/deferred.h>
-#include <driverkit/driverkit.h>
-#include <dev/imx8x/enet_dev.h>
-#include <netutil/etharp.h>
+
 #include <netutil/htons.h>
 #include <netutil/checksum.h>
 
@@ -19,27 +10,27 @@
 
 // #define UDP_ECHO 1
 
-static struct eth_addr enet_split_mac(uint64_t mac)
+struct eth_addr enet_split_mac(uint64_t mac)
 {
     return (struct eth_addr) { .addr = { ((mac >> 40) & 0xFF), ((mac >> 32) & 0xFF),
                                          ((mac >> 24) & 0xFF), ((mac >> 16) & 0xFF),
                                          ((mac >> 8) & 0xFF), ((mac >> 0) & 0xFF) } };
 }
 
-static uint64_t enet_fuse_mac(struct eth_addr mac)
+uint64_t enet_fuse_mac(struct eth_addr mac)
 {
     return ((uint64_t)mac.addr[0] << 40) | ((uint64_t)mac.addr[1] << 32)
            | ((uint64_t)mac.addr[2] << 24) | ((uint64_t)mac.addr[3] << 16)
            | ((uint64_t)mac.addr[4] << 8) | ((uint64_t)mac.addr[5] << 0);
 }
 
-__attribute__((unused)) static errval_t enet_get_mac_by_ip(struct enet_driver_state *st,
-                                                           ip_addr_t ip_dest,
-                                                           struct eth_addr *retmac)
+errval_t enet_get_mac_by_ip(struct enet_driver_state *st, ip_addr_t ip_dest,
+                            struct eth_addr *retmac)
 {
     errval_t err;
 
     // get from cache if available
+    enet_debug_print_arp_table(st->arp_table);
     uint64_t *mac = (uint64_t *)collections_hash_find(st->arp_table, ip_dest);
     if (mac) {
         *retmac = enet_split_mac(*mac);
@@ -131,7 +122,7 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
         }
 
         // store IP to MAC mapping of sender
-        err = enet_update_arp_table(st, arp->ip_src, arp->eth_src);
+        err = enet_update_arp_table(st, ntohl(arp->ip_src), arp->eth_src);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to update ARP table");
             return err;
@@ -140,7 +131,7 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
         break;
     case ARP_OP_REP:
         // store IP to MAC mapping
-        err = enet_update_arp_table(st, arp->ip_src, arp->eth_src);
+        err = enet_update_arp_table(st, ntohl(arp->ip_src), arp->eth_src);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to update ARP table");
             return err;
@@ -251,9 +242,14 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     return SYS_ERR_OK;
 #endif
 
-    err = enet_socket_handle_inbound(st->sockets, ntohl(ip->src), ntohs(udp->src),
+    err = enet_socket_handle_inbound(st, ntohl(ip->src), ntohs(udp->src),
                                      ntohs(udp->dest), udp_payload, udp_payload_size);
     if (err_is_fail(err)) {
+        if (err == ENET_ERR_SOCKET_NOT_FOUND) {
+            UDP_DEBUG("Destination unreachable (Port unreachable)\n");
+            // TODO send back ICMP_DUR/ICMP_DUR_PORT
+            return SYS_ERR_OK;
+        }
         DEBUG_ERR(err, "failed to handle inbound UDP packet");
         return err;
     }
