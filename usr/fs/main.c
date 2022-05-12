@@ -22,55 +22,219 @@
 #include <aos/deferred.h>
 #include <drivers/sdhc.h>
 #include <maps/imx8x_map.h>
+#include <aos/cache.h>
+
+
+#define FAT32_BPB_BytsPerSec_OFFSET 11
+#define FAT32_BPB_SecPerClus_OFFSET 13
+#define FAT32_BPB_RsvdSecCnt_OFFSET 14
+#define FAT32_BPB_NumFATs_OFFSET 16
+#define FAT32_BPB_TotSec32_OFFSET 32
+#define FAT32_BPB_FATSz32_OFFSET 36
+#define FAT32_BPB_RootClus_OFFSET 44
+#define FAT32_BPB_FSInfo_OFFSET 48
 
 void *sd_mem_base;
 
-static inline lpaddr_t shdc_get_phys_addr(void *addr){
+static inline lpaddr_t shdc_get_phys_addr(void *addr)
+{
     size_t offset = (size_t)addr - (size_t)sd_mem_base;
 
     size_t phys_base = IMX8X_SDHC2_BASE;
     return (lpaddr_t)(phys_base + offset);
 }
 
+struct phys_virt_addr {
+    lpaddr_t phys;
+    void *virt;
+};
 
-static errval_t setup_read_buffer(size_t bytes, lpaddr_t *phys_base, void **virt_base) {
-    // get a frame first
-    struct capref cap;
-    errval_t err = frame_alloc(&cap, bytes, NULL);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "frame_alloc");
-        return err;
-    }
 
-    // map it
+struct fat32 {
+    struct sdhc_s *sd;
+    uint16_t BytesPerSec;
+    uint32_t RootDirSectors;
+    uint8_t SecPerClus;
+    uint32_t FatSz;
+    uint8_t NumFATs;
+    uint32_t TotSec;
+    uint32_t DataSec;
+    uint16_t RsvdSecCnt;
+    uint32_t FirstDataSector;
 
-    // TODO is this really nocache?
-    err = paging_map_frame_attr(get_current_paging_state(), virt_base, bytes, cap,
-                                    VREGION_FLAGS_READ_WRITE_NOCACHE);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "paging_map_frame_attr");
-        return err;
-    } 
+    uint32_t CountOfClusters;
+    uint32_t FirstRootDirCluster;
+    uint32_t FirstFatSector;
 
-    if(*virt_base == NULL){
-        DEBUG_PRINTF("virt_base is NULL\n");
-        return LIB_ERR_MALLOC_FAIL;
-    }
+    struct phys_virt_addr data_scratch;
+    struct phys_virt_addr fat_scratch;
+};
 
-    err = get_phys_addr(cap, (genpaddr_t *)(phys_base), NULL);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "get_phys_addr");
-        return err;
-    }
 
-    return SYS_ERR_OK;
+enum fat32_file_attribute {
+    FAT32_FATTR_READ_ONLY = 0x01,
+    FAT32_FATTR_HIDDEN = 0x02,
+    FAT32_FATTR_SYSTEM = 0x04,
+    FAT32_FATTR_VOLUME_ID = 0x08,
+    FAT32_FATTR_DIRECTORY = 0x10,
+    FAT32_FATTR_ARCHIVE = 0x20,
+    FAT32_FATTR_LONG_NAME = FAT32_FATTR_READ_ONLY | FAT32_FATTR_HIDDEN
+                            | FAT32_FATTR_SYSTEM | FAT32_FATTR_VOLUME_ID
+};
 
+struct fat32_dir_entry {
+    // Offset: 0, Size: 11
+    uint8_t Name[11];
+    // Offset: 11, Size: 1
+    uint8_t Attr;
+    // Offset: 12, Size: 1
+    uint8_t NTRes;
+    // Offset: 13, Size: 1
+    uint8_t CrtTimeTenth;
+    // Fill buf to offset 20
+    uint8_t Unused[6];
+    // Offset: 20, Size: 2
+    uint16_t FstClusHI;
+    // Offset: 22, Size: 2
+    uint16_t WrtTime;
+    // Offset: 24, Size: 2
+    uint16_t WrtDate;
+    // Offset: 26, Size: 2
+    uint16_t FstClusLO;
+    // Offset: 28, Size: 4
+    uint32_t FileSize;
+};
+
+
+struct fat32_long_dir_entry {
+    uint8_t Ord;
+    uint8_t Name1[10];
+    uint8_t Attr;
+    uint8_t Type;
+    uint8_t Checksum;
+    uint8_t Name2[12];
+    // MBZ
+    uint16_t FstClusHI;
+    uint8_t Name3[4];
+};
+
+
+#define FAT_ENTRIES_PER_SECTOR(fs) ((fs)->BytesPerSec / 4)
+#define DIR_ENTRIES_PER_SECTOR(fs) ((fs)->BytesPerSec / 32)
+
+__attribute__((unused)) static inline bool fat_entry_is_eof(uint32_t fat_entry)
+{
+    return fat_entry > 0x0FFFFFF8;
 }
 
-int main(int argc, char *argv[])
+__attribute__((unused)) static inline bool fat_entry_is_free(uint32_t fat_entry)
 {
-    struct sdhc_s *sd;
-    
+    return fat_entry == 0;
+}
+
+__attribute__((unused)) static inline bool fat_entry_is_bad_cluster(uint32_t fat_entry)
+{
+    return fat_entry == 0x0FFFFFF7;
+}
+
+__attribute__((unused)) static inline bool dir_is_free(struct fat32_dir_entry *dir)
+{
+    return dir->Name[0] == 0 || dir->Name[0] == 0xE5;
+}
+
+__attribute__((unused)) static errval_t fs_read_sector(struct fat32 *fs, uint32_t sector,
+                                                       struct phys_virt_addr *addr)
+{
+    arm64_dcache_wbinv_range((vm_offset_t)addr->virt, SDHC_BLOCK_SIZE);
+    return sdhc_read_block(fs->sd, sector, addr->phys);
+}
+
+__attribute__((unused)) static errval_t fs_write_sector(struct fat32 *fs, uint32_t sector,
+                                                        struct phys_virt_addr *addr)
+{
+    arm64_dcache_wbinv_range((vm_offset_t)addr->virt, SDHC_BLOCK_SIZE);
+    errval_t res = sdhc_write_block(fs->sd, sector, addr->phys);
+    // TODO both cache flushes aren't necessary
+    arm64_dcache_wbinv_range((vm_offset_t)addr->virt, SDHC_BLOCK_SIZE);
+    return res;
+}
+
+__attribute__((unused)) static inline uint32_t clus2sec(struct fat32 *fs, uint32_t cluster)
+{
+    return fs->FirstDataSector + (cluster - 2) * fs->SecPerClus;
+}
+
+
+__attribute__((unused)) static inline void cluster2fat_index(struct fat32 *fs,
+                                                             uint32_t cluster,
+                                                             uint32_t *fat_sector,
+                                                             uint32_t *fat_index)
+{
+    uint32_t fat_offset = cluster * 4;
+    *fat_sector = fs->RsvdSecCnt + (fat_offset / fs->BytesPerSec);
+    // uint32_t entries_per_sector = fs->BytesPerSec / 4;
+    *fat_index = (fat_offset % fs->BytesPerSec) / 4;
+    DEBUG_PRINTF("fat_sector: %d, fat_index: %d\n", *fat_sector, *fat_index);
+}
+
+
+__attribute__((unused)) static inline uint32_t
+fat_index2cluster(struct fat32 *fs, uint32_t fat_sector, uint32_t fat_index)
+{
+    return fat_index + (fat_sector - fs->FirstFatSector) * FAT_ENTRIES_PER_SECTOR(fs);
+}
+
+__attribute__((unused)) static inline uint32_t get_fat_entry(struct fat32 *fs,
+                                                             uint32_t cluster)
+{
+    uint32_t fat_sector, fat_index;
+    cluster2fat_index(fs, cluster, &fat_sector, &fat_index);
+
+    printf("look for index: %d\n", fat_index);
+    // Read FAT sector
+    sdhc_read_block(fs->sd, fat_sector, fs->fat_scratch.phys);
+
+    uint32_t *fat = (uint32_t *)fs->fat_scratch.virt;
+    for (int i = 0; i < 128; i++) {
+        printf("%d: %lx\n", i, fat[i] & 0x0FFFFFFF);
+    }
+
+    return 0;
+}
+
+__attribute__((unused)) static inline void print_file(struct fat32 *fs, uint32_t cluster,
+                                                      uint32_t size)
+{
+    while (size) {
+        uint32_t fat_sector, fat_index;
+        cluster2fat_index(fs, cluster, &fat_sector, &fat_index);
+
+        // Read FAT sector
+        fs_read_sector(fs, fat_sector, &fs->fat_scratch);
+        uint32_t new_cluster = *((uint32_t *)fs->fat_scratch.virt + fat_index)
+                               & 0x0FFFFFFF;
+
+        uint32_t cluster_start_sector = clus2sec(fs, cluster);
+
+        for (uint32_t curr_sector = cluster_start_sector;
+             curr_sector < cluster_start_sector + fs->SecPerClus && size; curr_sector++) {
+            // read sector
+            fs_read_sector(fs, curr_sector, &fs->data_scratch);
+
+            // print sector
+            uint8_t *sector = fs->data_scratch.virt;
+            for (int i = 0; (i < fs->BytesPerSec) && size > 0; i++) {
+                printf("%c", sector[i]);
+                size--;
+            }
+        }
+
+        cluster = new_cluster;
+    }
+}
+
+static errval_t init_sd(struct sdhc_s **sd)
+{
     struct capref devframe_cap = (struct capref) {
         .cnode = cnode_arg,
         .slot = ARGCN_SLOT_DEVFRAME,
@@ -80,11 +244,13 @@ int main(int argc, char *argv[])
     genpaddr_t devframe_base;
     errval_t err = get_phys_addr(devframe_cap, &devframe_base, &devframe_bytes);
 
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("failed to get phys addr of devframe\n");
+        return err;
+    }
 
-    err = paging_map_frame_attr(get_current_paging_state(), &sd_mem_base,
-                                devframe_bytes, devframe_cap,
-                                VREGION_FLAGS_READ_WRITE_NOCACHE);
+    err = paging_map_frame_attr(get_current_paging_state(), &sd_mem_base, devframe_bytes,
+                                devframe_cap, VREGION_FLAGS_READ_WRITE_NOCACHE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map dev frame");
         return err;
@@ -94,162 +260,548 @@ int main(int argc, char *argv[])
     }
 
     DEBUG_PRINTF("initializing sdhc... \n");
-    err = sdhc_init(&sd, sd_mem_base);
+    err = sdhc_init(sd, sd_mem_base);
     DEBUG_PRINTF("sdhc initialized\n");
 
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("failed to initialize sdhc\n");
+        return err;
+    }
 
-    DEBUG_PRINTF("setting up read buffer...\n");
-    lpaddr_t lpbuf;
-    void *vbuf;
-    err = setup_read_buffer(BASE_PAGE_SIZE, &lpbuf, &vbuf);
-    if(err_is_fail(err)){
+    return SYS_ERR_OK;
+}
+
+
+/*
+    Experimantal Function: read contents of root directory
+*/
+static errval_t read_root_dir(struct fat32 *fs, struct phys_virt_addr *scratch)
+{
+    uint32_t root_dir_sector = fs->FirstRootDirCluster;
+    // read it
+
+    root_dir_sector = clus2sec(fs, 17);
+
+    while (true) {
+        errval_t err = fs_read_sector(fs, root_dir_sector, scratch);
+
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to read root dir sector\n");
+            return err;
+        }
+
+        char *vbuf = (char *)scratch->virt;
+        // print out first block:
+        DEBUG_PRINTF("block: %D \n", root_dir_sector++);
+        for (int i = 0; i < SDHC_BLOCK_SIZE; i++) {
+            if (i % 32 == 0) {
+                printf("\n%lx:\t", i);
+            }
+            printf("%02x", vbuf[i]);
+        }
+        printf("\n");
+        break;
+    }
+
+    for (int i = 0; i < 16; i++) {
+        struct fat32_dir_entry *curr_dir
+            = (struct fat32_dir_entry *)((char *)scratch->virt
+                                         + i * sizeof(struct fat32_dir_entry));
+
+        DEBUG_PRINTF("dir entry %d:\n", i);
+        DEBUG_PRINTF("fsize: %d\n", curr_dir->FileSize);
+        DEBUG_PRINTF("file attributes: %d \n", curr_dir->Attr)
+    }
+    return SYS_ERR_OK;
+}
+
+
+static errval_t setup_read_buffer(size_t bytes, struct phys_virt_addr *addr)
+{
+    // get a frame first
+    struct capref cap;
+    errval_t err = frame_alloc(&cap, bytes, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame_alloc");
+        return err;
+    }
+
+    // map it
+
+    // TODO is this really nocache?
+    err = paging_map_frame_attr(get_current_paging_state(), &addr->virt, bytes, cap,
+                                VREGION_FLAGS_READ_WRITE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "paging_map_frame_attr");
+        return err;
+    }
+
+    if (addr->virt == NULL) {
+        DEBUG_PRINTF("virt_base is NULL\n");
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    err = get_phys_addr(cap, (genpaddr_t *)(&addr->phys), NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "get_phys_addr");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t init_fat32(struct fat32 *fs)
+{
+    // init card
+    errval_t err = init_sd(&fs->sd);
+
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("failed to init sd\n");
+        return err;
+    }
+
+    err = setup_read_buffer(BASE_PAGE_SIZE, &fs->data_scratch);
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "setup_read_buffer");
         return err;
     }
-    DEBUG_PRINTF("read buffer has been set up\n");
 
-
-    /*
-        READ A BLOCK
-
-
-0x000000: fab800108ed0bc00b0b800008ed88ec0
-0x000010: fbbe007cbf0006b90002f3a4ea210600
-0x000020: 00bebe073804750b83c61081fefe0775
-0x000030: f3eb16b402b001bb007cb2808a74018b
-0x000040: 4c02cd13ea007c0000ebfe0000000000
-
-
-
-0000000 58eb 6d90 666b 2e73 6166 0074 0802 0020
-0000010 0002 0000 f800 0000 0020 0040 0800 0000
-0000020 c000 01da 7678 0000 0000 0000 0002 0000
-0000030 0001 0006 0000 0000 0000 0000 0000 0000
-0000040 0080 fa29 5802 4ee4 204f 414e 454d 2020
-0000050 2020 4146 3354 2032 2020 1f0e 77be ac7c
-0000060 c022 0b74 b456 bb0e 0007 10cd eb5e 32f0
-0000070 cde4 cd16 eb19 54fe 6968 2073 7369 6e20
-0000080 746f 6120 6220 6f6f 6174 6c62 2065 6964
-0000090 6b73 202e 5020 656c 7361 2065 6e69 6573
-00000a0 7472 6120 6220 6f6f 6174 6c62 2065 6c66
-00000b0 706f 7970 6120 646e 0a0d 7270 7365 2073
-00000c0 6e61 2079 656b 2079 6f74 7420 7972 6120
-00000d0 6167 6e69 2e20 2e2e 0d20 000a 0000 0000
-00000e0 0000 0000 0000 0000 0000 0000 0000 0000
-
-
-
-EB58906D6B66732E
-6661740002082000
-0200000000F80000
-2000400000080000
-00C0DA0178760000
-0000000002000000
-0100060000000000
-0000000000000000
-800029FA0258E44E
-4F204E414D452020
-2020464154333220
-20200E1FBE777CAC
-22C0740B56B40EBB
-0700CD105EEBF032
-E4CD16CD19EBFE54
-686973206973206E
-6F74206120626F6F
-7461626C65206469
-736B2E2020506C65
-61736520696E7365
-7274206120626F6F
-7461626C6520666C
-6F70707920616E64
-0D0A707265737320
-616E79206B657920
-746F207472792061
-6761696E202E2E2E
-200D0A0000000000
-0000000000000000
-*
-00000000000055AA
-5252614100000000
-0000000000000000
-*
-0000000072724161
-5D3A3B0002000000
-0000000000000000
-00000000000055AA
-0000000000000000
-*
-EB58906D6B66732E
-6661740002082000
-0200000000F80000
-2000400000080000
-00C0DA0178760000
-0000000002000000
-0100060000000000
-0000000000000000
-800029FA0258E44E
-4F204E414D452020
-2020464154333220
-20200E1FBE777CAC
-22C0740B56B40EBB
-0700CD105EEBF032
-E4CD16CD19EBFE54
-686973206973206E
-6F74206120626F6F
-7461626C65206469
-736B2E2020506C65
-61736520696E7365
-7274206120626F6F
-7461626C6520666C
-6F70707920616E64
-0D0A707265737320
-616E79206B657920
-746F207472792061
-6761696E202E2E2E
-200D0A0000000000
-0000000000000000
-*
-00000000000055AA
-5252614100000000
-0000000000000000
-*
-0000000072724161
-5D3A3B0002000000
-0000000000000000
-00000000000055AA
-0000000000000000
-*
-F8FFFF0FFFFFFF0F
-F8FFFF0F00000000
-0000000000000000
-*
-
-    */
-
-    for(int i = 0; i < 1000; i++){
-        ((char *)vbuf)[i] = (i%2) ? 0xff : 0xee;
+    err = setup_read_buffer(BASE_PAGE_SIZE, &fs->fat_scratch);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "setup_read_buffer");
+        return err;
     }
 
-    dmb();
 
-    err = sdhc_read_block(sd, 0, lpbuf);
-    if(err_is_fail(err)){
+    // read first block
+    int j = 0;
+    err = fs_read_sector(fs, j++, &fs->fat_scratch);
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "sdhc_read_block");
         return err;
     }
 
-    // print 512 bytes
-    char *buf = (char *)vbuf;
-    for (int i = 0; i < 512; i++) {
-        if (i % 16 == 0) {
-            printf("\n");
-            printf("0x%06lx: ", i);
-        }
-        printf("%02x", buf[i]);
-    }
-    printf("\n");
-    
-    assert(err_is_ok(err));
+    char *vbuf = (char *)fs->fat_scratch.virt;
+    assert(vbuf[0] == 0xEB);
+    assert(vbuf[2] == 0x90);
+    assert(vbuf[510] == 0x55);
+    assert(vbuf[511] == 0xAA);
 
+
+    // on FAT32 systems
+    uint32_t BPB_RootEntCnt = 0;
+
+    fs->BytesPerSec = *(uint16_t *)(vbuf + FAT32_BPB_BytsPerSec_OFFSET);
+    // on FAT32: will always be zero TODO (page 13)
+    fs->RootDirSectors = (BPB_RootEntCnt * 32) + (fs->BytesPerSec - 1) / fs->BytesPerSec;
+    fs->FatSz = *(uint32_t *)(vbuf + FAT32_BPB_FATSz32_OFFSET);
+    fs->TotSec = *(uint32_t *)(vbuf + FAT32_BPB_TotSec32_OFFSET);
+    fs->NumFATs = *(uint8_t *)(vbuf + FAT32_BPB_NumFATs_OFFSET);
+    fs->RsvdSecCnt = *(uint16_t *)(vbuf + FAT32_BPB_RsvdSecCnt_OFFSET);
+    fs->SecPerClus = *(uint8_t *)(vbuf + FAT32_BPB_SecPerClus_OFFSET);
+    fs->DataSec = fs->TotSec
+                  - (fs->RsvdSecCnt + (fs->NumFATs * fs->FatSz) + fs->RootDirSectors);
+
+    fs->CountOfClusters = fs->DataSec / fs->SecPerClus;
+
+    assert(fs->CountOfClusters >= 65525);  // determines type: fat32
+    assert(fs->RootDirSectors == 0);
+
+    fs->FirstDataSector = fs->RsvdSecCnt + (fs->NumFATs * fs->FatSz) + fs->RootDirSectors;
+    // root dir is at BPB_RootClus
+    fs->FirstRootDirCluster = *(uint32_t *)(vbuf + FAT32_BPB_RootClus_OFFSET);
+
+
+    fs->FirstFatSector = fs->RsvdSecCnt;
+
+    assert(fs->RsvdSecCnt + (fs->NumFATs * fs->FatSz) == fs->FirstDataSector);
+
+
+    // print all the fields
+    DEBUG_PRINTF("BytesPerSec: %d\n", fs->BytesPerSec);
+    DEBUG_PRINTF("RootDirSectors: %d\n", fs->RootDirSectors);
+    DEBUG_PRINTF("FatSz: %d\n", fs->FatSz);
+    DEBUG_PRINTF("TotSec: %d\n", fs->TotSec);
+    DEBUG_PRINTF("NumFATs: %d\n", fs->NumFATs);
+    DEBUG_PRINTF("RsvdSecCnt: %d\n", fs->RsvdSecCnt);
+    DEBUG_PRINTF("SecPerClus: %d\n", fs->SecPerClus);
+    DEBUG_PRINTF("DataSec: %d\n", fs->DataSec);
+    DEBUG_PRINTF("CountOfClusters: %d\n", fs->CountOfClusters);
+    DEBUG_PRINTF("FirstDataSector: %d\n", fs->FirstDataSector);
+    DEBUG_PRINTF("FirstRootDirCluster: %d\n", fs->FirstRootDirCluster);
+    DEBUG_PRINTF("FirstFatSector: %d\n", fs->FirstFatSector);
+
+
+    // print out first block:
+    /*DEBUG_PRINTF("first block: \n");
+    for (int i = 0; i < SDHC_BLOCK_SIZE; i++) {
+        if (i % 32 == 0) {
+            printf("\n%lx:\t", i);
+        }
+        printf("%02x", vbuf[i]);
+    }
+    printf("\n");*/
+
+
+    return SYS_ERR_OK;
+}
+
+__attribute__((unused)) static errval_t get_free_cluster(struct fat32 *fs,
+                                                         uint32_t *retcluster)
+{
+    errval_t err;
+
+    // load FAT table: first sector
+    err = fs_read_sector(fs, fs->FirstFatSector, &fs->fat_scratch);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "sdhc_read_block");
+        return err;
+    }
+
+    uint32_t *fat = (uint32_t *)fs->fat_scratch.virt;
+
+
+    for (int i = 0; i < FAT_ENTRIES_PER_SECTOR(fs); i++) {
+        debug_printf("%d: %d\n", i, fat[i]);
+    }
+
+    for (int i = 0; i < FAT_ENTRIES_PER_SECTOR(fs); i++) {
+        if (fat_entry_is_free(fat[i])) {
+            // convert entry index to cluster number
+            debug_printf("index %d is free\n", i);
+            *retcluster = fat_index2cluster(fs, fs->FirstFatSector, i);
+            return SYS_ERR_OK;
+        }
+    }
+    return FS_ERR_NOTFOUND;
+}
+
+static void read_dir(struct fat32 *fs, char *path)
+{
+    // first: assume path is just "/"
+    uint32_t root_dir_sector = clus2sec(fs, fs->FirstRootDirCluster);
+
+    // read root dir
+    errval_t err = fs_read_sector(fs, root_dir_sector, &fs->data_scratch);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "sdhc_read_block");
+        return;
+    }
+    // print out: attribute + filesize + start cluster
+    for (int i = 0; i < 16; i++) {
+        struct fat32_dir_entry *curr_dir
+            = (struct fat32_dir_entry *)((char *)fs->data_scratch.virt
+                                         + i * sizeof(struct fat32_dir_entry));
+
+        DEBUG_PRINTF("dir entry %02d:\tfsize: 0x%08lx\tattr: %02d\tfree: %d\n", i,
+                     curr_dir->FileSize, curr_dir->Attr, dir_is_free(curr_dir));
+    }
+}
+
+/**
+ * Assumes data_scratch contains loaded sector with root dir
+ *
+ */
+__attribute__((unused)) static errval_t add_dir_entry(struct fat32 *fs, char *name,
+                                                  uint32_t fsize,
+                                                  enum fat32_file_attribute attr,
+                                                  uint32_t dir_sector,
+                                                  uint32_t dir_index)
+{
+    // assumes sector is already loaded
+    assert(dir_index < DIR_ENTRIES_PER_SECTOR(fs));
+    // get a free cluster for content
+    uint32_t cluster;
+    errval_t err = get_free_cluster(fs, &cluster);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "get_free_cluster");
+        return err;
+    }
+
+    struct fat32_dir_entry *dir = (struct fat32_dir_entry *)fs->data_scratch.virt
+                                  + dir_index;
+
+    name = "FOO     BAR";
+    // TODO: check first if name is unique
+
+    dir->Attr = (uint8_t)attr;
+    dir->FileSize = fsize;
+
+
+    dir->FstClusHI = cluster >> 16;
+    dir->FstClusLO = cluster & 0xFFFF;
+
+    memcpy(dir->Name, name, 11);
+
+    // write file!
+    err = fs_write_sector(fs, dir_sector, &fs->data_scratch);
+
+    return err;
+}
+
+
+__attribute__((unused)) static errval_t
+add_file_to_dir(struct fat32 *fs, uint32_t dir_cluster, char *filename)
+{
+    // find free spot in dir
+    // read dir
+    uint32_t dir_sector = clus2sec(fs, dir_cluster);
+    fs_read_sector(fs, dir_sector, &fs->data_scratch);
+
+    struct fat32_dir_entry *dir = (struct fat32_dir_entry *)fs->data_scratch.virt;
+
+    bool found = false;
+    int i;
+    for (i = 0; i < 16; i++) {
+        if (dir_is_free(&dir[i])) {
+            // found free spot
+            debug_printf("dir index %d is free\n", i);
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        return FS_ERR_NOTFOUND;
+    }
+
+    errval_t err = add_dir_entry(fs, "foo", 0x1000, FAT32_FATTR_DIRECTORY, dir_sector, i);
+
+    return err;
+}
+
+/**
+ * @brief Get the path dir prefix object
+ * 
+ * @param path path 
+ * @return uint32_t index of last '/' in path, or -1 if no '/' found
+ */
+__attribute__((unused))
+static int get_path_dir_prefix(char *name){
+    int i;
+    size_t N = strlen(name);
+
+    for(int i = N-1; i > 0; i--){
+        if(name[i] == '/'){
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int get_next_dir_in_path(char *name){
+    for(int i = 0; name[i] != '\0'; i++){
+        if(name[i] == '/'){
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * @brief Loads the directory entry of a file in the given directory cluster 
+ * 
+ * @param fs FAT32 filesystem 
+ * @param containing_dir_cluster Cluster to start of containing directory 
+ * @param name Name fo the entry to load
+ * @param ret_dir Copy of the directory entry
+ * @return errval_t Success if file exists, else error
+ */
+static errval_t load_dir_entry_from_name(struct fat32 *fs, uint32_t containing_dir_cluster, char *name, struct fat32_dir_entry *ret_dir){
+    // check if file of that name exists in any of the directory entries
+    
+    // load sector  
+    errval_t err = fs_read_sector(fs, clus2sec(fs, containing_dir_cluster), &fs->data_scratch);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to read directory sector \n");
+        return err;
+    }
+
+    struct fat32_dir_entry *dir = (struct fat32_dir_entry *)fs->data_scratch.virt;
+    for(int i = 0; i < DIR_ENTRIES_PER_SECTOR(fs); i++){
+        if(memcmp(name, dir[i].Name, 11) == 0){
+            // found file
+            memcpy(ret_dir, &dir[i], sizeof(struct fat32_dir_entry));
+            return SYS_ERR_OK;
+        }
+    }
+    return FS_ERR_NOTFOUND;
+}
+
+
+
+/**
+ * @brief Moves from the root directory to the given directory 
+ * 
+ * @param fs fat32 filesystem
+ * @param dir Directory to move in (an absolute path)
+ * @param retcluster Cluster containing the target directory
+ * @return errval_t 
+ */
+static errval_t move_to_dir(struct fat32 *fs, char *dir, uint32_t *retcluster)
+{
+    uint32_t curr_cluster = clus2sec(fs, fs->FirstRootDirCluster);
+
+    while(*dir != '\0'){
+        int next_index = get_next_dir_in_path(dir);
+        if(next_index == -1){
+            DEBUG_PRINTF("couldn't move to dir: %s\n", dir);
+            return FS_ERR_NOTFOUND;
+        }
+
+        char old_char = dir[next_index];
+
+        // we'll make this a single string to separate it from the rest of the path
+        dir[next_index] = '\0';
+        // new name to avoid confusion
+        char *next_file_in_dir = dir;
+
+        struct fat32_dir_entry dir_entry;
+        errval_t err = load_file(fs, curr_cluster, next_file_in_dir, &dir_entry);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "load_dir failed");
+            return err;
+        }
+
+        // revert again to include postfix of path
+        dir[next_index] = old_char;
+        // skip to the next dir in path
+        dir += next_index+1;
+    }
+
+    *retcluster = curr_cluster;
+
+    return SYS_ERR_OK;
+}
+
+static errval_t read_file(struct fat32 *fs, char *path)
+{
+    errval_t err;
+
+    uint32_t containing_dir_cluster;
+
+    // separate last file in path from it
+    int last_index = get_path_dir_prefix(path);
+    char old_char = path[last_index];
+    path[last_index] = '\0';
+
+    err = move_to_dir(fs, path, &containing_dir_cluster);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "move_to_dir failed");
+        return err;
+    }
+
+    path[last_index] = old_char;
+
+    char *file = path + last_index + 1;
+    // load file
+
+    // get file info
+    struct fat32_dir_entry dir;
+    err = get_file_info(fs, containing_dir_cluster, file, &dir);
+
+    uint32_t file_data_cluster = dir.FstClusHI << 16 | dir.FstClusLO;
+    // read file!
+    err = print_file_at(fs, file_data_cluster);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "print_file_at failed");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+/*
+read_file: fName:
+    path, fName = split1(path)
+
+    dir_cluster = moveToDir(path)
+
+    read_file(curr_dir, file)
+
+
+add_file path:
+    path, fName = split1(path)
+    
+    dir_cluster = moveToDir(path)
+
+    // we're in file name now!
+    // add file to dir:
+    write_file(curr_dir, file)
+
+moveToDir: fName:
+    split = split fname
+
+    curr_dir = root_dir_cluster
+
+    curr = split;
+    while(curr->next){
+        // go to next dir
+        curr_dir = get_dir_cluster(curr_dir, curr->name);
+        curr = curr->next;
+    }
+    return curr_dir
+
+
+
+
+write_file file:
+    first_cluster = get_free_cluster()
+    add_file_to_dir(curr_dir, first_cluster, file)
+    write_file(first_cluster, file.data) 
+*/
+
+
+int main(int argc, char *argv[])
+{
+    struct fat32 fs;
+
+    errval_t err = init_fat32(&fs);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "init_fat32");
+        return 1;
+    }
+
+
+    add_file_to_dir(&fs, fs.FirstRootDirCluster, "test.txt");
+    // read root dir
+    read_dir(&fs, "/");
+
+
+    return 0;
+    uint32_t cluster_index = 0;
+    err = get_free_cluster(&fs, &cluster_index);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "get_free_cluster");
+        return 1;
+    }
+
+    debug_printf("free cluster at: %d\n", cluster_index);
+
+    read_dir(&fs, "/");
+
+    print_file(&fs, 17, 512 * 9);
+    return 0;
+
+    err = read_root_dir(&fs, &(fs.data_scratch));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "print_root_dir");
+        return 1;
+    }
+
+
+    return 0;
+    get_fat_entry(&fs, 17);
     return EXIT_SUCCESS;
 }
+
+/**
+ *
+ * @brief Tomorrow: Add minimal support for long dirs
+ * - Add support for browsing
+ * - Add support for reading files given a path
+ * - Add support for writing a file
+ * - Add support for writing a directory
+ *
+ */
