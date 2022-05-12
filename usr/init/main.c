@@ -38,6 +38,7 @@
 
 #include "mem_alloc.h"
 #include "custom_tests.h"
+#include "nameserver_tests.h"
 
 
 struct bootinfo *bi;
@@ -66,6 +67,8 @@ static int bsp_main(int argc, char *argv[])
 
     // Grading
     grading_test_early();
+
+    run_nameserver_tests();
 
     // run_m1_tests();
     // run_m2_tests();

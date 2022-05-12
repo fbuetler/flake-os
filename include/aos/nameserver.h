@@ -8,6 +8,39 @@
 
 #include <aos/aos.h>
 
+/**
+ * @brief validates a name
+ * 
+ * @param name the name to validate
+ * 
+ * @return bool
+ */
+bool name_is_valid(char *name);
+
+struct name_parts {
+    size_t num_parts;
+	///< array of name parts
+	///< needs to be freed before the struct is freed
+    char **parts;
+};
+
+/**
+ * @brief splits a name into its parts delimited by '.'
+ * 
+ * @param name string containing the name to split
+ * @param ret pointer to an allocated name_parts structure
+ * 
+ * @return error value
+ */
+errval_t name_into_parts(char *name, struct name_parts *ret);
+void free_name_parts_contents(struct name_parts *p);
+
+typedef struct service_info {
+	domainid_t pid;
+	coreid_t core;
+	nameservice_receive_handler_t handle;
+} service_info_t;
+
 typedef void* nameservice_chan_t;
 
 ///< handler which is called when a message is received over the registered channel

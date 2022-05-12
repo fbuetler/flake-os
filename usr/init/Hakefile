@@ -22,6 +22,7 @@
                         "init_ump.c",
                         "init_lmp.c",
                         "mem_alloc.c",
+                        "nameserver_tests.c",
                         "custom_tests.c"
                       ],
                       addLinkFlags = [ "-e _start_init"], -- this is only needed for init
