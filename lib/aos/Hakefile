@@ -52,6 +52,7 @@
                              "threads.c",
                              "aos_ump.c",
                              "aos_rpc.c",
+                             "aos_network.c",
                              "waitset.c" ],
                   assemblyFiles = [
                         "arch/aarch64/context.S",
