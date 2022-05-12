@@ -195,6 +195,32 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
             DEBUG_ERR(err, "failed to enqueue buffer");
             return err;
         }
+
+#ifdef ICMP_HACK
+        ICMP_DEBUG("from 0x%08x, id: %d %d seqno: %d\n", ip->src, icmp->id, icmp->seqno);
+        for (int i = 0; i < icmp_payload_size; i++) {
+            ICMP_DEBUG("%02d: 0x%02x\n", i, ((char *)icmp_payload)[i]);
+        }
+
+        // hack send packet
+        err = enet_icmp_socket_send(st, ntohl(ip->src), ICMP_ECHO, 27, 27, NULL, 0);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to send");
+            return err;
+        }
+
+        // HACK to read packet
+        struct icmp_socket *hack_socket = st->icmp_socket;
+        assert(hack_socket);
+
+        struct icmp_socket_buf *buf;
+        err = enet_icmp_socket_receive(hack_socket, &buf);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to receive");
+            return err;
+        }
+
+#endif
         break;
     default:
         err = ENET_ERR_ICMP_UNKNOWN_TYPE;
