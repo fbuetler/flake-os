@@ -1418,7 +1418,8 @@ errors sata ENET_ERR_ {
     failure SOCKET_EXISTS               "Socket already exists",
     failure SOCKET_NOT_FOUND            "Socket not found",
     failure SOCKET_EMPTY                "Socket has no inbound packets",
-    failure UDP_PAYLOAD_SIZE_EXCEEDED   "Payload size is too large",
+    failure UDP_PAYLOAD_SIZE_EXCEEDED   "UDP payload size is too large",
+    failure ICMP_PAYLOAD_SIZE_EXCEEDED  "ICMP payload size is too large",
 };
 
 // errors LPUART driver

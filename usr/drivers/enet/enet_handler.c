@@ -168,7 +168,14 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
     switch (icmp->type) {
     case ICMP_ER:
         ICMP_DEBUG("RECEIVED ICMP ECHO REPLY PACKET\n");
-        // TODO handle
+
+        err = enet_icmp_socket_handle_inbound(st, ntohl(ip->src), icmp->type,
+                                              ntohs(icmp->id), ntohs(icmp->seqno),
+                                              icmp_payload, icmp_payload_size);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to handle inbound ICMP packet");
+            return err;
+        }
         break;
     case ICMP_ECHO:
         ICMP_DEBUG("RECEIVED ICMP ECHO PACKET\n");

@@ -189,3 +189,126 @@ errval_t enet_udp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
 
     return SYS_ERR_OK;
 }
+
+errval_t enet_create_icmp_socket(struct enet_driver_state *st)
+{
+    struct icmp_socket *s = (struct icmp_socket *)malloc(sizeof(struct icmp_socket));
+    if (!s) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    s->inbound_head = NULL;
+    s->inbound_tail = NULL;
+
+    st->icmp_socket = s;
+
+    return SYS_ERR_OK;
+}
+
+errval_t enet_destroy_icmp_socket(struct enet_driver_state *st)
+{
+    if (!st->icmp_socket) {
+        return SYS_ERR_OK;
+    }
+
+    struct icmp_socket_buf *buf = st->icmp_socket->inbound_head;
+    struct icmp_socket_buf *prev_buf = NULL;
+    while (buf) {
+        free(buf->data);
+        prev_buf = buf;
+        buf = buf->next;
+        free(prev_buf);
+    }
+
+    free(st->icmp_socket);
+
+    return SYS_ERR_OK;
+}
+
+errval_t enet_icmp_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t ip,
+                                         uint8_t type, uint16_t id, uint16_t seqno,
+                                         char *payload, size_t payload_size)
+{
+    struct icmp_socket_buf *buf = (struct icmp_socket_buf *)malloc(
+        sizeof(struct icmp_socket_buf));
+    if (!buf) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    char *buf_data = (char *)malloc(payload_size);
+    if (!buf_data) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    buf->ip = ip;
+    buf->id = id;
+    buf->seqno = seqno;
+    buf->len = payload_size;
+    memcpy(buf_data, payload, payload_size);
+    buf->data = buf_data;
+
+    struct icmp_socket_buf *last = st->icmp_socket->inbound_tail;
+    if (last) {
+        last->next = buf;
+    } else {
+        // empty
+        st->icmp_socket->inbound_head = buf;
+    }
+    st->icmp_socket->inbound_tail = buf;
+
+    return SYS_ERR_OK;
+}
+
+errval_t enet_icmp_socket_receive(struct icmp_socket *s, struct icmp_socket_buf **retbuf)
+{
+    struct icmp_socket_buf *buf = s->inbound_head;
+    if (!buf) {
+        return ENET_ERR_SOCKET_EMPTY;
+    }
+
+    if (s->inbound_tail == s->inbound_head) {
+        s->inbound_tail = NULL;
+    }
+    s->inbound_head = buf->next;
+
+    buf->next = NULL;
+
+    *retbuf = buf;
+
+    return SYS_ERR_OK;
+}
+
+errval_t enet_icmp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
+                               uint8_t type, uint16_t id, uint16_t seqno, char *payload,
+                               size_t payload_size)
+{
+    errval_t err;
+
+    if (payload_size >= 576 - ICMP_HLEN) {
+        return ENET_ERR_ICMP_PAYLOAD_SIZE_EXCEEDED;
+    }
+
+    struct eth_addr mac_dest;
+    err = enet_get_mac_by_ip(st, ip_dest, &mac_dest);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get MAC for IP");
+        return err;
+    }
+
+    struct eth_hdr *resp_icmp;
+    size_t resp_icmp_size;
+    err = enet_assemble_icmp_packet(enet_split_mac(st->mac), ENET_STATIC_IP, mac_dest,
+                                    ip_dest, type, id, seqno, payload, payload_size,
+                                    &resp_icmp, &resp_icmp_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to assemble ICMP packet");
+        return err;
+    }
+
+    err = safe_enqueue(st->safe_txq, (void *)resp_icmp, resp_icmp_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to enqueue buffer");
+        return err;
+    }
+    return SYS_ERR_OK;
+}
