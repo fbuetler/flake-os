@@ -29,7 +29,7 @@ char static_rpc_msg_buf[1 << 20];
  */
 static void aos_process_handshake(struct aos_lmp_msg *msg)
 {
-    DEBUG_PRINTF("Handshake ACK\n");
+    // DEBUG_PRINTF("Handshake ACK\n");
 }
 
 /**

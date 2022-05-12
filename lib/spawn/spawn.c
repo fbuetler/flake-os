@@ -898,7 +898,7 @@ void spawn_add_process(struct spawninfo *new_process)
     assert(new_process);
     struct spawninfo *current = &init_spawninfo;
 
-    DEBUG_PRINTF("spawn_add_process: new process: %s\n", new_process->binary_name);
+    DEBUG_TRACEF("spawn_add_process: new process: %s\n", new_process->binary_name);
     DEBUG_TRACEF("&init_spawninfo: %p\n", &init_spawninfo);
     while (current->next) {
         current = current->next;
