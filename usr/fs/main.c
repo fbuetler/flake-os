@@ -581,6 +581,13 @@ __attribute__((unused)) static errval_t add_file_to_dir(struct fat32 *fs,
     uint32_t dir_sector = clus2sec(fs, dir_cluster);
     fs_read_sector(fs, dir_sector, &fs->data_scratch);
 
+    // print 512 bytes
+    for(int i = 0;i < 512; i++){
+        printf("%02lx", ((char *)fs->data_scratch.virt)[i]);
+    }
+    printf("\n");
+
+
     struct fat32_dir_entry *dir = (struct fat32_dir_entry *)fs->data_scratch.virt;
 
     bool found = false;
@@ -595,10 +602,14 @@ __attribute__((unused)) static errval_t add_file_to_dir(struct fat32 *fs,
     }
 
     if (!found) {
+        DEBUG_PRINTF("no more room in directory!\n");
         return FS_ERR_NOTFOUND;
     }
 
     errval_t err = add_dir_entry(fs, file, dir_sector, i, ret_start_data_cluster, true);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Couldn't add a new directory entry in add_file_to_dir\n");
+    }
 
     return err;
 }
@@ -653,10 +664,14 @@ static errval_t load_dir_entry_from_name(struct fat32 *fs, uint32_t containing_d
         return err;
     }
 
+    debug_printf("looking for: %s\n", name);
+
     struct fat32_dir_entry *dir = (struct fat32_dir_entry *)fs->data_scratch.virt;
     for (int i = 0; i < DIR_ENTRIES_PER_SECTOR(fs); i++) {
         if (memcmp(name, dir[i].Name, 11) == 0) {
             // found file
+            debug_printf("entry name: %c%c%c%c%c%c%c%c%c%c%c\n", dir[i].Name[0], dir[i].Name[1], dir[i].Name[2], dir[i].Name[3], dir[i].Name[4], dir[i].Name[5], dir[i].Name[6], dir[i].Name[7],
+                dir[i].Name[8], dir[i].Name[9],dir[i].Name[10]);
             memcpy(ret_dir, &dir[i], sizeof(struct fat32_dir_entry));
             return SYS_ERR_OK;
         }
@@ -673,26 +688,23 @@ static errval_t load_dir_entry_from_name(struct fat32 *fs, uint32_t containing_d
  * @param retcluster Cluster containing the target directory
  * @return errval_t
  */
-static errval_t move_to_dir(struct fat32 *fs, char *dir, uint32_t *retcluster)
+static errval_t move_to_dir(struct fat32 *fs, char *full_path, uint32_t *retcluster)
 {
-    uint32_t curr_cluster = clus2sec(fs, fs->FirstRootDirCluster);
+    uint32_t curr_cluster = fs->FirstRootDirCluster;
+    debug_printf("str is: %s\n", full_path);
+    char dir_arr[12];
+    char *curr_path_dir = (char *)dir_arr;
 
-    while (*dir != '\0') {
-        int next_index = get_next_dir_in_path(dir);
+    while (*full_path != '\0') {
+        int next_index = get_next_dir_in_path(full_path);
         if (next_index == -1) {
-            next_index = strlen(dir);
+            next_index = strlen(full_path);
         }
 
-        debug_printf("next index: %d\n", next_index);
-        debug_printf("dir: %s\n", dir);
+        memcpy(curr_path_dir, full_path, next_index);
+        curr_path_dir[next_index] = 0;
 
-        char old_char = dir[next_index];
-
-        // we'll make this a single string to separate it from the rest of the path
-        dir[next_index] = '\0';
-        // new name to avoid confusion
-        char *next_file_in_dir = dir;
-
+        char *next_file_in_dir = curr_path_dir;
         struct fat32_dir_entry dir_entry;
         errval_t err = load_dir_entry_from_name(fs, curr_cluster, next_file_in_dir,
                                                 &dir_entry);
@@ -701,12 +713,15 @@ static errval_t move_to_dir(struct fat32 *fs, char *dir, uint32_t *retcluster)
             return err;
         }
 
-        // revert again to include postfix of path
-        dir[next_index] = old_char;
-        // skip to the next dir in path
-        if(!dir[next_index])
+
+        debug_printf("hi there\n");
+
+        if(full_path[next_index] == 0){
             break;
-        dir += next_index + 1;
+        }
+
+        // skip to the next dir in path
+        full_path += next_index + 1;
     }
 
     *retcluster = curr_cluster;
@@ -881,7 +896,7 @@ __attribute__((unused)) static errval_t write_file(struct fat32 *fs, char *dest_
         return err;
     }
 
-    debug_printf("moved in tree\n");
+    debug_printf("moved in tree: %s/%s\n", dest_dir, file.name);
 
     //  write file entry into directory
     uint32_t start_data_cluster;
@@ -956,8 +971,11 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    char *dir_name = "TIB     TXT";
-    char *file_name = "TUG     TXT";
+
+
+
+    char *dir_name = "TIL     TXT";
+    char *file_name = "TUL     TXT";
     __attribute__((unused))
     struct fat32_file dir = { .name = dir_name,
                                .payload = NULL,
@@ -971,15 +989,21 @@ int main(int argc, char *argv[])
                                .size = strlen("Was fuer ein schoener Tag!"),
                                .type = 0 };
 
-    //err = write_file(&fs, "", dir);
+    /*err = write_file(&fs, "", dir);
     assert(err_is_ok(err));
     debug_printf("written dir\n");
 
-    err = write_file(&fs, dir_name, file);
+    err = write_file(&fs, dir.name, dir);
+    assert(err_is_ok(err));
+    debug_printf("written dir 2\n");
+*/
+
+    err = write_file(&fs, "TIL     TXT/TIL     TXT", file);
+
     assert(err_is_ok(err));
     debug_printf("written file\n");
 
-    err = read_file(&fs, dir_name, file.name);
+    err = read_file(&fs, "TIL     TXT/TIL     TXT", file.name);
     assert(err_is_ok(err));
     debug_printf("done\n");
 
@@ -988,6 +1012,7 @@ int main(int argc, char *argv[])
     // read root dir
     read_dir(&fs, "/");
 
+    return 1;
 
     return 0;
     uint32_t cluster_index = 0;
