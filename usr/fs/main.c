@@ -471,6 +471,7 @@ static errval_t init_fat32(struct fat32 *fs)
     return SYS_ERR_OK;
 }
 
+
 __attribute__((unused)) static errval_t get_free_cluster(struct fat32 *fs,
                                                          uint32_t *retcluster)
 {
@@ -493,9 +494,9 @@ __attribute__((unused)) static errval_t get_free_cluster(struct fat32 *fs,
     for (int i = 0; i < FAT_ENTRIES_PER_SECTOR(fs); i++) {
         if (fat_entry_is_free(fat[i])) {
             // convert entry index to cluster number
-            debug_printf("index %d is free\n", i);
+            // debug_printf("index %d is free\n", i);
             *retcluster = fat_index2cluster(fs, fs->FirstFatSector, i);
-            return SYS_ERR_OK;
+            return set_fat_entry(fs, *retcluster, FAT_ENTRY_EOF);
         }
     }
     return FS_ERR_NOTFOUND;
@@ -545,6 +546,11 @@ add_dir_entry(struct fat32 *fs, struct fat32_file *file, uint32_t dir_sector,
         }
     }else{
         cluster = *start_data_cluster;
+    }
+
+    err = fs_read_sector(fs, dir_sector, &fs->data_scratch);
+    if(err_is_fail(err)){
+        DEBUG_PRINTF("failed to read dir\n");
     }
 
     struct fat32_dir_entry *dir = (struct fat32_dir_entry *)fs->data_scratch.virt
@@ -664,18 +670,22 @@ static errval_t load_dir_entry_from_name(struct fat32 *fs, uint32_t containing_d
         return err;
     }
 
-    debug_printf("looking for: %s\n", name);
+    debug_printf("looking for: \"%s\"\n", name);
 
     struct fat32_dir_entry *dir = (struct fat32_dir_entry *)fs->data_scratch.virt;
     for (int i = 0; i < DIR_ENTRIES_PER_SECTOR(fs); i++) {
+        char nn[12];
+        memcpy(nn, dir[i].Name, 11);
+        nn[11] = 0;
+        //debug_printf("entry name: \"%s\"\n", nn);
         if (memcmp(name, dir[i].Name, 11) == 0) {
             // found file
-            debug_printf("entry name: %c%c%c%c%c%c%c%c%c%c%c\n", dir[i].Name[0], dir[i].Name[1], dir[i].Name[2], dir[i].Name[3], dir[i].Name[4], dir[i].Name[5], dir[i].Name[6], dir[i].Name[7],
-                dir[i].Name[8], dir[i].Name[9],dir[i].Name[10]);
             memcpy(ret_dir, &dir[i], sizeof(struct fat32_dir_entry));
             return SYS_ERR_OK;
         }
     }
+
+    DEBUG_PRINTF("couldn't find entry with matching name in directory\n");
     return FS_ERR_NOTFOUND;
 }
 
@@ -713,9 +723,7 @@ static errval_t move_to_dir(struct fat32 *fs, char *full_path, uint32_t *retclus
             return err;
         }
 
-
-        debug_printf("hi there\n");
-
+        curr_cluster = dir_entry.FstClusHI << 16 | dir_entry.FstClusLO;
         if(full_path[next_index] == 0){
             break;
         }
@@ -849,6 +857,8 @@ static errval_t initialize_dir(struct fat32 *fs, uint32_t containing_dir_cluster
                                uint32_t new_dir_cluster, struct fat32_file *file)
 {
     errval_t err;
+
+    debug_printf("initializing in cluster %d\n", new_dir_cluster);
     
     uint32_t new_dir_sector = clus2sec(fs, new_dir_cluster);
 
@@ -859,25 +869,32 @@ static errval_t initialize_dir(struct fat32 *fs, uint32_t containing_dir_cluster
     }
 
     struct fat32_file dot = {
-        .name = ".           ",
+        .name = ".          ",
         .size = 0,
         .payload = NULL,
         .type = FAT32_FATTR_DIRECTORY
     };
 
     struct fat32_file dotdot = {
-        .name = "..          ",
+        .name = "..         ",
         .size = 0,
         .payload = NULL,
         .type = FAT32_FATTR_DIRECTORY
     };
 
     err = add_dir_entry(fs, &dot, new_dir_sector, 0, &new_dir_cluster, false);
-    err = add_dir_entry(fs, &dotdot, new_dir_sector, 0, &containing_dir_cluster, false);
-
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to add dot entry to new dir\n");
+        return err;
+    }
+    err = add_dir_entry(fs, &dotdot, new_dir_sector, 1, &containing_dir_cluster, false);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "failed to add dotdot entry to new dir\n");
+        return err;
+    }
+    
     // create directory entry for "."
     // create directory entry for ".."
-
     
 
     return SYS_ERR_OK;
@@ -896,7 +913,8 @@ __attribute__((unused)) static errval_t write_file(struct fat32 *fs, char *dest_
         return err;
     }
 
-    debug_printf("moved in tree: %s/%s\n", dest_dir, file.name);
+    debug_printf("moved in tree: \"%s\", now writing file: \"%s\"\n", dest_dir, file.name);
+    debug_printf("start cluster: %d, curr cluster: %d\n", fs->FirstRootDirCluster, containing_dir_cluster);
 
     //  write file entry into directory
     uint32_t start_data_cluster;
@@ -906,7 +924,7 @@ __attribute__((unused)) static errval_t write_file(struct fat32 *fs, char *dest_
         return err;
     }
 
-    debug_printf("added file entry to dir\n");
+    debug_printf("added file entry to dir: first data cluster: %d\n", start_data_cluster);
 
     // write the actual file into the data clusters
     if (file.type == FAT32_FATTR_DIRECTORY) {
@@ -974,8 +992,8 @@ int main(int argc, char *argv[])
 
 
 
-    char *dir_name = "TIL     TXT";
-    char *file_name = "TUL     TXT";
+    char *dir_name = "III     TXT";
+    char *file_name = "OUL     TXT";
     __attribute__((unused))
     struct fat32_file dir = { .name = dir_name,
                                .payload = NULL,
@@ -989,21 +1007,23 @@ int main(int argc, char *argv[])
                                .size = strlen("Was fuer ein schoener Tag!"),
                                .type = 0 };
 
-    /*err = write_file(&fs, "", dir);
+    /*
+    err = write_file(&fs, "", dir);
     assert(err_is_ok(err));
     debug_printf("written dir\n");
-
     err = write_file(&fs, dir.name, dir);
     assert(err_is_ok(err));
     debug_printf("written dir 2\n");
-*/
+    err = write_file(&fs, "III     TXT/III     TXT", file);
 
-    err = write_file(&fs, "TIL     TXT/TIL     TXT", file);
+
 
     assert(err_is_ok(err));
     debug_printf("written file\n");
 
-    err = read_file(&fs, "TIL     TXT/TIL     TXT", file.name);
+    */
+
+    err = read_file(&fs, "III     TXT/III     TXT/..         /III     TXT", file.name);
     assert(err_is_ok(err));
     debug_printf("done\n");
 
