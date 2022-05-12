@@ -202,7 +202,7 @@ __attribute__((unused)) static inline uint32_t get_fat_entry(struct fat32 *fs,
 
     printf("look for index: %d\n", fat_index);
     // Read FAT sector
-    fs_read_sector(fs->sd, fat_sector, &fs->fat_scratch);
+    fs_read_sector(fs, fat_sector, &fs->fat_scratch);
 
     uint32_t *fat = (uint32_t *)fs->fat_scratch.virt;
     for (int i = 0; i < 128; i++) {
@@ -212,11 +212,10 @@ __attribute__((unused)) static inline uint32_t get_fat_entry(struct fat32 *fs,
     return 0;
 }
 
-
 static errval_t set_fat_entry(struct fat32 *fs, uint32_t curr_cluster, uint32_t new_cluster){
     uint32_t fat_sector, fat_index;
     cluster2fat_index(fs, curr_cluster, &fat_sector, &fat_index);
-    errval_t err = fs_read_sector(fs->sd, fat_sector, &fs->fat_scratch);
+    errval_t err = fs_read_sector(fs, fat_sector, &fs->fat_scratch);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "failed to read FAT sector");
         return err;
@@ -225,7 +224,7 @@ static errval_t set_fat_entry(struct fat32 *fs, uint32_t curr_cluster, uint32_t 
     uint32_t *fat = (uint32_t *)fs->fat_scratch.virt;
     // TODO top bits need to be kept
     fat[fat_index] = new_cluster;
-    return fs_write_sector(fs->sd, fat_sector, &fs->fat_scratch);
+    return fs_write_sector(fs, fat_sector, &fs->fat_scratch);
 
 }
 
@@ -605,7 +604,6 @@ add_file_to_dir(struct fat32 *fs, uint32_t dir_cluster, struct fat32_file *file,
  */
 __attribute__((unused)) static int get_path_dir_prefix(char *name)
 {
-    int i;
     size_t N = strlen(name);
 
     for (int i = N - 1; i > 0; i--) {
@@ -687,7 +685,7 @@ static errval_t move_to_dir(struct fat32 *fs, char *dir, uint32_t *retcluster)
         char *next_file_in_dir = dir;
 
         struct fat32_dir_entry dir_entry;
-        errval_t err = load_file(fs, curr_cluster, next_file_in_dir, &dir_entry);
+        errval_t err = load_dir_entry_from_name(fs, curr_cluster, next_file_in_dir, &dir_entry);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "load_dir failed");
             return err;
@@ -704,16 +702,12 @@ static errval_t move_to_dir(struct fat32 *fs, char *dir, uint32_t *retcluster)
     return SYS_ERR_OK;
 }
 
-static errval_t read_file(struct fat32 *fs, char *path)
+__attribute__((unused))
+static errval_t read_file(struct fat32 *fs, char *path, char *file)
 {
     errval_t err;
 
     uint32_t containing_dir_cluster;
-
-    // separate last file in path from it
-    int last_index = get_path_dir_prefix(path);
-    char old_char = path[last_index];
-    path[last_index] = '\0';
 
     err = move_to_dir(fs, path, &containing_dir_cluster);
     if (err_is_fail(err)) {
@@ -721,10 +715,6 @@ static errval_t read_file(struct fat32 *fs, char *path)
         return err;
     }
 
-    path[last_index] = old_char;
-
-    char *file = path + last_index + 1;
-    // load file
 
     // get file info
     struct fat32_dir_entry dir;
@@ -735,18 +725,6 @@ static errval_t read_file(struct fat32 *fs, char *path)
     print_file(fs, file_data_cluster, dir.FileSize);
 
     return SYS_ERR_OK;
-}
-
-static errval_t write_file_entry_to_dir(struct fat32 *fs, uint32_t containing_dir_cluster,
-                                        struct fat32_file *file,
-                                        uint32_t *start_data_cluster)
-{
-    errval_t err;
-
-    // load directory
-    err = fs_read_sector(fs, clus2sec(fs, containing_dir_cluster), &fs->data_scratch);
-    // get a free entry in the directory
-    int free_index = get_free_dir_index(fs, containing_dir_cluster);
 }
 
 static errval_t write_cluster(struct fat32 *fs, uint32_t cluster, char *payload, size_t size)
@@ -801,7 +779,6 @@ static errval_t write_file_data(struct fat32 *fs, uint32_t start_data_cluster, s
     uint32_t written = 0;
 
     uint32_t curr_cluster = start_data_cluster;
-    uint32_t curr_sector = clus2sec(fs, curr_cluster);
 
     while(written < file->size){
         // load sector
@@ -819,9 +796,10 @@ static errval_t write_file_data(struct fat32 *fs, uint32_t start_data_cluster, s
     // set EOF cluster into FAT
     errval_t err = set_fat_entry(fs, curr_cluster, FAT_ENTRY_EOF);
 
-    return SYS_ERR_OK;
+    return err;
 }
 
+__attribute__((unused))
 static errval_t write_file(struct fat32 *fs, char *dest_dir, struct fat32_file file)
 {
     errval_t err;
@@ -836,7 +814,7 @@ static errval_t write_file(struct fat32 *fs, char *dest_dir, struct fat32_file f
 
     //  write file entry into directory
     uint32_t start_data_cluster;
-    errval_t err = add_file_to_dir(fs, containing_dir_cluster, &file,
+    err = add_file_to_dir(fs, containing_dir_cluster, &file,
                                            &start_data_cluster);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "couldn't write file entry to dir\n");
@@ -901,8 +879,18 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    /*struct fat32_file file = {
+        .name = "FOO     BAR",
+        .payload = "Hello, world!\n",
+        .size = (uint32_t) strlen("Hello, world!\n"),
+        .read_only = false
+    };*/
+    //write_file(&fs, "", file);
 
-    add_file_to_dir(&fs, fs.FirstRootDirCluster, "test.txt");
+    read_file(&fs, "", "FOO     BAR");
+
+    return 0;
+
     // read root dir
     read_dir(&fs, "/");
 
