@@ -293,6 +293,18 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
     struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
     enet_debug_print_ip_packet(ip);
 
+    // IP packets is too small
+    if (ip->len < IP_HLEN) {
+        IP_DEBUG("Dropping undersized packet\n");
+        return SYS_ERR_OK;
+    }
+
+    // only process IPv4 packets
+    if (IPH_V(ip) != 4) {
+        IP_DEBUG("Dropping non IPv4 packet\n");
+        return SYS_ERR_OK;
+    }
+
     // drop fragemented packets
     if (ip->offset & IP_MF) {
         IP_DEBUG("Dropping fragemented packets\n");
