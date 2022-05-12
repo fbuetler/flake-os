@@ -13,3 +13,4 @@ module  /armv8/sbin/selfpaging_already_handled
 module  /armv8/sbin/demom5
 module  /armv8/sbin/enet
 module  /armv8/sbin/echoserver
+module  /armv8/sbin/ping
