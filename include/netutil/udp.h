@@ -3,6 +3,8 @@
 
 #include <netutil/ip.h>
 
+// #define UDP_ECHO 1
+// #define UDP_HACK 1
 
 #define UDP_DEBUG_OPTION 1
 

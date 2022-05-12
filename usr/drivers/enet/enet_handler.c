@@ -8,8 +8,6 @@
 #include "enet_debug.h"
 #include "enet_assembler.h"
 
-// #define UDP_ECHO 1
-
 struct eth_addr enet_split_mac(uint64_t mac)
 {
     return (struct eth_addr) { .addr = { ((mac >> 40) & 0xFF), ((mac >> 32) & 0xFF),
@@ -253,6 +251,38 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
         DEBUG_ERR(err, "failed to handle inbound UDP packet");
         return err;
     }
+
+#ifdef UDP_HACK
+    // HACK to read packet
+    struct socket *hack_socket = st->sockets;
+    while (hack_socket) {
+        if (hack_socket->port == ntohs(udp->dest)) {
+            break;
+        }
+        hack_socket = hack_socket->next;
+    }
+    assert(hack_socket);
+
+    struct socket_buf *buf;
+    err = enet_socket_receive(hack_socket, &buf);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive");
+        return err;
+    }
+
+    UDP_DEBUG("from 0x%08x %d\n", buf->ip, buf->port);
+    for (int i = 0; i < buf->len; i++) {
+        UDP_DEBUG("%02d: 0x%02x\n", i, ((char *)buf->data)[i]);
+    }
+
+    // hack send packet
+    err = enet_socket_send(st, ntohl(ip->src), 8051, "ciao\n", 5);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send");
+        return err;
+    }
+#endif
+
     return SYS_ERR_OK;
 }
 
