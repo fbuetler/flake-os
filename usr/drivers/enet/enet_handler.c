@@ -197,11 +197,6 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
         }
 
 #ifdef ICMP_HACK
-        ICMP_DEBUG("from 0x%08x, id: %d %d seqno: %d\n", ip->src, icmp->id, icmp->seqno);
-        for (int i = 0; i < icmp_payload_size; i++) {
-            ICMP_DEBUG("%02d: 0x%02x\n", i, ((char *)icmp_payload)[i]);
-        }
-
         // hack send packet
         err = enet_icmp_socket_send(st, ntohl(ip->src), ICMP_ECHO, 27, 27, NULL, 0);
         if (err_is_fail(err)) {
@@ -218,6 +213,11 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to receive");
             return err;
+        }
+
+        ICMP_DEBUG("from 0x%08x, id: %d seqno: %d\n", buf->ip, buf->id, buf->seqno);
+        for (int i = 0; i < buf->len; i++) {
+            ICMP_DEBUG("%02d: 0x%02x\n", i, ((char *)buf->data)[i]);
         }
 
 #endif
