@@ -20,6 +20,7 @@
 #include <fs/fs.h>
 #include <fs/dirent.h>
 #include <fs/ramfs.h>
+#include <fs/fat32fs.h>
 #include "fs_internal.h"
 
 
@@ -90,6 +91,7 @@ static void fdtab_free(int fd)
 }
 
 //XXX: flags are ignored...
+__attribute__((unused))
 static int fs_libc_open(char *path, int flags)
 {
     ramfs_handle_t vh;
@@ -144,6 +146,66 @@ static int fs_libc_open(char *path, int flags)
     }
 }
 
+
+static int fat32fs_libc_open(char *path, int flags)
+{
+    struct fat32fs_handle *vh;
+    errval_t err = SYS_ERR_OK;
+
+    // If O_CREAT was given, we use ramfsfs_create()
+    if(flags & O_CREAT) {
+        // If O_EXCL was also given, we check whether we can open() first
+        if(flags & O_EXCL) {
+            err = fat32fs_open(disp_get_domain_id(), mount, path, &vh);
+            if(err_is_ok(err)) {
+                fat32fs_handle_close(vh);
+                errno = EEXIST;
+                return -1;
+            }
+            assert(err_no(err) == FS_ERR_NOTFOUND);
+        }
+
+
+        /* TODO TODO TODO create!
+        err = ramfs_create(mount, path, &vh);
+        if (err_is_fail(err) && err == FS_ERR_EXISTS) {
+            err = ramfs_open(mount, path, &vh);
+        }*/
+
+    } else {
+        // Regular open()
+        err = fat32fs_open(disp_get_domain_id(), mount, path, &vh);
+    }
+
+    if (err_is_fail(err)) {
+        switch(err_no(err)) {
+        case FS_ERR_NOTFOUND:
+            errno = ENOENT;
+            break;
+
+        default:
+            break;
+        }
+
+        return -1;
+    }
+
+    struct fdtab_entry e = {
+        .type = FDTAB_TYPE_FILE,
+        .handle = (void*)vh,
+        .epoll_fd = -1,
+    };
+    int fd = fdtab_alloc(&e);
+    if (fd < 0) {
+        fat32fs_handle_close(vh);
+        return -1;
+    } else {
+        return fd;
+    }
+}
+
+
+__attribute__((unused))
 static int fs_libc_read(int fd, void *buf, size_t len)
 {
     errval_t err;
@@ -156,6 +218,30 @@ static int fs_libc_read(int fd, void *buf, size_t len)
         ramfs_handle_t fh = e->handle;
         assert(e->handle);
         err = ramfs_read(mount, fh, buf, len, &retlen);
+        if (err_is_fail(err)) {
+            return -1;
+        }
+    }
+        break;
+    default :
+        return -1;
+    }
+
+    return retlen;
+}
+
+static int fat32fs_libc_read(int fd, void *buf, size_t len)
+{
+    errval_t err;
+
+    struct fdtab_entry *e = fdtab_get(fd);
+    size_t retlen = 0;
+    switch(e->type) {
+    case FDTAB_TYPE_FILE:
+    {
+        struct fat32fs_handle *fh = e->handle;
+        assert(e->handle);
+        err = fat32fs_read(mount, fh, buf, len, &retlen);
         if (err_is_fail(err)) {
             return -1;
         }
@@ -194,6 +280,7 @@ static int fs_libc_write(int fd, void *buf, size_t len)
     return retlen;
 }
 
+__attribute__((unused))
 static int fs_libc_close(int fd)
 {
     errval_t err;
@@ -209,6 +296,27 @@ static int fs_libc_close(int fd)
         if (err_is_fail(err)) {
             return -1;
         }
+        break;
+    default:
+        return -1;
+    }
+
+    fdtab_free(fd);
+    return 0;
+}
+
+
+static int fat32fs_libc_close(int fd)
+{
+    struct fdtab_entry *e = fdtab_get(fd);
+    if (e->type == FDTAB_TYPE_AVAILABLE) {
+        return -1;
+    }
+
+    struct fat32fs_handle *fh = e->handle;
+    switch(e->type) {
+    case FDTAB_TYPE_FILE:
+        fat32fs_handle_close(fh);
         break;
     default:
         return -1;
@@ -287,8 +395,8 @@ newlib_register_fsops__(fsopen_fn_t *open_fn,
 
 void fs_libc_init(void *fs_state)
 {
-    newlib_register_fsops__(fs_libc_open, fs_libc_read, fs_libc_write,
-                            fs_libc_close, fs_libc_lseek);
+    newlib_register_fsops__(fat32fs_libc_open, fat32fs_libc_read, fs_libc_write,
+                            fat32fs_libc_close, fs_libc_lseek);
 
     /* register directory operations */
     fs_register_dirops(fs_mkdir, fs_rmdir, fs_rm, fs_opendir,

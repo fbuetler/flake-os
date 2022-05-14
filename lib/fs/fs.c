@@ -9,6 +9,7 @@
 #include <fs/fs.h>
 #include <fs/dirent.h>
 #include <fs/ramfs.h>
+#include <fs/fat32fs.h>
 
 #include "fs_internal.h"
 
@@ -40,6 +41,8 @@ errval_t filesystem_init(void)
     if (err_is_fail(err)) {
         return err;
     }
+
+    fs_init();
 
     /* TODO: Mount your sdcard at /sdcard */
 

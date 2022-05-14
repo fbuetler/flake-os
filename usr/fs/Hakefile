@@ -13,7 +13,7 @@
 [ build application 
   { 
     target = "fs",
-    cFiles = [ "main.c" ],
-    addLibraries = [ "grading", "sdhc" ]
+    cFiles = [ "main.c"],
+    addLibraries = [ "grading", "sdhc", "fs" ]
   }
 ]
