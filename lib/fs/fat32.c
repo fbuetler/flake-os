@@ -845,7 +845,7 @@ errval_t load_dir_entry_from_name(struct fat32 *fs, uint32_t containing_dir_clus
                                   uint32_t *ret_sector, uint32_t *ret_index)
 {
     // check if file of that name exists in any of the directory entries
-    DEBUG_PRINTF("FAT32: looking for dir entry: \"%s\"\n", name);
+    DEBUG_PRINTF("FAT32: looking for dir entry: \"%.11s\"\n", name);
 
     while (!fat_entry_is_eof(containing_dir_cluster)) {
         uint32_t start_sector = clus2sec(fs, containing_dir_cluster);
@@ -937,8 +937,9 @@ unwind:
     return err;
 }
 
-errval_t fat32_read_cluster(struct fat32 *fs, uint32_t cluster, uint32_t offset,
-                            char *dest_buffer, uint32_t bytes)
+
+errval_t fat32_process_cluster(struct fat32 *fs, uint32_t cluster, uint32_t offset,
+                               char *dest_buffer, uint32_t bytes, bool is_read)
 {
     errval_t err;
     uint32_t start_sector = clus2sec(fs, cluster);
@@ -956,12 +957,99 @@ errval_t fat32_read_cluster(struct fat32 *fs, uint32_t cluster, uint32_t offset,
         }
 
         uint32_t bytes_to_copy = MIN(fs->BytesPerSec - offset, bytes);
-        memcpy(dest_buffer, fs->data_scratch.virt + offset, bytes_to_copy);
+        if (is_read) {
+            memcpy(dest_buffer, fs->data_scratch.virt + offset, bytes_to_copy);
+        } else {
+            // TODO keep track what part has been written in global state so that error
+            // handling is as good as possible
+            memcpy(fs->data_scratch.virt + offset, dest_buffer, bytes_to_copy);
+            err = fs_write_sector(fs, curr_sector, &fs->data_scratch);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "couldn't write sector\n");
+                return err;
+            }
+        }
         offset = 0;
         bytes -= bytes_to_copy;
         dest_buffer += bytes_to_copy;
         curr_sector++;
     }
+    return SYS_ERR_OK;
+}
+
+errval_t fat32_get_cluster_from_offset(struct fat32 *fs, uint32_t start_cluster,
+                                       off_t offset, uint32_t *ret_cluster)
+{
+    uint32_t curr_cluster = start_cluster;
+    uint32_t curr_offset = offset;
+    uint32_t bytes_per_clus = fs->BytesPerSec * fs->SecPerClus;
+
+    while (curr_offset >= bytes_per_clus) {
+        curr_offset -= bytes_per_clus;
+        curr_cluster = next_data_cluster(fs, curr_cluster);
+        if (fat_entry_is_eof(curr_cluster)) {
+            DEBUG_PRINTF("offset is undefined!\n");
+            return FS_ERR_NOTFOUND;
+        }
+    }
+
+    *ret_cluster = curr_cluster;
+    return SYS_ERR_OK;
+}
+
+errval_t fat32_write_data(struct fat32 *fs, uint32_t start_cluster,
+                          uint32_t cluster_offset, char *src_buffer,
+                          uint32_t bytes, uint32_t *ret_last_cluster_written)
+{
+    errval_t err = SYS_ERR_OK;
+
+    uint32_t prev_cluster, curr_cluster;
+    uint32_t bytes_read = 0;
+
+    curr_cluster = prev_cluster = start_cluster;
+
+    while (bytes_read < bytes) {
+        if (fat_entry_is_eof(curr_cluster)) {
+            err = allocate_and_link_cluster(fs, prev_cluster, &curr_cluster);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "couldn't allocate and link a new data cluster\n");
+                return err;
+            }
+        }
+
+        DEBUG_PRINTF("1\n");
+
+        uint32_t bytes_to_read = MIN(bytes - bytes_read,
+                                     fs->BytesPerSec * fs->SecPerClus - cluster_offset);
+        err = fat32_process_cluster(fs, curr_cluster, cluster_offset, src_buffer,
+                                    bytes_to_read, false);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to write cluster\n");
+            return err;
+        }
+
+        DEBUG_PRINTF("2\n");
+
+        bytes_read += bytes_to_read;
+        src_buffer += bytes_to_read;
+        cluster_offset = 0;
+        if (bytes_read < bytes) {
+            prev_cluster = curr_cluster;
+            curr_cluster = next_data_cluster(fs, prev_cluster);
+        }
+    }
+
+    *ret_last_cluster_written = curr_cluster;
+
+    /*
+    // delete any clusters after than and set EOF here
+    err = set_cluster_eof(fs, curr_cluster);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to delete clusters after\n");
+        return err;
+    }
+    */
+
     return SYS_ERR_OK;
 }
 
@@ -977,8 +1065,8 @@ errval_t fat32_read_data(struct fat32 *fs, uint32_t start_cluster,
     while (bytes_read < bytes) {
         uint32_t bytes_to_read = MIN(bytes - bytes_read,
                                      fs->BytesPerSec * fs->SecPerClus - cluster_offset);
-        err = fat32_read_cluster(fs, curr_cluster, cluster_offset, dest_buffer,
-                                 bytes_to_read);
+        err = fat32_process_cluster(fs, curr_cluster, cluster_offset, dest_buffer,
+                                    bytes_to_read, true);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to read cluster\n");
             return err;
@@ -987,7 +1075,7 @@ errval_t fat32_read_data(struct fat32 *fs, uint32_t start_cluster,
         bytes_read += bytes_to_read;
         dest_buffer += bytes_to_read;
         cluster_offset = 0;
-        if(bytes_read < bytes){
+        if (bytes_read < bytes) {
             curr_cluster = next_data_cluster(fs, curr_cluster);
             assert(!fat_entry_is_eof(curr_cluster));
         }
@@ -1178,4 +1266,108 @@ __attribute__((unused)) static void test_short_name(char *old)
     new_name[11] = '\0';
 
     debug_printf("old: \"%s\" -> new name: \"%s\"\n", old, valid ? new_name : "INVALID");
+}
+
+
+errval_t set_cluster_eof(struct fat32 *fs, uint32_t curr_cluster)
+{
+    errval_t err;
+    uint32_t next_cluster = get_fat_entry(fs, curr_cluster);
+
+    err = set_fat_entry(fs, curr_cluster, FAT_ENTRY_EOF);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to set EOF entry in FAT\n");
+        return err;
+    }
+
+    curr_cluster = next_cluster;
+    while (!fat_entry_is_free(curr_cluster)) {
+        next_cluster = get_fat_entry(fs, curr_cluster);
+        err = set_fat_entry(fs, curr_cluster, FAT_ENTRY_FREE);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to set free entry in FAT\n");
+            return err;
+        }
+        curr_cluster = next_cluster;
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+errval_t fat32_set_fdata(struct fat32 *fs, uint32_t dir_sector, uint32_t dir_index,
+                         uint32_t start_data_cluster, uint32_t size)
+{
+    errval_t err;
+
+    err = fs_read_sector(fs, dir_sector, &fs->data_scratch);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Couldn't read dir-entry sector\n");
+        return err;
+    }
+
+    struct fat32_dir_entry *dir_entry = (struct fat32_dir_entry *)fs->data_scratch.virt + dir_index; 
+    
+    dir_entry->FileSize = size;
+    dir_entry->FstClusHI = start_data_cluster >> 16;
+    dir_entry->FstClusLO = start_data_cluster & 0xFFFF;
+
+    err = fs_write_sector(fs, dir_sector, &fs->data_scratch);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Failed to write back updated dir-entry!\n");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+
+}
+
+
+
+errval_t fat32_create_empty_file(struct fat32 *fs, char *path){
+
+    errval_t err;
+
+    char *prefix, *fname;
+    split_path(path, &prefix, &fname);
+
+    uint32_t parent_dir_cluster;
+    err = move_to_dir(fs, prefix, &parent_dir_cluster);
+
+    char fat32_short_name[11];
+    bool valid = to_fat32_short_name(fname, fat32_short_name);
+    if(!valid){
+        DEBUG_PRINTF("Couldn't convert filename to short name: %s\n", fname);
+        return err;
+    }
+    struct fat32_file file = {
+        .name = fat32_short_name, .size = 0, .payload = NULL, .type = 0
+    };   
+
+    uint32_t start_data_cluster; 
+    err = add_file_to_dir(fs, parent_dir_cluster, &file, &start_data_cluster);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Failed to write new file entry to dir\n");
+    }
+
+
+    return SYS_ERR_OK;
+}
+
+void split_path(const char *full_path, char **path_prefix, char **fname)
+{
+    // TODO malloc fail
+    uint32_t last_separator = get_path_dir_prefix(full_path);
+    if (last_separator == -1) {
+        *path_prefix = strdup("");
+        *fname = strdup(full_path);
+    } else {
+        int full_path_len = strlen(full_path);
+        *path_prefix = malloc(last_separator + 1);
+        *fname = malloc(full_path_len - last_separator + 1);
+
+        memcpy(*path_prefix, full_path, last_separator);
+        (*path_prefix)[last_separator] = '\0';
+        memcpy(*fname, full_path + last_separator + 1, full_path_len - last_separator + 1);
+    }
 }

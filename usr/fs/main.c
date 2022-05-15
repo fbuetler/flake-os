@@ -35,15 +35,21 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "filesystem_init failed");
     }
 
-    FILE *f = fopen("/dir2/dir2/hithere.txt", "r");
+    FILE *f = fopen("/dir2/dir2/test2.txt", "r");
     if (f == NULL) {
         return FS_ERR_OPEN;
     }
+    __attribute__((unused))
+    const char *inspirational_quote = "I love deadlines. I like the whooshing "
+                                      "sound they make as they fly by.";
+    //size_t written = fwrite(inspirational_quote, 1, strlen(inspirational_quote), f);
+    //printf("wrote %zu bytes\n", written);
 
     int c;
     do {
-        c = fgetc (f);
+        c = fgetc(f);
         printf("%c", c);
     } while (c != EOF);
 
+    return 0;
 }

@@ -152,11 +152,14 @@ static int fat32fs_libc_open(char *path, int flags)
     struct fat32fs_handle *vh;
     errval_t err = SYS_ERR_OK;
 
+
+    domainid_t pid = disp_get_domain_id();
+
     // If O_CREAT was given, we use ramfsfs_create()
     if(flags & O_CREAT) {
         // If O_EXCL was also given, we check whether we can open() first
         if(flags & O_EXCL) {
-            err = fat32fs_open(disp_get_domain_id(), mount, path, &vh);
+            err = fat32fs_open(pid, mount, path, &vh);
             if(err_is_ok(err)) {
                 fat32fs_handle_close(vh);
                 errno = EEXIST;
@@ -165,12 +168,11 @@ static int fat32fs_libc_open(char *path, int flags)
             assert(err_no(err) == FS_ERR_NOTFOUND);
         }
 
-
-        /* TODO TODO TODO create!
-        err = ramfs_create(mount, path, &vh);
+        DEBUG_PRINTF("create here\n");
+        err = fat32fs_create(pid, path, &vh);
         if (err_is_fail(err) && err == FS_ERR_EXISTS) {
-            err = ramfs_open(mount, path, &vh);
-        }*/
+            err = fat32fs_open(pid, mount, path, &vh);
+        }
 
     } else {
         // Regular open()
@@ -241,7 +243,7 @@ static int fat32fs_libc_read(int fd, void *buf, size_t len)
     {
         struct fat32fs_handle *fh = e->handle;
         assert(e->handle);
-        err = fat32fs_read(mount, fh, buf, len, &retlen);
+        err = fat32fs_read(fh, buf, len, &retlen);
         if (err_is_fail(err)) {
             return -1;
         }
@@ -254,6 +256,7 @@ static int fat32fs_libc_read(int fd, void *buf, size_t len)
     return retlen;
 }
 
+__attribute__((unused))
 static int fs_libc_write(int fd, void *buf, size_t len)
 {
     struct fdtab_entry *e = fdtab_get(fd);
@@ -268,6 +271,34 @@ static int fs_libc_write(int fd, void *buf, size_t len)
     {
         ramfs_handle_t fh = e->handle;
         errval_t err = ramfs_write(mount, fh, buf, len, &retlen);
+        if (err_is_fail(err)) {
+            return -1;
+        }
+    }
+    break;
+    default :
+        return -1;
+    }
+
+    return retlen;
+}
+
+
+static int fat32fs_libc_write(int fd, void *buf, size_t len)
+{
+    DEBUG_PRINTF("fwrite len: %zu\n", len);
+    struct fdtab_entry *e = fdtab_get(fd);
+    if (e->type == FDTAB_TYPE_AVAILABLE) {
+        return -1;
+    }
+
+    size_t retlen = 0;
+
+    switch(e->type) {
+    case FDTAB_TYPE_FILE:
+    {
+        struct fat32fs_handle *fh = e->handle;
+        errval_t err = fat32fs_write(fh, buf, len, &retlen);
         if (err_is_fail(err)) {
             return -1;
         }
@@ -326,6 +357,7 @@ static int fat32fs_libc_close(int fd)
     return 0;
 }
 
+__attribute__((unused))
 static off_t fs_libc_lseek(int fd, off_t offset, int whence)
 {
     struct fdtab_entry *e = fdtab_get(fd);
@@ -373,6 +405,54 @@ static off_t fs_libc_lseek(int fd, off_t offset, int whence)
     }
 }
 
+static off_t fat32fs_libc_lseek(int fd, off_t offset, int whence)
+{
+    struct fdtab_entry *e = fdtab_get(fd);
+    struct fat32fs_handle *fh = e->handle;
+    switch(e->type) {
+    case FDTAB_TYPE_FILE:
+    {
+        enum fs_seekpos fs_whence;
+        errval_t err;
+        size_t retpos;
+
+        switch(whence) {
+        case SEEK_SET:
+            fs_whence = FS_SEEK_SET;
+            break;
+
+        case SEEK_CUR:
+            fs_whence = FS_SEEK_CUR;
+            break;
+
+        case SEEK_END:
+            fs_whence = FS_SEEK_END;
+            break;
+
+        default:
+            return -1;
+        }
+
+        err = fat32fs_seek(fh, fs_whence, offset);
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "vfs_seek");
+            return -1;
+        }
+
+        err = fat32fs_tell(fh, &retpos);
+        if(err_is_fail(err)) {
+            return -1;
+        }
+        return retpos;
+    }
+    break;
+
+    default:
+        return -1;
+    }
+}
+
+
 static errval_t fs_mkdir(const char *path){ return ramfs_mkdir(mount, path);}
 static errval_t fs_rmdir(const char *path){ return ramfs_rmdir(mount, path); }
 static errval_t fs_rm(const char *path){ return ramfs_remove(mount, path); }
@@ -395,8 +475,8 @@ newlib_register_fsops__(fsopen_fn_t *open_fn,
 
 void fs_libc_init(void *fs_state)
 {
-    newlib_register_fsops__(fat32fs_libc_open, fat32fs_libc_read, fs_libc_write,
-                            fat32fs_libc_close, fs_libc_lseek);
+    newlib_register_fsops__(fat32fs_libc_open, fat32fs_libc_read, fat32fs_libc_write,
+                            fat32fs_libc_close, fat32fs_libc_lseek);
 
     /* register directory operations */
     fs_register_dirops(fs_mkdir, fs_rmdir, fs_rm, fs_opendir,
