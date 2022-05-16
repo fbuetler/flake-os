@@ -488,7 +488,7 @@ void fs_libc_init(void *fs_state)
 
     /* register directory operations */
     fs_register_dirops(fat32fs_mkdir, fs_rmdir, fat32fs_rm, fs_opendir, fs_readdir,
-                       fs_closedir, fs_fstat);
+                       fs_closedir, fat32fs_fstat);
 
     mount = fs_state;
 }

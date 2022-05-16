@@ -379,6 +379,13 @@ errval_t fat32fs_mkdir(const char *path)
     return SYS_ERR_OK;
 }
 
+errval_t fat32fs_fstat(struct fat32fs_handle *h, struct fs_fileinfo *b)
+{
+    b->size = h->dirent->size;
+    b->type = h->dirent->is_dir ? FS_DIRECTORY : FS_FILE;
+    return SYS_ERR_OK;
+
+}
 
 void fs_init(void)
 {

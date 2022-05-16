@@ -69,6 +69,8 @@ errval_t fat32fs_mkdir(const char *path);
 
 errval_t fat32fs_rm(const char *path);
 
+errval_t fat32fs_fstat(struct fat32fs_handle *h, struct fs_fileinfo *b);
+
 void fs_init(void);
 
 
