@@ -51,6 +51,7 @@ struct aos_lmp_msg {
 enum aos_rpc_channel_type {
     AOS_RPC_BASE_CHANNEL,
     AOS_RPC_MEMORY_CHANNEL,
+    AOS_RPC_NAMESERVER_CHANNEL,
 };
 
 enum aos_rpc_service {
@@ -102,6 +103,11 @@ errval_t aos_lmp_send_msg(struct aos_lmp *lmp, struct aos_lmp_msg *msg);
  * @brief Register a receive handler that should be called on icoming messages
  */
 errval_t aos_lmp_register_recv(struct aos_lmp *lmp, process_msg_func_t process_msg_func);
+
+/**
+ * @brief Reregister a receive handler on a channel that has already been registered
+ */
+errval_t aos_lmp_reregister_recv(struct aos_lmp *lmp, process_msg_func_t process_msg_func);
 
 /**
  * @brief Synchronously send a message

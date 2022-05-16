@@ -38,7 +38,8 @@
 
 #include "mem_alloc.h"
 #include "custom_tests.h"
-#include "nameserver_tests.h"
+#include "nameserver/name_tree.h"
+#include "nameserver/test.h"
 
 
 struct bootinfo *bi;
@@ -61,8 +62,14 @@ static int bsp_main(int argc, char *argv[])
     err = initialize_ram_alloc();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialize_ram_alloc");
+        return EXIT_FAILURE;
     }
 
+    err = initialize_name_tree();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to initialize name tree");
+        return EXIT_FAILURE;
+    }
     // TODO: initialize mem allocator, vspace management here
 
     // Grading

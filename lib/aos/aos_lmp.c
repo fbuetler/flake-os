@@ -57,7 +57,7 @@ void aos_process_number(struct aos_lmp *lmp)
 
     err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
-        DEBUG_PRINTF("error sending ram cap response\n");
+        DEBUG_ERR(err, "error sending number response\n");
     }
 }
 
@@ -87,7 +87,7 @@ void aos_process_string(struct aos_lmp *lmp)
 
     err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
-        DEBUG_PRINTF("error sending string response msg\n");
+        DEBUG_ERR(err, "error sending string response msg\n");
     }
 }
 
@@ -265,6 +265,7 @@ static errval_t aos_lmp_recv_msg(struct aos_lmp *lmp)
     if (err_is_fail(err) && lmp_err_is_transient(err)) {
         goto reregister;
     } else if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to receive (non-transient error)\n");
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
     }
 
@@ -602,10 +603,21 @@ errval_t aos_lmp_register_recv(struct aos_lmp *lmp, process_msg_func_t process_m
         MKCLOSURE((void (*)(void *))aos_lmp_recv_msg_handler, lmp));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to register receive function");
-        return err_push(err, LIB_ERR_LMP_CHAN_INIT);
+        return err_push(err, LIB_ERR_CHAN_REGISTER_RECV);
     }
 
     return SYS_ERR_OK;
+}
+
+errval_t aos_lmp_reregister_recv(struct aos_lmp *lmp, process_msg_func_t process_msg_func)
+{
+    errval_t err = lmp_chan_deregister_recv(&lmp->chan);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to deregister channel\n");
+        return err_push(err, LIB_ERR_CHAN_DEREGISTER_RECV);
+    }
+
+    return aos_lmp_register_recv(lmp, process_msg_func);
 }
 
 errval_t aos_lmp_call(struct aos_lmp *lmp, struct aos_lmp_msg *msg, bool use_dynamic_buf)

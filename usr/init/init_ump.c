@@ -6,6 +6,7 @@
 #include "core_mgmt.h"
 #include "proc_mgmt.h"
 #include "init_lmp.h"
+#include "nameserver/server.h"
 
 #include <aos/aos.h>
 #include <aos/core_state.h>
@@ -169,6 +170,17 @@ void aos_ump_receive_listener(struct aos_ump *ump)
                 continue;
             }
             aos_ump_send(ump, AosRpcSerialReadCharResponse, retpayload, 1);
+            continue;
+        }
+        case AosRpcNsRegister: {
+            err = aos_process_service_register(payload, len);
+            free(payload);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "Could not register service\n");
+                continue;
+            }
+
+            aos_ump_send(ump, AosRpcErrvalResponse, (char *)&err, sizeof(errval_t));
             continue;
         }
         default: {

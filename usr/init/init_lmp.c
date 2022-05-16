@@ -5,6 +5,7 @@
 
 #include "proc_mgmt.h"
 #include "init_ump.h"
+#include "nameserver/server.h"
 
 #include <aos/aos.h>
 #include <aos/core_state.h>
@@ -474,6 +475,13 @@ errval_t init_process_msg(struct aos_lmp *lmp)
     case AosRpcUmpBindRequest:
         aos_process_aos_ump_bind_request(lmp);
         break;
+    case AosRpcNsRegister: {
+        errval_t err = aos_process_service_register(lmp->recv_msg->payload, lmp->recv_msg->payload_bytes);
+        struct aos_lmp_msg response;
+        aos_lmp_create_msg_no_pagefault(NULL, AosRpcErrvalResponse, sizeof(errval_t), (void *)&err, NULL_CAP, &response);
+        aos_lmp_send_msg(lmp, &response);
+        break;
+    }
     default:
         printf("received unknown message type\n");
         break;

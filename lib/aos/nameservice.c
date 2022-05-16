@@ -39,6 +39,7 @@ bool name_is_valid(char *name)
 errval_t name_into_parts(char *name, struct name_parts *ret)
 {
     if (!name_is_valid(name)) {
+        //DEBUG_PRINTF("\"%s\" is an invalid name\n", name);
         return LIB_ERR_NAMESERVICE_INVALID_NAME;
     }
 
@@ -83,11 +84,34 @@ errval_t name_into_parts(char *name, struct name_parts *ret)
 
     return SYS_ERR_OK;
 }
-void free_name_parts_contents(struct name_parts *p) {
+
+void name_parts_contents_free(struct name_parts *p)
+{
     free(p->parts[0]);
     free(p->parts);
 }
 
+
+errval_t service_info_new(coreid_t core, nameservice_receive_handler_t *handle,
+                          void *handler_state, domainid_t pid, const char *name,
+                          service_info_t **ret)
+{
+    size_t name_len = strlen(name) + 1;
+    *ret = malloc(sizeof(service_info_t) + name_len);
+    if (*ret == NULL) {
+        DEBUG_PRINTF("Failed to allocate service info\n");
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    (*ret)->core = core;
+    (*ret)->handle = handle;
+    (*ret)->handler_state = handler_state;
+    (*ret)->pid = pid;
+    (*ret)->name_len = name_len;
+    memcpy((*ret)->name, name, name_len);
+
+    return SYS_ERR_OK;
+}
 
 struct srv_entry {
     const char *name;
@@ -132,7 +156,32 @@ errval_t nameservice_rpc(nameservice_chan_t chan, void *message, size_t bytes,
 errval_t nameservice_register(const char *name,
                               nameservice_receive_handler_t recv_handler, void *st)
 {
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+
+    service_info_t *info;
+    err = service_info_new(disp_get_current_core_id(), recv_handler, st,
+                           disp_get_domain_id(), name, &info);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to create new service info");
+        return err_push(err, LIB_ERR_NAMESERVICE_NEW_INFO);
+    }
+
+    struct aos_rpc_msg msg = { .type = AosRpcNsRegister,
+                               .payload = (char *)info,
+                               sizeof(service_info_t) + info->name_len,
+                               NULL_CAP };
+    
+    struct aos_rpc *init_rpc = get_init_rpc();
+    struct aos_rpc_msg response;
+    err = aos_rpc_call(init_rpc, msg, &response, true);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to execute rpc call to register service");
+        return err_push(err, LIB_ERR_RPC_CALL);
+    }
+
+    assert(response.type == AosRpcErrvalResponse);
+
+    return (errval_t) response.payload;
 }
 
 

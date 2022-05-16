@@ -1,5 +1,6 @@
 #include <aos/nameserver.h>
-#include "nameserver_tests.h"
+#include "test.h"
+#include "server.h"
 
 #define BEGIN_TESTS(name)                                                                \
     char *tests_name__ = name;                                                           \
