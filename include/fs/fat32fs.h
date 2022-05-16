@@ -67,6 +67,8 @@ void fat32fs_handle_close(struct fat32fs_handle *h);
 
 errval_t fat32fs_mkdir(const char *path);
 
+errval_t fat32fs_rm(const char *path);
+
 void fs_init(void);
 
 

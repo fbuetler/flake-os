@@ -449,6 +449,8 @@ static errval_t fs_rmdir(const char *path)
 {
     return ramfs_rmdir(mount, path);
 }
+
+__attribute__((unused))
 static errval_t fs_rm(const char *path)
 {
     return ramfs_remove(mount, path);
@@ -485,7 +487,7 @@ void fs_libc_init(void *fs_state)
                             fat32fs_libc_close, fat32fs_libc_lseek);
 
     /* register directory operations */
-    fs_register_dirops(fat32fs_mkdir, fs_rmdir, fs_rm, fs_opendir, fs_readdir,
+    fs_register_dirops(fat32fs_mkdir, fs_rmdir, fat32fs_rm, fs_opendir, fs_readdir,
                        fs_closedir, fs_fstat);
 
     mount = fs_state;

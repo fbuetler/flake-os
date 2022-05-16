@@ -332,7 +332,35 @@ errval_t fat32fs_create(domainid_t pid, char *path, int flags,
     return SYS_ERR_OK;
 }
 
+errval_t fat32fs_rm(const char *path){
+    errval_t err = SYS_ERR_OK;
 
+    path = clean_path(path);
+    if(path == NULL){
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    struct fat32fs_handle *h;
+    err = resolve_path(0, path, &h);
+    if (err_is_fail(err) && err == FS_ERR_NOTFOUND) {
+        return err;
+    }
+
+    if(h->dirent->is_dir){
+        err =FS_ERR_NOTFILE;
+        goto unwind;
+    }
+
+    err = fat32_delete_file(&fs_state.fat32, h->dirent->dir_sector, h->dirent->dir_index);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Couldn't delete file\n");
+        goto unwind;
+    }
+
+unwind:
+    fat32fs_handle_close(h);
+    return err;
+}
 
 errval_t fat32fs_mkdir(const char *path)
 {

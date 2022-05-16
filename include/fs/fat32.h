@@ -31,6 +31,9 @@
 #define FAT_ENTRY_EOF 0x0FFFFFFF
 #define FAT_ENTRY_FREE 0x00000000
 
+// first index of file name determines status
+#define FAT32_FNAME_FREE '\0'
+
 struct phys_virt_addr {
     lpaddr_t phys;
     void *virt;
@@ -133,7 +136,7 @@ struct path_list_node *init_new_path_list_node(char *dir, struct path_list_node 
 
 void free_path_list(struct path_list_node *head);
 
-struct path_list_node *get_path_list(char *orig_path);
+struct path_list_node *get_path_list(const char *orig_path);
 
 errval_t fs_read_sector(struct fat32 *fs, uint32_t sector, struct phys_virt_addr *addr);
 
@@ -190,7 +193,10 @@ void split_path(const char *full_path, char **path_prefix, char **fname);
 
 errval_t fat32_create_empty_file(struct fat32 *fs, const char *path, bool is_dir);
 
-char *clean_path(char *path);
+char *clean_path(const char *path);
 
+errval_t free_cluster_chain(struct fat32 *fs, uint32_t start_data_cluster);
+
+errval_t fat32_delete_file(struct fat32 *fs, uint32_t dir_sector, uint32_t index);
 
 #endif

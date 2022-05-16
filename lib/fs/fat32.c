@@ -40,7 +40,7 @@ static inline lpaddr_t shdc_get_phys_addr(void *addr)
 struct path_list_node *init_new_path_list_node(char *dir, struct path_list_node *prev)
 {
     struct path_list_node *node = malloc(sizeof(struct path_list_node));
-    node->dir = dir;
+    node->dir = strdup(dir);
     node->next = NULL;
     node->prev = prev;
     return node;
@@ -51,12 +51,13 @@ void free_path_list(struct path_list_node *head)
     struct path_list_node *node = head;
     while (node != NULL) {
         struct path_list_node *next = node->next;
+        free(node->dir);
         free(node);
         node = next;
     }
 }
 
-struct path_list_node *get_path_list(char *orig_path)
+struct path_list_node *get_path_list(const char *orig_path)
 {
     // copy path
     int N = strlen(orig_path);
@@ -1291,20 +1292,8 @@ errval_t set_cluster_eof(struct fat32 *fs, uint32_t curr_cluster)
     }
 
     curr_cluster = get_fat_entry(fs, next_cluster);
-    while (!fat_entry_is_free(curr_cluster)) {
-        next_cluster = get_fat_entry(fs, curr_cluster);
-        err = set_fat_entry(fs, curr_cluster, FAT_ENTRY_FREE);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to set free entry in FAT\n");
-            return err;
-        }
-        curr_cluster = next_cluster;
-        if(fat_entry_is_eof(curr_cluster)){
-            break;
-        }
-    }
 
-    return SYS_ERR_OK;
+    return free_cluster_chain(fs, curr_cluster);
 }
 
 
@@ -1378,7 +1367,7 @@ errval_t fat32_create_empty_file(struct fat32 *fs, const char *path, bool is_dir
     return SYS_ERR_OK;
 }
 
-char *clean_path(char *path){
+char *clean_path(const char *path){
     struct path_list_node *path_list = get_path_list(path);
     if(path_list == NULL){
         return NULL;
@@ -1434,4 +1423,52 @@ void split_path(const char *full_path, char **path_prefix, char **fname)
         (*path_prefix)[last_separator] = '\0';
         memcpy(*fname, full_path + last_separator + 1, full_path_len - last_separator + 1);
     }
+}
+
+errval_t free_cluster_chain(struct fat32 *fs, uint32_t start_data_cluster){
+    uint32_t curr_cluster = start_data_cluster;
+    while(!fat_entry_is_free(curr_cluster)){
+        uint32_t next_cluster = get_fat_entry(fs, curr_cluster);
+        errval_t err = set_fat_entry(fs, curr_cluster, FAT_ENTRY_FREE);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to set free entry in FAT\n");
+            return err;
+        }
+        if(fat_entry_is_eof(next_cluster)){
+            break;
+        }
+        curr_cluster = next_cluster;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t fat32_delete_file(struct fat32 *fs, uint32_t dir_sector, uint32_t index){
+    // load sector
+    errval_t err;
+    err = fs_read_sector(fs, dir_sector, &fs->data_scratch);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Couldn't read dir-entry sector\n");
+        return err;
+    }
+
+    struct fat32_dir_entry *dir_entry = (struct fat32_dir_entry *)fs->data_scratch.virt + index;
+    uint32_t data_cluster = dir_entry->FstClusHI << 16 | dir_entry->FstClusLO;
+
+    // set free by assigning first index of file name in dir entry
+    dir_entry->Name[0] = FAT32_FNAME_FREE;
+
+    // write back
+    err = fs_write_sector(fs, dir_sector, &fs->data_scratch);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Couldn't write back deletion of file\n");
+        return err;
+    }
+    err = free_cluster_chain(fs, data_cluster);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Couldn't free data of deleted file!\n");
+        return err;
+    }
+
+    return SYS_ERR_OK;
 }
