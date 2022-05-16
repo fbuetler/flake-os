@@ -120,6 +120,7 @@ success:
     return err;
 }
 
+// assumes path is clean
 errval_t fat32fs_open(domainid_t pid, struct fat32fs_mount *mount, const char *path,
                       int flags, struct fat32fs_handle **rethandle)
 {
@@ -303,6 +304,7 @@ errval_t fat32fs_tell(struct fat32fs_handle *h, size_t *pos)
     return SYS_ERR_OK;
 }
 
+// assumes path is clean
 errval_t fat32fs_create(domainid_t pid, char *path, int flags,
                         struct fat32fs_handle **rethandle)
 {
@@ -313,7 +315,7 @@ errval_t fat32fs_create(domainid_t pid, char *path, int flags,
         return FS_ERR_EXISTS;
     }
 
-    err = fat32_create_empty_file(&fs_state.fat32, path);
+    err = fat32_create_empty_file(&fs_state.fat32, path, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not create file\n");
         return err;
@@ -329,6 +331,26 @@ errval_t fat32fs_create(domainid_t pid, char *path, int flags,
 
     return SYS_ERR_OK;
 }
+
+
+
+errval_t fat32fs_mkdir(const char *path)
+{
+    errval_t err = resolve_path(0, path, NULL); 
+
+    if(err_is_ok(err)){
+        return FS_ERR_EXISTS;
+    }
+
+    err = fat32_create_empty_file(&fs_state.fat32, path, true);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not create directory\n");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
 
 void fs_init(void)
 {

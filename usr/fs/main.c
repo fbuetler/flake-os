@@ -26,6 +26,7 @@
 #include <aos/cache.h>
 #include <fs/fat32.h>
 #include <fs/fs.h>
+#include <fs/dirent.h>
 
 int main(int argc, char *argv[])
 {
@@ -35,9 +36,11 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "filesystem_init failed");
     }
 
+    //err = mkdir("/testdir2");
+    //assert(err_is_ok(err));
 
 
-    FILE *f = fopen("/dir2/dir2/test8.txt", "w");
+    FILE *f = fopen("/testdir2/test8.txt", "w");
     if (f == NULL) {
         return FS_ERR_OPEN;
     }
@@ -49,7 +52,7 @@ int main(int argc, char *argv[])
 
     fclose(f);
 
-    f = fopen("/dir2/dir2/test8.txt",  "r");
+    f = fopen("/testdir2/test8.txt",  "r");
     if (f == NULL) {
         return FS_ERR_OPEN;
     }

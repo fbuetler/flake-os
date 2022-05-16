@@ -65,6 +65,8 @@ errval_t fat32fs_create(domainid_t pid, char *path, int flags, struct fat32fs_ha
 
 void fat32fs_handle_close(struct fat32fs_handle *h);
 
+errval_t fat32fs_mkdir(const char *path);
+
 void fs_init(void);
 
 

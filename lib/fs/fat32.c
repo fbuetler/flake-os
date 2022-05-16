@@ -827,7 +827,7 @@ int get_path_dir_prefix(const char *name)
 {
     size_t N = strlen(name);
 
-    for (int i = N - 1; i > 0; i--) {
+    for (int i = N - 1; i >= 0; i--) {
         if (name[i] == '/') {
             return i;
         }
@@ -1337,7 +1337,7 @@ errval_t fat32_set_fdata(struct fat32 *fs, uint32_t dir_sector, uint32_t dir_ind
 
 
 
-errval_t fat32_create_empty_file(struct fat32 *fs, char *path){
+errval_t fat32_create_empty_file(struct fat32 *fs, const char *path, bool is_dir){
 
     errval_t err;
 
@@ -1353,18 +1353,69 @@ errval_t fat32_create_empty_file(struct fat32 *fs, char *path){
         DEBUG_PRINTF("Couldn't convert filename to short name: %s\n", fname);
         return err;
     }
+
+    // TODO is a file really = 0?
     struct fat32_file file = {
-        .name = fat32_short_name, .size = 0, .payload = NULL, .type = 0
+        .name = fat32_short_name, .size = 0, .payload = NULL, .type = is_dir ? FAT32_FATTR_DIRECTORY : 0
     };   
 
     uint32_t start_data_cluster; 
     err = add_file_to_dir(fs, parent_dir_cluster, &file, &start_data_cluster);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Failed to write new file entry to dir\n");
+        return err;
     }
 
 
+    if(is_dir){
+        err = initialize_dir(fs, parent_dir_cluster, start_data_cluster, &file);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "Failed to initialize dir\n");
+            return err;
+        }
+    }
+
     return SYS_ERR_OK;
+}
+
+char *clean_path(char *path){
+    struct path_list_node *path_list = get_path_list(path);
+    if(path_list == NULL){
+        return NULL;
+    }
+
+    // calculate total length
+    size_t total_len = 0;
+    struct path_list_node *curr = path_list;
+    while(curr != NULL){
+        total_len += strlen(curr->dir) + 1;
+        curr = curr->next;
+    }
+
+    // allocate memory
+    char *cleaned_path = malloc(total_len + 1);
+    if(cleaned_path == NULL){
+        return NULL;
+    }
+
+    curr = path_list;
+    size_t offset = 0;
+    while(curr != NULL){
+        cleaned_path[offset] = '/';
+        offset++;
+
+        size_t len = strlen(curr->dir);
+        memcpy(cleaned_path + offset, curr->dir, len);
+        offset += len;
+
+        curr = curr->next;
+    }
+    cleaned_path[total_len] = '\0';
+
+    DEBUG_PRINTF("clean path: %s\n", cleaned_path);
+
+    return cleaned_path;
+
 }
 
 void split_path(const char *full_path, char **path_prefix, char **fname)

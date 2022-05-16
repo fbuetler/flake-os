@@ -188,6 +188,9 @@ errval_t fat32_set_fdata(struct fat32 *fs, uint32_t dir_sector, uint32_t dir_ind
 
 void split_path(const char *full_path, char **path_prefix, char **fname);
 
-errval_t fat32_create_empty_file(struct fat32 *fs, char *path);
+errval_t fat32_create_empty_file(struct fat32 *fs, const char *path, bool is_dir);
+
+char *clean_path(char *path);
+
 
 #endif
