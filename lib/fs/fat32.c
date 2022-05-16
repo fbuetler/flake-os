@@ -258,7 +258,7 @@ static inline uint32_t clus2sec(struct fat32 *fs, uint32_t cluster)
 }
 
 
-static inline void cluster2fat_index(struct fat32 *fs, uint32_t cluster,
+static inline void clus2fat_index(struct fat32 *fs, uint32_t cluster,
                                      uint32_t *fat_sector, uint32_t *fat_index)
 {
     uint32_t fat_offset = cluster * 4;
@@ -277,7 +277,7 @@ static inline uint32_t fat_index2cluster(struct fat32 *fs, uint32_t fat_sector,
 static inline uint32_t get_fat_entry(struct fat32 *fs, uint32_t cluster)
 {
     uint32_t fat_sector, fat_index;
-    cluster2fat_index(fs, cluster, &fat_sector, &fat_index);
+    clus2fat_index(fs, cluster, &fat_sector, &fat_index);
 
     // Read FAT sector
     errval_t err = fs_read_sector(fs, fat_sector, &fs->fat_scratch);
@@ -297,7 +297,7 @@ static errval_t set_fat_entry(struct fat32 *fs, uint32_t curr_cluster,
                               uint32_t new_cluster)
 {
     uint32_t fat_sector, fat_index;
-    cluster2fat_index(fs, curr_cluster, &fat_sector, &fat_index);
+    clus2fat_index(fs, curr_cluster, &fat_sector, &fat_index);
     errval_t err = fs_read_sector(fs, fat_sector, &fs->fat_scratch);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to read FAT sector");
@@ -314,7 +314,7 @@ void print_file(struct fat32 *fs, uint32_t cluster, uint32_t size)
 {
     while (size) {
         uint32_t fat_sector, fat_index;
-        cluster2fat_index(fs, cluster, &fat_sector, &fat_index);
+        clus2fat_index(fs, cluster, &fat_sector, &fat_index);
 
         // Read FAT sector
         fs_read_sector(fs, fat_sector, &fs->fat_scratch);
@@ -691,6 +691,11 @@ static errval_t allocate_and_link_cluster(struct fat32 *fs, uint32_t curr_cluste
         return err;
     }
 
+    err = set_fat_entry(fs, *new_cluster, FAT_ENTRY_EOF);
+     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to set fat entry of new cluster");
+        return err;
+    }
     return SYS_ERR_OK;
 }
 
@@ -1009,16 +1014,6 @@ errval_t fat32_write_data(struct fat32 *fs, uint32_t start_cluster,
     curr_cluster = prev_cluster = start_cluster;
 
     while (bytes_read < bytes) {
-        if (fat_entry_is_eof(curr_cluster)) {
-            err = allocate_and_link_cluster(fs, prev_cluster, &curr_cluster);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "couldn't allocate and link a new data cluster\n");
-                return err;
-            }
-        }
-
-        DEBUG_PRINTF("1\n");
-
         uint32_t bytes_to_read = MIN(bytes - bytes_read,
                                      fs->BytesPerSec * fs->SecPerClus - cluster_offset);
         err = fat32_process_cluster(fs, curr_cluster, cluster_offset, src_buffer,
@@ -1028,15 +1023,25 @@ errval_t fat32_write_data(struct fat32 *fs, uint32_t start_cluster,
             return err;
         }
 
-        DEBUG_PRINTF("2\n");
+        if(bytes_to_read == fs->BytesPerSec * fs->SecPerClus - cluster_offset) {
+            // cluster is full; set new one
+            prev_cluster = curr_cluster;
+            curr_cluster = next_data_cluster(fs, prev_cluster);
+            DEBUG_PRINTF("going to next data cluster\n");
+    
+            if (fat_entry_is_eof(curr_cluster)) {
+                DEBUG_PRINTF("new cluster allocated and linked\n");
+                err = allocate_and_link_cluster(fs, prev_cluster, &curr_cluster);
+                if (err_is_fail(err)) {
+                    DEBUG_ERR(err, "couldn't allocate and link a new data cluster\n");
+                    return err;
+                }
+            }
+        } 
 
         bytes_read += bytes_to_read;
         src_buffer += bytes_to_read;
         cluster_offset = 0;
-        if (bytes_read < bytes) {
-            prev_cluster = curr_cluster;
-            curr_cluster = next_data_cluster(fs, prev_cluster);
-        }
     }
 
     *ret_last_cluster_written = curr_cluster;
@@ -1071,14 +1076,16 @@ errval_t fat32_read_data(struct fat32 *fs, uint32_t start_cluster,
             DEBUG_ERR(err, "failed to read cluster\n");
             return err;
         }
+        if (bytes_to_read  ==  fs->BytesPerSec * fs->SecPerClus - cluster_offset) {
+            // cluster is full; move to next one
+            curr_cluster = next_data_cluster(fs, curr_cluster);
+            DEBUG_PRINTF("reading from next data cluster: %d\n", curr_cluster);
+        }
 
         bytes_read += bytes_to_read;
         dest_buffer += bytes_to_read;
         cluster_offset = 0;
-        if (bytes_read < bytes) {
-            curr_cluster = next_data_cluster(fs, curr_cluster);
-            assert(!fat_entry_is_eof(curr_cluster));
-        }
+
     }
 
     *ret_last_cluster_read = curr_cluster;
@@ -1268,11 +1275,14 @@ __attribute__((unused)) static void test_short_name(char *old)
     debug_printf("old: \"%s\" -> new name: \"%s\"\n", old, valid ? new_name : "INVALID");
 }
 
-
 errval_t set_cluster_eof(struct fat32 *fs, uint32_t curr_cluster)
 {
     errval_t err;
     uint32_t next_cluster = get_fat_entry(fs, curr_cluster);
+
+    if(fat_entry_is_eof(next_cluster)) {
+        return SYS_ERR_OK;
+    }
 
     err = set_fat_entry(fs, curr_cluster, FAT_ENTRY_EOF);
     if (err_is_fail(err)) {
@@ -1280,7 +1290,7 @@ errval_t set_cluster_eof(struct fat32 *fs, uint32_t curr_cluster)
         return err;
     }
 
-    curr_cluster = next_cluster;
+    curr_cluster = get_fat_entry(fs, next_cluster);
     while (!fat_entry_is_free(curr_cluster)) {
         next_cluster = get_fat_entry(fs, curr_cluster);
         err = set_fat_entry(fs, curr_cluster, FAT_ENTRY_FREE);
@@ -1289,6 +1299,9 @@ errval_t set_cluster_eof(struct fat32 *fs, uint32_t curr_cluster)
             return err;
         }
         curr_cluster = next_cluster;
+        if(fat_entry_is_eof(curr_cluster)){
+            break;
+        }
     }
 
     return SYS_ERR_OK;

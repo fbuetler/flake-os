@@ -3,6 +3,7 @@
 #include <fs/fat32fs.h>
 #include <fs/fat32.h>
 #include <collections/hash_table.h>
+#include <fcntl.h>
 
 struct fs_state fs_state;
 collections_hash_table *fs_file_handles;
@@ -31,7 +32,6 @@ struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d)
         return NULL;
     }
     h->dirent = d;
-    DEBUG_PRINTF("here, dirent is: %p\n", h->dirent);
     h->curr_data_cluster = d->start_data_cluster;
 
     fat32fs_add_file_handler(pid, h);
@@ -40,9 +40,17 @@ struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d)
 
 void fat32fs_handle_close(struct fat32fs_handle *h)
 {
+    // check if we need to truncate the rest of the file
+    if (h->flags & (O_RDWR | O_WRONLY)) {
+        if (h->u.file_offset != h->dirent->size) {
+            set_cluster_eof(&fs_state.fat32, h->curr_data_cluster);
+            fat32_set_fdata(&fs_state.fat32, h->dirent->dir_sector, h->dirent->dir_index,
+                            h->dirent->start_data_cluster, h->u.file_offset);
+        }
+    }
+
     collections_hash_delete(fs_file_handles, h->fid);
     free(h->dirent);
-    free(h);
 }
 
 static errval_t resolve_path(domainid_t pid, const char *path,
@@ -99,7 +107,7 @@ static errval_t resolve_path(domainid_t pid, const char *path,
         fh->path = path_prefix;
         *ret_fh = fh;
         goto success;
-    }else{
+    } else {
         free(dirent);
         goto success;
     }
@@ -113,23 +121,22 @@ success:
 }
 
 errval_t fat32fs_open(domainid_t pid, struct fat32fs_mount *mount, const char *path,
-                      struct fat32fs_handle **rethandle)
+                      int flags, struct fat32fs_handle **rethandle)
 {
     errval_t err;
 
     struct fat32fs_handle *handle;
-    DEBUG_PRINTF("before resolve path of path: %s\n", path);
     err = resolve_path(pid, path, &handle);
     if (err_is_fail(err)) {
         return err;
     }
 
-    DEBUG_PRINTF("after path resolve\n");
-
     if (handle->dirent->is_dir) {
         fat32fs_handle_close(handle);
         return FS_ERR_NOTFILE;
     }
+
+    handle->flags = flags;
 
     *rethandle = handle;
 
@@ -149,7 +156,8 @@ errval_t fat32fs_read(struct fat32fs_handle *h, void *buffer, size_t bytes,
         bytes = h->dirent->size - h->u.file_offset;
         assert(h->u.file_offset + bytes == h->dirent->size);
     }
-    //DEBUG_PRINTF("offset: %d, size: %d, bytes: %d\n", h->u.file_offset, h->dirent->size, bytes);
+    // DEBUG_PRINTF("offset: %d, size: %d, bytes: %d\n", h->u.file_offset,
+    // h->dirent->size, bytes);
 
     uint32_t new_data_cluster;
     // read bytes into it
@@ -201,11 +209,11 @@ errval_t fat32fs_write(struct fat32fs_handle *h, const void *buf, size_t bytes,
 
     if (h->u.file_offset >= h->dirent->size) {
         h->dirent->size = h->u.file_offset + 1;
-        
+
         // write new filesize!
         err = fat32_set_fdata(&fs_state.fat32, h->dirent->dir_sector, h->dirent->dir_index,
-                            h->dirent->start_data_cluster, h->dirent->size);
-        if(err_is_fail(err)){
+                              h->dirent->start_data_cluster, h->dirent->size);
+        if (err_is_fail(err)) {
             DEBUG_ERR(err, "Couldn't set file data back to dir-entry after a write\n");
             return err;
         }
@@ -233,15 +241,10 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
             }
             */
         } else {
-            DEBUG_PRINTF("prev cluster: %u\n", h->curr_data_cluster);
             err = fat32_get_cluster_from_offset(&fs_state.fat32,
                                                 h->dirent->start_data_cluster, offset,
                                                 &h->curr_data_cluster);
             h->u.file_offset = offset;
-            debug_printf("offset set to %"PRIu64"\n", h->u.file_offset);
-            DEBUG_PRINTF("new cluster: %u\n", h->curr_data_cluster);
-            DEBUG_PRINTF("start cluster: %u\n", h->dirent->start_data_cluster);
-            
         }
         break;
 
@@ -300,23 +303,25 @@ errval_t fat32fs_tell(struct fat32fs_handle *h, size_t *pos)
     return SYS_ERR_OK;
 }
 
-errval_t fat32fs_create(domainid_t pid, char *path, struct fat32fs_handle **rethandle){
+errval_t fat32fs_create(domainid_t pid, char *path, int flags,
+                        struct fat32fs_handle **rethandle)
+{
     errval_t err;
 
     err = resolve_path(pid, path, NULL);
-    if(err_is_ok(err)){
+    if (err_is_ok(err)) {
         return FS_ERR_EXISTS;
-    } 
+    }
 
     err = fat32_create_empty_file(&fs_state.fat32, path);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not create file\n");
         return err;
     }
 
-    if(rethandle){
-        err = fat32fs_open(pid, NULL, path, rethandle);
-        if(err_is_fail(err)){
+    if (rethandle) {
+        err = fat32fs_open(pid, NULL, path, flags, rethandle);
+        if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to open file after creation\n");
             return err;
         }

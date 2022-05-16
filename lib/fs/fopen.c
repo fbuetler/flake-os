@@ -159,7 +159,7 @@ static int fat32fs_libc_open(char *path, int flags)
     if(flags & O_CREAT) {
         // If O_EXCL was also given, we check whether we can open() first
         if(flags & O_EXCL) {
-            err = fat32fs_open(pid, mount, path, &vh);
+            err = fat32fs_open(pid, mount, path, flags, &vh);
             if(err_is_ok(err)) {
                 fat32fs_handle_close(vh);
                 errno = EEXIST;
@@ -168,15 +168,14 @@ static int fat32fs_libc_open(char *path, int flags)
             assert(err_no(err) == FS_ERR_NOTFOUND);
         }
 
-        DEBUG_PRINTF("create here\n");
-        err = fat32fs_create(pid, path, &vh);
+        err = fat32fs_create(pid, path, flags, &vh);
         if (err_is_fail(err) && err == FS_ERR_EXISTS) {
-            err = fat32fs_open(pid, mount, path, &vh);
+            err = fat32fs_open(pid, mount, path, flags, &vh);
         }
 
     } else {
         // Regular open()
-        err = fat32fs_open(disp_get_domain_id(), mount, path, &vh);
+        err = fat32fs_open(disp_get_domain_id(), mount, path, flags, &vh);
     }
 
     if (err_is_fail(err)) {
@@ -199,6 +198,7 @@ static int fat32fs_libc_open(char *path, int flags)
     };
     int fd = fdtab_alloc(&e);
     if (fd < 0) {
+        // we didnt' do any writing, so mode flags can be set to 0
         fat32fs_handle_close(vh);
         return -1;
     } else {
