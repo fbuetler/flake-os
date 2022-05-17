@@ -20,6 +20,7 @@
 #define RECV_BUFFER_SIZE 1024
 
 errval_t write_str(char *str);
+static void new_shell_line(void);
 errval_t write_nstr(char *str, size_t len);
 
 int num_builtins(void);
@@ -30,8 +31,6 @@ struct shell_state {
 
 // ring buffer to recv data. tail is current position, head is initial position. tail moves for each new entry
 struct receive_state {
-    size_t head;
-    size_t tail;
     size_t count;
     char data[RECV_BUFFER_SIZE];
 } recv_state;
@@ -83,7 +82,7 @@ static void handle_line(void) {
     char *tokens[RECV_BUFFER_SIZE];
 
     token_counter = 0;
-    char *line = &recv_state.data[recv_state.head];
+    char *line = &recv_state.data[0];
 
     // tokenize
     char *token;
@@ -112,6 +111,11 @@ static void handle_line(void) {
     }
 }
 
+static void new_shell_line(void) {
+    recv_state.count = 0;
+    write_str("> ");
+}
+
 __attribute__((unused))
 static void interrupt_handler(void *arg) {
     /**
@@ -128,25 +132,26 @@ static void interrupt_handler(void *arg) {
     if (c == 4 || c == 10 || c == 13) {
         // 4: EOT, 10: NL, 13: CR
         /* Enter is pressed. Parse the line and execute the command */
-        recv_state.data[recv_state.tail++] = '\0';
+        recv_state.data[recv_state.count++] = '\0';
         pl011_putchar(shell_state.uart_state, '\n');
         handle_line();
-        recv_state.count = 0;
-        recv_state.head = recv_state.tail;
-        write_str("> ");
+        new_shell_line();
+
     } else if(c == 8 || c == 127) {
         // Backspace. Note that on macos, pressing "backspace" actually sends "DEL"
         if(recv_state.count > 0) {
             recv_state.count -= 1;
-            recv_state.tail--;
-            write_str("\e[D\e[K");
+            write_str("\e[D\e[K"); // kills current cell, moves cursor to the left
         }
 
     } else {
-        // todo: handle overflow
-        recv_state.count += 1;
-        recv_state.data[recv_state.tail++] = c;
-        pl011_putchar(shell_state.uart_state, c);
+        if(recv_state.count == RECV_BUFFER_SIZE-1) {
+            write_str("\n Command too long.\n");
+            new_shell_line();
+        } else {
+            recv_state.data[recv_state.count++] = c;
+            pl011_putchar(shell_state.uart_state, c);
+        }
     }
 }
 
