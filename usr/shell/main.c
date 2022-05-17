@@ -39,16 +39,19 @@ struct receive_state {
 
 char *builtin_str[] = {
     "help",
-    "exit"
+    "exit",
+    "echo"
 };
 
 void shell_help(char **args);
 void shell_exit(char **args);
+void shell_echo(char **args);
 
 
 void (*builtin_func[]) (char **) = {
     &shell_help,
-    &shell_exit
+    &shell_exit,
+    &shell_echo
 };
 
 int num_builtins(void) {
@@ -58,11 +61,20 @@ int num_builtins(void) {
 void shell_help(char **args) {
     write_str("Available commands:\n");
     write_str("help: This message\n");
+    write_str("echo: Repeat the input\n");
     write_str("exit: NYI\n");
 }
 
 void shell_exit(char **args) {
     write_str("2222\n");
+}
+
+void shell_echo(char **args) {
+    for (int i = 1; i < RECV_BUFFER_SIZE && args[i] != NULL; i++) {
+        //write_str(strcat(args[i], " "));
+        write_str(args[i]);
+    }
+    write_str("\n");
 }
 
 
@@ -79,6 +91,7 @@ static void handle_line(void) {
 
     while (token != NULL) {
         tokens[token_counter++] = token;
+        DEBUG_PRINTF("token: %s \n", token);
         token = strtok(NULL, " ");
     }
     tokens[token_counter] = NULL;
@@ -101,6 +114,14 @@ static void handle_line(void) {
 
 __attribute__((unused))
 static void interrupt_handler(void *arg) {
+    /**
+     * This function gets called every time the UART driver recieves a new character.
+     * Besides special character (explained later), every character is put into a ring-buffer
+     * and printed on screen.
+     * Special characters:
+     *  - EOT/NL/CR: User pressed "Enter". Writes a new line and calls the handle_line function to process the input
+     *  - BS/DEL (Backspace): On-screen: Clear current cell and move cursor one cell to the left. Removes char from the buffer
+     */
     char c;
     pl011_getchar(shell_state.uart_state, &c);
 
@@ -113,6 +134,14 @@ static void interrupt_handler(void *arg) {
         recv_state.count = 0;
         recv_state.head = recv_state.tail;
         write_str("> ");
+    } else if(c == 8 || c == 127) {
+        // Backspace. Note that on macos, pressing "backspace" actually sends "DEL"
+        if(recv_state.count > 0) {
+            recv_state.count -= 1;
+            recv_state.tail--;
+            write_str("\e[D\e[K");
+        }
+
     } else {
         // todo: handle overflow
         recv_state.count += 1;
