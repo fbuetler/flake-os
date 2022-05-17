@@ -445,6 +445,7 @@ static errval_t fs_mkdir(const char *path)
 {
     return ramfs_mkdir(mount, path);
 }
+__attribute__((unused))
 static errval_t fs_rmdir(const char *path)
 {
     return ramfs_rmdir(mount, path);
@@ -455,21 +456,63 @@ static errval_t fs_rm(const char *path)
 {
     return ramfs_remove(mount, path);
 }
+__attribute__((unused))
 static errval_t fs_opendir(const char *path, fs_dirhandle_t *h)
 {
     return ramfs_opendir(mount, path, h);
 }
+__attribute__((unused))
 static errval_t fs_readdir(fs_dirhandle_t h, char **name)
 {
     return ramfs_dir_read_next(mount, h, name, NULL);
 }
+__attribute__((unused))
 static errval_t fs_closedir(fs_dirhandle_t h)
 {
     return ramfs_closedir(mount, h);
 }
+__attribute__((unused))
 static errval_t fs_fstat(fs_dirhandle_t h, struct fs_fileinfo *b)
 {
     return ramfs_stat(mount, h, b);
+}
+
+static errval_t fat32fs_opendir_glue(const char *path, fs_dirhandle_t *h)
+{
+    return fat32fs_opendir(disp_get_domain_id(), path, (struct fat32fs_handle **)h);
+}
+
+static errval_t fat32fs_mkdir_glue(const char *path)
+{
+    return fat32fs_mkdir(path);
+}
+
+static errval_t fat32fs_rmdir_glue(const char *path)
+{
+    return fat32fs_rmdir(path);
+}
+
+static errval_t fat32fs_fstat_glue(fs_dirhandle_t h, struct fs_fileinfo *b)
+{
+    return fat32fs_fstat(h, b);
+}
+
+static errval_t fat32fs_rm_glue(const char *path)
+{
+    return fat32fs_rm(path);
+}
+
+static errval_t fat32fs_readdir_glue(fs_dirhandle_t h, char **name)
+{
+    return fat32fs_dir_read_next(h, name, NULL);
+}
+
+
+static errval_t fat32fs_closedir_glue(fs_dirhandle_t h)
+{
+    // TODO return types
+    fat32fs_handle_close(h);
+    return SYS_ERR_OK;
 }
 
 typedef int fsopen_fn_t(char *, int);
@@ -487,8 +530,8 @@ void fs_libc_init(void *fs_state)
                             fat32fs_libc_close, fat32fs_libc_lseek);
 
     /* register directory operations */
-    fs_register_dirops(fat32fs_mkdir, fs_rmdir, fat32fs_rm, fs_opendir, fs_readdir,
-                       fs_closedir, fat32fs_fstat);
+    fs_register_dirops(fat32fs_mkdir_glue, fat32fs_rmdir_glue, fat32fs_rm_glue, fat32fs_opendir_glue, fat32fs_readdir_glue,
+                       fat32fs_closedir_glue, fat32fs_fstat_glue);
 
     mount = fs_state;
 }

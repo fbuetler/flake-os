@@ -36,6 +36,39 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "filesystem_init failed");
     }
 /*
+    mkdir("testdir2/testdir6");
+    mkdir("testdir2/testdir7");
+    mkdir("testdir2/testdir8");
+    mkdir("testdir2/testdir9");
+    mkdir("testdir2/testdi15");
+    mkdir("testdir2/testdi25");
+    mkdir("testdir2/testdi35");
+    mkdir("testdir2/testdi45");
+    mkdir("testdir2/testdi55");
+    mkdir("testdir2/testdi65");
+    mkdir("testdir2/testdi75");
+    mkdir("testdir2/testdi85");
+    mkdir("testdir2/testdi95");
+    mkdir("testdir2/testd10");
+    mkdir("testdir2/testd11");
+    mkdir("testdir2/testd12");
+*/
+
+    struct fat32fs_handle *h;
+    err = opendir("testdir2", (fs_dirhandle_t *)&h);
+    assert(err_is_ok(err));
+
+    while(1){
+        char *name;
+        err = readdir(h, &name);
+        if(err_is_fail(err)){
+            break;
+        }
+        DEBUG_PRINTF("name: %s\n", name);
+    }
+
+    return 0;
+/*
     err = rm("/testdir2/test8.txt");
     assert(err_is_ok(err));*/
 

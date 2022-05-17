@@ -71,6 +71,13 @@ errval_t fat32fs_rm(const char *path);
 
 errval_t fat32fs_fstat(struct fat32fs_handle *h, struct fs_fileinfo *b);
 
+errval_t fat32fs_rmdir(const char *path);
+
+errval_t fat32fs_opendir(domainid_t pid, const char *full_path, struct fat32fs_handle **rethandle);
+
+errval_t fat32fs_dir_read_next(struct fat32fs_handle *h, char **retname,
+                              struct fs_fileinfo *info);
+
 void fs_init(void);
 
 

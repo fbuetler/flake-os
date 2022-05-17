@@ -332,11 +332,12 @@ errval_t fat32fs_create(domainid_t pid, char *path, int flags,
     return SYS_ERR_OK;
 }
 
-errval_t fat32fs_rm(const char *path){
+errval_t fat32fs_rm(const char *path)
+{
     errval_t err = SYS_ERR_OK;
 
     path = clean_path(path);
-    if(path == NULL){
+    if (path == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
@@ -346,13 +347,13 @@ errval_t fat32fs_rm(const char *path){
         return err;
     }
 
-    if(h->dirent->is_dir){
-        err =FS_ERR_NOTFILE;
+    if (h->dirent->is_dir) {
+        err = FS_ERR_NOTFILE;
         goto unwind;
     }
 
     err = fat32_delete_file(&fs_state.fat32, h->dirent->dir_sector, h->dirent->dir_index);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Couldn't delete file\n");
         goto unwind;
     }
@@ -364,14 +365,14 @@ unwind:
 
 errval_t fat32fs_mkdir(const char *path)
 {
-    errval_t err = resolve_path(0, path, NULL); 
+    errval_t err = resolve_path(0, path, NULL);
 
-    if(err_is_ok(err)){
+    if (err_is_ok(err)) {
         return FS_ERR_EXISTS;
     }
 
     err = fat32_create_empty_file(&fs_state.fat32, path, true);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not create directory\n");
         return err;
     }
@@ -384,7 +385,120 @@ errval_t fat32fs_fstat(struct fat32fs_handle *h, struct fs_fileinfo *b)
     b->size = h->dirent->size;
     b->type = h->dirent->is_dir ? FS_DIRECTORY : FS_FILE;
     return SYS_ERR_OK;
+}
 
+
+errval_t fat32fs_rmdir(const char *path)
+{
+    errval_t err;
+
+    path = clean_path(path);
+
+    struct fat32fs_handle *handle;
+    err = resolve_path(0, path, &handle);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (!handle->dirent->is_dir) {
+        goto out;
+        err = FS_ERR_NOTDIR;
+    }
+
+    /* TODO refcounting?
+    if (handle->dirent->refcount != 1) {
+        handle_close(handle);
+        return FS_ERR_BUSY;
+    }
+    */
+
+    assert(handle->dirent->is_dir);
+
+    // check first if dir contains anything
+    // can only delete empty directories!
+    bool is_empty = fat32_is_dir_empty(&fs_state.fat32,
+                                       handle->dirent->start_data_cluster);
+
+    if (!is_empty) {
+        err = FS_ERR_NOTEMPTY;
+        DEBUG_ERR(err, "couldn't delete non-empty directory\n");
+        goto out;
+    }
+
+
+    err = fat32_delete_file(&fs_state.fat32, handle->dirent->dir_sector,
+                      handle->dirent->dir_index);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "couldn't delete directory\n");
+        goto out;
+    }
+
+out:
+    fat32fs_handle_close(handle);
+    return err;
+}
+
+
+errval_t fat32fs_opendir(domainid_t pid, const char *full_path,
+                         struct fat32fs_handle **rethandle)
+{
+    char *path = clean_path(full_path);
+    if (path == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    struct fat32fs_handle *handle;
+    errval_t err = resolve_path(pid, path, &handle);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (!handle->dirent->is_dir) {
+        fat32fs_handle_close(handle);
+        return FS_ERR_NOTDIR;
+    }
+
+    handle->flags = 0;
+    handle->u.dir_offset = 0;
+
+    *rethandle = handle;
+
+    return SYS_ERR_OK;
+}
+
+errval_t fat32fs_dir_read_next(struct fat32fs_handle *h, char **retname,
+                               struct fs_fileinfo *info)
+{
+    if (!h->dirent->is_dir) {
+        return FS_ERR_NOTDIR;
+    }
+
+    // read at current index
+    struct fat32_dir_entry dirent;
+    uint32_t dirent_cluster, dirent_index;
+    errval_t err = load_next_dir_entry(&fs_state.fat32, h->dirent->start_data_cluster,
+                                       h->u.dir_offset, &dirent, &dirent_cluster,
+                                       &dirent_index);
+    if (err_is_fail(err)) {
+        // TODO always?
+        return FS_ERR_INDEX_BOUNDS;
+    }
+
+    if (retname != NULL) {
+        *retname = malloc(12);
+        // TODO revert name to normal again
+        memcpy(*retname, dirent.Name, 11);
+        (*retname)[11] = '\0';
+    }
+
+    if (info != NULL) {
+        info->type = (dirent.Attr == FAT32_FATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE;
+        info->size = dirent.FileSize;
+    }
+
+    h->u.file_offset = dirent_index + 1;
+
+    return SYS_ERR_OK;
 }
 
 void fs_init(void)

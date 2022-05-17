@@ -199,4 +199,10 @@ errval_t free_cluster_chain(struct fat32 *fs, uint32_t start_data_cluster);
 
 errval_t fat32_delete_file(struct fat32 *fs, uint32_t dir_sector, uint32_t index);
 
+errval_t load_next_dir_entry(struct fat32 *fs, uint32_t first_dir_data_cluster,
+                             uint32_t start_index, struct fat32_dir_entry *ret_dir,
+                             uint32_t *ret_cluster, uint32_t *ret_index);
+
+bool fat32_is_dir_empty(struct fat32 *fs, uint32_t start_data_cluster);
+
 #endif
