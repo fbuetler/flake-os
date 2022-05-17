@@ -231,26 +231,32 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
     case FS_SEEK_SET:
         assert(offset >= 0);
         if (h->dirent->is_dir) {
-            assert(!"NYI seek for dirs");
-            /*
-            h->dir_pos = h->dirent->parent->dir;
-            for (size_t i = 0; i < offset; i++) {
-                if (h->dir_pos  == NULL) {
-                    break;
+            h->u.dir_offset = 0;
+            h->curr_data_cluster = h->dirent->start_data_cluster;
+            while(offset-- > 0){
+                err = fat32fs_dir_read_next(h, NULL, NULL);
+                if(err_is_fail(err)){
+                    DEBUG_ERR(err, "couldn't seek next dir entry\n");
+                    return err;
                 }
-                h->dir_pos = h->dir_pos->next;
             }
-            */
         } else {
+            uint32_t new_data_cluster;
             err = fat32_get_cluster_from_offset(&fs_state.fat32,
                                                 h->dirent->start_data_cluster, offset,
-                                                &h->curr_data_cluster);
+                                                &new_data_cluster);
+            if(err_is_fail(err)){
+                DEBUG_ERR(err, "couldn't seek to position\n");
+                return err;
+            }
+            h->curr_data_cluster = new_data_cluster;
             h->u.file_offset = offset;
         }
         break;
 
     case FS_SEEK_CUR:
         if (h->dirent->is_dir) {
+            // TODO ramfs doesn't implement this
             assert(!"NYI");
         } else {
             assert(offset >= 0 || -offset <= h->u.file_offset);
@@ -279,6 +285,7 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
 
     case FS_SEEK_END:
         if (h->dirent->is_dir) {
+            // TODO: ramfs doesn't implement this, 
             assert(!"NYI");
         } else {
             // TODO what is going on here? need to resize?
@@ -497,6 +504,7 @@ errval_t fat32fs_dir_read_next(struct fat32fs_handle *h, char **retname,
     }
 
     h->u.file_offset = dirent_index + 1;
+    h->curr_data_cluster = dirent_cluster;
 
     return SYS_ERR_OK;
 }

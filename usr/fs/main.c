@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
 */
 
     struct fat32fs_handle *h;
+    
     err = opendir("testdir2", (fs_dirhandle_t *)&h);
     assert(err_is_ok(err));
 
