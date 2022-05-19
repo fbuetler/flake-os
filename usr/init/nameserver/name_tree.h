@@ -25,6 +25,7 @@ typedef struct name_tree {
 
 errval_t initialize_name_tree(void);
 errval_t insert_name(char *name, service_info_t *info);
+errval_t find_name(char *name, service_info_t **ret);
 errval_t print_service_names(void);
 
 

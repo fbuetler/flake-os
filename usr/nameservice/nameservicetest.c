@@ -36,31 +36,31 @@
  * ============================================================================
  */
 
-static char *myrequest = "request !!";
+//static char *myrequest = "request !!";
 
-static void run_client(void)
-{
-    errval_t err;
-
-    /* look up service using name server */
-    nameservice_chan_t chan;
-    err = nameservice_lookup(SERVICE_NAME, &chan);
-    PANIC_IF_FAIL(err, "failed to lookup service\n");
-
-    DEBUG_PRINTF("Got the service %p. Sending request '%s'\n", chan, myrequest);
-
-    void *request = myrequest;
-    size_t request_size = strlen(myrequest);
-
-    void *response;
-    size_t response_bytes;
-    err = nameservice_rpc(chan, request, request_size,
-                          &response, &response_bytes,
-                          NULL_CAP, NULL_CAP);
-    PANIC_IF_FAIL(err, "failed to do the nameservice rpc\n");
-
-    DEBUG_PRINTF("got response: %s\n", (char *)response);
-}
+//static void run_client(void)
+//{
+//    errval_t err;
+//
+//    /* look up service using name server */
+//    nameservice_chan_t chan;
+//    err = nameservice_lookup(SERVICE_NAME, &chan);
+//    PANIC_IF_FAIL(err, "failed to lookup service\n");
+//
+//    DEBUG_PRINTF("Got the service %p. Sending request '%s'\n", chan, myrequest);
+//
+//    void *request = myrequest;
+//    size_t request_size = strlen(myrequest);
+//
+//    void *response;
+//    size_t response_bytes;
+//    err = nameservice_rpc(chan, request, request_size,
+//                          &response, &response_bytes,
+//                          NULL_CAP, NULL_CAP);
+//    PANIC_IF_FAIL(err, "failed to do the nameservice rpc\n");
+//
+//    DEBUG_PRINTF("got response: %s\n", (char *)response);
+//}
 
 /*
  * ============================================================================
@@ -106,13 +106,13 @@ static void run_server(void)
 
 int main(int argc, char *argv[])
 {
-    if (argc == 2) {
-        DEBUG_PRINTF("nameservicetest: running client!\n");
-        run_client();
-    } else {
+    //if (argc == 2) {
+    //    DEBUG_PRINTF("nameservicetest: running client!\n");
+    //    run_client();
+    //} else {
         DEBUG_PRINTF("nameservicetest: running server!\n");
         run_server();
-    }
+    //}
 
     return EXIT_SUCCESS;
 }

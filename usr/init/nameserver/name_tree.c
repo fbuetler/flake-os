@@ -79,7 +79,7 @@ static errval_t find_name_on_level(name_node_t *node, char *name, name_node_t **
  */
 errval_t insert_name(char *name, service_info_t *info)
 {
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
 
     struct name_parts p;
     err = name_into_parts(name, &p);
@@ -96,6 +96,7 @@ errval_t insert_name(char *name, service_info_t *info)
             err = name_node_new(p.parts[i], &new);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "Failed to create name node\n");
+                err = err_push(err, LIB_ERR_NAMESERVICE_NEW_NODE);
                 goto unwind;
             }
             node->next_lower_level = new;
@@ -105,6 +106,8 @@ errval_t insert_name(char *name, service_info_t *info)
             tree.num_nodes++;
         } else {
             // find node in next level
+            node = node->next_lower_level;
+
             name_node_t *find;
             err = find_name_on_level(node, p.parts[i], &find);
             if (err == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
@@ -112,11 +115,12 @@ errval_t insert_name(char *name, service_info_t *info)
                 name_node_t *new;
                 err = name_node_new(p.parts[i], &new);
                 if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "Failed to create name node\n");
+                    DEBUG_ERR(err, "Failed to create name node");
+                    err = err_push(err, LIB_ERR_NAMESERVICE_NEW_NODE);
                     goto unwind;
                 }
                 find->next_same_level = new;
-                node = new;
+                node = find->next_same_level;
                 tree.num_nodes++;
             } else if (err_is_fail(err)) {
                 DEBUG_ERR(err, "Failure during lookup of name on a level");
@@ -130,7 +134,7 @@ errval_t insert_name(char *name, service_info_t *info)
 
     // check if the name is already registered
     if (node->info != NULL) {
-        DEBUG_PRINTF("Failed to insert node as it already exists\n");
+        //DEBUG_PRINTF("Failed to insert node as it already exists\n");
         err = LIB_ERR_NAMESERVICE_NODE_EXISTS;
         goto unwind;
     }
@@ -142,22 +146,45 @@ unwind:
     return err;
 }
 
-// static errval_t find_name(name_tree_t *tree, char *name, name_node_t *retnode)
-//{
-//     errval_t err;
-//
-//     struct name_parts p;
-//     err = name_into_parts(name, &p);
-//     if (err_is_fail(err)) {
-//         DEBUG_ERR(err, "Failed to split name");
-//         return err_push(err, LIB_ERR_NAMESERVICE_SPLIT_NAME);
-//     }
-//
-//
-// unwind:
-//     name_parts_contents_free(&p);
-//     return err;
-// }
+errval_t find_name(char *name, service_info_t **ret)
+{
+    errval_t err = SYS_ERR_OK;
+
+    struct name_parts parts;
+    err = name_into_parts(name, &parts);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to split name");
+        return err_push(err, LIB_ERR_NAMESERVICE_SPLIT_NAME);
+    }
+
+    name_node_t *node = tree.root;
+
+    for (int i = 0; i < parts.num_parts; i++) {
+        if (node->next_lower_level == NULL) {
+            // we should not have reached the bottom yet
+            err = LIB_ERR_NAMESERVICE_NOT_BOUND;
+            goto unwind;
+        }
+
+        node = node->next_lower_level;
+        err = find_name_on_level(node, parts.parts[i], &node);
+        if (err_is_fail(err)) {
+            if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
+                err = LIB_ERR_NAMESERVICE_NOT_BOUND;
+                goto unwind;
+            }
+
+            DEBUG_ERR(err, "failed to find name %s on level %d\n", parts.parts[i], i);
+            goto unwind;
+        }
+    }
+
+    *ret = node->info;
+
+unwind:
+    name_parts_contents_free(&parts);
+    return err;
+}
 
 static size_t tree_list_walk(name_node_t *node, size_t idx, service_info_t *list[])
 {
