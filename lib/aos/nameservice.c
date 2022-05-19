@@ -173,7 +173,7 @@ errval_t nameservice_register(const char *name,
     
     struct aos_rpc *init_rpc = get_init_rpc();
     struct aos_rpc_msg response;
-    err = aos_rpc_call(init_rpc, msg, &response, true);
+    err = aos_rpc_call(init_rpc, msg, &response, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to execute rpc call to register service");
         return err_push(err, LIB_ERR_RPC_CALL);
@@ -181,7 +181,7 @@ errval_t nameservice_register(const char *name,
 
     assert(response.type == AosRpcErrvalResponse);
 
-    return (errval_t) response.payload;
+    return (errval_t) *response.payload;
 }
 
 

@@ -2,9 +2,10 @@
 #include "server.h"
 #include "../init_ump.h"
 
-static errval_t register_service(service_info_t *info) {
+static errval_t register_service(service_info_t *info)
+{
     errval_t err;
- 
+
     size_t info_size = sizeof(service_info_t) + info->name_len;
     service_info_t *info_ptr = malloc(info_size);
     if (info_ptr == NULL) {
@@ -24,7 +25,8 @@ static errval_t register_service(service_info_t *info) {
     return SYS_ERR_OK;
 }
 
-errval_t aos_process_service_register(char *payload, size_t bytes) {
+errval_t aos_process_service_register(char *payload, size_t bytes)
+{
     errval_t err;
 
     if (disp_get_current_core_id() != NAMESERVER_CORE) {
@@ -32,10 +34,11 @@ errval_t aos_process_service_register(char *payload, size_t bytes) {
         size_t resp_bytes;
         errval_t *resp_err;
         aos_rpc_msg_type_t resp_type;
-        err = aos_ump_call(&aos_ump_client_chans[NAMESERVER_CORE], AosRpcNsRegister, payload, bytes, &resp_type, (char **)&resp_err, &resp_bytes);
+        err = aos_ump_call(&aos_ump_client_chans[NAMESERVER_CORE], AosRpcNsRegister,
+                           payload, bytes, &resp_type, (char **)&resp_err, &resp_bytes);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to relay service registration to nameserver");
-            return err_push(err, LIB_ERR_UMP_SEND);
+            return err_push(err, LIB_ERR_UMP_CALL);
         }
 
         assert(resp_type == AosRpcErrvalResponse);
@@ -50,7 +53,7 @@ errval_t aos_process_service_register(char *payload, size_t bytes) {
         return LIB_ERR_MSGBUF_WRONG_SIZE;
     }
 
-    err =  register_service(info);
+    err = register_service(info);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to register service");
         return err_push(err, LIB_ERR_NAMESERVICE_REGISTER);

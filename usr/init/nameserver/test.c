@@ -1,6 +1,8 @@
 #include <aos/nameserver.h>
+#include <spawn/spawn.h>
 #include "test.h"
 #include "server.h"
+#include "proc_mgmt.h"
 
 #define BEGIN_TESTS(name)                                                                \
     char *tests_name__ = name;                                                           \
@@ -59,8 +61,19 @@ static void run_name_part_tests(void) {
     END_TESTS;
 }
 
+static void run_nameservicetest(void) {
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    errval_t err = spawn_process("nameservicetest", si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn nameservicetest\n");
+    }
+    assert(err_is_ok(err));
+}
+
 void run_nameserver_tests(void)
 {
     run_name_tests();
     run_name_part_tests();
+    run_nameservicetest();
 }

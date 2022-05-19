@@ -21,6 +21,8 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
 
 errval_t aos_rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
                       enum aos_rpc_service service);
+errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send);
+
 /**
  * \brief Send a number.
  */

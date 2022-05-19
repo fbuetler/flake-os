@@ -476,10 +476,15 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         aos_process_aos_ump_bind_request(lmp);
         break;
     case AosRpcNsRegister: {
-        errval_t err = aos_process_service_register(lmp->recv_msg->payload, lmp->recv_msg->payload_bytes);
-        struct aos_lmp_msg response;
-        aos_lmp_create_msg_no_pagefault(NULL, AosRpcErrvalResponse, sizeof(errval_t), (void *)&err, NULL_CAP, &response);
-        aos_lmp_send_msg(lmp, &response);
+        errval_t err = aos_process_service_register(lmp->recv_msg->payload,
+                                                    lmp->recv_msg->payload_bytes);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to process the service registration message.");
+            err = err_push(err, LIB_ERR_NAMESERVICE_REGISTER);
+        }
+        struct aos_rpc rpc;
+        aos_rpc_init_from_lmp(&rpc, lmp);
+        aos_rpc_send_errval(&rpc, err);
         break;
     }
     default:

@@ -180,7 +180,9 @@ void aos_ump_receive_listener(struct aos_ump *ump)
                 continue;
             }
 
-            aos_ump_send(ump, AosRpcErrvalResponse, (char *)&err, sizeof(errval_t));
+            struct aos_rpc rpc;
+            aos_rpc_init_from_ump(&rpc, ump);
+            aos_rpc_send_errval(&rpc, err);
             continue;
         }
         default: {

@@ -12,6 +12,7 @@ void aos_rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan)
     rpc->is_lmp = true;
 }
 
+
 // TODO-refactor: currently only for static bufs if lmp (no too large messages)
 errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
                       struct aos_rpc_msg *retmsg, bool is_dynamic)
@@ -73,6 +74,38 @@ errval_t aos_rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t co
     return err;
 }
 
+errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send)
+{
+    errval_t err;
+    struct aos_rpc_msg msg = { .type = AosRpcErrvalResponse,
+                               .payload = (char *)&err_send,
+                               .bytes = sizeof(errval_t),
+                               .cap = NULL_CAP };
+
+    if (rpc->is_lmp) {
+        char buf[sizeof(struct aos_lmp_msg) + sizeof(errval_t) + 1];
+        struct aos_lmp_msg *lmp_msg;
+        err = aos_lmp_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload,
+                                              msg.cap, (struct aos_lmp_msg *)buf);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to create message");
+            return err;
+        }
+        err = aos_lmp_send_msg(&rpc->u.lmp, lmp_msg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to send lmp message");
+            return err;
+        }
+    } else {
+        err = aos_ump_send(&rpc->u.ump, msg.type, msg.payload, msg.bytes);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to send ump message");
+            return err;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
 errval_t aos_rpc_send_number(struct aos_rpc *aos_rpc, uintptr_t num)
 {
     errval_t err;
