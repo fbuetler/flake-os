@@ -26,6 +26,7 @@
 
 #include "enet.h"
 #include "enet_safe_queue.h"
+#include "enet_service.h"
 
 #define PHY_ID 0x2
 
@@ -713,6 +714,12 @@ int main(int argc, char *argv[])
         return err;
     }
 #endif
+
+    err = enet_service_init(st);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to init enet service");
+        return err;
+    }
 
     debug_printf("Ready to accept connections\n");
     struct devq_buf buf;

@@ -45,9 +45,11 @@ errval_t enet_udp_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t 
                                         uint16_t port, uint16_t dest_port, char *payload,
                                         size_t payload_size);
 
-errval_t enet_udp_socket_receive(struct udp_socket *s, struct udp_socket_buf **retbuf);
-errval_t enet_udp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
-                              uint16_t port_dest, char *payload, size_t payload_size);
+errval_t enet_udp_socket_receive(struct enet_driver_state *st, uint16_t port,
+                                 struct udp_socket_buf **retbuf);
+errval_t enet_udp_socket_send(struct enet_driver_state *st, uint16_t port_src,
+                              ip_addr_t ip_dest, uint16_t port_dest, char *payload,
+                              size_t payload_size);
 
 // ICMP
 struct icmp_socket_buf {
@@ -71,7 +73,8 @@ errval_t enet_icmp_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t
                                          uint8_t type, uint16_t id, uint16_t seqno,
                                          char *payload, size_t payload_size);
 
-errval_t enet_icmp_socket_receive(struct icmp_socket *s, struct icmp_socket_buf **retbuf);
+errval_t enet_icmp_socket_receive(struct enet_driver_state *st,
+                                  struct icmp_socket_buf **retbuf);
 errval_t enet_icmp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
                                uint8_t type, uint16_t id, uint16_t seqno, char *payload,
                                size_t payload_size);

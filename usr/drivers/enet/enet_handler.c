@@ -209,7 +209,7 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
         assert(hack_socket);
 
         struct icmp_socket_buf *buf;
-        err = enet_icmp_socket_receive(hack_socket, &buf);
+        err = enet_icmp_socket_receive(st, &buf);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to receive");
             return err;
@@ -297,7 +297,7 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     assert(hack_socket);
 
     struct udp_socket_buf *buf;
-    err = enet_udp_socket_receive(hack_socket, &buf);
+    err = enet_udp_socket_receive(st, hack_socket->port, &buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive");
         return err;
@@ -309,7 +309,7 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     }
 
     // hack send packet
-    err = enet_udp_socket_send(st, ntohl(ip->src), 8051, "ciao\n", 5);
+    err = enet_udp_socket_send(st, ENET_STATIC_PORT, ntohl(ip->src), 8051, "ciao\n", 5);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send");
         return err;

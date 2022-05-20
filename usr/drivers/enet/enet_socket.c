@@ -136,8 +136,14 @@ errval_t enet_udp_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t 
     return SYS_ERR_OK;
 }
 
-errval_t enet_udp_socket_receive(struct udp_socket *s, struct udp_socket_buf **retbuf)
+errval_t enet_udp_socket_receive(struct enet_driver_state *st, uint16_t port,
+                                 struct udp_socket_buf **retbuf)
 {
+    struct udp_socket *s = enet_get_udp_socket(st->udp_sockets, port);
+    if (!s) {
+        return ENET_ERR_SOCKET_NOT_FOUND;
+    }
+
     struct udp_socket_buf *buf = s->inbound_head;
     if (!buf) {
         return ENET_ERR_SOCKET_EMPTY;
@@ -155,8 +161,9 @@ errval_t enet_udp_socket_receive(struct udp_socket *s, struct udp_socket_buf **r
     return SYS_ERR_OK;
 }
 
-errval_t enet_udp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
-                              uint16_t port_dest, char *payload, size_t payload_size)
+errval_t enet_udp_socket_send(struct enet_driver_state *st, uint16_t port_src,
+                              ip_addr_t ip_dest, uint16_t port_dest, char *payload,
+                              size_t payload_size)
 {
     errval_t err;
 
@@ -173,9 +180,9 @@ errval_t enet_udp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
 
     struct eth_hdr *resp_udp;
     size_t resp_udp_size;
-    err = enet_assemble_udp_packet(enet_split_mac(st->mac), ENET_STATIC_IP,
-                                   ENET_STATIC_PORT, mac_dest, ip_dest, port_dest,
-                                   payload, payload_size, &resp_udp, &resp_udp_size);
+    err = enet_assemble_udp_packet(enet_split_mac(st->mac), ENET_STATIC_IP, port_src,
+                                   mac_dest, ip_dest, port_dest, payload, payload_size,
+                                   &resp_udp, &resp_udp_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to assemble UDP packet");
         return err;
@@ -259,8 +266,11 @@ errval_t enet_icmp_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t
     return SYS_ERR_OK;
 }
 
-errval_t enet_icmp_socket_receive(struct icmp_socket *s, struct icmp_socket_buf **retbuf)
+errval_t enet_icmp_socket_receive(struct enet_driver_state *st,
+                                  struct icmp_socket_buf **retbuf)
 {
+    struct icmp_socket *s = st->icmp_socket;
+
     struct icmp_socket_buf *buf = s->inbound_head;
     if (!buf) {
         return ENET_ERR_SOCKET_EMPTY;
