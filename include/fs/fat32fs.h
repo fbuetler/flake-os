@@ -22,7 +22,6 @@ struct fat32fs_handle {
     fileref_id_t fid;
     domainid_t pid;
 
-    struct fs_handle common;
     char *path;
     struct fat32fs_dirent *dirent;
 
@@ -43,6 +42,7 @@ struct fs_state {
     fileref_id_t curr_fid_counter;
 };
 
+collections_hash_table *fs_file_handles;
 
 void fat32fs_add_file_handler(domainid_t pid, struct fat32fs_handle *handle);
 

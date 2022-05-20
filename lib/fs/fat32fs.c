@@ -6,7 +6,6 @@
 #include <fcntl.h>
 
 struct fs_state fs_state;
-collections_hash_table *fs_file_handles;
 
 static fileref_id_t get_new_fid(void)
 {
