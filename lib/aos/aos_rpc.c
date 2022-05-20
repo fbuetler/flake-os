@@ -189,8 +189,6 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
     if(serial_response->response_type == SERIAL_IO_NO_DATA) {
         return LPUART_ERR_NO_DATA;
     } else {
-        DEBUG_PRINTF("aos_rpc aos_rpc_serial_getchar response type %d \n", serial_response->response_type);
-        DEBUG_PRINTF("aos_rpc aos_rpc_serial_getchar %c \n", serial_response->c);
         *retc = serial_response->c;
     }
 

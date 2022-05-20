@@ -20,6 +20,13 @@
 
 #define RECV_BUFFER_SIZE 1024
 
+struct shell_state {
+    bool exit; // flag to check if the shell should exit itself
+    char line_buffer[RECV_BUFFER_SIZE];
+    size_t count;
+    struct aos_rpc *serial_rpc;
+} shell_state;
+
 #if 0
 errval_t write_str(char *str);
 static void new_shell_line(void);
@@ -187,22 +194,42 @@ errval_t write_nstr(char *str, size_t len) {
 
 #endif
 
+static void handle_input(void) {
+    errval_t err;
+    char c;
+    bool terminated = false;
+    do {
+        err = aos_rpc_serial_getchar(shell_state.serial_rpc, &c);
+        if(err == SYS_ERR_OK) {
+            if (c == 4 || c == 10 || c == 13) {
+                // 4: EOT, 10: NL, 13: CR
+                /* Enter is pressed. Parse the line and execute the command */
+                shell_state.line_buffer[shell_state.count++] = '\0';
+                terminated = true;
+                aos_rpc_serial_putchar(shell_state.serial_rpc, '\n');
+            } else {
+                shell_state.line_buffer[shell_state.count++] = c;
+                aos_rpc_serial_putchar(shell_state.serial_rpc, c);
+            }
+        }
+    } while (!terminated);
+
+}
+
 int main(int argc, char *argv[])
 {
-    errval_t err;
     DEBUG_PRINTF("shell starting\n");
 
-    struct aos_rpc *serial_rpc = aos_rpc_get_serial_channel();
-    char c;
+    shell_state.serial_rpc = aos_rpc_get_serial_channel();
+    shell_state.count = 0;
+    shell_state.exit = false;
 
-    DEBUG_PRINTF("shell started, requesting serial char\n");
+
+    DEBUG_PRINTF("shell started, waiting for input...\n");
 
     do {
-       err = aos_rpc_serial_getchar(serial_rpc, &c);
-       if(err == SYS_ERR_OK) {
-           DEBUG_PRINTF("char: %c \n", c);
-       }
-    } while (err == LPUART_ERR_NO_DATA);
+        handle_input();
+    } while (!shell_state.exit);
 
 #if 0
 

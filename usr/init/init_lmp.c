@@ -133,6 +133,7 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 {
     errval_t err;
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
+        assert(false);
         // send to serial driver on the terminal server core
         aos_rpc_msg_type_t rtype;
         char *rpayload;
@@ -148,7 +149,9 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 
         assert(rtype == AosRpcSerialWriteCharResponse);
     } else {
-        err = process_write_char_request(lmp->recv_msg->payload);
+
+        //err = process_write_char_request(lmp->recv_msg->payload);
+        err = serial_put_char(lmp, lmp->recv_msg->payload);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to writechar");
             return err;

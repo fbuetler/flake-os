@@ -22,7 +22,7 @@ struct serial_state {
     size_t next_free_id;
     // circular buffer which stores the content of each
     char history[SERIAL_MAX_HISTORY_SIZE][SERIAL_MAX_LINE_SIZE];
-    char line_length[SERIAL_MAX_LINE_SIZE]; // number of characters for each line
+    size_t line_length[SERIAL_MAX_LINE_SIZE]; // number of characters for each line
     size_t valid_lines; // how many lines in the history are valid
     size_t serial_line_index;
     size_t serial_char_index;
@@ -35,35 +35,75 @@ static void serial_interrupt_handler(void *arg) {
 
     char c;
     pl011_getchar( serial_state.uart_state, &c);
+    serial_state.line_length[serial_state.serial_line_index]++;
     if (c == 4 || c == 10 || c == 13) {
         // 4: EOT, 10: NL, 13: CR
         // finish line and set pointer to a new empty line
-        serial_state.history[serial_state.serial_line_index++][serial_state.serial_char_index] = '\0';
+        serial_state.history[serial_state.serial_line_index++][serial_state.serial_char_index] = c;
         serial_state.serial_char_index = 0;
-        pl011_putchar(serial_state.uart_state, '\n');
+        //pl011_putchar(serial_state.uart_state, '\n');
     } else {
         serial_state.history[serial_state.serial_line_index][serial_state.serial_char_index++] = c;
-        pl011_putchar(serial_state.uart_state, c);
+        //pl011_putchar(serial_state.uart_state, c);
     }
+}
+
+errval_t serial_put_char(struct aos_lmp *lmp, const char *c) {
+    pl011_putchar(serial_state.uart_state, *c);
+    //printf("%c", *c);
+    return SYS_ERR_OK;
 }
 
 __attribute__((unused))
 errval_t serial_get_char(struct aos_lmp *lmp, struct serialio_response *serial_response) {
 
+    size_t internal_session_id;
     //DEBUG_PRINTF("Serial channel id: %zu \n", lmp->serial_channel_id);
     if(lmp->serial_channel_id == 0) {
         lmp->serial_channel_id = serial_state.next_free_id++;
     }
 
-    if(serial_state.serial_char_index > 0) {
-        //DEBUG_PRINTF("Sending char back: %c \n", serial_state.history[serial_state.serial_line_index][serial_state.serial_char_index-1]);
-        serial_response->response_type = SERIAL_IO_SUCCESS;
-        serial_response->c = serial_state.history[serial_state.serial_line_index][serial_state.serial_char_index-1];
-        //DEBUG_PRINTF("Char in response: %c \n", serial_response->c);
-        return SYS_ERR_OK;
-    }
+    internal_session_id = lmp->serial_channel_id-1; // 0 is reserved for "no_session". But to use this as index, we need to subtract 1
 
     serial_response->response_type = SERIAL_IO_NO_DATA;
+
+    if(serial_state.session_state[internal_session_id].line_index == serial_state.serial_line_index) {
+        // reading from line where input is currently writing onto
+        if(serial_state.session_state[internal_session_id].char_index < serial_state.serial_char_index) {
+            serial_response->c = serial_state.history[serial_state.session_state[internal_session_id].line_index][serial_state.session_state[internal_session_id].char_index++];
+            serial_response->response_type = SERIAL_IO_SUCCESS;
+        }
+    }
+
+    if(serial_state.session_state[internal_session_id].line_index < serial_state.serial_line_index) {
+        // reading inside a line from the history
+        size_t line_length = serial_state.line_length[serial_state.session_state[internal_session_id].line_index];
+        if(serial_state.session_state[internal_session_id].char_index < line_length) {
+            serial_response->c = serial_state.history[serial_state.session_state[internal_session_id].line_index][serial_state.session_state[internal_session_id].char_index++];
+            serial_response->response_type = SERIAL_IO_SUCCESS;
+
+            // after advancing pointer, check that it's still valid. Otherwise advance line
+            if(serial_state.session_state[internal_session_id].char_index >= line_length) {
+                serial_state.session_state[internal_session_id].char_index = 0;
+                serial_state.session_state[internal_session_id].line_index += 1;
+            }
+        }
+    }
+
+    /*
+    if(serial_state.serial_char_index > 0) {
+        //DEBUG_PRINTF("Serial channel id: %zu \n", lmp->serial_channel_id);
+        //DEBUG_PRINTF("Sending char back: %c \n", serial_state.history[serial_state.serial_line_index][serial_state.serial_char_index-1]);
+        if(serial_state.session_state[internal_session_id].char_index == serial_state.serial_char_index) {
+            serial_response->response_type = SERIAL_IO_NO_DATA;
+        } else {
+            serial_response->response_type = SERIAL_IO_SUCCESS;
+            serial_response->c = serial_state.history[serial_state.session_state[internal_session_id].line_index][serial_state.session_state[internal_session_id].char_index++];
+        }
+        //DEBUG_PRINTF("Char in response: %c \n", serial_response->c);
+    }
+     */
+
 
     return SYS_ERR_OK;
 }

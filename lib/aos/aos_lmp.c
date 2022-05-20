@@ -386,7 +386,6 @@ errval_t aos_lmp_init(struct aos_lmp *aos_lmp, enum aos_rpc_channel_type chan_ty
         aos_lmp->buf = STATIC_RPC_MEMSRV_BUF;
         break;
     case AOS_RPC_SERIAL_CHANNEL:
-        DEBUG_PRINTF("init rpc channel");
         aos_lmp->chan.remote_cap = cap_initserialep;
         aos_lmp->chan.endpoint = &static_init_serial_ep;
         aos_lmp->buf = STATIC_RPC_SERIALSRV_BUF;

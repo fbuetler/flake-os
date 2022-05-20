@@ -15,4 +15,6 @@ struct serialio_response {
 
 errval_t init_serial_server(struct spawninfo *si);
 errval_t serial_get_char(struct aos_lmp *lmp, struct serialio_response *serial_response);
+errval_t serial_put_char(struct aos_lmp *lmp, const char *c);
+
 #endif

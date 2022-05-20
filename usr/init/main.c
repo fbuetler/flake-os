@@ -87,6 +87,11 @@ static int bsp_main(int argc, char *argv[])
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     spawn_lpuart_driver(&si);
 
+    /*
+    struct spawninfo *si2 = malloc(sizeof(struct spawninfo));
+    spawn_lpuart_driver(&si2);
+     */
+
     // Grading
     grading_test_late();
 
