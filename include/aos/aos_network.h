@@ -97,8 +97,8 @@ errval_t aos_udp_socket_create(uint16_t port, struct aos_udp_socket **socket);
 errval_t aos_udp_socket_release(struct aos_udp_socket *socket);
 errval_t aos_udp_socket_send(struct aos_udp_socket *socket, ip_addr_t ip, uint16_t port,
                              char *message, size_t message_size);
-errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, char **message,
-                             size_t *message_size);
+errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, ip_addr_t *ip, uint16_t *port,
+                             char **message, size_t *message_size);
 
 // TODO implement
 errval_t aos_icmp_socket_create(uint16_t port, struct aos_icmp_socket **socket);

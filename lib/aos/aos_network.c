@@ -139,8 +139,8 @@ errval_t aos_udp_socket_send(struct aos_udp_socket *socket, ip_addr_t ip, uint16
     return SYS_ERR_OK;
 }
 
-errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, char **message,
-                             size_t *message_size)
+errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, ip_addr_t *ip, uint16_t *port,
+                             char **message, size_t *message_size)
 {
     errval_t err;
 
@@ -180,6 +180,8 @@ errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, char **message,
     struct aos_socket_msg *msg_resp = (struct aos_socket_msg *)response;
     struct aos_socket_msg_udp_recv_response payload = msg_resp->payload.udp_recv_resp;
 
+    *ip = payload.ip_remote;
+    *port = payload.port_remote;
     *message = (char *)malloc(payload.bytes);
     if (!*message) {
         return LIB_ERR_MALLOC_FAIL;
