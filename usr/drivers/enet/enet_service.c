@@ -6,9 +6,9 @@
 
 
 static errval_t
-aos_network_handle_icmp_send(struct enet_driver_state *st,
-                             struct aos_socket_msg_icmp_send_request icmp_send,
-                             void **response, size_t *response_bytes)
+enet_service_handle_icmp_send(struct enet_driver_state *st,
+                              struct aos_socket_msg_icmp_send_request icmp_send,
+                              void **response, size_t *response_bytes)
 {
     errval_t err;
 
@@ -25,9 +25,9 @@ aos_network_handle_icmp_send(struct enet_driver_state *st,
     return SYS_ERR_OK;
 }
 
-static errval_t aos_network_handle_icmp_recv(struct enet_driver_state *st,
-                                             struct aos_socket_msg_empty icmp_recv,
-                                             void **response, size_t *response_bytes)
+static errval_t enet_service_handle_icmp_recv(struct enet_driver_state *st,
+                                              struct aos_socket_msg_empty icmp_recv,
+                                              void **response, size_t *response_bytes)
 {
     errval_t err;
 
@@ -45,9 +45,9 @@ static errval_t aos_network_handle_icmp_recv(struct enet_driver_state *st,
 }
 
 static errval_t
-aos_network_handle_udp_create(struct enet_driver_state *st,
-                              struct aos_socket_msg_udp_create_request udp_create,
-                              void **response, size_t *response_bytes)
+enet_service_handle_udp_create(struct enet_driver_state *st,
+                               struct aos_socket_msg_udp_create_request udp_create,
+                               void **response, size_t *response_bytes)
 {
     errval_t err;
 
@@ -64,9 +64,9 @@ aos_network_handle_udp_create(struct enet_driver_state *st,
 }
 
 static errval_t
-aos_network_handle_udp_destroy(struct enet_driver_state *st,
-                               struct aos_socket_msg_udp_destroy_request udp_destroy,
-                               void **response, size_t *response_bytes)
+enet_service_handle_udp_destroy(struct enet_driver_state *st,
+                                struct aos_socket_msg_udp_destroy_request udp_destroy,
+                                void **response, size_t *response_bytes)
 {
     errval_t err;
 
@@ -82,9 +82,10 @@ aos_network_handle_udp_destroy(struct enet_driver_state *st,
     return SYS_ERR_OK;
 }
 
-static errval_t aos_network_handle_udp_send(struct enet_driver_state *st,
-                                            struct aos_socket_msg_udp_send_request udp_send,
-                                            void **response, size_t *response_bytes)
+static errval_t
+enet_service_handle_udp_send(struct enet_driver_state *st,
+                             struct aos_socket_msg_udp_send_request udp_send,
+                             void **response, size_t *response_bytes)
 {
     errval_t err;
 
@@ -101,9 +102,10 @@ static errval_t aos_network_handle_udp_send(struct enet_driver_state *st,
     return SYS_ERR_OK;
 }
 
-static errval_t aos_network_handle_udp_recv(struct enet_driver_state *st,
-                                            struct aos_socket_msg_udp_recv_request udp_recv,
-                                            void **response, size_t *response_bytes)
+static errval_t
+enet_service_handle_udp_recv(struct enet_driver_state *st,
+                             struct aos_socket_msg_udp_recv_request udp_recv,
+                             void **response, size_t *response_bytes)
 {
     errval_t err;
 
@@ -144,28 +146,28 @@ static void enet_recv_handle(void *st_raw, void *message_raw, size_t bytes,
 
     switch (msg->type) {
     case AOS_NETWORK_ICMP_SEND_REQUEST:
-        err = aos_network_handle_icmp_send(st, msg->payload.icmp_send_req, response,
-                                           response_bytes);
-        break;
-    case AOS_NETWORK_ICMP_RECV_REQUEST:
-        err = aos_network_handle_icmp_recv(st, msg->payload.icmp_recv_req, response,
-                                           response_bytes);
-        break;
-    case AOS_NETWORK_UDP_CREATE_REQUEST:
-        err = aos_network_handle_udp_create(st, msg->payload.udp_create_req, response,
+        err = enet_service_handle_icmp_send(st, msg->payload.icmp_send_req, response,
                                             response_bytes);
         break;
-    case AOS_NETWORK_UDP_DESTROY_REQUEST:
-        err = aos_network_handle_udp_destroy(st, msg->payload.udp_destroy_req, response,
+    case AOS_NETWORK_ICMP_RECV_REQUEST:
+        err = enet_service_handle_icmp_recv(st, msg->payload.icmp_recv_req, response,
+                                            response_bytes);
+        break;
+    case AOS_NETWORK_UDP_CREATE_REQUEST:
+        err = enet_service_handle_udp_create(st, msg->payload.udp_create_req, response,
                                              response_bytes);
         break;
+    case AOS_NETWORK_UDP_DESTROY_REQUEST:
+        err = enet_service_handle_udp_destroy(st, msg->payload.udp_destroy_req, response,
+                                              response_bytes);
+        break;
     case AOS_NETWORK_UDP_SEND_REQUEST:
-        err = aos_network_handle_udp_send(st, msg->payload.udp_send_req, response,
-                                          response_bytes);
+        err = enet_service_handle_udp_send(st, msg->payload.udp_send_req, response,
+                                           response_bytes);
         break;
     case AOS_NETWORK_UDP_RECV_REQUEST:
-        err = aos_network_handle_udp_recv(st, msg->payload.udp_recv_req, response,
-                                          response_bytes);
+        err = enet_service_handle_udp_recv(st, msg->payload.udp_recv_req, response,
+                                           response_bytes);
         break;
     default:
         err = LIB_ERR_SHOULD_NOT_GET_HERE;
