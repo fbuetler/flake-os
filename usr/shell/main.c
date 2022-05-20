@@ -9,6 +9,7 @@
 #include <drivers/pl011.h>
 #include <drivers/gic_dist.h>
 #include <drivers/lpuart.h>
+#include <aos/aos_rpc.h>
 
 
 #include <maps/qemu_map.h>
@@ -19,6 +20,7 @@
 
 #define RECV_BUFFER_SIZE 1024
 
+#if 0
 errval_t write_str(char *str);
 static void new_shell_line(void);
 errval_t write_nstr(char *str, size_t len);
@@ -27,6 +29,8 @@ int num_builtins(void);
 
 struct shell_state {
     struct pl011_s *uart_state;
+    struct aos_rpc *init_rpc;
+    struct aos_rpc *serial_rpc;
 } shell_state;
 
 // ring buffer to recv data. tail is current position, head is initial position. tail moves for each new entry
@@ -65,7 +69,18 @@ void shell_help(char **args) {
 }
 
 void shell_exit(char **args) {
-    write_str("2222\n");
+    write_str("Exit called\n");
+
+    size_t pid_count;
+    domainid_t *pids;
+    DEBUG_PRINTF("calling get_all_pids \n");
+    aos_rpc_process_get_all_pids(shell_state.init_rpc, &pids, &pid_count);
+    DEBUG_PRINTF("finished calling get_all_pids \n");
+    DEBUG_PRINTF("PID count: %d\n", pid_count);
+
+    for (int i = 0; i < pid_count; i++) {
+        DEBUG_PRINTF("received pid: 0x%lx\n", pids[i]);
+    }
 }
 
 void shell_echo(char **args) {
@@ -136,7 +151,6 @@ static void interrupt_handler(void *arg) {
         pl011_putchar(shell_state.uart_state, '\n');
         handle_line();
         new_shell_line();
-
     } else if(c == 8 || c == 127) {
         // Backspace. Note that on macos, pressing "backspace" actually sends "DEL"
         if(recv_state.count > 0) {
@@ -171,9 +185,26 @@ errval_t write_nstr(char *str, size_t len) {
     return err;
 }
 
+#endif
+
 int main(int argc, char *argv[])
 {
+    errval_t err;
     DEBUG_PRINTF("shell starting\n");
+
+    struct aos_rpc *serial_rpc = aos_rpc_get_serial_channel();
+    char c;
+
+    DEBUG_PRINTF("shell started, requesting serial char\n");
+
+    do {
+       err = aos_rpc_serial_getchar(serial_rpc, &c);
+       if(err == SYS_ERR_OK) {
+           DEBUG_PRINTF("char: %c \n", c);
+       }
+    } while (err == LPUART_ERR_NO_DATA);
+
+#if 0
 
     errval_t err;
 
@@ -278,6 +309,12 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    /* Init other state */
+    shell_state.init_rpc = get_init_rpc();
+    shell_state.serial_rpc = aos_rpc_get_serial_channel();
+
+    /* Ready */
+
     DEBUG_PRINTF("shell ready\n");
     write_str("> ");
 
@@ -290,6 +327,8 @@ int main(int argc, char *argv[])
     }
 
     DEBUG_PRINTF("Exiting Shell \n");
+
+#endif
 
 
 }

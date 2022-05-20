@@ -75,7 +75,13 @@ static errval_t register_receive_handlers(struct spawninfo *si)
     }
     err = aos_lmp_register_recv(&si->mem_lmp, init_process_msg);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to register receive handler");
+        DEBUG_ERR(err, "Failed to register memory receive handler");
+        return err;
+    }
+
+    err = aos_lmp_register_recv(&si->serial_lmp, init_process_msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register serial receive handler");
         return err;
     }
 
@@ -214,9 +220,10 @@ errval_t spawn_lpuart_driver(struct spawninfo **retsi)
     domainid_t *pid = malloc(sizeof(domainid_t));
     err = setup_process("shell", si, pid);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to spawn shell driver");
+        DEBUG_ERR(err, "failed to spawn shell");
     }
 
+    /*
     // NOTE: will only run with IMX8X
     // use to run with board: IMX8X_UART0_BASE, IMX8X_UART_SIZE
     // map capability to access UART device
@@ -232,6 +239,7 @@ errval_t spawn_lpuart_driver(struct spawninfo **retsi)
         DEBUG_ERR(err, "failed to setup driver for (qemu) UART GIC \n");
         return err;
     }
+    */
 
     err = dispatch_process(si);
     if (err_is_fail(err)) {

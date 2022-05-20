@@ -46,6 +46,8 @@ void set_current_paging_state(struct paging_state *st);
 struct ram_alloc_state *get_ram_alloc_state(void);
 struct slot_alloc_state *get_slot_alloc_state(void);
 
+struct aos_rpc *get_serial_rpc(void);
+void set_serial_rpc(struct aos_rpc *serial_rpc);
 
 void set_init_mem_rpc(struct aos_rpc *mem_rpc);
 struct aos_rpc *get_init_mem_rpc(void);

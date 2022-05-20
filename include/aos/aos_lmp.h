@@ -33,6 +33,8 @@ struct aos_lmp {
     bool is_busy;
     bool use_dynamic_buf;
 
+    size_t serial_channel_id;
+
     struct aos_lmp_msg *recv_msg;
     size_t recv_bytes;
     process_msg_func_t process_msg_func;
@@ -51,6 +53,7 @@ struct aos_lmp_msg {
 enum aos_rpc_channel_type {
     AOS_RPC_BASE_CHANNEL,
     AOS_RPC_MEMORY_CHANNEL,
+    AOS_RPC_SERIAL_CHANNEL,
 };
 
 enum aos_rpc_service {

@@ -117,6 +117,10 @@ struct capref cap_initep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_INITE
 /// Capability for endpoint to init for mem
 struct capref cap_initmemep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_INITMEMEP };
 
+/// Capability for endpoint to init for mem
+struct capref cap_initserialep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_INIT_SERIAL_EP};
+
+
 /// Capability to the URPC frame
 struct capref cap_urpc = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_MON_URPC };
 

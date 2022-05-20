@@ -56,6 +56,7 @@ struct spawninfo {
 
     struct aos_lmp lmp;
     struct aos_lmp mem_lmp;
+    struct aos_lmp serial_lmp;
 };
 
 size_t spawn_number_of_processes;

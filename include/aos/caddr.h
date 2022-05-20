@@ -109,7 +109,7 @@ extern struct cnoderef cnode_root, cnode_task, cnode_arg, cnode_base, cnode_supe
 
 /* well-known capabilities */
 extern struct capref cap_root, cap_monitorep, cap_irq, cap_io, cap_dispatcher, cap_selfep,
-    cap_kernel, cap_initep, cap_initmemep, cap_urpc, cap_perfmon, cap_dispframe,
+    cap_kernel, cap_initep, cap_initmemep, cap_initserialep, cap_urpc, cap_perfmon, cap_dispframe,
     cap_sessionid, cap_ipi, cap_vroot, cap_argcn, cap_procmng, cap_domainid, cap_bootinfo,
     cap_mmstrings;
 

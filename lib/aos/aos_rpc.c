@@ -1,4 +1,5 @@
 #include <aos/aos_rpc.h>
+#include <serialio/serialio.h>
 
 void aos_rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan)
 {
@@ -183,9 +184,18 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
         return err;
     }
 
-    *retc = *response.payload;
+    struct serialio_response *serial_response = (struct serialio_response *) response.payload;
 
-    return SYS_ERR_OK;
+    if(serial_response->response_type == SERIAL_IO_NO_DATA) {
+        return LPUART_ERR_NO_DATA;
+    } else {
+        DEBUG_PRINTF("aos_rpc aos_rpc_serial_getchar response type %d \n", serial_response->response_type);
+        DEBUG_PRINTF("aos_rpc aos_rpc_serial_getchar %c \n", serial_response->c);
+        *retc = serial_response->c;
+    }
+
+
+    return err;
 }
 
 errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
@@ -371,5 +381,5 @@ struct aos_rpc *aos_rpc_get_serial_channel(void)
 {
     // TODO: Return channel to talk to serial driver/terminal process (whoever
     // implements print/read functionality)
-    return get_init_rpc();
+    return get_serial_rpc();
 }

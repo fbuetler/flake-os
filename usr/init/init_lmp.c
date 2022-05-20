@@ -5,6 +5,7 @@
 
 #include "proc_mgmt.h"
 #include "init_ump.h"
+#include "serialio/serialio.h"
 
 #include <aos/aos.h>
 #include <aos/core_state.h>
@@ -15,7 +16,7 @@
 #include <spawn/spawn.h>
 #include <grading.h>
 
-#define TERMINAL_SERVER_CORE 1
+#define TERMINAL_SERVER_CORE 0
 
 
 void aos_process_ram_cap_request(struct aos_lmp *lmp)
@@ -176,13 +177,17 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 
 errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
 {
+    //DEBUG_PRINTF("process serial read char request \n");
     // grading
     grading_rpc_handler_serial_getchar();
 
     errval_t err;
 
-    char c;
+
+    //char c;
+    struct serialio_response serial_response = {0};
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
+        assert(false);
         // Do the thing, but on the core where the terminal server is located
         aos_rpc_msg_type_t rtype;
         char *rpayload;
@@ -197,20 +202,22 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
         }
         assert(rtype == AosRpcSerialReadCharResponse);
 
-        c = *rpayload;
+        //c = *rpayload;
 
     } else {
-        err = process_read_char_request(&c);
+        //err = process_read_char_request(&c);
+        err = serial_get_char(lmp, &serial_response);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to read char over LMP\n");
             return err;
         }
     }
 
-
-    size_t payload_size = sizeof(char);
+    size_t payload_size = sizeof(struct serialio_response);
     void *payload = malloc(payload_size);
-    *((char *)payload) = c;
+    //memcpy(payload, serial_response, )
+    *((struct serialio_response *)payload) = serial_response; //ToDo: Thierry: maybe memcopy here?
+
 
     struct aos_lmp_msg *reply;
     err = aos_lmp_create_msg(&reply, AosRpcSerialReadCharResponse, payload_size, payload,
@@ -225,6 +232,13 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
         DEBUG_PRINTF("error sending serial read char response\n");
         return err;
     }
+
+    /*
+    if(e1 == LPUART_ERR_NO_DATA) {
+        DEBUG_PRINTF("returnung no data from init_lmp.c \n");
+        return e1;
+    }
+     */
 
     return SYS_ERR_OK;
 }
@@ -393,12 +407,17 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
 
     // get remote pids
     size_t remote_nr_of_pids;
-    domainid_t *remote_pids;
+    domainid_t remote_pids[0];
+
+    /*
     err = aos_get_remote_pids(&remote_nr_of_pids, &remote_pids);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not get the remote PIDs\n");
         return err;
     }
+     */
+
+    remote_nr_of_pids = 0;
 
     size_t payload_size = sizeof(size_t) + nr_of_pids * sizeof(domainid_t)
                           + remote_nr_of_pids * sizeof(domainid_t);

@@ -206,6 +206,10 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     struct capref child_cap_init_mem_endpoint = { .cnode = si->taskcn,
                                                   .slot = TASKCN_SLOT_INITMEMEP };
 
+
+    struct capref child_cap_serial_endpoint = { .cnode = si->taskcn,
+                                                  .slot = TASKCN_SLOT_INIT_SERIAL_EP};
+
     // creates a new endpoint into local_cap!
     err = lmp_chan_accept(&si->lmp.chan, 256, NULL_CAP);
     if (err_is_fail(err)) {
@@ -229,6 +233,19 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     err = cap_copy(child_cap_init_mem_endpoint, si->mem_lmp.chan.local_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to copy init_mem endpoint to cap location in child");
+        return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error
+    }
+
+    // creates new serial endpoint
+    err = lmp_chan_accept(&si->serial_lmp.chan, 256, NULL_CAP);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to accept serial endpoint");
+        return err;
+    }
+
+    err = cap_copy(child_cap_serial_endpoint, si->serial_lmp.chan.local_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to copy serial_lmp endpoint to cap location in child");
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);  // ToDo: chose better error
     }
 
@@ -635,15 +652,22 @@ errval_t spawn_invoke_dispatcher(struct spawninfo *si)
     errval_t err;
 
     // setup rpc channels to child process
-    struct capref base_recv_ep_cap, memory_recv_ep_cap;
+    struct capref base_recv_ep_cap, memory_recv_ep_cap, serial_recv_ep_cap;
     err = aos_lmp_set_recv_endpoint(&si->lmp, &base_recv_ep_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to set recv endpoint for rpc");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
+
     err = aos_lmp_set_recv_endpoint(&si->mem_lmp, &memory_recv_ep_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to set recv endpoint for mem_rpc");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
+    }
+
+    err = aos_lmp_set_recv_endpoint(&si->serial_lmp, &serial_recv_ep_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to set recv endpoint for serial_rpc");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
@@ -666,6 +690,13 @@ errval_t spawn_invoke_dispatcher(struct spawninfo *si)
                                           memory_recv_ep_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup mem rpc channel to child");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
+    }
+
+    err = aos_lmp_init_handshake_to_child(&init_spawninfo.serial_lmp, &si->serial_lmp,
+                                          serial_recv_ep_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup serial rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
@@ -780,9 +811,16 @@ errval_t spawn_setup_by_name(char *binary_name, struct spawninfo *si, domainid_t
         DEBUG_ERR(err, "failed to setup rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
+
     err = aos_lmp_parent_init(&si->mem_lmp);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup mem rpc channel of init");
+        return err_push(err, SPAWN_ERR_SETUP_RPC);
+    }
+
+    err = aos_lmp_parent_init(&si->serial_lmp);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup serial rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 

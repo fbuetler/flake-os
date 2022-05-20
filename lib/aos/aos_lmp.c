@@ -241,7 +241,9 @@ __attribute__((unused)) static errval_t aos_lmp_recv_msg_blocking(struct aos_lmp
 
     while (lmp->recv_bytes < lmp->recv_msg->payload_bytes + lmp->recv_msg->header_bytes) {
         err = aos_lmp_chan_recv_blocking(lmp, &msg_cap, &recv_buf);
+        DEBUG_ERR(err, "err 1");
         err = aos_lmp_recv_followup_msg(lmp, &recv_buf);
+        DEBUG_ERR(err, "err 1");
     }
 
     lmp->is_busy = false;
@@ -339,9 +341,11 @@ errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *init_lmp,
     return SYS_ERR_OK;
 }
 
-static struct lmp_endpoint static_init_ep, static_init_mem_ep;
+static struct lmp_endpoint static_init_ep, static_init_mem_ep, static_init_serial_ep;
 char STATIC_RPC_BUF[BASE_PAGE_SIZE];
 char STATIC_RPC_MEMSRV_BUF[BASE_PAGE_SIZE];
+char STATIC_RPC_SERIALSRV_BUF[BASE_PAGE_SIZE];
+
 /**
  *  \brief Initialize an aos_lmp struct. Sets up channel to remote endpoint (init)
  *
@@ -380,6 +384,12 @@ errval_t aos_lmp_init(struct aos_lmp *aos_lmp, enum aos_rpc_channel_type chan_ty
         aos_lmp->chan.remote_cap = cap_initmemep;
         aos_lmp->chan.endpoint = &static_init_mem_ep;
         aos_lmp->buf = STATIC_RPC_MEMSRV_BUF;
+        break;
+    case AOS_RPC_SERIAL_CHANNEL:
+        DEBUG_PRINTF("init rpc channel");
+        aos_lmp->chan.remote_cap = cap_initserialep;
+        aos_lmp->chan.endpoint = &static_init_serial_ep;
+        aos_lmp->buf = STATIC_RPC_SERIALSRV_BUF;
         break;
     default:
         return LIB_ERR_RPC_INIT_BAD_ARGS;

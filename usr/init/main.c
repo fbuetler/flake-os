@@ -36,6 +36,8 @@
 #include <barrelfish_kpi/startup_arm.h>
 #include <aos/deferred.h>
 
+#include <serialio//serialio.h>
+
 #include "mem_alloc.h"
 #include "custom_tests.h"
 
@@ -77,11 +79,17 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
+    err = init_serial_server(&init_spawninfo);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not launch serial server! \n");
+    }
+
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     spawn_lpuart_driver(&si);
 
     // Grading
     grading_test_late();
+
 
     DEBUG_PRINTF("Message handler loop\n");
     struct waitset *default_ws = get_default_waitset();
