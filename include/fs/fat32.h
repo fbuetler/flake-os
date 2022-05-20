@@ -44,11 +44,11 @@ struct phys_virt_addr {
      * instance!
      *
      * Also assumes nobody writes to virt without also writing back to the disk
-     * // TODO: dirty bit
      *
      * This is used to avoid unnecessary reads to buffer
      */
     uint32_t last_sector;
+    bool dirty;
 };
 
 enum fat32_file_attribute {
@@ -138,9 +138,9 @@ void free_path_list(struct path_list_node *head);
 
 struct path_list_node *get_path_list(const char *orig_path);
 
-errval_t fs_read_sector(struct fat32 *fs, uint32_t sector, struct phys_virt_addr *addr);
+errval_t fat32_read_sector(struct fat32 *fs, uint32_t sector, struct phys_virt_addr *addr);
 
-errval_t fs_write_sector(struct fat32 *fs, uint32_t sector, struct phys_virt_addr *addr);
+errval_t fat32_write_sector(struct fat32 *fs, uint32_t sector, struct phys_virt_addr *addr);
 
 void print_file(struct fat32 *fs, uint32_t cluster, uint32_t size);
 
@@ -156,13 +156,9 @@ errval_t init_fat32(struct fat32 *fs);
  */
 int get_path_dir_prefix(const char *name);
 
-errval_t move_to_dir(struct fat32 *fs, char *full_path, uint32_t *retcluster);
+char *clean_path(const char *path);
 
-errval_t read_file(struct fat32 *fs, char *path, char *file);
-
-errval_t write_cluster(struct fat32 *fs, uint32_t cluster, char *payload, size_t size);
-
-errval_t write_file(struct fat32 *fs, char *dest_dir, struct fat32_file file);
+errval_t fat32_move_to_dir(struct fat32 *fs, char *full_path, uint32_t *retcluster);
 
 errval_t fat32_process_cluster(struct fat32 *fs, uint32_t cluster, uint32_t offset,
                                char *dest_buffer, uint32_t bytes, bool is_read);
@@ -178,13 +174,14 @@ errval_t fat32_write_data(struct fat32 *fs, uint32_t start_cluster,
                           uint32_t cluster_offset, char *src_buffer, uint32_t bytes,
                           uint32_t *ret_last_cluster_written);
 
-errval_t load_dir_entry_from_name(struct fat32 *fs, uint32_t containing_dir_cluster,
+errval_t fat32_load_dir_entry_from_name(struct fat32 *fs, uint32_t containing_dir_cluster,
                                   char *name, struct fat32_dir_entry *ret_dir,
                                   uint32_t *ret_sector, uint32_t *ret_index);
 
-bool to_fat32_short_name(char *old, char *new_name);
+bool fat32_encode_fname(char *old, char *new_name);
+void fat32_decode_fname(char *encoded, char *decoded);
 
-errval_t set_cluster_eof(struct fat32 *fs, uint32_t curr_cluster);
+errval_t fat32_set_cluster_eof(struct fat32 *fs, uint32_t curr_cluster);
 
 errval_t fat32_set_fdata(struct fat32 *fs, uint32_t dir_sector, uint32_t dir_index,
                          uint32_t start_data_cluster, uint32_t size);
@@ -193,13 +190,11 @@ void split_path(const char *full_path, char **path_prefix, char **fname);
 
 errval_t fat32_create_empty_file(struct fat32 *fs, const char *path, bool is_dir);
 
-char *clean_path(const char *path);
-
 errval_t free_cluster_chain(struct fat32 *fs, uint32_t start_data_cluster);
 
 errval_t fat32_delete_file(struct fat32 *fs, uint32_t dir_sector, uint32_t index);
 
-errval_t load_next_dir_entry(struct fat32 *fs, uint32_t first_dir_data_cluster,
+errval_t fat32_load_next_dir_entry(struct fat32 *fs, uint32_t first_dir_data_cluster,
                              uint32_t start_index, struct fat32_dir_entry *ret_dir,
                              uint32_t *ret_cluster, uint32_t *ret_index);
 

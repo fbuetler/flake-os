@@ -43,7 +43,7 @@ void fat32fs_handle_close(struct fat32fs_handle *h)
     // check if we need to truncate the rest of the file
     if (h->flags & (O_RDWR | O_WRONLY)) {
         if (h->u.file_offset != h->dirent->size) {
-            set_cluster_eof(&fs_state.fat32, h->curr_data_cluster);
+            fat32_set_cluster_eof(&fs_state.fat32, h->curr_data_cluster);
             fat32_set_fdata(&fs_state.fat32, h->dirent->dir_sector, h->dirent->dir_index,
                             h->dirent->start_data_cluster, h->u.file_offset);
         }
@@ -63,16 +63,16 @@ static errval_t resolve_path(domainid_t pid, const char *path,
 
     char *path_prefix, *fname;
     split_path(path, &path_prefix, &fname);
-    err = move_to_dir(&fs_state.fat32, path_prefix, &parent_dir_cluster);
+    err = fat32_move_to_dir(&fs_state.fat32, path_prefix, &parent_dir_cluster);
 
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "move_to_dir failed");
+        DEBUG_ERR(err, "fat32_move_to_dir failed");
         goto unwind_split;
     }
 
     struct fat32fs_dirent *dirent = calloc(1, sizeof(struct fat32fs_dirent));
     char fat32_name[11];
-    bool valid = to_fat32_short_name(fname, fat32_name);
+    bool valid = fat32_encode_fname(fname, fat32_name);
 
     if (!valid) {
         // TODO better error
@@ -80,11 +80,11 @@ static errval_t resolve_path(domainid_t pid, const char *path,
         goto unwind;
     }
 
-    err = load_dir_entry_from_name(&fs_state.fat32, parent_dir_cluster, fat32_name, &dir,
+    err = fat32_load_dir_entry_from_name(&fs_state.fat32, parent_dir_cluster, fat32_name, &dir,
                                    &sector, &index);
 
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "load_dir_entry_from_name failed");
+        DEBUG_ERR(err, "fat32_load_dir_entry_from_name failed");
         goto unwind;
     }
 
@@ -256,11 +256,10 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
 
     case FS_SEEK_CUR:
         if (h->dirent->is_dir) {
-            // TODO ramfs doesn't implement this
+            // ramfs doesn't implement this
             assert(!"NYI");
         } else {
             assert(offset >= 0 || -offset <= h->u.file_offset);
-
             uint32_t start_data_cluster;
 
             // if we need to go to a previous cluster in chain, then
@@ -278,6 +277,10 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
 
             err = fat32_get_cluster_from_offset(&fs_state.fat32, start_data_cluster,
                                                 offset, &h->curr_data_cluster);
+            if(err_is_fail(err)){
+                DEBUG_ERR(err, "couldn't seek to position\n");
+                return err;
+            }
             h->u.file_offset += offset;
         }
 
@@ -285,17 +288,18 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
 
     case FS_SEEK_END:
         if (h->dirent->is_dir) {
-            // TODO: ramfs doesn't implement this, 
+            // ramfs doesn't implement this, 
             assert(!"NYI");
         } else {
             // TODO what is going on here? need to resize?
             assert(offset >= 0 || -offset <= h->dirent->size);
             h->u.file_offset = h->dirent->size + offset;
+            // TODO BUG
         }
         break;
 
     default:
-        USER_PANIC("invalid whence argument to ramfs seek");
+        USER_PANIC("invalid whence argument to fat32fs seek");
     }
 
     return SYS_ERR_OK;
@@ -483,7 +487,7 @@ errval_t fat32fs_dir_read_next(struct fat32fs_handle *h, char **retname,
     // read at current index
     struct fat32_dir_entry dirent;
     uint32_t dirent_cluster, dirent_index;
-    errval_t err = load_next_dir_entry(&fs_state.fat32, h->dirent->start_data_cluster,
+    errval_t err = fat32_load_next_dir_entry(&fs_state.fat32, h->dirent->start_data_cluster,
                                        h->u.dir_offset, &dirent, &dirent_cluster,
                                        &dirent_index);
     if (err_is_fail(err)) {
@@ -493,9 +497,7 @@ errval_t fat32fs_dir_read_next(struct fat32fs_handle *h, char **retname,
 
     if (retname != NULL) {
         *retname = malloc(12);
-        // TODO revert name to normal again
-        memcpy(*retname, dirent.Name, 11);
-        (*retname)[11] = '\0';
+        fat32_decode_fname((char *)dirent.Name, *retname);
     }
 
     if (info != NULL) {

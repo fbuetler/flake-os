@@ -28,6 +28,15 @@
 #include <fs/fs.h>
 #include <fs/dirent.h>
 
+__attribute__((unused))
+static void test_encode_decode(char *src){
+    char encoded[12], result[12];
+    fat32_encode_fname(src, encoded);
+    fat32_decode_fname(encoded, result);
+    printf("'%.11s' -> '%s'\n", encoded, result);
+
+}
+
 int main(int argc, char *argv[])
 {
     errval_t err = filesystem_init();
@@ -35,6 +44,7 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "filesystem_init failed");
     }
+
 /*
     mkdir("testdir2/testdir6");
     mkdir("testdir2/testdir7");
