@@ -280,7 +280,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     err = aos_rpc_call(rpc, request, &response, false);
 
     domainid_t assigned_pid = *((domainid_t *)response.payload);
-    DEBUG_PRINTF("spawned process with PID 0x%lx\n", assigned_pid);
+    DEBUG_PRINTF("spawned process with PID 0x%x\n", assigned_pid);
     *newpid = assigned_pid;
 
     free(payload);
@@ -300,7 +300,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
 errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
                                       size_t *pid_count)
 {
-    DEBUG_PRINTF("get all pids!\n");
+    //DEBUG_PRINTF("get all pids!\n");
     // TODO (M5): implement process id discovery
     errval_t err;
 

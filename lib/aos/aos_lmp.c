@@ -241,9 +241,7 @@ __attribute__((unused)) static errval_t aos_lmp_recv_msg_blocking(struct aos_lmp
 
     while (lmp->recv_bytes < lmp->recv_msg->payload_bytes + lmp->recv_msg->header_bytes) {
         err = aos_lmp_chan_recv_blocking(lmp, &msg_cap, &recv_buf);
-        DEBUG_ERR(err, "err 1");
         err = aos_lmp_recv_followup_msg(lmp, &recv_buf);
-        DEBUG_ERR(err, "err 1");
     }
 
     lmp->is_busy = false;

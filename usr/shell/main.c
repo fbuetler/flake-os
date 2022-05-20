@@ -27,12 +27,93 @@ struct shell_state {
     struct aos_rpc *serial_rpc;
 } shell_state;
 
-#if 0
 errval_t write_str(char *str);
+int num_builtins(void);
+
+char *builtin_str[] = {
+    "help",
+    "exit",
+    "echo",
+    "spawn_hello",
+    "ps"
+};
+
+void shell_help(char **args);
+void shell_exit(char **args);
+void shell_echo(char **args);
+void spawn_hello(char **args);
+void ps(char **args);
+
+
+void (*builtin_func[]) (char **) = {
+    &shell_help,
+    &shell_exit,
+    &shell_echo,
+    &spawn_hello,
+    &ps,
+};
+
+int num_builtins(void) {
+    return sizeof(builtin_str) / sizeof(char *);
+}
+
+void shell_help(char **args) {
+    write_str("Available commands:\n");
+    write_str("help: This message\n");
+    write_str("echo: Repeat the input\n");
+    write_str("exit: NYI\n");
+}
+
+void spawn_hello(char **args) {
+    domainid_t pid;
+    aos_rpc_process_spawn(get_init_rpc(), "hello", 0, &pid);
+}
+
+void ps(char **args) {
+    //DEBUG_PRINTF("ps called");
+    domainid_t *pids;
+    size_t pid_count;
+    aos_rpc_process_get_all_pids(get_init_rpc(), &pids, &pid_count);
+    DEBUG_PRINTF("pids count: %zu \n", pid_count);
+    for (int i = 0; i < pid_count; i++) {
+        DEBUG_PRINTF("received pid: 0x%x\n", pids[i]);
+    }
+}
+
+void shell_exit(char **args) {
+    write_str("exiting shell...\n");
+    shell_state.exit = true;
+
+    /*
+    size_t pid_count;
+    domainid_t *pids;
+    DEBUG_PRINTF("calling get_all_pids \n");
+    aos_rpc_process_get_all_pids(shell_state.init_rpc, &pids, &pid_count);
+    DEBUG_PRINTF("finished calling get_all_pids \n");
+    DEBUG_PRINTF("PID count: %d\n", pid_count);
+
+    for (int i = 0; i < pid_count; i++) {
+        DEBUG_PRINTF("received pid: 0x%lx\n", pids[i]);
+    }
+     */
+}
+
+void shell_echo(char **args) {
+    write_str("shell echo called \n");
+
+    /*
+    for (int i = 1; i < RECV_BUFFER_SIZE && args[i] != NULL; i++) {
+        //write_str(strcat(args[i], " "));
+        write_str(args[i]);
+    }
+    write_str("\n");
+     */
+}
+
+#if 0
 static void new_shell_line(void);
 errval_t write_nstr(char *str, size_t len);
 
-int num_builtins(void);
 
 struct shell_state {
     struct pl011_s *uart_state;
@@ -88,14 +169,6 @@ void shell_exit(char **args) {
     for (int i = 0; i < pid_count; i++) {
         DEBUG_PRINTF("received pid: 0x%lx\n", pids[i]);
     }
-}
-
-void shell_echo(char **args) {
-    for (int i = 1; i < RECV_BUFFER_SIZE && args[i] != NULL; i++) {
-        //write_str(strcat(args[i], " "));
-        write_str(args[i]);
-    }
-    write_str("\n");
 }
 
 
@@ -194,38 +267,60 @@ errval_t write_nstr(char *str, size_t len) {
 
 #endif
 
+errval_t write_str(char *str) {
+    errval_t err = SYS_ERR_OK;
+    for (int i = 0; i < strlen(str); ++i) {
+        aos_rpc_serial_putchar(shell_state.serial_rpc, str[i]);
+    }
+    return err;
+}
+
 static void handle_input(void) {
     errval_t err;
     char c;
-    bool terminated = false;
     do {
         err = aos_rpc_serial_getchar(shell_state.serial_rpc, &c);
+
         if(err == SYS_ERR_OK) {
             if (c == 4 || c == 10 || c == 13) {
                 // 4: EOT, 10: NL, 13: CR
                 /* Enter is pressed. Parse the line and execute the command */
                 shell_state.line_buffer[shell_state.count++] = '\0';
-                terminated = true;
                 aos_rpc_serial_putchar(shell_state.serial_rpc, '\n');
-            } else {
+
+
+                for (int i = 0; i < num_builtins(); i++) {
+                    if (strcmp(shell_state.line_buffer, builtin_str[i]) == 0) {
+                        builtin_func[i](NULL);
+                    }
+                }
+
+                shell_state.count = 0;
+            } else if(c == 8 || c == 127) {
+                // Backspace. Note that on macos, pressing "backspace" actually sends "DEL"
+                if(shell_state.count > 0) {
+                    shell_state.count -= 1;
+                    write_str("\e[D\e[K");
+                }
+            }
+            else {
                 shell_state.line_buffer[shell_state.count++] = c;
                 aos_rpc_serial_putchar(shell_state.serial_rpc, c);
             }
         }
-    } while (!terminated);
+        thread_yield(); // cooperative multitasking. Yield control to let other processes make progress, such as the serial_io library
+    } while (!shell_state.exit);
 
 }
 
 int main(int argc, char *argv[])
 {
-    DEBUG_PRINTF("shell starting\n");
 
     shell_state.serial_rpc = aos_rpc_get_serial_channel();
     shell_state.count = 0;
     shell_state.exit = false;
 
-
-    DEBUG_PRINTF("shell started, waiting for input...\n");
+    DEBUG_PRINTF("shell started \n");
 
     do {
         handle_input();
