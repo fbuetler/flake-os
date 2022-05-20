@@ -105,22 +105,29 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
         // answer requests that are for us
         struct eth_hdr *resp_arp;
         size_t resp_arp_size;
+        ENET_BENCHMARK_INIT()
+        ENET_BENCHMARK_START("assemble arp packet")
         err = enet_assemble_arp_packet(enet_split_mac(st->mac), ENET_STATIC_IP,
                                        arp->eth_src, ntohl(arp->ip_src), ARP_OP_REP,
                                        &resp_arp, &resp_arp_size);
+        ENET_BENCHMARK_STOP("assemble arp packet")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to assemble arp packet");
             return err;
         }
 
+        ENET_BENCHMARK_START("enqueue arp packet")
         err = safe_enqueue(st->safe_txq, (void *)resp_arp, resp_arp_size);
+        ENET_BENCHMARK_STOP("enqueue arp packet")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to enqueue buffer");
             return err;
         }
 
         // store IP to MAC mapping of sender
+        ENET_BENCHMARK_START("update arp table on request")
         err = enet_update_arp_table(st, ntohl(arp->ip_src), arp->eth_src);
+        ENET_BENCHMARK_STOP("update arp table on request")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to update ARP table");
             return err;
@@ -129,7 +136,9 @@ static errval_t enet_handle_arp_packet(struct enet_driver_state *st, struct eth_
         break;
     case ARP_OP_REP:
         // store IP to MAC mapping
+        ENET_BENCHMARK_START("update arp table on response")
         err = enet_update_arp_table(st, ntohl(arp->ip_src), arp->eth_src);
+        ENET_BENCHMARK_STOP("update arp table on response")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to update ARP table");
             return err;
@@ -164,14 +173,17 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
         return SYS_ERR_OK;
     }
 
+    ENET_BENCHMARK_INIT()
     // handle
     switch (icmp->type) {
     case ICMP_ER:
         ICMP_DEBUG("RECEIVED ICMP ECHO REPLY PACKET\n");
 
+        ENET_BENCHMARK_START("process icmp echo reply packet")
         err = enet_icmp_socket_handle_inbound(st, ntohl(ip->src), icmp->type,
                                               ntohs(icmp->id), ntohs(icmp->seqno),
                                               icmp_payload, icmp_payload_size);
+        ENET_BENCHMARK_STOP("process icmp echo reply packet")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle inbound ICMP packet");
             return err;
@@ -181,16 +193,20 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
         ICMP_DEBUG("RECEIVED ICMP ECHO PACKET\n");
         struct eth_hdr *resp_icmp;
         size_t resp_icmp_size;
+        ENET_BENCHMARK_START("assemble icmp packet")
         err = enet_assemble_icmp_packet(enet_split_mac(st->mac), ENET_STATIC_IP, eth->src,
                                         ntohl(ip->src), ICMP_ER, ntohs(icmp->id),
                                         ntohs(icmp->seqno), icmp_payload,
                                         icmp_payload_size, &resp_icmp, &resp_icmp_size);
+        ENET_BENCHMARK_STOP("assemble icmp packet")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to assemble ICMP packet");
             return err;
         }
 
+        ENET_BENCHMARK_START("enqueue icmp packet")
         err = safe_enqueue(st->safe_txq, (void *)resp_icmp, resp_icmp_size);
+        ENET_BENCHMARK_STOP("enqueue icmp packet")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to enqueue buffer");
             return err;
@@ -273,8 +289,11 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     return SYS_ERR_OK;
 #endif
 
+        ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_START("process udp packet")
     err = enet_udp_socket_handle_inbound(st, ntohl(ip->src), ntohs(udp->src),
                                          ntohs(udp->dest), udp_payload, udp_payload_size);
+    ENET_BENCHMARK_STOP("process udp packet")
     if (err_is_fail(err)) {
         if (err == ENET_ERR_SOCKET_NOT_FOUND) {
             UDP_DEBUG("Destination unreachable (Port unreachable)\n");
@@ -350,10 +369,13 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
         return SYS_ERR_OK;
     }
 
+        ENET_BENCHMARK_INIT()
     switch (ip->proto) {
     case IP_PROTO_ICMP:
         ICMP_DEBUG("RECEIVED ICMP PACKET\n");
+        ENET_BENCHMARK_START("handle icmp packet")
         err = enet_handle_icmp_packet(st, eth);
+        ENET_BENCHMARK_STOP("handle icmp packet")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle ICMP packet");
             return err;
@@ -364,7 +386,9 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
         break;
     case IP_PROTO_UDP:
         UDP_DEBUG("RECEIVED UDP PACKET\n");
+        ENET_BENCHMARK_START("handle udp packet")
         err = enet_handle_udp_packet(st, eth);
+        ENET_BENCHMARK_STOP("handle udp packet")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle UDP packet");
             return err;
@@ -391,10 +415,13 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 
     enet_debug_print_eth_packet(eth);
 
+        ENET_BENCHMARK_INIT()
     switch (ntohs(eth->type)) {
     case ETH_TYPE_ARP:
         ETHARP_DEBUG("RECEIVED ARP PACKET\n");
+        ENET_BENCHMARK_START("handle arp packet")
         err = enet_handle_arp_packet(st, eth);
+        ENET_BENCHMARK_STOP("handle arp packet")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle ARP packet");
             return err;
@@ -402,7 +429,9 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct eth_hdr *eth)
         break;
     case ETH_TYPE_IP:
         IP_DEBUG("RECEIVED IP PACKET\n");
+        ENET_BENCHMARK_START("handle ip packet")
         err = enet_handle_ip_packet(st, eth);
+        ENET_BENCHMARK_STOP("handle ip packet")
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to handle IP packet");
             return err;

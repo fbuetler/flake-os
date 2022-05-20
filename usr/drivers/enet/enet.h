@@ -17,6 +17,8 @@
 #include <netutil/etharp.h>
 #include <netutil/ip.h>
 
+#include <aos/deferred.h>
+
 #include "enet_socket.h"
 
 // #define ENET_DEBUG_OPTION 1
@@ -25,6 +27,22 @@
 #    define ENET_DEBUG(x...) debug_printf("[enet] " x);
 #else
 #    define ENET_DEBUG(fmt, ...) ((void)0)
+#endif
+
+#define ENET_BENCHMARK_OPTION 1
+
+#if defined(ENET_BENCHMARK_OPTION)
+#    define ENET_BENCHMARK_INIT() systime_t start, stop;
+#    define ENET_BENCHMARK_START(msg...)                                                 \
+        debug_printf("[bench] start '%s'\n", msg);                                       \
+        start = get_system_time();
+#    define ENET_BENCHMARK_STOP(msg...)                                                  \
+        stop = get_system_time();                                                        \
+        debug_printf("[bench] stop '%s': %lld ticks\n", msg, stop - start);
+#else
+#    define ENET_BENCHMARK_INIT() ((void)0);
+#    define ENET_BENCHMARK_START(msg...) ((void)0);
+#    define ENET_BENCHMARK_STOP(msg...) ((void)0);
 #endif
 
 

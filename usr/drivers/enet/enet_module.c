@@ -739,7 +739,10 @@ int main(int argc, char *argv[])
             struct eth_hdr *eth = (struct eth_hdr *)((char *)region->mem.vbase
                                                      + buf.offset + buf.valid_data);
 
+            ENET_BENCHMARK_INIT()
+            ENET_BENCHMARK_START("handle packet")
             err = enet_handle_packet(st, eth);
+            ENET_BENCHMARK_STOP("handle packet")
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to handle packet");
             }
