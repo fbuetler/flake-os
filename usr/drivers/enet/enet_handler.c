@@ -38,15 +38,20 @@ errval_t enet_get_mac_by_ip(struct enet_driver_state *st, ip_addr_t ip_dest,
     // otherwise broadcast request
     struct eth_hdr *arp;
     size_t arp_size;
+    ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_START("assemble arp packet")
     err = enet_assemble_arp_packet(enet_split_mac(st->mac), ENET_STATIC_IP,
                                    enet_split_mac(ETH_BROADCAST), ip_dest, ARP_OP_REQ,
                                    &arp, &arp_size);
+    ENET_BENCHMARK_STOP("assemble arp packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to assemble arp packet");
         return err;
     }
 
+    ENET_BENCHMARK_START("enqueue arp packet")
     err = safe_enqueue(st->safe_txq, (void *)arp, arp_size);
+    ENET_BENCHMARK_STOP("enqueue arp packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to enqueue buffer");
         return err;
@@ -289,7 +294,7 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     return SYS_ERR_OK;
 #endif
 
-        ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_INIT()
     ENET_BENCHMARK_START("process udp packet")
     err = enet_udp_socket_handle_inbound(st, ntohl(ip->src), ntohs(udp->src),
                                          ntohs(udp->dest), udp_payload, udp_payload_size);
@@ -369,7 +374,7 @@ static errval_t enet_handle_ip_packet(struct enet_driver_state *st, struct eth_h
         return SYS_ERR_OK;
     }
 
-        ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_INIT()
     switch (ip->proto) {
     case IP_PROTO_ICMP:
         ICMP_DEBUG("RECEIVED ICMP PACKET\n");
@@ -415,7 +420,7 @@ errval_t enet_handle_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 
     enet_debug_print_eth_packet(eth);
 
-        ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_INIT()
     switch (ntohs(eth->type)) {
     case ETH_TYPE_ARP:
         ETHARP_DEBUG("RECEIVED ARP PACKET\n");

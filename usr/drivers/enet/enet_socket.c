@@ -172,7 +172,10 @@ errval_t enet_udp_socket_send(struct enet_driver_state *st, uint16_t port_src,
     }
 
     struct eth_addr mac_dest;
+    ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_START("resolve ip to mac")
     err = enet_get_mac_by_ip(st, ip_dest, &mac_dest);
+    ENET_BENCHMARK_STOP("resolve ip to mac")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get MAC for IP");
         return err;
@@ -180,15 +183,19 @@ errval_t enet_udp_socket_send(struct enet_driver_state *st, uint16_t port_src,
 
     struct eth_hdr *resp_udp;
     size_t resp_udp_size;
+    ENET_BENCHMARK_START("assemble udp packet");
     err = enet_assemble_udp_packet(enet_split_mac(st->mac), ENET_STATIC_IP, port_src,
                                    mac_dest, ip_dest, port_dest, payload, payload_size,
                                    &resp_udp, &resp_udp_size);
+    ENET_BENCHMARK_STOP("assemble udp packet");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to assemble UDP packet");
         return err;
     }
 
+    ENET_BENCHMARK_START("enqueue udp packet")
     err = safe_enqueue(st->safe_txq, (void *)resp_udp, resp_udp_size);
+    ENET_BENCHMARK_STOP("enqueue udp packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to enqueue buffer");
         return err;
@@ -299,7 +306,10 @@ errval_t enet_icmp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
     }
 
     struct eth_addr mac_dest;
+    ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_START("resolve ip to mac")
     err = enet_get_mac_by_ip(st, ip_dest, &mac_dest);
+    ENET_BENCHMARK_STOP("resolve ip to mac")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get MAC for IP");
         return err;
@@ -307,15 +317,19 @@ errval_t enet_icmp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
 
     struct eth_hdr *resp_icmp;
     size_t resp_icmp_size;
+    ENET_BENCHMARK_START("assemble icmp packet")
     err = enet_assemble_icmp_packet(enet_split_mac(st->mac), ENET_STATIC_IP, mac_dest,
                                     ip_dest, type, id, seqno, payload, payload_size,
                                     &resp_icmp, &resp_icmp_size);
+    ENET_BENCHMARK_STOP("assemble icmp packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to assemble ICMP packet");
         return err;
     }
 
+    ENET_BENCHMARK_START("enqueue icmp packet")
     err = safe_enqueue(st->safe_txq, (void *)resp_icmp, resp_icmp_size);
+    ENET_BENCHMARK_STOP("enqueue icmp packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to enqueue buffer");
         return err;
