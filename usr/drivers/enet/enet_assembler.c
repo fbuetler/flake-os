@@ -1,4 +1,5 @@
 
+#include "enet.h"
 #include "enet_assembler.h"
 #include "enet_debug.h"
 
@@ -140,14 +141,19 @@ errval_t enet_assemble_arp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
     errval_t err;
 
     struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + ARP_HLEN);
+    ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_START(4, "create eth packet")
     err = enet_create_eth_packet(eth_src, eth_dest, ETH_TYPE_ARP, eth);
+    ENET_BENCHMARK_STOP(4, "create eth packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create ETH packet");
         return err;
     }
 
     struct arp_hdr *arp = (struct arp_hdr *)((char *)eth + ETH_HLEN);
+    ENET_BENCHMARK_START(4, "create arp packet")
     err = enet_create_arp_packet(eth_src, ip_src, eth_dest, ip_dest, opcode, arp);
+    ENET_BENCHMARK_STOP(4, "create arp packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create ARP packet");
         return err;
@@ -169,22 +175,29 @@ errval_t enet_assemble_icmp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
 
     struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + IP_HLEN + ICMP_HLEN
                                                    + payload_size);
+    ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_START(4, "create eth packet")
     err = enet_create_eth_packet(eth_src, eth_dest, ETH_TYPE_IP, eth);
+    ENET_BENCHMARK_STOP(4, "create eth packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create ETH packet");
         return err;
     }
 
     struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
+    ENET_BENCHMARK_START(4, "create ip packet")
     err = enet_create_ip_packet(eth_src, ip_src, eth_dest, ip_dest, IP_PROTO_ICMP,
                                 ICMP_HLEN + payload_size, ip);
+    ENET_BENCHMARK_STOP(4, "create ip packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create IP packet");
         return err;
     }
 
     struct icmp_echo_hdr *icmp = (struct icmp_echo_hdr *)((char *)ip + IP_HLEN);
+    ENET_BENCHMARK_START(4, "create icmp packet")
     err = enet_create_icmp_packet(type, id, seqno, payload, payload_size, icmp);
+    ENET_BENCHMARK_STOP(4, "create icmp packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create ICMP packet");
         return err;
@@ -207,22 +220,29 @@ errval_t enet_assemble_udp_packet(struct eth_addr eth_src, ip_addr_t ip_src,
 
     struct eth_hdr *eth = (struct eth_hdr *)malloc(ETH_HLEN + IP_HLEN + UDP_HLEN
                                                    + payload_size);
+    ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_START(4, "create eth packet")
     err = enet_create_eth_packet(eth_src, eth_dest, ETH_TYPE_IP, eth);
+    ENET_BENCHMARK_STOP(4, "create eth packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create ETH packet");
         return err;
     }
 
     struct ip_hdr *ip = (struct ip_hdr *)((char *)eth + ETH_HLEN);
+    ENET_BENCHMARK_START(4, "create ip packet")
     err = enet_create_ip_packet(eth_src, ip_src, eth_dest, ip_dest, IP_PROTO_UDP,
                                 UDP_HLEN + payload_size, ip);
+    ENET_BENCHMARK_STOP(4, "create ip packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create IP packet");
         return err;
     }
 
     struct udp_hdr *udp = (struct udp_hdr *)((char *)ip + IP_HLEN);
+    ENET_BENCHMARK_START(4, "create udp packet")
     err = enet_create_udp_packet(udp_src, udp_dest, payload, payload_size, udp);
+    ENET_BENCHMARK_STOP(4, "create udp packet")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create UDP packet");
         return err;

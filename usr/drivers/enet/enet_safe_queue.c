@@ -109,6 +109,11 @@ errval_t safe_enqueue(struct safe_q *q, void *data, size_t data_len)
     memcpy((void *)valid_data_base, data, data_len);
     buf->valid_length = data_len;
 
-    return devq_enqueue(&q->q->q, buf->rid, buf->offset, buf->length, buf->valid_data,
-                        buf->valid_length, buf->flags);
+    ENET_BENCHMARK_INIT()
+    ENET_BENCHMARK_START(4, "real enqueue packet")
+    err = devq_enqueue(&q->q->q, buf->rid, buf->offset, buf->length, buf->valid_data,
+                       buf->valid_length, buf->flags);
+    ENET_BENCHMARK_STOP(4, "real enqueue packet")
+
+    return err;
 }
