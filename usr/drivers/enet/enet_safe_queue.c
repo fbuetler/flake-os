@@ -91,14 +91,19 @@ errval_t safe_enqueue(struct safe_q *q, void *data, size_t data_len)
     //     DEBUG_PRINTF("%02d: 0x%lx = 0x%02x\n", i, &((char *)data)[i], ((char *)data)[i]);
     // }
 
+    ENET_BENCHMARK_INIT()
     struct devq_buf *buf;
+    ENET_BENCHMARK_START(4, "get free buffer")
     err = safe_get_free_buf(q, &buf);
+    ENET_BENCHMARK_STOP(4, "get free buffer")
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to get free buffer");
         return err;
     }
 
+    ENET_BENCHMARK_START(4, "get region")
     struct region_entry *region = enet_get_region(q->q->regions, buf->rid);
+    ENET_BENCHMARK_STOP(4, "get region")
     if (!region) {
         err = ENET_ERR_REGION_NOT_FOUND;
         DEBUG_ERR(err, "failed to find region");
@@ -109,11 +114,10 @@ errval_t safe_enqueue(struct safe_q *q, void *data, size_t data_len)
     memcpy((void *)valid_data_base, data, data_len);
     buf->valid_length = data_len;
 
-    ENET_BENCHMARK_INIT()
-    ENET_BENCHMARK_START(4, "real enqueue packet")
+    ENET_BENCHMARK_START(4, "enqueue buffer")
     err = devq_enqueue(&q->q->q, buf->rid, buf->offset, buf->length, buf->valid_data,
                        buf->valid_length, buf->flags);
-    ENET_BENCHMARK_STOP(4, "real enqueue packet")
+    ENET_BENCHMARK_STOP(4, "enqueue buffer")
 
     return err;
 }
