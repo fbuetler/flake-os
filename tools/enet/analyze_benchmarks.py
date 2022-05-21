@@ -10,18 +10,25 @@ def main():
             continue
 
         ms = dict()
-        print(fname)
+        print(f"> {fname}")
         with open(fname) as f:
             prev_process = ""
             for line in f:
                 match = re.search(
-                    ".*stop '(?P<process>.*)'(: (?P<ticks>\d+) ticks)?",
+                    ".*(?P<action>(start|stop)) '(?P<process>.*)'(: (?P<ticks>\d+) ticks)?",
                     line,
                 )
+
                 if not match:
                     continue
 
+                action = match.group("action")
                 process = match.group("process")
+
+                if action != "stop":
+                    prev_process = process
+                    continue
+
                 ticks = int(match.group("ticks"))
 
                 if len(prev_process) != 0 and prev_process != process:

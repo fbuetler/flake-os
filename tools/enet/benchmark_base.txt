@@ -1,0 +1,7 @@
+no benchmarks enabled
+
+ping -c 60 10.42.0.27
+
+--- 10.42.0.27 ping statistics ---
+60 packets transmitted, 60 received, 0% packet loss, time 59082ms
+rtt min/avg/max/mdev = 7.744/16.668/482.001/60.648 ms
