@@ -5,11 +5,12 @@ from numpy import mean
 
 
 def main():
-    ms = dict()
     for fname in os.listdir("./"):
         if not re.match(r".*\.txt$", fname):
             continue
 
+        ms = dict()
+        print(fname)
         with open(fname) as f:
             prev_process = ""
             for line in f:
@@ -34,8 +35,8 @@ def main():
 
                 prev_process = process
 
-    for process, ticks_list in sorted(ms.items()):
-        print(f"{process:<30} {mean(ticks_list, dtype=int):<8} ({len(ticks_list)})")
+        for process, ticks_list in sorted(ms.items()):
+            print(f"{process:<30} {mean(ticks_list, dtype=int):<8} ({len(ticks_list)})")
 
 
 if __name__ == "__main__":
