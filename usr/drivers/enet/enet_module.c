@@ -740,9 +740,9 @@ int main(int argc, char *argv[])
                                                      + buf.offset + buf.valid_data);
 
             ENET_BENCHMARK_INIT()
-            ENET_BENCHMARK_START("handle packet")
+            ENET_BENCHMARK_START(0, "handle packet")
             err = enet_handle_packet(st, eth);
-            ENET_BENCHMARK_STOP("handle packet")
+            ENET_BENCHMARK_STOP(0, "handle packet")
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to handle packet");
             }

@@ -147,40 +147,40 @@ static void enet_recv_handle(void *st_raw, void *message_raw, size_t bytes,
     ENET_BENCHMARK_INIT()
     switch (msg->type) {
     case AOS_NETWORK_ICMP_SEND_REQUEST:
-        ENET_BENCHMARK_START("icmp send service")
+        ENET_BENCHMARK_START(0, "icmp send service")
         err = enet_service_handle_icmp_send(st, msg->payload.icmp_send_req, response,
                                             response_bytes);
-        ENET_BENCHMARK_STOP("icmp send service")
+        ENET_BENCHMARK_STOP(0, "icmp send service")
         break;
     case AOS_NETWORK_ICMP_RECV_REQUEST:
-        ENET_BENCHMARK_START("icmp receive service")
+        ENET_BENCHMARK_START(0, "icmp receive service")
         err = enet_service_handle_icmp_recv(st, msg->payload.icmp_recv_req, response,
                                             response_bytes);
-        ENET_BENCHMARK_STOP("icmp receive service")
+        ENET_BENCHMARK_STOP(0, "icmp receive service")
         break;
     case AOS_NETWORK_UDP_CREATE_REQUEST:
-        ENET_BENCHMARK_START("udp create service")
+        ENET_BENCHMARK_START(0, "udp create service")
         err = enet_service_handle_udp_create(st, msg->payload.udp_create_req, response,
                                              response_bytes);
-        ENET_BENCHMARK_STOP("udp create service")
+        ENET_BENCHMARK_STOP(0, "udp create service")
         break;
     case AOS_NETWORK_UDP_DESTROY_REQUEST:
-        ENET_BENCHMARK_START("udp destroy service")
+        ENET_BENCHMARK_START(0, "udp destroy service")
         err = enet_service_handle_udp_destroy(st, msg->payload.udp_destroy_req, response,
                                               response_bytes);
-        ENET_BENCHMARK_STOP("udp destroy service")
+        ENET_BENCHMARK_STOP(0, "udp destroy service")
         break;
     case AOS_NETWORK_UDP_SEND_REQUEST:
-        ENET_BENCHMARK_START("udp send service")
+        ENET_BENCHMARK_START(0, "udp send service")
         err = enet_service_handle_udp_send(st, msg->payload.udp_send_req, response,
                                            response_bytes);
-        ENET_BENCHMARK_STOP("udp send service")
+        ENET_BENCHMARK_STOP(0, "udp send service")
         break;
     case AOS_NETWORK_UDP_RECV_REQUEST:
-        ENET_BENCHMARK_START("udp receive service")
+        ENET_BENCHMARK_START(0, "udp receive service")
         err = enet_service_handle_udp_recv(st, msg->payload.udp_recv_req, response,
                                            response_bytes);
-        ENET_BENCHMARK_STOP("udp receive service")
+        ENET_BENCHMARK_STOP(0, "udp receive service")
         break;
     default:
         err = LIB_ERR_SHOULD_NOT_GET_HERE;

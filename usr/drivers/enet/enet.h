@@ -30,19 +30,24 @@
 #endif
 
 #define ENET_BENCHMARK_OPTION 1
+#define ENET_BENCHMARK_LEVEL 0  // [0, 3]
 
 #if defined(ENET_BENCHMARK_OPTION)
 #    define ENET_BENCHMARK_INIT() systime_t start, stop;
-#    define ENET_BENCHMARK_START(msg...)                                                 \
-        debug_printf("[bench] start '%s'\n", msg);                                       \
-        start = get_system_time();
-#    define ENET_BENCHMARK_STOP(msg...)                                                  \
-        stop = get_system_time();                                                        \
-        debug_printf("[bench] stop '%s': %lld ticks\n", msg, stop - start);
+#    define ENET_BENCHMARK_START(level, msg...)                                          \
+        if (level == ENET_BENCHMARK_LEVEL) {                                             \
+            debug_printf("[bench] start '%s'\n", msg);                                   \
+            start = get_system_time();                                                   \
+        }
+#    define ENET_BENCHMARK_STOP(level, msg...)                                           \
+        if (level == ENET_BENCHMARK_LEVEL) {                                             \
+            stop = get_system_time();                                                    \
+            debug_printf("[bench] stop '%s': %lld ticks\n", msg, stop - start);          \
+        }
 #else
 #    define ENET_BENCHMARK_INIT() ((void)0);
-#    define ENET_BENCHMARK_START(msg...) ((void)0);
-#    define ENET_BENCHMARK_STOP(msg...) ((void)0);
+#    define ENET_BENCHMARK_START(level, msg...) ((void)0);
+#    define ENET_BENCHMARK_STOP(level, msg...) ((void)0);
 #endif
 
 
