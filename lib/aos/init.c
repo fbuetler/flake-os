@@ -47,9 +47,12 @@ void libc_exit(int status)
 {
     DEBUG_PRINTF("libc exit NYI!\n");
 
+    //ToDo: does this get called for each thread, or each process?
+    //ToDo: make sure that aos_rpc_kill_process can't be called twice
     struct dispatcher_generic *disp = get_dispatcher_generic(curdispatcher());
     aos_rpc_kill_process(get_init_rpc(), &disp->pid);
 
+    //DEBUG_PRINTF("spawninfo pid in libc_exit: %d \n", init_spawninfo.pid);
     /*
     struct spawninfo *current = &init_spawninfo;
     while (current) {

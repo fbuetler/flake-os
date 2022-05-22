@@ -11,8 +11,8 @@ void help(char *args) {
     write_str("kill: TODO terminate a specific process\n");
     write_str("echo: write arguments back to screen\n");
     write_str("time: measure the runtime of a command\n");
-    write_str("run_fg: TODO\n");
-    write_str("run_bg: TODO\n");
+    write_str("run_fg: run a process in the foreground\n");
+    write_str("run_bg: run a process in the background\n");
 }
 
 void kill(char *args) {
@@ -20,21 +20,29 @@ void kill(char *args) {
 }
 
 void run_bg(char *args) {
+    // ToDo: add core_id
+    if(args == NULL) {
+        printf("run_fg: provide a binary name\n");
+        return;
+    }
+
+    domainid_t pid;
+    aos_rpc_process_spawn(get_init_rpc(), args, 0, &pid);
 
 }
 
 void run_fg(char *args) {
-    DEBUG_PRINTF("spawning hello in the foreground \n");
+    // ToDo: add core_id
+    if(args == NULL) {
+        printf("run_fg: provide a binary name\n");
+        return;
+    }
+
     domainid_t pid;
-    aos_rpc_process_spawn(get_init_rpc(), "hello", 0, &pid);
+    aos_rpc_process_spawn(get_init_rpc(), args, 0, &pid);
 
-    DEBUG_PRINTF("busy looping until hello terminates...\n");
-
-    printf("waiting for pid: %d \n \n", pid);
-    //DEBUG_PRINTF("killing hello \n");
-    //aos_rpc_kill_process(shell_state.init_rpc, &pid);
-    //DEBUG_PRINTF("returned from killing hello \n");
     bool pid_still_exists = true;
+
     do{
         pid_still_exists = false;
         size_t pid_count;
@@ -45,14 +53,12 @@ void run_fg(char *args) {
         }
 
         for (int i = 0; i < pid_count; i++) {
-            //printf("pid: %d \n", pids[i]);
             if(pid == pids[i]){
                 pid_still_exists = true;
             }
         }
-        //thread_yield();
+        thread_yield();
     } while (pid_still_exists);
-    DEBUG_PRINTF("hello terminated, shell continues...\n");
 }
 
 /*

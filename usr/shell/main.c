@@ -85,7 +85,7 @@ static void handle_input(void) {
                     if(!command_exists) {
                         // use printf instead of write_str to format string
                         if(timing) {
-                            printf("timing needs to be followed by a valid command\n");
+                            printf("time needs to be followed by a valid command\n");
                         } else {
                             printf("command not found: %s\n", command);
                         }
