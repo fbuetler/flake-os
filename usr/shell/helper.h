@@ -9,8 +9,9 @@ errval_t write_str(char *str);
 struct shell_state {
     bool exit; // flag to check if the shell should exit itself
     char line_buffer[RECV_BUFFER_SIZE];
-    size_t count;
+    size_t buffer_count;
     struct aos_rpc *serial_rpc;
+    struct aos_rpc *init_rpc;
 } shell_state;
 
 #endif

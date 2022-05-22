@@ -4,25 +4,38 @@
 #include <aos/aos_rpc.h>
 #include <aos/aos.h>
 
-void help(char **args) {
+void help(char *args) {
     write_str("Available commands:\n");
     write_str("help: this message\n");
-    write_str("ps: print process status\n");
-    write_str("kill: terminate a specific process\n");
-    write_str("echo: write arguments back to screen\n");
+    write_str("ps: TODO print process status\n");
+    write_str("kill: TODO terminate a specific process\n");
+    write_str("echo: TODO write arguments back to screen\n");
+    write_str("time: TODO\n");
+    write_str("run_fg: TODO\n");
+    write_str("run_bg: TODO\n");
 }
 
-void kill(char **args) {
+void kill(char *args) {
     write_str("kill\n");
 }
 
+void run_bg(char *args) {
+
+}
+
+void run_fg(char *args) {
+
+}
+
+/*
 void spawn_hello(char **args) {
     abort();
     domainid_t pid;
     aos_rpc_process_spawn(get_init_rpc(), "hello", 0, &pid);
 }
+*/
 
-void ps(char **args) {
+void ps(char *args) {
     domainid_t *pids;
     size_t pid_count;
     aos_rpc_process_get_all_pids(get_init_rpc(), &pids, &pid_count);
@@ -32,9 +45,8 @@ void ps(char **args) {
     }
 }
 
-void shell_exit(char **args) {
-    abort();
-    printf("exiting shell... \n");
+void shell_exit(char *args) {
+    shell_state.exit = true;
     //write_str("exiting shell...\n");
     //shell_state.exit = true;
 
@@ -52,7 +64,7 @@ void shell_exit(char **args) {
      */
 }
 
-void echo(char **args) {
+void echo(char *args) {
     printf("shell echo called \n");
 
     /*
