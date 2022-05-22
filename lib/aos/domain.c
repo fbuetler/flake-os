@@ -220,7 +220,6 @@ struct aos_rpc *get_init_rpc(void)
 struct aos_rpc *get_serial_rpc(void) {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    DEBUG_PRINTF("ToDo: add session/channel identifier \n");
     return disp->core_state.serial_rpc;
 }
 

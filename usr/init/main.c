@@ -79,7 +79,8 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
-    err = init_serial_server(&init_spawninfo);
+    err = init_serial_server(UART_QEMU);
+
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "Could not launch serial server! \n");
     }

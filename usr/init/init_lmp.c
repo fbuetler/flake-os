@@ -171,10 +171,11 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 
     err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
-        DEBUG_PRINTF("error sending serial read char response\n");
+        DEBUG_PRINTF("error sending serial write char response\n");
         return err;
     }
 
+    free(reply);
     return SYS_ERR_OK;
 }
 
@@ -219,8 +220,7 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
     size_t payload_size = sizeof(struct serialio_response);
     void *payload = malloc(payload_size);
     //memcpy(payload, serial_response, )
-    *((struct serialio_response *)payload) = serial_response; //ToDo: Thierry: maybe memcopy here?
-
+    *((struct serialio_response *)payload) = serial_response;
 
     struct aos_lmp_msg *reply;
     err = aos_lmp_create_msg(&reply, AosRpcSerialReadCharResponse, payload_size, payload,
@@ -236,12 +236,8 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
         return err;
     }
 
-    /*
-    if(e1 == LPUART_ERR_NO_DATA) {
-        DEBUG_PRINTF("returnung no data from init_lmp.c \n");
-        return e1;
-    }
-     */
+    free(payload);
+    free(reply);
 
     return SYS_ERR_OK;
 }

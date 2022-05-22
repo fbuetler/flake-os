@@ -13,7 +13,7 @@
 [ build application
   {
     target = "shell",
-    cFiles = [ "main.c" ],
+    cFiles = [ "main.c", "builtins.c", "helper.c"],
     addLibraries = [ "grading", "pl011", "gic_dist", "lpuart"]
   }
 ]

@@ -28,10 +28,12 @@ struct serial_state {
     size_t serial_char_index;
     struct session_state session_state[MAX_OPEN_SESSIONS];
     struct pl011_s *uart_state;
+    struct thread_mutex lock;
 } serial_state;
 
 __attribute__((unused))
 static void serial_interrupt_handler(void *arg) {
+    thread_mutex_lock(&serial_state.lock);
 
     char c;
     pl011_getchar( serial_state.uart_state, &c);
@@ -41,21 +43,21 @@ static void serial_interrupt_handler(void *arg) {
         // finish line and set pointer to a new empty line
         serial_state.history[serial_state.serial_line_index++][serial_state.serial_char_index] = c;
         serial_state.serial_char_index = 0;
-        //pl011_putchar(serial_state.uart_state, '\n');
     } else {
         serial_state.history[serial_state.serial_line_index][serial_state.serial_char_index++] = c;
-        //pl011_putchar(serial_state.uart_state, c);
     }
+
+    thread_mutex_unlock(&serial_state.lock);
 }
 
 errval_t serial_put_char(struct aos_lmp *lmp, const char *c) {
     pl011_putchar(serial_state.uart_state, *c);
-    //printf("%c", *c);
     return SYS_ERR_OK;
 }
 
 __attribute__((unused))
 errval_t serial_get_char(struct aos_lmp *lmp, struct serialio_response *serial_response) {
+    thread_mutex_lock(&serial_state.lock);
 
     size_t internal_session_id;
     //DEBUG_PRINTF("Serial channel id: %zu \n", lmp->serial_channel_id);
@@ -90,30 +92,24 @@ errval_t serial_get_char(struct aos_lmp *lmp, struct serialio_response *serial_r
         }
     }
 
-    /*
-    if(serial_state.serial_char_index > 0) {
-        //DEBUG_PRINTF("Serial channel id: %zu \n", lmp->serial_channel_id);
-        //DEBUG_PRINTF("Sending char back: %c \n", serial_state.history[serial_state.serial_line_index][serial_state.serial_char_index-1]);
-        if(serial_state.session_state[internal_session_id].char_index == serial_state.serial_char_index) {
-            serial_response->response_type = SERIAL_IO_NO_DATA;
-        } else {
-            serial_response->response_type = SERIAL_IO_SUCCESS;
-            serial_response->c = serial_state.history[serial_state.session_state[internal_session_id].line_index][serial_state.session_state[internal_session_id].char_index++];
-        }
-        //DEBUG_PRINTF("Char in response: %c \n", serial_response->c);
-    }
-     */
-
-
+    thread_mutex_unlock(&serial_state.lock);
     return SYS_ERR_OK;
 }
 
 
-errval_t init_serial_server(struct spawninfo *si) {
+errval_t init_serial_server(enum serialio_type uart_type) {
     DEBUG_PRINTF("INIT SERIAL SERVER \n");
+
+    if(uart_type != UART_QEMU) {
+        DEBUG_PRINTF("Only QEMU serial server is currently supported! \n");
+        abort();
+    }
+
     errval_t err;
 
     memset(&serial_state, 0, sizeof(struct serial_state));
+
+    thread_mutex_init(&serial_state.lock);
     serial_state.next_free_id = 1;
 
     void *vbase_pl011;
