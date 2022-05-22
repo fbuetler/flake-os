@@ -91,14 +91,12 @@ static void handle_input(void) {
                             printf("command not found: %s\n", command);
                         }
                     }
-                } else if (timing) {
-                    printf("timing needs to be followed by a valid command\n");
                 }
 
                 shell_state.buffer_count = 0;
                 if(!shell_state.exit) {
                     // don't print anything if the shell is terminating
-                    if(timing && command_exists) {
+                    if(timing) {
                         clock_gettime(CLOCK_MONOTONIC, &end_time);
                         printf("elapsed: %ldus\n", (end_time.tv_sec - start_time.tv_sec) * 1000000 + (end_time.tv_nsec - start_time.tv_nsec) / 1000);
                     }

@@ -10,7 +10,7 @@ void help(char *args) {
     write_str("ps: TODO print process status\n");
     write_str("kill: TODO terminate a specific process\n");
     write_str("echo: TODO write arguments back to screen\n");
-    write_str("time: TODO\n");
+    write_str("time: measure the runtime of a command\n");
     write_str("run_fg: TODO\n");
     write_str("run_bg: TODO\n");
 }
