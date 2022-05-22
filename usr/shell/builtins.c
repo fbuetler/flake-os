@@ -9,7 +9,7 @@ void help(char *args) {
     write_str("help: this message\n");
     write_str("ps: TODO print process status\n");
     write_str("kill: TODO terminate a specific process\n");
-    write_str("echo: TODO write arguments back to screen\n");
+    write_str("echo: write arguments back to screen\n");
     write_str("time: measure the runtime of a command\n");
     write_str("run_fg: TODO\n");
     write_str("run_bg: TODO\n");
@@ -65,13 +65,7 @@ void shell_exit(char *args) {
 }
 
 void echo(char *args) {
-    printf("shell echo called \n");
-
-    /*
-    for (int i = 1; i < RECV_BUFFER_SIZE && args[i] != NULL; i++) {
-        //write_str(strcat(args[i], " "));
-        write_str(args[i]);
+    if(args != NULL) {
+        printf("%s\n", args);
     }
-    write_str("\n");
-     */
 }

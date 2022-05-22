@@ -74,11 +74,9 @@ static void handle_input(void) {
                     // strcmp does not support this and we don't want to write "command not found: (null)" but
                     // just write a blank line
 
-                    //char *argument_string = strchr(input_str, ' ');
-
                     for (int i = 0; i < num_builtins(); i++) {
                         if (strcmp(command, builtin_str[i]) == 0) {
-                            builtin_func[i](NULL);
+                            builtin_func[i](strtok(NULL, ""));
                             command_exists = true;
                         }
                     }
