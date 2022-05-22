@@ -12,7 +12,7 @@ struct fat32fs_dirent {
     char *name;
     size_t size;
     bool is_dir;
-    uint32_t dir_sector;
+    uint32_t dir_cluster;
     uint32_t dir_index;
     uint32_t start_data_cluster;
 };

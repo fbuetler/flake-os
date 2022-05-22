@@ -14,6 +14,7 @@
 #include <drivers/sdhc.h>
 #include <maps/imx8x_map.h>
 #include <aos/cache.h>
+#include <fs/sd.h>
 
 
 #define FAT32_BPB_BytsPerSec_OFFSET 11
@@ -27,6 +28,7 @@
 
 #define FAT_ENTRIES_PER_SECTOR(fs) ((fs)->BytesPerSec / 4)
 #define DIR_ENTRIES_PER_SECTOR(fs) ((fs)->BytesPerSec / 32)
+#define DIR_ENTRIES_PER_CLUSTER(fs) (DIR_ENTRIES_PER_SECTOR((fs)) * fs->SecPerClus)
 
 #define FAT_ENTRY_EOF 0x0FFFFFFF
 #define FAT_ENTRY_FREE 0x00000000
@@ -34,22 +36,9 @@
 // first index of file name determines status
 #define FAT32_FNAME_FREE '\0'
 
-struct phys_virt_addr {
-    lpaddr_t phys;
-    void *virt;
+#define BYTES_PER_CLUS(fs) ((fs)->BytesPerSec * (fs)->SecPerClus)
+#define FAT32_DIR_SIZE(fs) ((fs)->BytesPerSec / sizeof(struct fat32_dir_entry))
 
-    /**
-     * @brief Contains the last sector that has been written/read into this buffer
-     * Assumes all reads/writs towards phys/virt are done using the same phys_virt_addr
-     * instance!
-     *
-     * Also assumes nobody writes to virt without also writing back to the disk
-     *
-     * This is used to avoid unnecessary reads to buffer
-     */
-    uint32_t last_sector;
-    bool dirty;
-};
 
 enum fat32_file_attribute {
     FAT32_FATTR_READ_ONLY = 0x01,
@@ -126,37 +115,11 @@ struct fat32_long_dir_entry {
     uint8_t Name3[4];
 };
 
-struct path_list_node {
-    char *dir;
-    struct path_list_node *next;
-    struct path_list_node *prev;
-};
-
-struct path_list_node *init_new_path_list_node(char *dir, struct path_list_node *prev);
-
-void free_path_list(struct path_list_node *head);
-
-struct path_list_node *get_path_list(const char *orig_path);
+errval_t init_fat32(struct fat32 *fs);
 
 errval_t fat32_read_sector(struct fat32 *fs, uint32_t sector, struct phys_virt_addr *addr);
 
 errval_t fat32_write_sector(struct fat32 *fs, uint32_t sector, struct phys_virt_addr *addr);
-
-void print_file(struct fat32 *fs, uint32_t cluster, uint32_t size);
-
-errval_t init_sd(struct sdhc_s **sd);
-
-errval_t init_fat32(struct fat32 *fs);
-
-/**
- * @brief Get the path dir prefix object
- *
- * @param path path
- * @return uint32_t index of last '/' in path, or -1 if no '/' found
- */
-int get_path_dir_prefix(const char *name);
-
-char *clean_path(const char *path);
 
 errval_t fat32_move_to_dir(struct fat32 *fs, char *full_path, uint32_t *retcluster);
 
@@ -176,28 +139,30 @@ errval_t fat32_write_data(struct fat32 *fs, uint32_t start_cluster,
 
 errval_t fat32_load_dir_entry_from_name(struct fat32 *fs, uint32_t containing_dir_cluster,
                                   char *name, struct fat32_dir_entry *ret_dir,
-                                  uint32_t *ret_sector, uint32_t *ret_index);
+                                  uint32_t *ret_cluster, uint32_t *ret_index);
 
 bool fat32_encode_fname(char *old, char *new_name);
 void fat32_decode_fname(char *encoded, char *decoded);
 
 errval_t fat32_set_cluster_eof(struct fat32 *fs, uint32_t curr_cluster);
 
-errval_t fat32_set_fdata(struct fat32 *fs, uint32_t dir_sector, uint32_t dir_index,
-                         uint32_t start_data_cluster, uint32_t size);
-
-void split_path(const char *full_path, char **path_prefix, char **fname);
-
 errval_t fat32_create_empty_file(struct fat32 *fs, const char *path, bool is_dir);
 
 errval_t free_cluster_chain(struct fat32 *fs, uint32_t start_data_cluster);
 
-errval_t fat32_delete_file(struct fat32 *fs, uint32_t dir_sector, uint32_t index);
+errval_t fat32_delete_file(struct fat32 *fs, uint32_t dir_cluster, uint32_t index);
 
 errval_t fat32_load_next_dir_entry(struct fat32 *fs, uint32_t first_dir_data_cluster,
                              uint32_t start_index, struct fat32_dir_entry *ret_dir,
                              uint32_t *ret_cluster, uint32_t *ret_index);
 
 bool fat32_is_dir_empty(struct fat32 *fs, uint32_t start_data_cluster);
+
+errval_t fat32_get_dir_at(struct fat32 *fs, uint32_t start_cluster, uint32_t index,
+                                 struct fat32_dir_entry *dir);
+
+errval_t fat32_set_dir_at(struct fat32 *fs, uint32_t start_cluster, uint32_t index,
+                                 struct fat32_dir_entry *dir);
+
 
 #endif

@@ -19,7 +19,9 @@
         "ramfs.c",
         "dirent.c",
         "fat32.c",
-        "fat32fs.c"
+        "fat32fs.c",
+        "fat32_parse_name.c",
+        "sd.c"
     ]
   }
 ]

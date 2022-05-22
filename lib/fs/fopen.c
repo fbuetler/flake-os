@@ -22,6 +22,7 @@
 #include <fs/ramfs.h>
 #include <fs/fat32fs.h>
 #include "fs_internal.h"
+#include <collections/path_list.h>
 
 
 static void *mount;

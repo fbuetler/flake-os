@@ -3,6 +3,7 @@
 #include <fs/fat32fs.h>
 #include <fs/fat32.h>
 #include <collections/hash_table.h>
+#include <collections/path_list.h>
 #include <fcntl.h>
 
 struct fs_state fs_state;
@@ -43,8 +44,13 @@ void fat32fs_handle_close(struct fat32fs_handle *h)
     if (h->flags & (O_RDWR | O_WRONLY)) {
         if (h->u.file_offset != h->dirent->size) {
             fat32_set_cluster_eof(&fs_state.fat32, h->curr_data_cluster);
-            fat32_set_fdata(&fs_state.fat32, h->dirent->dir_sector, h->dirent->dir_index,
-                            h->dirent->start_data_cluster, h->u.file_offset);
+            struct fat32_dir_entry dir;
+            fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
+            dir.FstClusHI = h->dirent->start_data_cluster >> 16;
+            dir.FstClusLO = h->dirent->start_data_cluster & 0xffff;
+            dir.FileSize = h->u.file_offset;
+            fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
+            
         }
     }
 
@@ -87,7 +93,7 @@ static errval_t resolve_path(domainid_t pid, const char *path,
         goto unwind;
     }
 
-    dirent->dir_sector = sector;
+    dirent->dir_cluster = parent_dir_cluster;
     dirent->dir_index = index;
 
     dirent->start_data_cluster = dir.FstClusHI << 16 | dir.FstClusLO;
@@ -137,7 +143,6 @@ errval_t fat32fs_open(domainid_t pid, struct fat32fs_mount *mount, const char *p
     }
 
     handle->flags = flags;
-
     *rethandle = handle;
 
     return SYS_ERR_OK;
@@ -209,12 +214,17 @@ errval_t fat32fs_write(struct fat32fs_handle *h, const void *buf, size_t bytes,
 
     if (h->u.file_offset >= h->dirent->size) {
         h->dirent->size = h->u.file_offset + 1;
-
-        // write new filesize!
-        err = fat32_set_fdata(&fs_state.fat32, h->dirent->dir_sector, h->dirent->dir_index,
-                              h->dirent->start_data_cluster, h->dirent->size);
+        struct fat32_dir_entry dir;
+        err = fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index,
+                         &dir);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Couldn't set file data back to dir-entry after a write\n");
+            DEBUG_ERR(err, "Couldn't get file entry\n");
+            return err;
+        }
+        dir.FileSize = h->dirent->size;
+        err = fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "Couldn't update dir entry filesize\n");
             return err;
         }
     }
@@ -362,7 +372,7 @@ errval_t fat32fs_rm(const char *path)
         goto unwind;
     }
 
-    err = fat32_delete_file(&fs_state.fat32, h->dirent->dir_sector, h->dirent->dir_index);
+    err = fat32_delete_file(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Couldn't delete file\n");
         goto unwind;
@@ -415,13 +425,6 @@ errval_t fat32fs_rmdir(const char *path)
         err = FS_ERR_NOTDIR;
     }
 
-    /* TODO refcounting?
-    if (handle->dirent->refcount != 1) {
-        handle_close(handle);
-        return FS_ERR_BUSY;
-    }
-    */
-
     assert(handle->dirent->is_dir);
 
     // check first if dir contains anything
@@ -436,7 +439,7 @@ errval_t fat32fs_rmdir(const char *path)
     }
 
 
-    err = fat32_delete_file(&fs_state.fat32, handle->dirent->dir_sector,
+    err = fat32_delete_file(&fs_state.fat32, handle->dirent->dir_cluster,
                       handle->dirent->dir_index);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "couldn't delete directory\n");
@@ -504,7 +507,7 @@ errval_t fat32fs_dir_read_next(struct fat32fs_handle *h, char **retname,
         info->size = dirent.FileSize;
     }
 
-    h->u.file_offset = dirent_index + 1;
+    h->u.dir_offset = dirent_index + 1;
     h->curr_data_cluster = dirent_cluster;
 
     return SYS_ERR_OK;
