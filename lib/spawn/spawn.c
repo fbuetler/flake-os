@@ -474,7 +474,7 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
  * @return errval_t
  */
 static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
-                                       void *got_section_base_addr)
+                                       void *got_section_base_addr, domainid_t pid)
 {
     errval_t err;
 
@@ -526,6 +526,8 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
 
     // core id of the child process
     disp_gen->core_id = disp_get_core_id();
+    disp_gen->pid = pid;
+
     // virtual addres of the dispatcher frame in the childs vspace
     disp->udisp = (dispatcher_handle_t)dispatcher_frame_addr_child;
     // start child process in disabled mode
@@ -761,9 +763,18 @@ errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid
         return err_push(err, SPAWN_ERR_LOAD);
     }
 
+    DEBUG_TRACEF("Get free PID\n");
+    err = spawn_get_free_pid(pid);
+    if (err_is_fail(err)) {
+        // TODO out of PIDs, maybe kill a process?
+        DEBUG_ERR(err, "failed to find free PID");
+        return LIB_ERR_SHOULD_NOT_GET_HERE;
+    }
+
+
     DEBUG_TRACEF("Setup dispatcher\n");
     // setup dispatcher
-    err = spawn_setup_dispatcher(si, entry, got_section_base_addr);
+    err = spawn_setup_dispatcher(si, entry, got_section_base_addr, *pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup dispatcher");
         return err_push(err, SPAWN_ERR_DISPATCHER_SETUP);
@@ -777,13 +788,6 @@ errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }
 
-    DEBUG_TRACEF("Get free PID\n");
-    err = spawn_get_free_pid(pid);
-    if (err_is_fail(err)) {
-        // TODO out of PIDs, maybe kill a process?
-        DEBUG_ERR(err, "failed to find free PID");
-        return LIB_ERR_SHOULD_NOT_GET_HERE;
-    }
 
     DEBUG_TRACEF("Add process\n");
     si->pid = *pid;
@@ -1108,6 +1112,7 @@ errval_t spawn_kill_process(domainid_t pid)
 
     spawn_number_of_processes -= 1;
     thread_mutex_unlock(&spawn_mutex);
+
     return SYS_ERR_OK;
 }
 

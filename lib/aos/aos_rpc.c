@@ -253,6 +253,36 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
     return SYS_ERR_OK;
 }
 
+errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t *pid) {
+   errval_t err;
+
+   size_t payload_size = sizeof(domainid_t);
+   char *payload = (char *)malloc(payload_size);
+   *(domainid_t *)payload = *pid;
+
+   if (!payload) {
+       return LIB_ERR_MALLOC_FAIL;
+   }
+
+   struct aos_rpc_msg request = { .type = AosRpcKillRequest,
+                                  .payload = payload,
+                                  .bytes = payload_size,
+                                  .cap = NULL_CAP };
+
+   struct aos_rpc_msg response;
+
+   err = aos_rpc_call(rpc, request, &response, false);
+
+   if(err_is_fail(err)) {
+       DEBUG_ERR(err, "Could not send aos_rpc_kill_process message \n");
+       free(payload);
+       return err;
+   }
+
+   free(payload);
+   return SYS_ERR_OK;
+}
+
 errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core,
                                domainid_t *newpid)
 {

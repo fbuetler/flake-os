@@ -76,6 +76,7 @@ static void handle_input(void) {
 
                     for (int i = 0; i < num_builtins(); i++) {
                         if (strcmp(command, builtin_str[i]) == 0) {
+                            // strtok with an empty string as delimiter returns the rest of the input. This can be a NULL pointer
                             builtin_func[i](strtok(NULL, ""));
                             command_exists = true;
                         }

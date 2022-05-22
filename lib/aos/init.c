@@ -46,6 +46,20 @@ __weak_reference(libc_exit, _exit);
 void libc_exit(int status)
 {
     DEBUG_PRINTF("libc exit NYI!\n");
+
+    struct dispatcher_generic *disp = get_dispatcher_generic(curdispatcher());
+    aos_rpc_kill_process(get_init_rpc(), &disp->pid);
+
+    /*
+    struct spawninfo *current = &init_spawninfo;
+    while (current) {
+        DEBUG_PRINTF("pid: %d \n", current->pid);
+        current = current->next;
+    }
+    if(init_spawninfo.next->dispatcher_handle ==  curdispatcher()) {
+        DEBUG_PRINTF("working! %d \n", init_spawninfo.pid);
+    } */
+
     thread_exit(status);
     // If we're not dead by now, we wait
     while (1) {

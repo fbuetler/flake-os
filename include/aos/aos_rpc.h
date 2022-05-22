@@ -50,6 +50,8 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc);
  */
 errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c);
 
+errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t *pid);
+
 /**
  * \brief Request that the process manager start a new process
  * \arg cmdline the name of the process that needs to be spawned (without a

@@ -59,6 +59,7 @@ struct dispatcher_generic {
 
     /// The core the dispatcher is running on
     coreid_t core_id;
+    domainid_t pid;
 
     uintptr_t timeslice;
 

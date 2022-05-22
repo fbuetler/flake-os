@@ -389,6 +389,29 @@ static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
     return SYS_ERR_OK;
 }
 
+static errval_t aos_process_kill_request(struct aos_lmp *lmp) {
+    domainid_t *pid = (domainid_t  *)lmp->recv_msg->payload;
+    errval_t err;
+
+    spawn_kill_process(*pid);
+
+    struct aos_lmp_msg *reply;
+
+    char buf[sizeof(struct aos_lmp_msg)];
+    err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcKillResponse, 0, NULL, NULL_CAP, (struct aos_lmp_msg *)buf);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+    }
+
+    err = aos_lmp_send_msg(lmp, reply);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error sending  response\n");
+    }
+
+    return SYS_ERR_OK;
+}
+
 static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
 {
     // grading
@@ -491,6 +514,9 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         break;
     case AosRpcUmpBindRequest:
         aos_process_aos_ump_bind_request(lmp);
+        break;
+    case AosRpcKillRequest:
+        aos_process_kill_request(lmp);
         break;
     default:
         printf("received unknown message type\n");

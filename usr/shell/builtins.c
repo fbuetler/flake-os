@@ -24,7 +24,35 @@ void run_bg(char *args) {
 }
 
 void run_fg(char *args) {
+    DEBUG_PRINTF("spawning hello in the foreground \n");
+    domainid_t pid;
+    aos_rpc_process_spawn(get_init_rpc(), "hello", 0, &pid);
 
+    DEBUG_PRINTF("busy looping until hello terminates...\n");
+
+    printf("waiting for pid: %d \n \n", pid);
+    //DEBUG_PRINTF("killing hello \n");
+    //aos_rpc_kill_process(shell_state.init_rpc, &pid);
+    //DEBUG_PRINTF("returned from killing hello \n");
+    bool pid_still_exists = true;
+    do{
+        pid_still_exists = false;
+        size_t pid_count;
+        domainid_t *pids;
+        errval_t  err = aos_rpc_process_get_all_pids(shell_state.init_rpc, &pids, &pid_count);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Something went wrong \n");
+        }
+
+        for (int i = 0; i < pid_count; i++) {
+            //printf("pid: %d \n", pids[i]);
+            if(pid == pids[i]){
+                pid_still_exists = true;
+            }
+        }
+        //thread_yield();
+    } while (pid_still_exists);
+    DEBUG_PRINTF("hello terminated, shell continues...\n");
 }
 
 /*

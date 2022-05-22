@@ -17,6 +17,8 @@
 #include <stdio.h>
 
 #include <aos/aos.h>
+#include <unistd.h>
+#include <aos/deferred.h>
 
 int main(int argc, char *argv[])
 {
@@ -32,6 +34,8 @@ int main(int argc, char *argv[])
     int *heap_variable = malloc(sizeof(int));
     *heap_variable = 42;
     printf("heap variable: (%p, %d)\n", &heap_variable, *heap_variable);
+
+    barrelfish_usleep(4000000);
 
     DEBUG_PRINTF("hello terminated\n");
 

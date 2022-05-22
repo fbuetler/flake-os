@@ -13,6 +13,8 @@ typedef enum aos_rpc_msg_type {
     AosRpcRamCapResponse,
     AosRpcSpawnRequest,
     AosRpcSpawnResponse,
+    AosRpcKillRequest,
+    AosRpcKillResponse,
     AosRpcSerialWriteChar,
     AosRpcSerialReadChar,
     AosRpcSerialReadCharResponse,
