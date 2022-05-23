@@ -29,8 +29,39 @@
 #    define ENET_DEBUG(fmt, ...) ((void)0)
 #endif
 
-#define ENET_BENCHMARK_OPTION 1
-#define ENET_BENCHMARK_LEVEL 0  // [0, 3]
+// #define ENET_BENCHMARK_OPTION 1
+#define ENET_BENCHMARK_LEVEL 0  // [0, 4]
+
+/**
+benchmark level graph:
+
+handle packet
+   *handle arp packet
+        assemble arp packet
+            malloc response packet
+            create eth packet
+            create arp packet
+        enqueue arp packet
+            get free buffer
+            get region
+            enqueue buffer
+        update arp table on
+   *handle ip packet
+       *handle icmp packet
+           *process icmp ER packet
+           *assemble icmp ECHO packet
+                malloc response packet
+                create eth packet
+                create ip packet
+                create icmp packet
+            enqueue icmp packet
+                get free buffer
+                get region
+                enqueue buffer
+       *handle udp packet
+            process udp packet
+
+*/
 
 #if defined(ENET_BENCHMARK_OPTION)
 #    define ENET_BENCHMARK_INIT() systime_t start, stop;
