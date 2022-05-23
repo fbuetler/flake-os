@@ -1,0 +1,136 @@
+count=1; while echo "foobar" && [ $count -lt 60 ]; do sleep 1; (( count++ )); done | nc -u 10.42.0.27 3027
+
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 20 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks
+enet.0.1: [bench] start 'handle arp packet'
+enet.0.1: [bench] stop 'handle arp packet': 176271 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 19 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 11 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 3 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 8 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 5 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle arp packet'
+enet.0.1: [bench] stop 'handle arp packet': 77752 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 20 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 8 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 4 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 20 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 10 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 20 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 21 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 5 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 4 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks
+enet.0.1: [bench] start 'handle arp packet'
+enet.0.1: [bench] stop 'handle arp packet': 111066 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 21 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 5 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 5 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 9 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 7 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 20 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 6 ticks

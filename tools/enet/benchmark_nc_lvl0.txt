@@ -1,0 +1,138 @@
+count=1; while echo "foobar" && [ $count -lt 60 ]; do sleep 1; (( count++ )); done | nc -u 10.42.0.27 3027
+
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 29 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 176355 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 26 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 13 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 6 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 5 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 77915 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 29 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 10 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 6 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 5 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 6 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 6 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 111369 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 30 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 10 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 7 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 8 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 5 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 9 ticks
