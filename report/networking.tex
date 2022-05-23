@@ -1,3 +1,81 @@
 \section{Networking}
 
-TODO
+\subsection{Access the driver}
+
+pass devframe in argcn slot
+map devframe to access driver registers
+
+\subsection{Safe Send Queue}
+
+on top of enet devqueue
+tracks free buffers in a list
+enqueue get a free buffer from the list by first dequeue as many buffers as possible and then picks one of the free ones
+and hence only free buffers are enqueued into the dev queue
+
+\subsection{General Receive Flow}
+
+handlers
+checks (checksum, size, type, flags, version)
+demultiplex into handlers for each type
+
+\subsection{General Send Flow}
+
+assemble packets from bottom to top
+
+\subsection{ARP}
+
+arp table
+how to handle asynchronous ARP
+store mac to IP of incoming packets
+
+\subsection{Ethernet}
+
+\subsection{IP}
+
+\subsection{ICMP}
+
+confusion with ICMP sockets
+exactly one socket (producer/consumer queue) 
+can create/destroy a socket on startup or send/receive over a socket
+(ping)
+
+\subsection{UDP}
+
+UDP checksum
+sockets (producer/consumer queue) per port
+linked list of socket stored
+can create/destroy a socket or send/receive over a socket
+echoserver
+
+\subsection{Debugging}
+
+used commmands
+print packets
+print mac/IP
+print ARP table
+show examples
+
+\subsection{ICMP Hack}
+
+on ICMP ECHO send own ICMP ECHO
+on receiving the second ICMP ECHO the response our first ICMP ECHO should be in the ICMP socket, ready to be read
+
+\subsection{UDP Hack}
+
+directly echo udp packet in network driver
+test sending methods also on receive
+
+\subsection{Network Service}
+
+suport create/release/send/receive on UDP/ICMP socket from userspace
+use nameserver
+marshall and unmarshall messages
+
+\subsection{Benchmarks}
+
+deal with nested benchmarking
+benchmark level
+use of system time
+analysis script
+ping/nc
+malloc takes forever
