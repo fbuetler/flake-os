@@ -1,11 +1,11 @@
 import os
 import re
 
-from numpy import mean
+from numpy import mean, median, min, max
 
 
 def main():
-    for fname in os.listdir("./"):
+    for fname in sorted(os.listdir("./")):
         if not re.match(r".*\.txt$", fname):
             continue
 
@@ -43,7 +43,9 @@ def main():
                 prev_process = process
 
         for process, ticks_list in sorted(ms.items()):
-            print(f"{process:<30} {mean(ticks_list, dtype=int):<8} ({len(ticks_list)})")
+            print(
+                f"  {process:<30} mean: {mean(ticks_list, dtype=int):<8} median: {int(median(ticks_list)):<8} min: {min(ticks_list):<8}  max: {max(ticks_list):<8}  n: {len(ticks_list)}"
+            )
 
 
 if __name__ == "__main__":
