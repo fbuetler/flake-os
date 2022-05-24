@@ -33,7 +33,9 @@ typedef enum aos_rpc_msg_type {
     AosRpcSendBootinfo,
     AosRpcSendMMStrings,
     AosRpcErrvalResponse,
-    AosRpcNsRegister
+    AosRpcNsRegister,
+    AosRpcNsLookup,
+    AosRpcLmpBind
 } aos_rpc_msg_type_t;
 
 struct aos_rpc_msg {

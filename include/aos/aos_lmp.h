@@ -51,7 +51,7 @@ struct aos_lmp_msg {
 enum aos_rpc_channel_type {
     AOS_RPC_BASE_CHANNEL,
     AOS_RPC_MEMORY_CHANNEL,
-    AOS_RPC_NAMESERVER_CHANNEL,
+    AOS_RPC_CLIENT_SERVER_CHANNEL,
 };
 
 enum aos_rpc_service {
@@ -65,13 +65,14 @@ void aos_process_string(struct aos_lmp *msg);
 /**
  * @brief Initialize an aos_lmp struct from parent to child
  */
-errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *init_lmp,
-                                         struct aos_lmp *child_lmp,
+errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp,
                                          struct capref recv_cap);
 /**
  * \brief Initialize an aos_lmp struct from child to parent.
  */
-errval_t aos_lmp_init(struct aos_lmp *lmp, enum aos_rpc_channel_type chan_type);
+errval_t aos_lmp_init_static(struct aos_lmp *lmp, enum aos_rpc_channel_type);
+errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap);
+errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp);
 
 errval_t aos_lmp_parent_init(struct aos_lmp *lmp);
 

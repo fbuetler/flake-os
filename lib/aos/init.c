@@ -220,23 +220,35 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     struct aos_lmp *lmp = &rpc.u.lmp;
     struct aos_lmp *mem_lmp = &mem_rpc.u.lmp;
 
-    err = aos_lmp_init(lmp, AOS_RPC_BASE_CHANNEL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to init rpc");
-        return err;
-    }
-
-    err = aos_lmp_init(mem_lmp, AOS_RPC_MEMORY_CHANNEL);
+    err = aos_lmp_init_static(mem_lmp, AOS_RPC_MEMORY_CHANNEL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init mem rpc");
-        return err;
+        return err_push(err, LIB_ERR_LMP_INIT_STATIC);
+    }
+
+    err = aos_lmp_initiate_handshake(mem_lmp);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to perform handshake over memory channel");
+        return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
+    }
+    // reset the RAM allocator to use ram_alloc_remote
+    set_init_mem_rpc(&mem_rpc);
+    ram_alloc_set(NULL);
+
+    // use normal initialization for the init channel
+    err = aos_lmp_init(lmp, cap_initep);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to init rpc");
+        return err_push(err, LIB_ERR_LMP_INIT);
+    }
+
+    err = aos_lmp_initiate_handshake(lmp);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to perform handshake over init channel");
+        return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
     }
 
     set_init_rpc(&rpc);
-    set_init_mem_rpc(&mem_rpc);
-    // reset the RAM allocator to use ram_alloc_remote
-    // DEBUG_PRINTF("Use remote RAM allocator\n");
-    ram_alloc_set(NULL);
 
     return SYS_ERR_OK;
 }

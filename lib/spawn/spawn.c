@@ -643,16 +643,15 @@ errval_t spawn_invoke_dispatcher(struct spawninfo *si)
     }
 
     // perform handshakes with child process for both rpc channels
-    err = aos_lmp_init_handshake_to_child(&init_spawninfo.lmp, &si->lmp, base_recv_ep_cap);
+    err = aos_lmp_init_handshake_to_child(&si->mem_lmp, memory_recv_ep_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup rpc channel to child");
+        DEBUG_ERR(err, "failed to setup mem rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
-    err = aos_lmp_init_handshake_to_child(&init_spawninfo.mem_lmp, &si->mem_lmp,
-                                          memory_recv_ep_cap);
+    err = aos_lmp_init_handshake_to_child(&si->lmp, base_recv_ep_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup mem rpc channel to child");
+        DEBUG_ERR(err, "failed to setup rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 

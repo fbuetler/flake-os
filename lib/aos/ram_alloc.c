@@ -144,6 +144,8 @@ void ram_alloc_init(void)
     ram_alloc_state->default_minbase = 0;
     ram_alloc_state->default_maxlimit = 0;
     ram_alloc_state->base_capnum = 0;
+
+    thread_mutex_init(&ram_mutex);
 }
 
 /**

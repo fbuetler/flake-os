@@ -160,7 +160,7 @@ static errval_t aos_lmp_recv_first_msg(struct aos_lmp *lmp, struct capref *msg_c
     lmp->recv_msg = (!lmp->use_dynamic_buf) ? (struct aos_lmp_msg *)lmp->buf
                                             : malloc(total_bytes);
     if (!lmp->recv_msg) {
-        DEBUG_PRINTF("Malloc inside aos_lmp_recv_msg_handler for ret_msg failed "
+        DEBUG_PRINTF("Malloc inside aos_lmp_recv_msg_handler for ret_msg failed"
                      "\n");
         return LIB_ERR_MALLOC_FAIL;
     }
@@ -292,8 +292,7 @@ reregister:
     return SYS_ERR_OK;
 }
 
-errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *init_lmp,
-                                         struct aos_lmp *child_lmp, struct capref recv_cap)
+errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp, struct capref recv_cap)
 {
     errval_t err;
 
@@ -319,7 +318,6 @@ errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *init_lmp,
 
     child_lmp->chan.local_cap = ep_cap;
     child_lmp->chan.remote_cap = recv_cap;
-    init_lmp->chan.remote_cap = recv_cap;
 
     size_t payload_size = 0;
     struct aos_lmp_msg *msg;
@@ -343,20 +341,20 @@ errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *init_lmp,
 static struct lmp_endpoint static_init_ep, static_init_mem_ep;
 char STATIC_RPC_BUF[BASE_PAGE_SIZE];
 char STATIC_RPC_MEMSRV_BUF[BASE_PAGE_SIZE];
+
 /**
  *  \brief Initialize an aos_lmp struct. Sets up channel to remote endpoint (init)
  *
  *  \param aos_rpc The aos_lmp struct to initialize.
  *
  **/
-
 errval_t aos_lmp_set_recv_endpoint(struct aos_lmp *lmp, struct capref *ret_recv_ep_cap)
 {
     // will contain endpoint cap of child
     struct capref ep_cap1;
     errval_t err = slot_alloc(&ep_cap1);
     if (err_is_fail(err)) {
-        DEBUG_PRINTF("Failed to allocate slot for init endpoint\n");
+        DEBUG_PRINTF("Failed to allocate slot for child endpoint\n");
         return err;
     }
     lmp_endpoint_set_recv_slot(lmp->chan.endpoint, ep_cap1);
@@ -365,63 +363,90 @@ errval_t aos_lmp_set_recv_endpoint(struct aos_lmp *lmp, struct capref *ret_recv_
     return SYS_ERR_OK;
 }
 
-errval_t aos_lmp_init(struct aos_lmp *aos_lmp, enum aos_rpc_channel_type chan_type)
+errval_t aos_lmp_init_static(struct aos_lmp *lmp, enum aos_rpc_channel_type chan_type)
 {
     errval_t err;
-    thread_mutex_init(&ram_mutex);  // TODO why is this here?
-    thread_mutex_init(&aos_lmp->lock);
 
     switch (chan_type) {
     case AOS_RPC_BASE_CHANNEL:
-        aos_lmp->chan.remote_cap = cap_initep;
-        aos_lmp->chan.endpoint = &static_init_ep;
-        aos_lmp->buf = STATIC_RPC_BUF;
+        lmp->chan.remote_cap = cap_initep;
+        lmp->chan.endpoint = &static_init_ep;
+        lmp->buf = STATIC_RPC_BUF;
         break;
     case AOS_RPC_MEMORY_CHANNEL:
-        aos_lmp->chan.remote_cap = cap_initmemep;
-        aos_lmp->chan.endpoint = &static_init_mem_ep;
-        aos_lmp->buf = STATIC_RPC_MEMSRV_BUF;
+        lmp->chan.remote_cap = cap_initmemep;
+        lmp->chan.endpoint = &static_init_mem_ep;
+        lmp->buf = STATIC_RPC_MEMSRV_BUF;
         break;
     default:
         return LIB_ERR_RPC_INIT_BAD_ARGS;
     }
 
     // initial state
-    aos_lmp->is_busy = false;
+    thread_mutex_init(&lmp->lock);
+    lmp->use_dynamic_buf = true;
+    lmp->is_busy = false;
 
     // MILESTONE 3: register ourselves with init
     /* allocate lmp channel structure */
 
     /* create local endpoint */
-    lmp_chan_init(&aos_lmp->chan);
+    lmp_chan_init(&lmp->chan);
 
-    // struct lmp_endpoint *ep = malloc(sizeof(struct lmp_endpoint));
-    // assert(ep);
-    err = endpoint_create(256, &aos_lmp->chan.local_cap, &aos_lmp->chan.endpoint);
+    lmp->chan.buflen_words = 256;
+    err = endpoint_create(lmp->chan.buflen_words, &lmp->chan.local_cap,
+                          &lmp->chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not create endpoint in child \n");
         return err;
     }
-    aos_lmp->chan.buflen_words = 256;
 
-    /* set remote endpoint to init's endpoint */
-    // aos_lmp->chan.remote_cap = cap_initep;
+    return SYS_ERR_OK;
+}
 
-    /* send local ep to init */
-    err = lmp_chan_send0(&aos_lmp->chan, LMP_SEND_FLAGS_DEFAULT, aos_lmp->chan.local_cap);
+errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap)
+{
+    errval_t err;
+
+    // initial state
+    thread_mutex_init(&lmp->lock);
+    lmp->use_dynamic_buf = true;
+    lmp->is_busy = false;
+
+    err = lmp_chan_accept(&lmp->chan, 256, remote_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to accept incoming channel in aos_lmp_init");
+        return err_push(err, LIB_ERR_LMP_CHAN_ACCEPT);
+    }
+
+    // The channel must be saved to whatever state outside of this function
+
+    /* TODO MILESTONE 3: now we should have a channel with init set up and can
+     * use it for the ram allocator */
+
+    // right now we don't have the nameservice & don't need the terminal
+    // and domain spanning, so we return here
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp)
+{
+    errval_t err;
+
+    err = lmp_chan_send0(&lmp->chan, LMP_SEND_FLAGS_DEFAULT, lmp->chan.local_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not send child endpoint cap to init\n");
         return err;
     }
 
-    err = aos_lmp_register_recv(aos_lmp, aos_rpc_process_msg);
+    err = aos_lmp_register_recv(lmp, aos_rpc_process_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not register recv handler in child \n");
         return err;
     }
 
-
-    while (!lmp_chan_can_recv(&aos_lmp->chan)) {
+    while (!lmp_chan_can_recv(&lmp->chan)) {
     }
 
     err = event_dispatch(get_default_waitset());
@@ -429,16 +454,6 @@ errval_t aos_lmp_init(struct aos_lmp *aos_lmp, enum aos_rpc_channel_type chan_ty
         DEBUG_ERR(err, "Error in event dispatch\n");
         abort();
     }
-
-    /* initialize init RPC client with lmp channel */
-
-    /* set init RPC client in our program state */
-
-    /* TODO MILESTONE 3: now we should have a channel with init set up and can
-     * use it for the ram allocator */
-
-    // right now we don't have the nameservice & don't need the terminal
-    // and domain spanning, so we return here
 
     return SYS_ERR_OK;
 }
