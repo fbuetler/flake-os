@@ -1,3 +1,4 @@
+#include <aos/nameserver.h>
 #include <aos/aos_rpc.h>
 
 void aos_rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan)
@@ -85,12 +86,8 @@ errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send)
     if (rpc->is_lmp) {
         char buf[sizeof(struct aos_lmp_msg) + sizeof(errval_t) + 1];
         struct aos_lmp_msg *lmp_msg;
-        err = aos_lmp_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload,
+        aos_lmp_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload,
                                               msg.cap, (struct aos_lmp_msg *)buf);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to create message");
-            return err;
-        }
         err = aos_lmp_send_msg(&rpc->u.lmp, lmp_msg);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to send lmp message");
@@ -106,6 +103,19 @@ errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send)
 
     return SYS_ERR_OK;
 }
+
+void aos_rpc_process_client_request(struct aos_rpc_msg *request,
+                                    struct aos_rpc_msg *response)
+{
+    struct nameservice_rpc_msg *msg = (struct nameservice_rpc_msg *)request->payload;
+
+    response->type = AosRpcServerResponse;
+
+    // call handler
+    msg->handler(msg->st, msg->message, msg->bytes, (void **)&response->payload,
+                 &response->bytes, request->cap, &response->cap);
+}
+
 errval_t aos_rpc_send_number(struct aos_rpc *aos_rpc, uintptr_t num)
 {
     errval_t err;

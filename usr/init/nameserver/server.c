@@ -25,6 +25,17 @@ static errval_t register_service(service_info_t *info)
     return SYS_ERR_OK;
 }
 
+//static errval_t lookup_service(char* name)
+//{
+//    errval_t err;
+//
+//    service_info_t *info;
+//    err = find_name(name, &info);
+//    if (err_is_fail(err)) {
+//        DEBUG_ERR(err, "Could not find name %s in name tree", name);
+//    }
+//}
+
 errval_t aos_process_service_register(char *payload, size_t bytes)
 {
     errval_t err;
@@ -41,9 +52,6 @@ errval_t aos_process_service_register(char *payload, size_t bytes)
             return err_push(err, LIB_ERR_UMP_CALL);
         }
 
-        assert(resp_type == AosRpcErrvalResponse);
-        assert(resp_bytes == sizeof(errval_t));
-
         return *resp_err;
     }
 
@@ -58,6 +66,29 @@ errval_t aos_process_service_register(char *payload, size_t bytes)
         DEBUG_ERR(err, "Failed to register service");
         return err_push(err, LIB_ERR_NAMESERVICE_REGISTER);
     }
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_process_service_lookup(char *payload, size_t bytes)
+{
+    errval_t err;
+
+    if (disp_get_current_core_id() != NAMESERVER_CORE) {
+        // relay to the nameserver core
+        size_t resp_bytes;
+        errval_t *resp_err;
+        aos_rpc_msg_type_t resp_type;
+        err = aos_ump_call(&aos_ump_client_chans[NAMESERVER_CORE], AosRpcNsLookup,
+                           payload, bytes, &resp_type, (char **)&resp_err, &resp_bytes);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to relay service lookup to nameserver");
+            return err_push(err, LIB_ERR_UMP_CALL);
+        }
+
+        return *resp_err;
+    }
+
 
     return SYS_ERR_OK;
 }

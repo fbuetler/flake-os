@@ -717,6 +717,8 @@ errors spawn SPAWN_ERR_ {
     failure SETUP_RPC          "Unable to setup RPC",
 
     failure PID_NOT_FOUND      "PID does not exist",
+
+    failure FIND_PROC          "Failure finding a process by PID",
 };
 
 // errors related to the process manager

@@ -91,6 +91,66 @@ void aos_process_string(struct aos_lmp *lmp)
     }
 }
 
+static errval_t aos_rpc_process_lmp_bind(struct aos_lmp *lmp)
+{
+    DEBUG_PRINTF("Received LMP bind request\n");
+    errval_t err;
+
+    struct aos_lmp_msg *msg = lmp->recv_msg;
+    struct capref client_ep_cap = msg->cap;
+
+    DEBUG_PRINTF("Allocating new RPC\n");
+    struct aos_rpc *new_rpc = malloc(sizeof(struct aos_rpc));
+    if (new_rpc == NULL) {
+        DEBUG_PRINTF("Failed to allocate new RPC binding\n");
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    new_rpc->is_lmp = true;
+
+    DEBUG_PRINTF("Initialize LMP endpoint\n");
+    err = aos_lmp_init(&new_rpc->u.lmp, client_ep_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to initialize new LMP binding to client");
+        return err_push(err, LIB_ERR_LMP_INIT);
+    }
+
+    DEBUG_PRINTF("Register receive handler\n");
+    err = aos_lmp_register_recv(&new_rpc->u.lmp, aos_lmp_server_event_handler);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register receive function for new LMP binding");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
+{
+    // TODO: how should we handle errors?
+    switch (lmp->recv_msg->message_type) {
+    case AosRpcHandshake:
+        aos_process_handshake(lmp->recv_msg);
+        break;
+    case AosRpcLmpBind:
+        aos_rpc_process_lmp_bind(lmp);
+        break;
+    case AosRpcClientRequest: {
+        struct aos_rpc_msg request;
+        struct aos_rpc_msg response;
+        aos_rpc_process_client_request(&request, &response);
+        struct aos_lmp_msg *ret_msg;
+        aos_lmp_create_msg(&ret_msg, AosRpcServerResponse, response.bytes,
+                           response.payload, response.cap);
+        aos_lmp_send_msg(lmp, ret_msg);
+        break;
+    }
+    default:
+        break;
+    }
+
+    return SYS_ERR_OK;
+}
+
 static errval_t aos_rpc_process_msg(struct aos_lmp *lmp)
 {
     // should only handle incoming messages not initiated by us
@@ -296,8 +356,6 @@ errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp, struct capre
 {
     errval_t err;
 
-    struct capref ep_cap = child_lmp->chan.local_cap;
-
     while (1) {
         struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
 
@@ -316,7 +374,6 @@ errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp, struct capre
     }
     // we've received the capability;
 
-    child_lmp->chan.local_cap = ep_cap;
     child_lmp->chan.remote_cap = recv_cap;
 
     size_t payload_size = 0;
@@ -384,7 +441,7 @@ errval_t aos_lmp_init_static(struct aos_lmp *lmp, enum aos_rpc_channel_type chan
 
     // initial state
     thread_mutex_init(&lmp->lock);
-    lmp->use_dynamic_buf = true;
+    lmp->use_dynamic_buf = false;
     lmp->is_busy = false;
 
     // MILESTONE 3: register ourselves with init
@@ -544,6 +601,7 @@ errval_t aos_lmp_send_msg(struct aos_lmp *lmp, struct aos_lmp_msg *msg)
            && ceil((double)(total_bytes - transferred_size) / (double)sizeof(uint64_t))
                   >= 4) {
         do {
+
             err = lmp_chan_send(&lmp->chan, LMP_SEND_FLAGS_DEFAULT, send_cap, 4, buf[0],
                                 buf[1], buf[2], buf[3]);
         } while (lmp_err_is_transient(err));

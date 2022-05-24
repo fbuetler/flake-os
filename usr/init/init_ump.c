@@ -177,7 +177,18 @@ void aos_ump_receive_listener(struct aos_ump *ump)
             free(payload);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "Could not register service\n");
-                continue;
+            }
+
+            struct aos_rpc rpc;
+            aos_rpc_init_from_ump(&rpc, ump);
+            aos_rpc_send_errval(&rpc, err);
+            continue;
+        }
+        case AosRpcNsLookup: {
+            err = aos_process_service_lookup(payload, len);
+            free(payload);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "Could not lookup service\n");
             }
 
             struct aos_rpc rpc;

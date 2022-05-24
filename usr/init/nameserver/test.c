@@ -136,5 +136,5 @@ void run_nameserver_tests(void)
     run_name_tests();
     run_name_part_tests();
     run_insert_find_test();
-    //run_nameservicetest();
+    run_nameservicetest();
 }

@@ -62,6 +62,8 @@ enum aos_rpc_service {
 void aos_process_number(struct aos_lmp *msg);
 void aos_process_string(struct aos_lmp *msg);
 
+errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp);
+
 /**
  * @brief Initialize an aos_lmp struct from parent to child
  */

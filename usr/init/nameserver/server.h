@@ -7,5 +7,6 @@
 #include <aos/aos_rpc_types.h>
 
 errval_t aos_process_service_register(char *payload, size_t bytes);
+errval_t aos_process_service_lookup(char *payload, size_t bytes);
 
 #endif  // NAMESERVER_SERVER_H

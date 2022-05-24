@@ -53,6 +53,16 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc);
 errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c);
 
 /**
+ * \brief Handles a request from a client bound to the server
+ *
+ * \arg request aos_rpc_msg containing a nameservice_rpc_msg that contains the handler and
+ * other things to properly handle the request \arg response the response message created
+ * by the handler
+ */
+void aos_rpc_process_client_request(struct aos_rpc_msg *request,
+                                    struct aos_rpc_msg *response);
+
+/**
  * \brief Request that the process manager start a new process
  * \arg cmdline the name of the process that needs to be spawned (without a
  *           path prefix) and optionally any arguments to pass to it

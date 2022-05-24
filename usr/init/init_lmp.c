@@ -315,6 +315,64 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
     return SYS_ERR_OK;
 }
 
+static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
+{
+    DEBUG_PRINTF("received LMP bind request\n");
+    errval_t err;
+
+    // for reply
+    struct aos_lmp_msg *reply;
+    char buf[sizeof(struct aos_lmp_msg)];
+
+    struct aos_lmp_msg *msg = lmp->recv_msg;
+    domainid_t server_pid = *(domainid_t *)msg->payload;
+
+    DEBUG_PRINTF("Looking for server spawninfo\n");
+    struct capref server_ep_cap = NULL_CAP;
+    struct spawninfo *server_si = malloc(sizeof(struct spawninfo));
+    if (server_si == NULL) {
+        DEBUG_PRINTF("Failed to allocate server spawninfo\n");
+        err = LIB_ERR_MALLOC_FAIL;
+        goto ret_msg;
+    }
+    err = spawn_get_process_by_pid(server_pid, &server_si);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to obtain server spawninfo\n");
+        err = err_push(err, SPAWN_ERR_FIND_PROC);
+        goto unwind_si;
+    }
+    DEBUG_PRINTF("Found server spawninfo\n");
+
+    server_ep_cap = server_si->lmp.chan.remote_cap;
+
+    struct aos_lmp_msg *relay_msg;
+    err = aos_lmp_create_msg(&relay_msg, AosRpcLmpBind, msg->payload_bytes, msg->payload, msg->cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to create relay message for server");
+        goto unwind_si;
+    }
+
+    // forward message to server
+    DEBUG_PRINTF("Forwarding request to server\n");
+    err = aos_lmp_send_msg(&server_si->lmp, relay_msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to relay LMP bind request to server");
+        err = err_push(err, AOS_ERR_LMP_SEND_FAILURE);
+        goto unwind_relay;
+    }
+
+unwind_relay:
+    free(relay_msg);
+unwind_si:
+    free(server_si);
+ret_msg:
+    aos_lmp_create_msg_no_pagefault(&reply, AosRpcErrvalResponse, sizeof(errval_t),
+                                    (void *)&err, server_ep_cap,
+                                    (struct aos_lmp_msg *)buf);
+    DEBUG_PRINTF("Sending response\n");
+    aos_lmp_send_msg(lmp, reply);
+}
+
 static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
 {
     DEBUG_PRINTF("received ump bind request\n");
@@ -487,6 +545,21 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         aos_rpc_send_errval(&rpc, err);
         break;
     }
+    case AosRpcNsLookup: {
+        errval_t err = aos_process_service_lookup(lmp->recv_msg->payload,
+                                                  lmp->recv_msg->payload_bytes);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to process the service lookup message.");
+            err = err_push(err, LIB_ERR_NAMESERVICE_REGISTER);
+        }
+        struct aos_rpc rpc;
+        aos_rpc_init_from_lmp(&rpc, lmp);
+        aos_rpc_send_errval(&rpc, err);
+        break;
+    }
+    case AosRpcLmpBind:
+        aos_process_lmp_bind_request(lmp);
+        break;
     default:
         printf("received unknown message type\n");
         break;
