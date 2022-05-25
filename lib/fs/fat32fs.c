@@ -6,12 +6,10 @@
 #include <collections/path_list.h>
 #include <fcntl.h>
 
-struct fs_state fs_state;
 
 static fileref_id_t get_new_fid(void)
 {
-    // TODO will loop endlessly if all is full
-    while (collections_hash_find(fs_file_handles, ++fs_state.curr_fid_counter))
+    while (collections_hash_find(fs_state.fid2handle, ++fs_state.curr_fid_counter))
         ;
     return fs_state.curr_fid_counter++;
 }
@@ -21,10 +19,26 @@ void fat32fs_add_file_handler(domainid_t pid, struct fat32fs_handle *handle)
     fileref_id_t fid = get_new_fid();
     handle->fid = fid;
     handle->pid = pid;
-    collections_hash_insert(fs_file_handles, fid, handle);
+    collections_hash_insert(fs_state.fid2handle, fid, handle);
+
+    // TODO return type?
+    int pathlen = strlen(handle->path);
+
+    struct handle_list_node *node = malloc(sizeof(struct handle_list_node));
+    node->handle = handle;
+
+    struct handle_list_node *old_head = hashmap_get(&fs_state.path2handle, handle->path,
+                                                    pathlen);
+    if (!old_head) {
+        node->next = NULL;
+    } else {
+        node->next = old_head;
+    }
+    hashmap_put(&fs_state.path2handle, handle->path, pathlen, node);
 }
 
-struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d)
+struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d,
+                                   const char *path)
 {
     struct fat32fs_handle *h = calloc(1, sizeof(*h));
     if (h == NULL) {
@@ -33,9 +47,42 @@ struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d)
     }
     h->dirent = d;
     h->curr_data_cluster = d->start_data_cluster;
+    h->path = path;
 
     fat32fs_add_file_handler(pid, h);
     return h;
+}
+
+static void  fat32fs_update_all_handles_to(const char *path, uint32_t max_offset){
+    // get head of all handles with this path and iterate through them
+    // whenever a handle has a offset that's too high, update it
+    struct handle_list_node *node = hashmap_get(&fs_state.path2handle, path, strlen(path));
+    assert(node);
+    assert(!node->handle->dirent->is_dir);
+    while (node) {
+        struct fat32fs_handle *handle = node->handle;
+        if (handle->u.file_offset > max_offset) {
+            handle->u.file_offset = max_offset;
+            // set the current cluster to the last cluster of the file
+            fat32_get_cluster_from_offset(&fs_state.fat32, handle->dirent->start_data_cluster, max_offset, &handle->curr_data_cluster);
+        }
+        node = node->next;
+    }
+}
+
+__attribute__((unused)) static void fat32fs_truncate(struct fat32fs_handle *h)
+{
+    fat32_set_cluster_eof(&fs_state.fat32, h->curr_data_cluster);
+    struct fat32_dir_entry dir;
+    fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
+    dir.FileSize = h->u.file_offset;
+    fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
+
+    // find all open handles to same file and update their offsets if they 
+    // are past the truncated point
+
+    fat32fs_update_all_handles_to(h->path, h->u.file_offset);
+
 }
 
 void fat32fs_handle_close(struct fat32fs_handle *h)
@@ -43,18 +90,39 @@ void fat32fs_handle_close(struct fat32fs_handle *h)
     // check if we need to truncate the rest of the file
     if (h->flags & (O_RDWR | O_WRONLY)) {
         if (h->u.file_offset != h->dirent->size) {
-            fat32_set_cluster_eof(&fs_state.fat32, h->curr_data_cluster);
-            struct fat32_dir_entry dir;
-            fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
-            dir.FstClusHI = h->dirent->start_data_cluster >> 16;
-            dir.FstClusLO = h->dirent->start_data_cluster & 0xffff;
-            dir.FileSize = h->u.file_offset;
-            fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
-            
+            // TODO earlier: did truncate here
         }
     }
 
-    collections_hash_delete(fs_file_handles, h->fid);
+    // write back new size TODO
+    struct fat32_dir_entry dir;
+    fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
+    dir.FileSize = h->u.file_offset;
+    fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
+    collections_hash_delete(fs_state.fid2handle, h->fid);
+    // TODO return type
+
+    struct handle_list_node *head = hashmap_get(&fs_state.path2handle, h->path,
+                                                strlen(h->path));
+    
+    if(head->next == NULL){
+        // remove all the entries
+        hashmap_remove(&fs_state.path2handle, h->path, strlen(h->path));
+        free(head);
+    }else{
+        struct handle_list_node *curr = head;
+        while(curr->next != NULL){
+            if(curr->next->handle == h){
+                struct handle_list_node *to_delete = curr->next;
+                curr->next = curr->next->next;
+                free(to_delete);
+                break;
+            }
+            curr = curr->next;
+        }
+    }
+                 
+
     free(h->dirent);
 }
 
@@ -85,8 +153,8 @@ static errval_t resolve_path(domainid_t pid, const char *path,
         goto unwind;
     }
 
-    err = fat32_load_dir_entry_from_name(&fs_state.fat32, parent_dir_cluster, fat32_name, &dir,
-                                   &sector, &index);
+    err = fat32_load_dir_entry_from_name(&fs_state.fat32, parent_dir_cluster, fat32_name,
+                                         &dir, &sector, &index);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "fat32_load_dir_entry_from_name failed");
@@ -104,12 +172,11 @@ static errval_t resolve_path(domainid_t pid, const char *path,
 
 
     if (ret_fh) {
-        struct fat32fs_handle *fh = handle_open(pid, dirent);
+        struct fat32fs_handle *fh = handle_open(pid, dirent, path);
         if (fh == NULL) {
             err = LIB_ERR_MALLOC_FAIL;
             goto unwind;
         }
-        fh->path = path_prefix;
         *ret_fh = fh;
         goto success;
     } else {
@@ -143,7 +210,17 @@ errval_t fat32fs_open(domainid_t pid, struct fat32fs_mount *mount, const char *p
     }
 
     handle->flags = flags;
+
+
+    // TODO
+    // truncate if flags match
+    if (handle->flags & O_TRUNC) {
+        fat32fs_truncate(handle);
+    }
+
     *rethandle = handle;
+
+    debug_printf("fsize: %d\n", handle->dirent->size);
 
     return SYS_ERR_OK;
 }
@@ -215,15 +292,16 @@ errval_t fat32fs_write(struct fat32fs_handle *h, const void *buf, size_t bytes,
     if (h->u.file_offset >= h->dirent->size) {
         h->dirent->size = h->u.file_offset + 1;
         struct fat32_dir_entry dir;
-        err = fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index,
-                         &dir);
+        err = fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster,
+                               h->dirent->dir_index, &dir);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Couldn't get file entry\n");
             return err;
         }
         dir.FileSize = h->dirent->size;
-        err = fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
-        if(err_is_fail(err)) {
+        err = fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster,
+                               h->dirent->dir_index, &dir);
+        if (err_is_fail(err)) {
             DEBUG_ERR(err, "Couldn't update dir entry filesize\n");
             return err;
         }
@@ -242,9 +320,9 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
         if (h->dirent->is_dir) {
             h->u.dir_offset = 0;
             h->curr_data_cluster = h->dirent->start_data_cluster;
-            while(offset-- > 0){
+            while (offset-- > 0) {
                 err = fat32fs_dir_read_next(h, NULL, NULL);
-                if(err_is_fail(err)){
+                if (err_is_fail(err)) {
                     DEBUG_ERR(err, "couldn't seek next dir entry\n");
                     return err;
                 }
@@ -254,7 +332,7 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
             err = fat32_get_cluster_from_offset(&fs_state.fat32,
                                                 h->dirent->start_data_cluster, offset,
                                                 &new_data_cluster);
-            if(err_is_fail(err)){
+            if (err_is_fail(err)) {
                 DEBUG_ERR(err, "couldn't seek to position\n");
                 return err;
             }
@@ -286,7 +364,7 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
 
             err = fat32_get_cluster_from_offset(&fs_state.fat32, start_data_cluster,
                                                 offset, &h->curr_data_cluster);
-            if(err_is_fail(err)){
+            if (err_is_fail(err)) {
                 DEBUG_ERR(err, "couldn't seek to position\n");
                 return err;
             }
@@ -297,7 +375,7 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
 
     case FS_SEEK_END:
         if (h->dirent->is_dir) {
-            // ramfs doesn't implement this, 
+            // ramfs doesn't implement this,
             assert(!"NYI");
         } else {
             // TODO what is going on here? need to resize?
@@ -440,8 +518,8 @@ errval_t fat32fs_rmdir(const char *path)
 
 
     err = fat32_delete_file(&fs_state.fat32, handle->dirent->dir_cluster,
-                      handle->dirent->dir_index);
-    if(err_is_fail(err)){
+                            handle->dirent->dir_index);
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "couldn't delete directory\n");
         goto out;
     }
@@ -489,9 +567,9 @@ errval_t fat32fs_dir_read_next(struct fat32fs_handle *h, char **retname,
     // read at current index
     struct fat32_dir_entry dirent;
     uint32_t dirent_cluster, dirent_index;
-    errval_t err = fat32_load_next_dir_entry(&fs_state.fat32, h->dirent->start_data_cluster,
-                                       h->u.dir_offset, &dirent, &dirent_cluster,
-                                       &dirent_index);
+    errval_t err = fat32_load_next_dir_entry(
+        &fs_state.fat32, h->dirent->start_data_cluster, h->u.dir_offset, &dirent,
+        &dirent_cluster, &dirent_index);
     if (err_is_fail(err)) {
         // TODO always?
         return FS_ERR_INDEX_BOUNDS;
@@ -517,9 +595,11 @@ void fs_init(void)
 {
     fs_state.curr_fid_counter = 0;
 
-    collections_hash_create(&fs_file_handles, free);
+    collections_hash_create(&fs_state.fid2handle, free);
     errval_t err = init_fat32(&fs_state.fat32);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to initialize filesystem!\n");
     }
+    hashmap_create(8, &fs_state.path2handle);
+    thread_mutex_init(&fs_state.mutex);
 }

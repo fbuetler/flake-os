@@ -20,6 +20,7 @@
         "dirent.c",
         "fat32.c",
         "fat32fs.c",
+        "fs_rpc.c",
         "fat32_parse_name.c",
         "sd.c"
     ]

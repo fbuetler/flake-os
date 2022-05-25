@@ -4,9 +4,10 @@
 #include <fs/fat32.h>
 #include <fs/fs.h>
 #include <fs/dirent.h>
-#include "fs_internal.h"
+#include <collections/str_hashmap.h>
 
 typedef uint32_t fileref_id_t;
+
 
 struct fat32fs_dirent {
     char *name;
@@ -22,7 +23,7 @@ struct fat32fs_handle {
     fileref_id_t fid;
     domainid_t pid;
 
-    char *path;
+    const char *path;
     struct fat32fs_dirent *dirent;
 
     union {
@@ -37,16 +38,24 @@ struct fat32fs_mount {
     struct fs_dirent *root;
 };
 
+struct handle_list_node{
+    struct fat32fs_handle *handle;
+    struct handle_list_node *next;
+};
+
 struct fs_state {
     struct fat32 fat32;
     fileref_id_t curr_fid_counter;
+    collections_hash_table *fid2handle;
+    struct hashmap_s path2handle;
+    struct thread_mutex mutex;
 };
 
-collections_hash_table *fs_file_handles;
+struct fs_state fs_state;
 
 void fat32fs_add_file_handler(domainid_t pid, struct fat32fs_handle *handle);
 
-struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d);
+struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d, const char *path);
 
 errval_t fat32fs_read(struct fat32fs_handle *h, void *buffer, size_t bytes,
                       size_t *bytes_read);
@@ -61,7 +70,8 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
 
 errval_t fat32fs_tell(struct fat32fs_handle *h, size_t *pos);
 
-errval_t fat32fs_create(domainid_t pid, char *path, int flags, struct fat32fs_handle **rethandle);
+errval_t fat32fs_create(domainid_t pid, char *path, int flags,
+                        struct fat32fs_handle **rethandle);
 
 void fat32fs_handle_close(struct fat32fs_handle *h);
 
@@ -73,10 +83,11 @@ errval_t fat32fs_fstat(struct fat32fs_handle *h, struct fs_fileinfo *b);
 
 errval_t fat32fs_rmdir(const char *path);
 
-errval_t fat32fs_opendir(domainid_t pid, const char *full_path, struct fat32fs_handle **rethandle);
+errval_t fat32fs_opendir(domainid_t pid, const char *full_path,
+                         struct fat32fs_handle **rethandle);
 
 errval_t fat32fs_dir_read_next(struct fat32fs_handle *h, char **retname,
-                              struct fs_fileinfo *info);
+                               struct fs_fileinfo *info);
 
 void fs_init(void);
 

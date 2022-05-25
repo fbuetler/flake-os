@@ -525,7 +525,7 @@ void newlib_register_fsops__(fsopen_fn_t *open_fn, fsread_fn_t *read_fn,
                              fswrite_fn_t *write_fn, fsclose_fn_t *close_fn,
                              fslseek_fn_t *lseek_fn);
 
-void fs_libc_init(void *fs_state)
+void fs_libc_init(void *fs_mount)
 {
     newlib_register_fsops__(fat32fs_libc_open, fat32fs_libc_read, fat32fs_libc_write,
                             fat32fs_libc_close, fat32fs_libc_lseek);
@@ -534,5 +534,5 @@ void fs_libc_init(void *fs_state)
     fs_register_dirops(fat32fs_mkdir_glue, fat32fs_rmdir_glue, fat32fs_rm_glue, fat32fs_opendir_glue, fat32fs_readdir_glue,
                        fat32fs_closedir_glue, fat32fs_fstat_glue);
 
-    mount = fs_state;
+    mount = fs_mount;
 }

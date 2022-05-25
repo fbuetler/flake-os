@@ -31,7 +31,27 @@ typedef enum aos_rpc_msg_type {
     AosRpcBind,
     AosRpcBindReponse,
     AosRpcSendBootinfo,
-    AosRpcSendMMStrings
+    AosRpcSendMMStrings,
+    AosRpcFsOpen,
+    AosRpcFsOpenResponse,
+    AosRpcFsClose,
+    AosRpcFsCloseResponse,
+    AosRpcFsRead,
+    AosRpcFsReadResponse,
+    AosRpcFsWrite,
+    AosRpcFsWriteResponse,
+    AosRpcFsRm,
+    AosRpcFsRmResponse,
+    AosRpcFsLSeek,
+    AosRpcFsLSeekResponse,
+    AosRpcFsFStat,
+    AosRpcFsFStatResponse,
+    AosRpcMkDir,
+    AosRpcMkDirResponse,
+    AosRpcRmDir,
+    AosRpcRmDirResponse,
+    AosRpcReadDir,
+    AosRpcReadDirResponse
 } aos_rpc_msg_type_t;
 
 struct aos_rpc_msg {
