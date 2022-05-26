@@ -977,6 +977,9 @@ errors fs FS_ERR_ {
     failure BULK_NOT_INIT       "The bulk transfer mode has not been initialised",
     failure BULK_ALREADY_INIT   "The bulk_init() call may only be made once per connection",
     failure INVALID_PATH        "Invalid path name in request",
+    failure LSEEK               "Failure during lseek",
+    failure FSTAT               "Failure during fstat",
+    failure READ_DIR            "Failure during readdir",
 };
 
 // errors in the vfs library

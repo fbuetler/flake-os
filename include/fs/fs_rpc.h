@@ -4,7 +4,6 @@
 #include <aos/aos.h>
 #include <fs/fat32fs.h>
 
-
 struct rpc_fs_open_request{
     domainid_t pid;
     int flags;
@@ -40,8 +39,8 @@ struct rpc_fs_path_request{
 struct rpc_fs_write_request{
     domainid_t pid;
     domainid_t fid;
-    void *buf;
     size_t bytes;
+    char buf[0];
 };
 
 struct rpc_fs_write_response{
@@ -91,7 +90,6 @@ struct rpc_fs_readdir_response{
     struct fs_fileinfo info;
     char name[0];
 };
-
 
 errval_t fs_handle_rpc_req(struct aos_lmp *lmp);
 

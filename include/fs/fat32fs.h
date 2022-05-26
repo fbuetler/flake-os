@@ -8,6 +8,7 @@
 
 typedef uint32_t fileref_id_t;
 
+#define RPC_FS_RW_CHUNK_SIZE 1024
 
 struct fat32fs_dirent {
     char *name;

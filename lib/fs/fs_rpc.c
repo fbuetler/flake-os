@@ -43,13 +43,14 @@ static inline errval_t lmp_send(struct aos_lmp *lmp, aos_rpc_msg_type_t type,
 #define LMP_SEND(lmp, type, payload, bytes)                                              \
     do {                                                                                 \
         char send_buf[AOS_LMP_MSG_SIZE(bytes)];                                          \
-        err = lmp_send((lmp), (type), (char *)(payload), (bytes), send_buf);            \
+        err = lmp_send((lmp), (type), (char *)(payload), (bytes), send_buf);             \
         if (err_is_fail(err)) {                                                          \
             DEBUG_ERR(err, "lmp_send failed");                                           \
-            return err;                                                                      \
+            return err;                                                                  \
         }                                                                                \
     } while (0)
 
+// TODO needs a malloc here
 #define LMP_GLUE_HEADER_AND_SEND(lmp, type, payload_header, payload, payload_bytes)      \
     do {                                                                                 \
         int total_bytes = (payload_bytes) + sizeof(payload_header);                      \
@@ -227,26 +228,26 @@ errval_t fs_handle_rpc_req(struct aos_lmp *lmp)
         response.info = stat;
         LMP_SEND(lmp, AosRpcFsFStatResponse, &response, sizeof(response));
     }
-    case AosRpcMkDir: {
+    case AosRpcFsMkDir: {
         struct rpc_fs_path_request *args = (struct rpc_fs_path_request *)request;
         // check if string is terminated
         struct rpc_fs_err_response response;
         if (args->path[sizeof(struct rpc_fs_path_request) + lmp->recv_msg->payload_bytes - 1]
             != '\0') {
             response.err = FS_ERR_INVALID_PATH;
-            LMP_SEND(lmp, AosRpcMkDirResponse, &response, sizeof(response));
+            LMP_SEND(lmp, AosRpcFsMkDirResponse, &response, sizeof(response));
             return response.err;
         }
 
         response.err = fat32fs_mkdir(args->path);
-        LMP_SEND(lmp, AosRpcMkDirResponse, &response, sizeof(response));
+        LMP_SEND(lmp, AosRpcFsMkDirResponse, &response, sizeof(response));
     }
-    case AosRpcRmDir: {
+    case AosRpcFsRmDir: {
         struct rpc_fs_path_request *rm_req = (struct rpc_fs_path_request *)request;
         struct rpc_fs_err_response response = { .err = fat32fs_rmdir(rm_req->path) };
-        LMP_SEND(lmp, AosRpcRmDirResponse, &response, sizeof(response));
+        LMP_SEND(lmp, AosRpcFsRmDirResponse, &response, sizeof(response));
     }
-    case AosRpcReadDir: {
+    case AosRpcFsReadDir: {
         struct rpc_fs_readdir_request *args = (struct rpc_fs_readdir_request *)request;
 
         // get handle
@@ -256,7 +257,7 @@ errval_t fs_handle_rpc_req(struct aos_lmp *lmp)
         if (!handle) {
             // send error
             response.err = FS_ERR_INVALID_FH;
-            LMP_SEND(lmp, AosRpcReadDirResponse, &response, sizeof(response));
+            LMP_SEND(lmp, AosRpcFsReadDirResponse, &response, sizeof(response));
             return response.err;
         }
 
@@ -274,13 +275,13 @@ errval_t fs_handle_rpc_req(struct aos_lmp *lmp)
         free(retname);
 
         struct aos_lmp_msg *msg;
-        err = aos_lmp_create_msg(&msg, AosRpcReadDirResponse, payload_size, payload,
+        err = aos_lmp_create_msg(&msg, AosRpcFsReadDirResponse, payload_size, payload,
                                  NULL_CAP);
         free(payload);
 
         if (err_is_fail(err)) {
             response.err = err;
-            LMP_SEND(lmp, AosRpcReadDirResponse, &response, sizeof(response));
+            LMP_SEND(lmp, AosRpcFsReadDirResponse, &response, sizeof(response));
             return response.err;
         }
 

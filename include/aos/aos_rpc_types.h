@@ -46,12 +46,12 @@ typedef enum aos_rpc_msg_type {
     AosRpcFsLSeekResponse,
     AosRpcFsFStat,
     AosRpcFsFStatResponse,
-    AosRpcMkDir,
-    AosRpcMkDirResponse,
-    AosRpcRmDir,
-    AosRpcRmDirResponse,
-    AosRpcReadDir,
-    AosRpcReadDirResponse
+    AosRpcFsMkDir,
+    AosRpcFsMkDirResponse,
+    AosRpcFsRmDir,
+    AosRpcFsRmDirResponse,
+    AosRpcFsReadDir,
+    AosRpcFsReadDirResponse
 } aos_rpc_msg_type_t;
 
 struct aos_rpc_msg {
@@ -60,5 +60,6 @@ struct aos_rpc_msg {
     size_t bytes;
     struct capref cap;
 };
+
 
 #endif
