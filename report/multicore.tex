@@ -1,18 +1,75 @@
 \section{Multi-core Support}
 
-TODO
+To use another core, we need to boot it, establish a communication channel between from the old core to the new core and define how memory management is done across cores.
+
+In our system we make the assumption that core 0 is always present and only cores 1 to 3 are booted and shut down.
+
+\subsection{Boot another core}
+
+The main part about booting a core is allocating memory for various datastructures and passing these memory regions to the new core. Further, we need to tell the new core, where some fundamental binaries are such that it can execute them.
+
+\subsubsection{Create the Kernel Control Block}
+
+We start with the Kernel Control Block that needs to be allocated and retyped. At this moment it worth to be mentioned, that we always have to pass the physical memory address as opposed of a virtual one, such that the new core actualy know where that memory is. 
+
+\subsubsection{Load the boot driver}
+
+Next, we have to find the boot driver in the multiboot module and map it into our address space. As the boot driver is nothing else than a ELF binary we need to find the right entry point, in this case "boot\_entry\_psci". Then we also need to map the binary into our address space and get its physical address. Moreover, the bootdriver runs with a one-to-one virtual address to physical address mapping, so we have to relocate the ELF binary as well.
+
+
+\subsubsection{Load the CPU driver}
+
+The same has to be done with the CPU driver, but this time it is a different binary and with that also a different entry point to be looked for.
+
+\subsubsection{Allocate the kernel stack}
+
+The kernel needs its own stack, so we allocate 16 countinously aligned base pages and get their physical address.
+
+\subsubsection{Loading init}
+
+Also does the new core need to know what initial binary should be executed. Usually, that would be the "monitor", but as we do not have a "monitor" we use "init".
+
+\subsubsection{Allocate kernel memory}
+
+To load the init binary, the CPU driver needs some initial memory, that we have to allocate for it as well.
+
+\subsubsection{Initialize the core datastructure}
+
+At this point, we have all the ingredients to boot a new core. We only have to put all these information together in a compact and well know structure. That is the purpose of the core datastructure. It contains configuration parameters, locations and size of various memory regions we just allocated and the core ID.
+
+\subsubsection{Flusing the cache}
+
+To clean things up, we also need to flush the cache to make sure that all data we have just written is visible for everyone, including the new core.
+
+\subsubsection{Spawning the core}
+
+Finally, we can boot a new core by invoking the kernel capability.
+
+\subsection{Communicate between cores}
+
+The newly booted core needs to fundamental capabilities to work properly. These include a ram capability that represent a region of physical memory that it can manage for applications on its core, the bootinfo that contains also the multiboot module such that the new core can start other processes.
+These capabilities are send over shared memory that is mapped in both cores. We discuss its communication mechanism further in the next chapter.
+
+\subsection{Manage memory across cores}
+
+We decided that every core should have its own memory that it can manage. For this, as we have four cores, a quarter of the memory on core 0 is allocated. The physical address of the capability representing this memory region is then send the new core, forged into a new capability and used to initialize the memory allocator.
+Every core has a distinct PID range that it can use for spawning processes.
+
+\subsection{Booting all cores and turning cores off and on}
+
+We also implemented both extra challanges. Booting all cores was pretty straight forward, and we could easily reuse the same logic to boot core 2 and 3.
+Turing a core off and then on again was a bit more involved and neede more digging. But in the end, we implemented a mechanism that allows core 0 to tell another core to turn itslef off. Turing a core back on involves the same steps as booting a core.
+
+% allocate memory
+% Create KCB & Coredata datastructures
+% load the boot driver and cpu driver
+% clean cache
+% call spawn
 
 % each core gets 512mb (core 0 initially has all memory and allocs for other cores)
 % assumed core 0 is always present (only core 1-3 on/off)
 % primary-secondary communication
 % pid ranges per core
-% communication between cores ofer urpc frame used as a ring buffer (split into 2 halfs)
-% first 64 bytes of a half are reserved for metadata (historical reasons)
-% every ump messages iz 64 bytes (a cache line) inclusive header
-% can send messages that are larger than one cache line
-% memory barriers at the right locaions to work with ARMs weak memory model
-% communication protocal is based on a volatile variable
-% core 1 know where the shared frame is because its passed at a well known location
 
 % extra:
 % boot all cores 
