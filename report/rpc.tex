@@ -1,6 +1,187 @@
-\section{Local Message Passing}
+\chapter{Local Remote Message Passing}
+\section{Introduction}
+% give a short introduction into the problem, the goal, the approach,
 
-TODO
+\section{Designing Message Passing}
+% Use cases: memory, init-comm, serial driver, between processes
+% Either async vs sync -> easily usable for a server as well as for a client
+% Choices: All using same channel. Locking -> where is concurrency possible
+%          Separate channels for separate uses; also: how is state passed in messages
+Local Remote Message Passing (LRMP), which is used to communicate between processes
+on the same core is mearly a mean of communication. On top of such a functionality,
+various designs can be implemented for allowing a safe, reliable and usable system
+for communication. We will see in this chapter how we've built a system which allows
+an easy integration for use in a Memory Server (to distribute RAM capabilities 
+to processes),a Serial Server (for input/output to a screen) as well as an Init Server 
+(for communication to the \texttt{init} process).
+
+Of interest are the different choices one could use LRMP to communicate asynchronously and/or 
+synchronously. Also, it's a big interest to utilize the asynchronous nature of LMP to
+achieve high concurrency during operation. Lastly, while a functioning protocol for the basic
+functionalities desired (communication with init, memory and serial servers) 
+should surely be logically separated, there are many options one might separate them physically.
+These can be isolated components over different channels, or handled by a single channel alltogether.
+
+\subsection{Blocking vs Non-Blocking}
+To embrace the non-blocking nature of LMP achieved through upcalls, we provide an 
+easy interface for a process to register for the receival of such messages. 
+
+\subsubsection{Non-Blocking}
+For non-blocking communication, we focused mostly on the use-case of an arbitrary servers, 
+which offers services to be received and processed in an endless-loop.
+
+More concretely, any server (e.g. the memory server) can define a function which is to be called
+on the receival of any LMP message through one channel. The interface of such a function looks like this:
+
+% TODO TODO
+
+Using this API, a registered \texttt{handler-function} is reregistered on the receival
+of each message. The only responsibility we give to the server is then to actively wait for 
+messages to come in, which can be done in the all-to-familiar manner:
+
+% TODO TODO
+
+\subsubsection{Blocking}
+When talking about blocking communication, we talk about receiving messages we have mostly 
+client-applications in mind. While a server usually only responds, a client requests.
+In our cases throughout the course, these requests of clients made sense to be blocking, 
+so that user-code only continues to run after a response has been received.
+
+Blocking communication is achieved by polling on the channel until a message has been received.
+As stated, having send-then-receive patterns in mind, we provide a call for doing 
+both at once:
+
+% TODO add aos_rpc_call signature
+
+We decided to wait for messages by polling on them, however we note that there might be 
+alternative designs which avoid polling on a response. 
+
+In an older design, we implemented blocking communication by receiving the message asynchronously 
+by registring a receive handler handler and just waiting for a response 
+using \texttt{event\_dispatch()} again.
+However, due to race conditions between different client calls, we abandoned this idea 
+for the time being. 
+
+We're still convinced that this improvement would have lead to a performance increase in 
+our implementation, especially under heavy load.
+
+\section{Lifetime of a Channel}
+% binding; registering; closing
+Before using a channel, it needs to be created. 
+In our case, we needed to create a channel between the \texttt{init} process and a newly-spawned
+child process. After the channel has been established between the two parties, 
+it can be used for communication. In the following, we describe the setup (binding) 
+and teardown (closing) of a channel.
+
+\subsection{Binding}
+Let's have a look at the init server.
+When a new child process is spawned, the \texttt{init} process hands it an endpoint-capability
+to itself. That way, the child already knows to which channel it needs to bind. 
+Given that capability, the child has enough information to contact \texttt{init}, and 
+\texttt{init} has enough information to receive messages. To also allow \texttt{init}
+to send to the child, the child process will create a new endpoint and send it to \texttt{init}
+in a binding handshake. Using this endpoint, both parties can then send and receive.
+
+\subsection{Closing}
+% TODO
+
+\section{RPC State}
+During operation, we support sending messages of dynamic size.
+Supporting the option to send messages without causing page faults was crucial 
+to us. Besides increased performance, it's is also necessary for using RPC 
+during page faults. Since during a page fault, we need to guarantee that no 
+nested page fault occurs, we added a static buffer to each RPC channel of 4096 bytes, 
+which is used to send statically sized RPC messages that fit into it.
+That way, functionality like sending RAM over RPC can use a already-mapped for 
+receiving messages, thus avoiding page faults. In general, any established 
+RPC channel has the following structure:
+
+% TODO graphic
+% graphic contains: RPC channel, pointer to a static buffer, pointer to a dynamic buffer
+Besides the static buffer that every RPC channel has, one can also send 
+dynamically-sized messages, which are contained in another buffer.
+
+
+
+
+We now describe the state which is kept by our RPC communication protocol.
+
+\subsection{Message Sizes}
+We support sending messages of dynamic sizes. To achieve this, we considered 
+either shared memory or breaking messages into smaller packets.
+While shared pages will decrease the overall LMP-traffic, we would also 
+require additional logic for sharing the pages necessary as well as 
+copying a potentially large source buffer to this large memory region.
+
+Many questions arise:
+\begin{itemize}
+    \item Who has read/write access to the shared page? 
+    \item When is this shared page unmapped?
+    \item At which size of payload will shared memory make sense?
+\end{itemize}
+On the receiving side, the data would need to be copied out of the shared region 
+into newly allocated memory. The copying is necessary since the sender 
+might want to unmap the shared memory region at some point and it shouldn't be 
+the case that both processes modify the same shared memory region.
+
+Splitting messages into multiple parts has a very straight-forward structure 
+without having the additional bookkeeping complexity shared pages have.
+
+
+In the end, we decided to use the message-splitting approach.
+More precisely, any message packet we send over LMP is sized at most 32 bytes
+large.  
+% TODO evaluation
+
+\subsection{Message Structure}
+Below, we describe the structure of a whole message of dynamic size.
+\begin{lstlisting}[language=C]
+struct aos_rpc_msg {
+    aos_rpc_msg_type_t type;
+    char *payload;
+    size_t bytes;
+    struct capref cap;
+};
+\end{lstlisting}
+Every message sent over an LMP channel contains a message type determining 
+the type of request, the actual payload, payload size and optionally, 
+also a capability to be transfered through the channel. 
+Additionally, to the beginning of a message to be sent, we prepend its size 
+to the payload. That way, the receiving size can determine the size of an 
+incoming message and knows how many more are to be expected.
+
+\subsection{Invariants}
+To achieve thread-safety, our LMP communication protocol 
+follows the following invariants:
+\begin{itemize}
+    \item Client send-receive patterns are atomic with respect to the channel
+    \item Server receive-send patterns are atomic with respect to the channel
+    \item No process uses a channel as a server and client at the same time
+    \item TODO
+\end{itemize}
+These invariants allows us to avoid race conditions and the guarantee that 
+when a client receives a response, it will be the response to the the client's
+request and not the response to any other request from another thread.
+To achieve that, it's also necessary that no process uses a both server and client, we never 
+With that at hand, we have a total order of RPC requests of a client and no 
+reponse-mixups.
+
+\section{Implementing Functionality on Top of LRPC}
+Now that the structure of single LRPC-channels have been explained, 
+lets have a look at how they are used to build actual services and how 
+they interleave at the example of our memory, terminal and init servers.
+
+\subsection{Physical Separation}
+We decided to separate the memory server from the init server.
+This has been crucial, since by our invariants, send-receive and receive-send 
+patterns must be atomic. Thus, since dynamically sized 
+
+\subsection{Memory Server}
+\subsection{Terminal Server}
+\subsection{Init Server}
+
+\section{Evaluation} % Problems; performance; hindsight
+
 
 % extra:
 % big messages
