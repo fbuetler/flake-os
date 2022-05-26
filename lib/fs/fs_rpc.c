@@ -54,10 +54,16 @@ static inline errval_t lmp_send(struct aos_lmp *lmp, aos_rpc_msg_type_t type,
 #define LMP_GLUE_HEADER_AND_SEND(lmp, type, payload_header, payload, payload_bytes)      \
     do {                                                                                 \
         int total_bytes = (payload_bytes) + sizeof(payload_header);                      \
-        char concat_buf[total_bytes];                                                    \
+        char *concat_buf = malloc(AOS_LMP_MSG_SIZE(total_bytes));                        \
         memcpy(concat_buf, (payload_header), sizeof(payload_header));                    \
         memcpy(concat_buf + sizeof(payload_header), (payload), (payload_bytes));         \
-        LMP_SEND((lmp), (type), concat_buf, total_bytes);                                \
+        err = lmp_send((lmp), (type), (char *)(payload), (total_bytes), concat_buf);     \
+        if (err_is_fail(err)) {                                                          \
+            DEBUG_ERR(err, "lmp_send failed");                                           \
+            free(concat_buf);                                                            \
+            return err;                                                                  \
+        }                                                                                \
+        free(concat_buf);                                                                \
     } while (0)
 
 errval_t fs_handle_rpc_req(struct aos_lmp *lmp)
@@ -125,25 +131,23 @@ errval_t fs_handle_rpc_req(struct aos_lmp *lmp)
             LMP_SEND(lmp, AosRpcFsReadResponse, &response, sizeof(response));
             return response.err;
         }
+
         // read the data
-        char buf[1024];
-        while (args->bytes > 0) {
-            size_t read = MIN(args->bytes, sizeof(buf));
-            uint32_t current_offset = handle->u.file_offset;
-            err = fat32fs_read(handle, buf, read, NULL);
-            if (err_is_fail(err)) {
-                // send error
-                response.err = FS_ERR_INVALID_FH;
-                LMP_SEND(lmp, AosRpcFsReadResponse, &response, sizeof(response));
-                return response.err;
-            }
-            args->bytes -= read;
-            // send back buf
-            response.bytes = read;
-            response.offset = current_offset;
-            response.err = SYS_ERR_OK;
-            LMP_GLUE_HEADER_AND_SEND(lmp, AosRpcFsReadResponse, &response, buf, read);
+        char buf[RPC_FS_RW_CHUNK_SIZE];
+        size_t read = MIN(args->bytes, sizeof(buf));
+        uint32_t current_offset = handle->u.file_offset;
+        err = fat32fs_read(handle, buf, read, NULL);
+        if (err_is_fail(err)) {
+            // send error
+            response.err = FS_ERR_INVALID_FH;
+            LMP_SEND(lmp, AosRpcFsReadResponse, &response, sizeof(response));
+            return response.err;
         }
+        // send back buf
+        response.bytes = read;
+        response.offset = current_offset;
+        response.err = SYS_ERR_OK;
+        LMP_GLUE_HEADER_AND_SEND(lmp, AosRpcFsReadResponse, &response, buf, read);
     }
     case AosRpcFsWrite: {
         // currently will assume that it fits into 1024 bytes
@@ -159,10 +163,12 @@ errval_t fs_handle_rpc_req(struct aos_lmp *lmp)
             return response.err;
         }
         // write the data
-        assert(args->bytes <= 1024);
+        size_t payload_size = lmp->recv_msg->payload_bytes
+                              - sizeof(struct rpc_fs_write_request);
+        payload_size = MIN(payload_size, RPC_FS_RW_CHUNK_SIZE);
 
         size_t bytes_written;
-        response.err = fat32fs_write(handle, args->buf, args->bytes, &bytes_written);
+        response.err = fat32fs_write(handle, args->buf, payload_size, &bytes_written);
         response.bytes = bytes_written;
         // send back response
         LMP_SEND(lmp, AosRpcFsWriteResponse, &response, sizeof(response));
