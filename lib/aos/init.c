@@ -235,8 +235,9 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     set_init_mem_rpc(&mem_rpc);
     ram_alloc_set(NULL);
 
-    // use normal initialization for the init channel
-    err = aos_lmp_init(lmp, cap_initep);
+    // we do not register an event handler for the memory channel
+
+    err = aos_lmp_init_static(lmp, AOS_RPC_BASE_CHANNEL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init rpc");
         return err_push(err, LIB_ERR_LMP_INIT);
@@ -246,6 +247,12 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to perform handshake over init channel");
         return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
+    }
+
+    err = aos_lmp_register_recv(lmp, aos_lmp_event_handler);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register init channel to event handler");
+        return err_push(err, LIB_ERR_CHAN_REGISTER_RECV);
     }
 
     set_init_rpc(&rpc);

@@ -496,6 +496,8 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
 
     // core id of the child process
     disp_gen->core_id = disp_get_core_id();
+    // domain id (PID) of the child process
+    disp_gen->domain_id = si->pid;
     // virtual addres of the dispatcher frame in the childs vspace
     disp->udisp = (dispatcher_handle_t)dispatcher_frame_addr_child;
     // start child process in disabled mode
@@ -643,13 +645,13 @@ errval_t spawn_invoke_dispatcher(struct spawninfo *si)
     }
 
     // perform handshakes with child process for both rpc channels
-    err = aos_lmp_init_handshake_to_child(&si->mem_lmp, memory_recv_ep_cap);
+    err = aos_lmp_init_handshake_to_child(&si->mem_lmp);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup mem rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
-    err = aos_lmp_init_handshake_to_child(&si->lmp, base_recv_ep_cap);
+    err = aos_lmp_init_handshake_to_child(&si->lmp);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
@@ -716,6 +718,16 @@ errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid
         return err_push(err, SPAWN_ERR_LOAD);
     }
 
+    DEBUG_TRACEF("Get free PID\n");
+    err = spawn_get_free_pid(pid);
+    if (err_is_fail(err)) {
+        // TODO out of PIDs, maybe kill a process?
+        DEBUG_ERR(err, "failed to find free PID");
+        return LIB_ERR_SHOULD_NOT_GET_HERE;
+    }
+
+    si->pid = *pid;
+
     DEBUG_TRACEF("Setup dispatcher\n");
     // setup dispatcher
     err = spawn_setup_dispatcher(si, entry, got_section_base_addr);
@@ -732,16 +744,6 @@ errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }
 
-    DEBUG_TRACEF("Get free PID\n");
-    err = spawn_get_free_pid(pid);
-    if (err_is_fail(err)) {
-        // TODO out of PIDs, maybe kill a process?
-        DEBUG_ERR(err, "failed to find free PID");
-        return LIB_ERR_SHOULD_NOT_GET_HERE;
-    }
-
-    DEBUG_TRACEF("Add process\n");
-    si->pid = *pid;
     spawn_add_process(si);
 
     return SYS_ERR_OK;
@@ -897,7 +899,7 @@ void spawn_add_process(struct spawninfo *new_process)
     assert(new_process);
     struct spawninfo *current = &init_spawninfo;
 
-    DEBUG_PRINTF("spawn_add_process: new process: %s\n", new_process->binary_name);
+    //DEBUG_PRINTF("spawn_add_process: new process: %s\n", new_process->binary_name);
     DEBUG_TRACEF("&init_spawninfo: %p\n", &init_spawninfo);
     while (current->next) {
         current = current->next;

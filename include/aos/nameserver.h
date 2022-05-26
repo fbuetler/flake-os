@@ -13,7 +13,7 @@
 
 /**
  * @brief validates a name
- * 
+ *
  * @param name the name to validate
  *
  * @return bool
@@ -22,39 +22,38 @@ bool name_is_valid(char *name);
 
 struct name_parts {
     size_t num_parts;
-	///< array of name parts
-	///< needs to be freed before the struct is freed
+    ///< array of name parts
+    ///< needs to be freed before the struct is freed
     char **parts;
 };
 
 /**
  * @brief splits a name into its parts delimited by '.'
- * 
+ *
  * @param name string containing the name to split
  * @param ret pointer to an allocated name_parts structure
- * 
+ *
  * @return error value
  */
 errval_t name_into_parts(char *name, struct name_parts *ret);
 void name_parts_contents_free(struct name_parts *p);
 
 ///< handler which is called when a message is received over the registered channel
-typedef void(nameservice_receive_handler_t)(void *st, 
-										    void *message, size_t bytes,
-										    void **response, size_t *response_bytes,
+typedef void(nameservice_receive_handler_t)(void *st, void *message, size_t bytes,
+                                            void **response, size_t *response_bytes,
                                             struct capref tx_cap, struct capref *rx_cap);
 
 typedef struct {
     struct aos_rpc rpc;
     nameservice_receive_handler_t *handler;
     void *st;
-} *nameservice_chan_t;
+} * nameservice_chan_t;
 
 struct nameservice_rpc_msg {
     nameservice_receive_handler_t *handler;
     void *st;
-    void *message;
     size_t bytes;
+    char message[0];
 };
 
 /**
@@ -68,7 +67,7 @@ struct nameservice_rpc_msg {
  *
  * @return error value
  */
-errval_t nameservice_rpc(nameservice_chan_t chan, void *message, size_t bytes, 
+errval_t nameservice_rpc(nameservice_chan_t chan, void *message, size_t bytes,
                          void **response, size_t *response_bytes, struct capref tx_cap,
                          struct capref *rx_cap);
 
@@ -82,7 +81,7 @@ errval_t nameservice_rpc(nameservice_chan_t chan, void *message, size_t bytes,
  *
  * @return SYS_ERR_OK
  */
-errval_t nameservice_register(const char *name, 
+errval_t nameservice_register(const char *name,
                               nameservice_receive_handler_t recv_handler, void *st);
 
 
@@ -119,15 +118,17 @@ errval_t nameservice_enumerate(char *query, size_t *num, char **result);
 typedef struct service_info {
     coreid_t core;
     nameservice_receive_handler_t *handle;
-	void *handler_state;
+    void *handler_state;
     domainid_t pid;
     size_t name_len;
     ///< Full name of the service
     char name[0];
 } service_info_t;
 
-errval_t service_info_new(coreid_t core, nameservice_receive_handler_t *handle, void *handler_state,
-                          domainid_t pid, const char *name, service_info_t **ret);
+errval_t service_info_new(coreid_t core, nameservice_receive_handler_t *handle,
+                          void *handler_state, domainid_t pid, const char *name,
+                          service_info_t **ret);
+size_t service_info_size(service_info_t *info);
 
 
 #endif /* INCLUDE_AOS_AOS_NAMESERVICE_H_ */

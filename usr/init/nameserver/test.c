@@ -11,7 +11,7 @@
     tests_all__ = tests_pass__ = tests_fail__ = 0;                                       \
     DEBUG_PRINTF("running tests %s\n", name);
 
-#define END_TESTS                                                                  \
+#define END_TESTS                                                                        \
     DEBUG_PRINTF("Summary of tests %s:\n\tpassed: %d of %d\n\tfailed: %d of %d\n",       \
                  tests_name__, tests_pass__, tests_all__, tests_fail__, tests_all__)
 
@@ -24,13 +24,13 @@
         DEBUG_PRINTF("Test %s failed\n", name);                                          \
     }
 
-#define TEST_ERR(name, expr)                                                                 \
+#define TEST_ERR(name, expr)                                                             \
     tests_all__++;                                                                       \
     if (expr) {                                                                          \
         tests_pass__++;                                                                  \
     } else {                                                                             \
         tests_fail__++;                                                                  \
-        DEBUG_ERR(err, "Test %s failed\n", name);                                          \
+        DEBUG_ERR(err, "Test %s failed\n", name);                                        \
     }
 
 static void run_name_tests(void)
@@ -44,7 +44,8 @@ static void run_name_tests(void)
     END_TESTS;
 }
 
-static void run_name_part_tests(void) {
+static void run_name_part_tests(void)
+{
     BEGIN_TESTS("name_parts");
 
     struct name_parts p;
@@ -71,14 +72,15 @@ static void run_name_part_tests(void) {
     END_TESTS;
 }
 
-static void run_insert_find_test(void) {
+static void run_insert_find_test(void)
+{
     BEGIN_TESTS("insert_find");
 
     errval_t err;
 
-    err = initialize_name_tree();   
+    err = initialize_name_tree();
     TEST_ERR("init tree", err_is_ok(err));
-    
+
     service_info_t *info1;
     service_info_new(0, NULL, NULL, 3, "name1", &info1);
     err = insert_name("name1", info1);
@@ -111,17 +113,16 @@ static void run_insert_find_test(void) {
     service_info_t *ret3;
     err = find_name("test.name3", &ret3);
     TEST_ERR("find test.name3", err_is_ok(err));
-    
+
     err = insert_name("name1", info1);
     TEST_ERR("fail inserting name1 again", err_no(err) == LIB_ERR_NAMESERVICE_NODE_EXISTS);
-
 
 
     END_TESTS;
 }
 
-__attribute__((unused))
-static void run_nameservicetest(void) {
+__attribute__((unused)) static void run_nameservicetest(void)
+{
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
     errval_t err = spawn_process("nameservicetest", si, pid);

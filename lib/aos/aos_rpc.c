@@ -55,9 +55,8 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
             }
         }
 
-
     } else {
-        if (!capcmp(msg.cap, NULL_CAP)) {
+        if (!capref_is_null (msg.cap)) {
             // TODO-refactor
         }
         return aos_ump_call(&rpc->u.ump, msg.type, msg.payload, msg.bytes, &retmsg->type,
@@ -107,6 +106,7 @@ errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send)
 void aos_rpc_process_client_request(struct aos_rpc_msg *request,
                                     struct aos_rpc_msg *response)
 {
+    //DEBUG_PRINTF("Received a message from a client\n");
     struct nameservice_rpc_msg *msg = (struct nameservice_rpc_msg *)request->payload;
 
     response->type = AosRpcServerResponse;
@@ -315,7 +315,6 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     err = aos_rpc_call(rpc, request, &response, false);
 
     domainid_t assigned_pid = *((domainid_t *)response.payload);
-    DEBUG_PRINTF("spawned process with PID 0x%lx\n", assigned_pid);
     *newpid = assigned_pid;
 
     free(payload);

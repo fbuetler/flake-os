@@ -12,6 +12,7 @@
 #include <aos/capabilities.h>
 #include <aos/paging.h>
 #include <aos/aos_rpc.h>
+#include <aos/nameserver.h>
 #include <mm/mm.h>
 #include <spawn/spawn.h>
 #include <grading.h>
@@ -317,7 +318,7 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
 
 static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 {
-    DEBUG_PRINTF("received LMP bind request\n");
+    //DEBUG_PRINTF("received LMP bind request\n");
     errval_t err;
 
     // for reply
@@ -327,8 +328,7 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
     struct aos_lmp_msg *msg = lmp->recv_msg;
     domainid_t server_pid = *(domainid_t *)msg->payload;
 
-    DEBUG_PRINTF("Looking for server spawninfo\n");
-    struct capref server_ep_cap = NULL_CAP;
+    //DEBUG_PRINTF("Looking for server spawninfo with pid %d\n", server_pid);
     struct spawninfo *server_si = malloc(sizeof(struct spawninfo));
     if (server_si == NULL) {
         DEBUG_PRINTF("Failed to allocate server spawninfo\n");
@@ -341,19 +341,17 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
         err = err_push(err, SPAWN_ERR_FIND_PROC);
         goto unwind_si;
     }
-    DEBUG_PRINTF("Found server spawninfo\n");
-
-    server_ep_cap = server_si->lmp.chan.remote_cap;
 
     struct aos_lmp_msg *relay_msg;
-    err = aos_lmp_create_msg(&relay_msg, AosRpcLmpBind, msg->payload_bytes, msg->payload, msg->cap);
+    err = aos_lmp_create_msg(&relay_msg, AosRpcLmpBind, msg->payload_bytes, msg->payload,
+                             msg->cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to create relay message for server");
         goto unwind_si;
     }
 
     // forward message to server
-    DEBUG_PRINTF("Forwarding request to server\n");
+    //DEBUG_PRINTF("Forwarding request to server\n");
     err = aos_lmp_send_msg(&server_si->lmp, relay_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to relay LMP bind request to server");
@@ -367,9 +365,8 @@ unwind_si:
     free(server_si);
 ret_msg:
     aos_lmp_create_msg_no_pagefault(&reply, AosRpcErrvalResponse, sizeof(errval_t),
-                                    (void *)&err, server_ep_cap,
+                                    (void *)&err, NULL_CAP,
                                     (struct aos_lmp_msg *)buf);
-    DEBUG_PRINTF("Sending response\n");
     aos_lmp_send_msg(lmp, reply);
 }
 
@@ -494,6 +491,13 @@ unwind:
     return err;
 }
 
+static void aos_lmp_send_errval_response(struct aos_lmp *lmp, errval_t err)
+{
+    struct aos_rpc rpc;
+    aos_rpc_init_from_lmp(&rpc, lmp);
+    aos_rpc_send_errval(&rpc, err);
+}
+
 
 errval_t init_process_msg(struct aos_lmp *lmp)
 {
@@ -540,28 +544,37 @@ errval_t init_process_msg(struct aos_lmp *lmp)
             DEBUG_ERR(err, "Failed to process the service registration message.");
             err = err_push(err, LIB_ERR_NAMESERVICE_REGISTER);
         }
-        struct aos_rpc rpc;
-        aos_rpc_init_from_lmp(&rpc, lmp);
-        aos_rpc_send_errval(&rpc, err);
+        aos_lmp_send_errval_response(lmp, err);
         break;
     }
     case AosRpcNsLookup: {
+        service_info_t *info;
         errval_t err = aos_process_service_lookup(lmp->recv_msg->payload,
-                                                  lmp->recv_msg->payload_bytes);
+                                                  lmp->recv_msg->payload_bytes, &info);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to process the service lookup message.");
-            err = err_push(err, LIB_ERR_NAMESERVICE_REGISTER);
+            aos_lmp_send_errval_response(lmp, err_push(err, LIB_ERR_NAMESERVICE_REGISTER));
+            break;
         }
-        struct aos_rpc rpc;
-        aos_rpc_init_from_lmp(&rpc, lmp);
-        aos_rpc_send_errval(&rpc, err);
+
+        struct aos_lmp_msg *resp;
+        err = aos_lmp_create_msg(&resp, AosRpcNsLookupResponse, service_info_size(info),
+                                 (void *)info, NULL_CAP);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to create lookup response");
+            aos_lmp_send_errval_response(lmp, err);
+            break;
+        }
+
+        aos_lmp_send_msg(lmp, resp);
+
         break;
     }
     case AosRpcLmpBind:
         aos_process_lmp_bind_request(lmp);
         break;
     default:
-        printf("received unknown message type\n");
+        DEBUG_PRINTF("received unknown message type %d\n", msg_type);
         break;
     }
     // DEBUG_PRINTF("init handled message of type: %d\n", msg_type);

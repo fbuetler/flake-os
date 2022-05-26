@@ -173,7 +173,6 @@ static struct sysret handle_retype_common(struct capability *root, bool from_mon
 static struct sysret handle_retype(struct capability *root,
                                    arch_registers_state_t *context, int argc)
 {
-    assert(argc == 11);
     return handle_retype_common(root, false, context, argc);
 }
 
