@@ -34,12 +34,14 @@ More concretely, any server (e.g. the memory server) can define a function which
 on the receival of any LMP message through one channel. The interface of such a function looks like this:
 
 % TODO TODO
+TODO TODO
 
 Using this API, a registered \texttt{handler-function} is reregistered on the receival
 of each message. The only responsibility we give to the server is then to actively wait for 
 messages to come in, which can be done in the all-to-familiar manner:
 
 % TODO TODO
+TODO TODO
 
 \subsubsection{Blocking}
 When talking about blocking communication, we talk about receiving messages we have mostly 
@@ -52,6 +54,7 @@ As stated, having send-then-receive patterns in mind, we provide a call for doin
 both at once:
 
 % TODO add aos_rpc_call signature
+TODO TODO
 
 We decided to wait for messages by polling on them, however we note that there might be 
 alternative designs which avoid polling on a response. 
@@ -84,6 +87,7 @@ in a binding handshake. Using this endpoint, both parties can then send and rece
 
 \subsection{Closing}
 % TODO
+TODO TODO
 
 \section{RPC State}
 During operation, we support sending messages of dynamic size.
@@ -98,6 +102,8 @@ RPC channel has the following structure:
 
 % TODO graphic
 % graphic contains: RPC channel, pointer to a static buffer, pointer to a dynamic buffer
+TODO TODO 
+
 Besides the static buffer that every RPC channel has, one can also send 
 dynamically-sized messages, which are contained in another buffer.
 
@@ -132,6 +138,7 @@ In the end, we decided to use the message-splitting approach.
 More precisely, any message packet we send over LMP is sized at most 32 bytes
 large.  
 % TODO evaluation
+TODO TODO
 
 \subsection{Message Structure}
 Below, we describe the structure of a whole message of dynamic size.
@@ -166,21 +173,80 @@ To achieve that, it's also necessary that no process uses a both server and clie
 With that at hand, we have a total order of RPC requests of a client and no 
 reponse-mixups.
 
+Note at last that these invariants are only concerning a single channel.
+Different channels follow no requirements with respect to other channels 
+and can be treated separately.
+
 \section{Implementing Functionality on Top of LRPC}
 Now that the structure of single LRPC-channels have been explained, 
 lets have a look at how they are used to build actual services and how 
 they interleave at the example of our memory, terminal and init servers.
 
-\subsection{Physical Separation}
+\subsection{Physical Separation of Services}
 We decided to separate the memory server from the init server.
 This has been crucial, since by our invariants, send-receive and receive-send 
-patterns must be atomic. Thus, since dynamically sized 
+patterns must be atomic. Thus, we can't allow an RPC call to 
+start recursive RPC calls (breaking atomicity). Since dynamically-sized messages 
+need to allocate dynamic memory when receiving an arbitrary-sized response, 
+it could otherwise happen that memory is requested during an RPC call.
+This could (and did) lead to recursive page faults.
+
+Separating the memory server completely fixed this issue.
+The two channels are set up for each new child process and go from the child to the 
+\texttt{init} process and use the same waitset.
 
 \subsection{Memory Server}
+The memory server runs on the \texttt{init} process and receives RAM cap requests.
+Since these requests and responses are all statically sized, no recursive page faults 
+happen. Since our interface allows sending/receiving capabilities, this 
+is already enough to implement the memory server.
+Similar to the \texttt{init} server, it performs a handshake with the child process
+when it is spawned. 
 \subsection{Terminal Server}
+% TODO
+TODO not init right?
 \subsection{Init Server}
+% TODO
+The init server registers the following handle-function 
+\begin{lstlisting}[language=C]
+    errval_t init_process_msg(struct aos_lmp *lmp)
+\end{lstlisting}
+It is responsible for handling spawn-requests, sent strings/numbers, PID lookups to receive 
+the name of a process given its PID, and clients can also request to receive a list of all PIDs.
 
-\section{Evaluation} % Problems; performance; hindsight
+All requests to this service are stateless - all information for a request must be 
+contained in the request itself.
+
+
+\section{Encountered Problems}
+We had a few problems with our initial RPC implementation, 
+which after some revisions led to the invariants stated above. Some of these problems were:
+\begin{enumerate}
+    \item Mixing server and client functionality led to race conditions.
+
+    \item When implementing support for page faults, we realized that it must be possible 
+to guarantee that a RPC call will cause no recursive page fault.
+
+    \item When mixing LRPC with URPC, it has become crucial to abstract LMP and UMP as much 
+as possible, to avoid a confusing interface for a programmer in user-space.
+\end{enumerate}
+
+\section{Analysis} % Problems; performance; hindsight
+Given more time, we would be interested to play with different packet sizes. As stated,
+we currently use packets of 32 bytes. Benchmarking performance with other sizes 
+would be a good idea. However, we weren't too concerned with this, since most of the RPC
+messages we send (and crucially, the ones which are sent most frequently) fit into a single packet.
+
+Another improvement would be to look at rewriting blocking receival of RPC messages,
+which currently uses polling to check if an incoming message exists. As said, we 
+abandoned the idea of using upcalls until a message is received due to race conditions 
+which resulted from failure to abide by our stated invariants. Given more time, 
+this would be a good performance optimization.
+
+Avoiding the idea of message-splitting alltogether, 
+using the shared-memory approach for dynamically sized messages could be 
+analyzed further and performance compared. We suspect that starting from some size, 
+sharing memory will outperform message-splitting substantially.
 
 
 % extra:
