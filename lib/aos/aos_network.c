@@ -32,7 +32,7 @@ errval_t aos_udp_socket_create(uint16_t port, struct aos_udp_socket **socket)
     void *response;
     size_t response_bytes;
     err = nameservice_rpc(chan, request, request_bytes, &response, &response_bytes,
-                          NULL_CAP, NULL_CAP);
+                          NULL_CAP, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message to network service");
         return err;
@@ -80,7 +80,7 @@ errval_t aos_udp_socket_release(struct aos_udp_socket *socket)
     void *response;
     size_t response_bytes;
     err = nameservice_rpc(chan, request, request_bytes, &response, &response_bytes,
-                          NULL_CAP, NULL_CAP);
+                          NULL_CAP, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message to network service");
         return err;
@@ -126,7 +126,7 @@ errval_t aos_udp_socket_send(struct aos_udp_socket *socket, ip_addr_t ip, uint16
     void *response;
     size_t response_bytes;
     err = nameservice_rpc(chan, request, request_bytes, &response, &response_bytes,
-                          NULL_CAP, NULL_CAP);
+                          NULL_CAP, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message to network service");
         return err;
@@ -171,7 +171,7 @@ errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, ip_addr_t *ip, uint1
     void *response;
     size_t response_bytes;
     err = nameservice_rpc(chan, request, request_bytes, &response, &response_bytes,
-                          NULL_CAP, NULL_CAP);
+                          NULL_CAP, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message to network service");
         return err;
