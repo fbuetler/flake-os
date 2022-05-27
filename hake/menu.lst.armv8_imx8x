@@ -14,3 +14,5 @@ module  /armv8/sbin/demom5
 module  /armv8/sbin/enet
 module  /armv8/sbin/echoserver
 module  /armv8/sbin/ping
+module  /armv8/sbin/nameservicetest
+module  /armv8/sbin/nameservicetestclient
