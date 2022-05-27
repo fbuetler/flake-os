@@ -39,6 +39,8 @@ static void aos_process_handshake(struct aos_lmp_msg *msg)
  */
 void aos_process_number(struct aos_lmp *lmp)
 {
+    errval_t err;
+
     uintptr_t number = *((uint64_t *)lmp->recv_msg->payload);
     grading_rpc_handle_number(number);
     DEBUG_PRINTF("received number: %d\n", number);
@@ -46,8 +48,8 @@ void aos_process_number(struct aos_lmp *lmp)
     // create response with ram cap
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
-    char buf[sizeof(struct aos_lmp_msg)];
-    errval_t err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcSendNumberResponse,
+    char buf[AOS_LMP_MSG_SIZE(payload_size)];
+    err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcSendNumberResponse,
                                                    payload_size, NULL, NULL_CAP,
                                                    (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
@@ -76,7 +78,7 @@ void aos_process_string(struct aos_lmp *lmp)
 
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
-    char buf[sizeof(struct aos_lmp_msg)];
+    char buf[AOS_LMP_MSG_SIZE(payload_size)];
     errval_t err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcSendStringResponse,
                                                    payload_size, NULL, NULL_CAP,
                                                    (struct aos_lmp_msg *)buf);
@@ -149,6 +151,7 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         aos_lmp_create_msg(&ret_msg, AosRpcServerResponse, response.bytes,
                            response.payload, response.cap);
         aos_lmp_send_msg(lmp, ret_msg);
+        free(ret_msg);
         break;
     }
     default:
@@ -430,6 +433,7 @@ errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp)
     }
 
     err = aos_lmp_send_msg(child_lmp, msg);
+    free(msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send acknowledgement");
     }
@@ -511,7 +515,7 @@ errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap)
 
     // initial state
     thread_mutex_init(&lmp->lock);
-    lmp->use_dynamic_buf = false;
+    lmp->use_dynamic_buf = true;
     lmp->is_busy = false;
 
     lmp->buf = malloc(LMP_MSG_LENGTH_BYTES);
@@ -576,6 +580,17 @@ errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp)
 }
 
 
+/**
+ * @brief Helper to create a message that should be sent.
+ *        This message needs a static buffer with the proper size.
+ *
+ * @param ret_msg
+ * @param msg_type
+ * @param payload_size
+ * @param payload
+ * @param msg_cap
+ * @return errval_t
+ */
 errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
                                          aos_rpc_msg_type_t msg_type, size_t payload_size,
                                          void *payload, struct capref msg_cap,
@@ -600,7 +615,8 @@ errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
 
 
 /**
- * @brief helper to create a message that should be sent
+ * @brief Helper to create a message that should be sent.
+ *        This message is malloced and needs to be freed after it has been used.
  *
  * @param ret_msg
  * @param msg_type
@@ -608,6 +624,8 @@ errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
  * @param payload
  * @param msg_cap
  * @return errval_t
+ * 
+ * @note Make sure to free the message after it was used.
  */
 errval_t aos_lmp_create_msg(struct aos_lmp_msg **ret_msg, aos_rpc_msg_type_t msg_type,
                             size_t payload_size, void *payload, struct capref msg_cap)

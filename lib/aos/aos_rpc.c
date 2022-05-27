@@ -21,7 +21,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
     errval_t err = SYS_ERR_OK;
 
     // TODO-refactor: dynamic sizes
-    char buf[1024];
+    char buf[AOS_LMP_MSG_SIZE(msg.bytes)];
     if (rpc->is_lmp) {
         struct aos_lmp_msg *lmp_msg;
         if (!is_dynamic) {
@@ -36,6 +36,9 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
             return err;
         }
         err = aos_lmp_call(&rpc->u.lmp, lmp_msg, is_dynamic);
+        if (is_dynamic) {
+            free(lmp_msg);
+        }
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to send lmp message");
             return err;
@@ -83,7 +86,7 @@ errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send)
                                .cap = NULL_CAP };
 
     if (rpc->is_lmp) {
-        char buf[sizeof(struct aos_lmp_msg) + sizeof(errval_t) + 1];
+        char buf[AOS_LMP_MSG_SIZE(sizeof(errval_t))];
         struct aos_lmp_msg *lmp_msg;
         aos_lmp_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload,
                                               msg.cap, (struct aos_lmp_msg *)buf);
