@@ -7,45 +7,64 @@
 #include <drivers/pl011.h>
 #include <aos/inthandler.h>
 
-#define SERIAL_MAX_LINE_SIZE 1024
-#define SERIAL_MAX_HISTORY_SIZE 1024
+#define SERIAL_BUFFER_SIZE 1024
 #define MAX_OPEN_SESSIONS 1024
 
 static bool serial_init = false;
 
+/*
 struct session_state {
-    size_t line_index;
     size_t char_index;
 };
+ */
 
 struct serial_state {
-    size_t next_free_id;
     // circular buffer which stores the content of each
-    char history[SERIAL_MAX_HISTORY_SIZE][SERIAL_MAX_LINE_SIZE];
-    size_t line_length[SERIAL_MAX_LINE_SIZE]; // number of characters for each line
-    size_t valid_lines; // how many lines in the history are valid
-    size_t serial_line_index;
-    size_t serial_char_index;
-    struct session_state session_state[MAX_OPEN_SESSIONS];
+    char buffer[SERIAL_BUFFER_SIZE];
+    size_t next_free_id; /// next free session id
+    // numbers are easier to work with than _real_ pointers because wrap around can be computed with modulo
+    size_t next_write;
+    size_t next_read;
+    size_t num_valid_entries; /// count how many entries entries are valid
+    bool empty;
+
+    /*
+    size_t oldest_entry; /// pointer to the oldest char in the buffer
+    size_t next_free_entry; /// pointer to the next free entry in the buffer
+     */
+
+    //struct session_state session_state[MAX_OPEN_SESSIONS];
     struct pl011_s *uart_state;
     struct thread_mutex lock;
 } serial_state;
 
 __attribute__((unused))
 static void serial_interrupt_handler(void *arg) {
-    thread_mutex_lock(&serial_state.lock);
+    thread_mutex_lock(&serial_state.lock); // buffer shouldn't be modified while it is being read
 
+    // read char, put it into buffer, wrap around if necessary
     char c;
     pl011_getchar( serial_state.uart_state, &c);
-    serial_state.line_length[serial_state.serial_line_index]++;
-    if (c == 4 || c == 10 || c == 13) {
-        // 4: EOT, 10: NL, 13: CR
-        // finish line and set pointer to a new empty line
-        serial_state.history[serial_state.serial_line_index++][serial_state.serial_char_index] = c;
-        serial_state.serial_char_index = 0;
-    } else {
-        serial_state.history[serial_state.serial_line_index][serial_state.serial_char_index++] = c;
+    if(!serial_state.empty && serial_state.next_read == serial_state.next_write) {
+       serial_state.next_read = (serial_state.next_read+1)%SERIAL_BUFFER_SIZE;
     }
+
+    serial_state.buffer[serial_state.next_write++] = c;
+    serial_state.next_write %= SERIAL_BUFFER_SIZE;
+    serial_state.empty = false;
+
+
+    //serial_state.num_valid_entries = MAX(SERIAL_BUFFER_SIZE, serial_state.num_valid_entries+1); // after wrap around, everything is valid
+    /*
+    // after the buffer has wrapped once, the
+    if(serial_state.num_valid_entries == SERIAL_BUFFER_SIZE) {
+        if(serial_state.next_read < serial_state.next_write)
+       for (int i = 0; i < serial_state.next_free_id; ++i) {
+           if (serial_state.session_state[i].char_index < serial_state.next_free_entry) {
+               serial_state.session_state->char_index = serial_state.next_free_entry;
+           }
+       }
+    } */
 
     thread_mutex_unlock(&serial_state.lock);
 }
@@ -59,21 +78,33 @@ __attribute__((unused))
 errval_t serial_get_char(struct aos_lmp *lmp, struct serialio_response *serial_response) {
     thread_mutex_lock(&serial_state.lock);
 
+    /*
     size_t internal_session_id;
     //DEBUG_PRINTF("Serial channel id: %zu \n", lmp->serial_channel_id);
     if(lmp->serial_channel_id == 0) {
-        lmp->serial_channel_id = serial_state.next_free_id++;
+        lmp->serial_channel_id = (serial_state.next_free_id++)+1;  // 0 is reserved for "no_session"
     }
-
-    internal_session_id = lmp->serial_channel_id-1; // 0 is reserved for "no_session". But to use this as index, we need to subtract 1
+    internal_session_id = lmp->serial_channel_id-1;
+     */
 
     serial_response->response_type = SERIAL_IO_NO_DATA;
+    if(!serial_state.empty) {
+        serial_response->c = serial_state.buffer[serial_state.next_read++];
+        serial_state.next_read %= SERIAL_BUFFER_SIZE;
+        serial_state.empty = (serial_state.next_read == serial_state.next_write);
+        serial_response->response_type = SERIAL_IO_SUCCESS;
+    }
+
+    /*
+    // ToDo: change initial position to oldest entry
+    //serial_state.session_state[internal_session_id]
+
+
 
     if(serial_state.session_state[internal_session_id].line_index == serial_state.serial_line_index) {
         // reading from line where input is currently writing onto
         if(serial_state.session_state[internal_session_id].char_index < serial_state.serial_char_index) {
             serial_response->c = serial_state.history[serial_state.session_state[internal_session_id].line_index][serial_state.session_state[internal_session_id].char_index++];
-            serial_response->response_type = SERIAL_IO_SUCCESS;
         }
     }
 
@@ -92,6 +123,7 @@ errval_t serial_get_char(struct aos_lmp *lmp, struct serialio_response *serial_r
         }
     }
 
+     */
     thread_mutex_unlock(&serial_state.lock);
     return SYS_ERR_OK;
 }
@@ -110,7 +142,8 @@ errval_t init_serial_server(enum serialio_type uart_type) {
     memset(&serial_state, 0, sizeof(struct serial_state));
 
     thread_mutex_init(&serial_state.lock);
-    serial_state.next_free_id = 1;
+    serial_state.next_free_id = 0;
+    serial_state.empty = true;
 
     void *vbase_pl011;
     void *vbase_gic;

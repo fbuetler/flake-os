@@ -4,7 +4,7 @@
 
 errval_t write_str(char *str);
 
-#define RECV_BUFFER_SIZE 1024
+#define RECV_BUFFER_SIZE 64
 
 struct shell_state {
     bool exit; // flag to check if the shell should exit itself

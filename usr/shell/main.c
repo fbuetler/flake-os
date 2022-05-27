@@ -110,8 +110,15 @@ static void handle_input(void) {
                 }
             }
             else {
-                shell_state.line_buffer[shell_state.buffer_count++] = c;
-                aos_rpc_serial_putchar(shell_state.serial_rpc, c);
+                if(shell_state.buffer_count >= RECV_BUFFER_SIZE-1) {
+                    write_str("\n");
+                    write_str("Command too long!\n");
+                    write_str("> ");
+                    shell_state.buffer_count = 0;
+                } else {
+                    shell_state.line_buffer[shell_state.buffer_count++] = c;
+                    aos_rpc_serial_putchar(shell_state.serial_rpc, c);
+                }
             }
         }
         thread_yield(); // cooperative multitasking. Yield control to let other processes make progress, such as the serial_io library
