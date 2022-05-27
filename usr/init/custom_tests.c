@@ -1065,6 +1065,24 @@ void run_m6_tests(void)
     DEBUG_PRINTF("Completed %s\n", __func__);
 }
 
+static void run_m7_network_tests(void)
+{
+    errval_t err;
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = spawn_process("echoserver", si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn echoserver");
+    }
+    assert(err_is_ok(err));
+}
+
+void run_m7_tests(void)
+{
+    run_m7_network_tests();
+}
+
 void run_tests(void)
 {
     run_m6_tests();
