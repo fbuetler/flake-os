@@ -51,6 +51,7 @@ struct aos_lmp_msg {
 enum aos_rpc_channel_type {
     AOS_RPC_BASE_CHANNEL,
     AOS_RPC_MEMORY_CHANNEL,
+    AOS_RPC_CLIENT_SERVER_CHANNEL,
 };
 
 enum aos_rpc_service {
@@ -61,16 +62,19 @@ enum aos_rpc_service {
 void aos_process_number(struct aos_lmp *msg);
 void aos_process_string(struct aos_lmp *msg);
 
+errval_t aos_lmp_event_handler(struct aos_lmp *lmp);
+errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp);
+
 /**
  * @brief Initialize an aos_lmp struct from parent to child
  */
-errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *init_lmp,
-                                         struct aos_lmp *child_lmp,
-                                         struct capref recv_cap);
+errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp);
 /**
  * \brief Initialize an aos_lmp struct from child to parent.
  */
-errval_t aos_lmp_init(struct aos_lmp *lmp, enum aos_rpc_channel_type chan_type);
+errval_t aos_lmp_init_static(struct aos_lmp *lmp, enum aos_rpc_channel_type);
+errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap);
+errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp);
 
 errval_t aos_lmp_parent_init(struct aos_lmp *lmp);
 
@@ -102,6 +106,11 @@ errval_t aos_lmp_send_msg(struct aos_lmp *lmp, struct aos_lmp_msg *msg);
  * @brief Register a receive handler that should be called on icoming messages
  */
 errval_t aos_lmp_register_recv(struct aos_lmp *lmp, process_msg_func_t process_msg_func);
+
+/**
+ * @brief Reregister a receive handler on a channel that has already been registered
+ */
+errval_t aos_lmp_reregister_recv(struct aos_lmp *lmp, process_msg_func_t process_msg_func);
 
 /**
  * @brief Synchronously send a message

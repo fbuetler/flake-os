@@ -1,3 +1,4 @@
+#include <aos/nameserver.h>
 #include <aos/aos_rpc.h>
 
 void aos_rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan)
@@ -11,6 +12,7 @@ void aos_rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan)
     rpc->u.lmp = *chan;
     rpc->is_lmp = true;
 }
+
 
 // TODO-refactor: currently only for static bufs if lmp (no too large messages)
 errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
@@ -53,9 +55,8 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
             }
         }
 
-
     } else {
-        if (!capcmp(msg.cap, NULL_CAP)) {
+        if (!capref_is_null (msg.cap)) {
             // TODO-refactor
         }
         return aos_ump_call(&rpc->u.ump, msg.type, msg.payload, msg.bytes, &retmsg->type,
@@ -71,6 +72,48 @@ errval_t aos_rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t co
     rpc->is_lmp = false;
     errval_t err = aos_ump_bind(&init_lmp->u.lmp, &rpc->u.ump, core, service);
     return err;
+}
+
+errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send)
+{
+    errval_t err;
+    struct aos_rpc_msg msg = { .type = AosRpcErrvalResponse,
+                               .payload = (char *)&err_send,
+                               .bytes = sizeof(errval_t),
+                               .cap = NULL_CAP };
+
+    if (rpc->is_lmp) {
+        char buf[sizeof(struct aos_lmp_msg) + sizeof(errval_t) + 1];
+        struct aos_lmp_msg *lmp_msg;
+        aos_lmp_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload,
+                                              msg.cap, (struct aos_lmp_msg *)buf);
+        err = aos_lmp_send_msg(&rpc->u.lmp, lmp_msg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to send lmp message");
+            return err;
+        }
+    } else {
+        err = aos_ump_send(&rpc->u.ump, msg.type, msg.payload, msg.bytes);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to send ump message");
+            return err;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
+void aos_rpc_process_client_request(struct aos_rpc_msg *request,
+                                    struct aos_rpc_msg *response)
+{
+    //DEBUG_PRINTF("Received a message from a client\n");
+    struct nameservice_rpc_msg *msg = (struct nameservice_rpc_msg *)request->payload;
+
+    response->type = AosRpcServerResponse;
+
+    // call handler
+    msg->handler(msg->st, msg->message, msg->bytes, (void **)&response->payload,
+                 &response->bytes, request->cap, &response->cap);
 }
 
 errval_t aos_rpc_send_number(struct aos_rpc *aos_rpc, uintptr_t num)
@@ -272,7 +315,6 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
     err = aos_rpc_call(rpc, request, &response, false);
 
     domainid_t assigned_pid = *((domainid_t *)response.payload);
-    DEBUG_PRINTF("spawned process with PID 0x%lx\n", assigned_pid);
     *newpid = assigned_pid;
 
     free(payload);

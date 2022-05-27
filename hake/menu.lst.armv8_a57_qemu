@@ -12,5 +12,7 @@ module  /armv8/sbin/demom5
 module  /armv8/sbin/demom6
 module  /armv8/sbin/selfpaging
 module  /armv8/sbin/selfpaging_already_handled
+module  /armv8/sbin/nameservicetest
+module  /armv8/sbin/nameservicetestclient
 
 # End of file, this needs to have a certain length...
