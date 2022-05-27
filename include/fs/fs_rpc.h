@@ -4,6 +4,33 @@
 #include <aos/aos.h>
 #include <fs/fat32fs.h>
 
+typedef enum fs_msg_type{
+    AosRpcFsOpen,
+    AosRpcFsOpenResponse,
+    AosRpcFsClose,
+    AosRpcFsCloseResponse,
+    AosRpcFsRead,
+    AosRpcFsReadResponse,
+    AosRpcFsWrite,
+    AosRpcFsWriteResponse,
+    AosRpcFsRm,
+    AosRpcFsRmResponse,
+    AosRpcFsLSeek,
+    AosRpcFsLSeekResponse,
+    AosRpcFsFStat,
+    AosRpcFsFStatResponse,
+    AosRpcFsMkDir,
+    AosRpcFsMkDirResponse,
+    AosRpcFsRmDir,
+    AosRpcFsRmDirResponse,
+    AosRpcFsReadDir,
+    AosRpcFsReadDirResponse,
+    AosRpcFsCreate,
+    AosRpcFsCreateResponse
+} fs_msg_type_t;
+
+
+
 struct rpc_fs_open_request{
     domainid_t pid;
     int flags;
@@ -14,6 +41,15 @@ struct rpc_fs_open_response{
     struct fat32fs_handle handle;
 };
 
+struct rpc_fs_create_request{
+    int flags;
+    char path[0];
+};
+
+struct rpc_fs_create_response{
+    errval_t err;
+    struct fat32fs_handle handle;
+};
 struct rpc_fs_close_request{
     domainid_t pid;
     domainid_t fid;
@@ -91,6 +127,16 @@ struct rpc_fs_readdir_response{
     char name[0];
 };
 
+struct rpc_fs_msg{
+    fs_msg_type_t type;
+    char msg[0];
+   
+};
+
 errval_t fs_handle_rpc_req(struct aos_lmp *lmp);
+
+void fs_srv_handler(void *st, void *message, size_t bytes,
+            void **response, size_t *response_bytes,
+            struct capref tx_cap, struct capref *rx_cap);
 
 #endif

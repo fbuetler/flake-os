@@ -75,8 +75,6 @@ static int bsp_main(int argc, char *argv[])
     // Grading
     grading_test_early();
 
-    run_nameserver_tests();
-
     // run_m1_tests();
     // run_m2_tests();
     // run_m3_tests();
@@ -90,6 +88,9 @@ static int bsp_main(int argc, char *argv[])
             DEBUG_ERR(err, "failed to boot core");
         }
     }
+    
+    struct spawninfo *si;
+    spawn_sdhc_driver(&si);
 
     // run_m5_tests();
     // run_m6_tests();

@@ -5,10 +5,11 @@
 #include <fs/fs.h>
 #include <fs/dirent.h>
 #include <collections/str_hashmap.h>
+#include <aos/nameserver.h>
 
 typedef uint32_t fileref_id_t;
 
-#define RPC_FS_RW_CHUNK_SIZE 1024
+#define RPC_FS_RW_CHUNK_SIZE 512
 
 struct fat32fs_dirent {
     char *name;
@@ -24,7 +25,7 @@ struct fat32fs_handle {
     fileref_id_t fid;
     domainid_t pid;
 
-    const char *path;
+    char *path;
     struct fat32fs_dirent *dirent;
 
     union {
@@ -53,6 +54,8 @@ struct fs_state {
 };
 
 struct fs_state fs_state;
+
+nameservice_chan_t fs_chan;
 
 void fat32fs_add_file_handler(domainid_t pid, struct fat32fs_handle *handle);
 
