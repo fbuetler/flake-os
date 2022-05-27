@@ -51,7 +51,16 @@ typedef enum aos_rpc_msg_type {
     AosRpcFsRmDir,
     AosRpcFsRmDirResponse,
     AosRpcFsReadDir,
-    AosRpcFsReadDirResponse
+    AosRpcFsReadDirResponse,
+    AosRpcErrvalResponse,
+    AosRpcNsRegister,
+    AosRpcNsLookup,
+    AosRpcNsLookupResponse,
+    ///< An LMP bind request consists of a PID corresponding to a domain we would like to
+    ///< bind to. The response is an errval response with the cap of the server endpoint.
+    AosRpcLmpBind,
+    AosRpcClientRequest,
+    AosRpcServerResponse
 } aos_rpc_msg_type_t;
 
 struct aos_rpc_msg {
