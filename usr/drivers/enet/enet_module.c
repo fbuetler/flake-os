@@ -688,7 +688,7 @@ int main(int argc, char *argv[])
 
         struct safe_free_node *free_node = (struct safe_free_node *)malloc(
             sizeof(struct safe_free_node));
-        if (!buf) {
+        if (!free_node) {
             err = LIB_ERR_MALLOC_FAIL;
             return err;
         }
