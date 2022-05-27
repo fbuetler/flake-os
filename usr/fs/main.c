@@ -29,6 +29,7 @@
 #include <fs/fat32fs.h>
 #include <fs/dirent.h>
 #include <fs/fs_rpc.h>
+#include <aos/nameserver.h>
 
 __attribute__((unused))
 static void test_encode_decode(char *src){
@@ -38,23 +39,19 @@ static void test_encode_decode(char *src){
     printf("'%.11s' -> '%s'\n", encoded, result);
 }
 
-
 int main(int argc, char *argv[])
 {
-    errval_t err = filesystem_init();
+    fs_init();
 
+    errval_t err;
+
+    char ccc = 0;
+    err = nameservice_register(NS_FS_NAME, fs_srv_handler, (void *)&ccc);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "filesystem_init failed");
-    }
-
-    // TODO use nameserver here
-    struct aos_rpc *rpc = get_init_rpc();
-
-    err = aos_lmp_register_recv(&rpc->u.lmp, fs_handle_rpc_req);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to register receive handler");
+        DEBUG_ERR(err, "Failed to register fsreceive handler");
         return err;
     }
+
 
     struct waitset *ws = get_default_waitset();
     while(1) {
@@ -64,6 +61,8 @@ int main(int argc, char *argv[])
             return err;
         }
     }
+
+    return 0;
 
     /*
     struct fat32fs_handle *h;

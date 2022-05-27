@@ -332,9 +332,12 @@ __attribute__((unused)) static errval_t aos_lmp_recv_msg_blocking(struct aos_lmp
         }
     }
 
+
     if (!capref_is_null(msg_cap)) {
         // allocate new receive slot if we received a cap
+        DEBUG_PRINTF("wellwell\n");
         err = lmp_chan_alloc_recv_slot(&lmp->chan);
+        DEBUG_PRINTF("there it is\n");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Could not allocate receive slot");
             return err;

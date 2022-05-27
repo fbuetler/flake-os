@@ -156,6 +156,7 @@ errval_t nameservice_rpc(nameservice_chan_t chan, void *message, size_t bytes,
     nsrpcmsg->st = chan->st;
     nsrpcmsg->bytes = bytes;
     memcpy(nsrpcmsg->message, message, bytes);
+    DEBUG_PRINTF("ptr: %p, bytes: %zu\n", nsrpcmsg, bytes);
 
     struct aos_rpc_msg msg = { .type = AosRpcClientRequest,
                                .payload = (char *)nsrpcmsg,
@@ -171,9 +172,13 @@ errval_t nameservice_rpc(nameservice_chan_t chan, void *message, size_t bytes,
     }
 
     *response = (void *)ret_msg.payload;
-    *response_bytes = ret_msg.bytes;
-    *rx_cap = ret_msg.cap;
+    if(response_bytes)
+        *response_bytes = ret_msg.bytes;
+    if(rx_cap){
+        *rx_cap = ret_msg.cap;
+    }
 
+    DEBUG_PRINTF("oh boy\n");
     return SYS_ERR_OK;
 }
 

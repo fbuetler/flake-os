@@ -1050,9 +1050,7 @@ void run_m6_tests(void)
 {
     switch (disp_get_current_core_id()) {
     case 0:{
-        struct spawninfo *si;
-        spawn_sdhc_driver(&si);
-
+        test_spawn_process("demom6"); 
         break;
     }
     case 1:

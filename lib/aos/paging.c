@@ -101,9 +101,11 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     // * disallowing any mapping outside the ranges that you defined as valid for heap, stack
     // * add a guard page to the process’ stack
     struct paging_state *st = get_current_paging_state();
+    DEBUG_PRINTF("pfault\n ");
     thread_mutex_lock_nested(&st->paging_mutex);
 
     lvaddr_t vaddr = (lvaddr_t)addr;
+
 
     mm_tracker_t *vspace_tracker;
     if (vaddr < VREADONLY_OFFSET) {
@@ -119,6 +121,8 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         vspace_tracker = &st->vstack_tracker;
     } else {
         err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
+
+        DEBUG_PRINTF("fault at PC: 0x%lx\n", regs->named.pc);
         USER_PANIC_ERR(err, "vadddr is way off limits");
         goto unlock;
     }
@@ -147,6 +151,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         DEBUG_ERR(err, "failed to allocate frame");
         goto unlock;
     }
+    
 
     if (allocated_bytes < BASE_PAGE_SIZE) {
         DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "allocated frame is not big "
@@ -156,7 +161,6 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     }
 
     // mm_tracker_debug_print(vspace_tracker);
-
 
     // install frame at the faulting address
     err = paging_map_fixed_attr(st, vaddr_aligned, frame, allocated_bytes,

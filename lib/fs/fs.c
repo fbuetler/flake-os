@@ -42,7 +42,16 @@ errval_t filesystem_init(void)
         return err;
     }
 
-    fs_init();
+    while(1){
+        err = nameservice_lookup(NS_FS_NAME, &fs_chan);
+        if (err_is_fail(err)) {
+        }else{
+            break;
+        }
+
+        barrelfish_usleep(1 * 1000 * 1000);
+    }
+
 
     /* TODO: Mount your sdcard at /sdcard */
 

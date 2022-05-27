@@ -34,7 +34,10 @@ void fat32fs_add_file_handler(domainid_t pid, struct fat32fs_handle *handle)
     } else {
         node->next = old_head;
     }
+    hashmap_remove(&fs_state.path2handle, handle->path, pathlen);
     hashmap_put(&fs_state.path2handle, handle->path, pathlen, node);
+
+    assert(hashmap_get(&fs_state.path2handle, handle->path, pathlen));
 }
 
 struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d,
@@ -47,9 +50,10 @@ struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d,
     }
     h->dirent = d;
     h->curr_data_cluster = d->start_data_cluster;
-    h->path = path;
+    h->path = strdup(path);
 
     fat32fs_add_file_handler(pid, h);
+
     return h;
 }
 
@@ -104,7 +108,7 @@ void fat32fs_handle_close(struct fat32fs_handle *h)
 
     struct handle_list_node *head = hashmap_get(&fs_state.path2handle, h->path,
                                                 strlen(h->path));
-    
+    assert(head); 
     if(head->next == NULL){
         // remove all the entries
         hashmap_remove(&fs_state.path2handle, h->path, strlen(h->path));
@@ -122,7 +126,7 @@ void fat32fs_handle_close(struct fat32fs_handle *h)
         }
     }
                  
-
+    free(h->path);
     free(h->dirent);
 }
 
@@ -220,8 +224,6 @@ errval_t fat32fs_open(domainid_t pid, struct fat32fs_mount *mount, const char *p
 
     *rethandle = handle;
 
-    debug_printf("fsize: %d\n", handle->dirent->size);
-
     return SYS_ERR_OK;
 }
 
@@ -255,6 +257,8 @@ errval_t fat32fs_read(struct fat32fs_handle *h, void *buffer, size_t bytes,
     h->curr_data_cluster = new_data_cluster;
     h->u.file_offset += bytes;
     *bytes_read = bytes;
+
+    DEBUG_PRINTF("done 22\n");
 
     return SYS_ERR_OK;
 }
