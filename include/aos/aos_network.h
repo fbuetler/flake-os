@@ -6,7 +6,7 @@
 
 #define ENET_SERVICE_NAME "enetservice"
 
-#define AOS_NETWORK_DEBUG_OPTION 1
+// #define AOS_NETWORK_DEBUG_OPTION 1
 
 #if defined(AOS_NETWORK_DEBUG_OPTION)
 #    define AOS_NETWORK_DEBUG(x...) debug_printf("[network] " x);
@@ -49,7 +49,7 @@ struct aos_socket_msg_udp_send_request {
     ip_addr_t ip_remote;
     uint16_t port_remote;
     size_t bytes;
-    char *data;
+    char data[0];
 };
 
 struct aos_socket_msg_udp_recv_request {
@@ -60,7 +60,7 @@ struct aos_socket_msg_udp_recv_response {
     ip_addr_t ip_remote;
     uint16_t port_remote;
     size_t bytes;
-    char *data;
+    char data[0];
 };
 
 struct aos_socket_msg_icmp_send_request {
@@ -69,7 +69,7 @@ struct aos_socket_msg_icmp_send_request {
     uint16_t id;
     uint16_t seqno;
     size_t bytes;
-    char *data;
+    char data[0];
 };
 
 struct aos_socket_msg_icmp_recv_response {
@@ -78,7 +78,7 @@ struct aos_socket_msg_icmp_recv_response {
     uint16_t id;
     uint16_t seqno;
     size_t bytes;
-    char *data;
+    char data[0];
 };
 
 union aos_socket_msg_payload {

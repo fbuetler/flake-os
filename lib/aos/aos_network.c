@@ -2,17 +2,22 @@
 
 #include <aos/aos_network.h>
 
+static nameservice_chan_t network_chan;
+
+// TODO implement ICMP calls
+
 errval_t aos_udp_socket_create(uint16_t port, struct aos_udp_socket **socket)
 {
     errval_t err;
 
     // setup channel
-    nameservice_chan_t chan;
-    AOS_NETWORK_DEBUG("lookup enet service\n");
-    err = nameservice_lookup(ENET_SERVICE_NAME, &chan);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to lookup service");
-        return err;
+    if (!network_chan) {
+        AOS_NETWORK_DEBUG("lookup enet service\n");
+        err = nameservice_lookup(ENET_SERVICE_NAME, &network_chan);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to lookup service");
+            return err;
+        }
     }
 
     // setup request
@@ -28,14 +33,14 @@ errval_t aos_udp_socket_create(uint16_t port, struct aos_udp_socket **socket)
     };
 
     void *request = msg;
-    size_t request_bytes = sizeof(*msg);
+    size_t request_bytes = sizeof(struct aos_socket_msg);
 
     AOS_NETWORK_DEBUG("send create socket message\n");
     // get response
     void *response;
     size_t response_bytes;
-    err = nameservice_rpc(chan, request, request_bytes, &response, &response_bytes,
-                          NULL_CAP, NULL);
+    err = nameservice_rpc(network_chan, request, request_bytes, &response,
+                          &response_bytes, NULL_CAP, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message to network service");
         return err;
@@ -59,11 +64,12 @@ errval_t aos_udp_socket_release(struct aos_udp_socket *socket)
     errval_t err;
 
     // setup channel
-    nameservice_chan_t chan;
-    err = nameservice_lookup(ENET_SERVICE_NAME, &chan);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to lookup service");
-        return err;
+    if (!network_chan) {
+        err = nameservice_lookup(ENET_SERVICE_NAME, &network_chan);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to lookup service");
+            return err;
+        }
     }
 
     // setup request
@@ -78,13 +84,13 @@ errval_t aos_udp_socket_release(struct aos_udp_socket *socket)
     };
 
     void *request = msg;
-    size_t request_bytes = sizeof(*msg);
+    size_t request_bytes = sizeof(struct aos_socket_msg);
 
     // get response
     void *response;
     size_t response_bytes;
-    err = nameservice_rpc(chan, request, request_bytes, &response, &response_bytes,
-                          NULL_CAP, NULL);
+    err = nameservice_rpc(network_chan, request, request_bytes, &response,
+                          &response_bytes, NULL_CAP, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message to network service");
         return err;
@@ -101,11 +107,16 @@ errval_t aos_udp_socket_send(struct aos_udp_socket *socket, ip_addr_t ip, uint16
     errval_t err;
 
     // setup channel
-    nameservice_chan_t chan;
-    err = nameservice_lookup(ENET_SERVICE_NAME, &chan);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to lookup service");
-        return err;
+    if (!network_chan) {
+        err = nameservice_lookup(ENET_SERVICE_NAME, &network_chan);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to lookup service");
+            return err;
+        }
+    }
+
+    if (message_size < 1) {
+        return SYS_ERR_OK;
     }
 
     // setup request
@@ -121,16 +132,16 @@ errval_t aos_udp_socket_send(struct aos_udp_socket *socket, ip_addr_t ip, uint16
         .port_remote = port,
         .bytes = message_size,
     };
-    memcpy(msg->payload.udp_send_req.data, message, message_size);
+    memcpy(msg + 1, message, message_size);
 
     void *request = msg;
-    size_t request_bytes = sizeof(*msg);
+    size_t request_bytes = sizeof(struct aos_socket_msg) + message_size;
 
     // get response
     void *response;
     size_t response_bytes;
-    err = nameservice_rpc(chan, request, request_bytes, &response, &response_bytes,
-                          NULL_CAP, NULL);
+    err = nameservice_rpc(network_chan, request, request_bytes, &response,
+                          &response_bytes, NULL_CAP, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message to network service");
         return err;
@@ -149,13 +160,13 @@ errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, ip_addr_t *ip, uint1
     errval_t err;
 
     // setup channel
-    nameservice_chan_t chan;
-    err = nameservice_lookup(ENET_SERVICE_NAME, &chan);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to lookup service");
-        return err;
+    if (!network_chan) {
+        err = nameservice_lookup(ENET_SERVICE_NAME, &network_chan);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to lookup service");
+            return err;
+        }
     }
-
 
     // setup request
     struct aos_socket_msg *msg = (struct aos_socket_msg *)malloc(
@@ -169,13 +180,13 @@ errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, ip_addr_t *ip, uint1
     };
 
     void *request = msg;
-    size_t request_bytes = sizeof(*msg);
+    size_t request_bytes = sizeof(struct aos_socket_msg);
 
     // get response
     void *response;
     size_t response_bytes;
-    err = nameservice_rpc(chan, request, request_bytes, &response, &response_bytes,
-                          NULL_CAP, NULL);
+    err = nameservice_rpc(network_chan, request, request_bytes, &response,
+                          &response_bytes, NULL_CAP, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message to network service");
         return err;
@@ -190,7 +201,7 @@ errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, ip_addr_t *ip, uint1
     if (!*message) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    memcpy(*message, payload.data, payload.bytes);
+    memcpy(*message, msg_resp + 1, payload.bytes);
     *message_size = payload.bytes;
 
     // free(msg);

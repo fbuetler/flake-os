@@ -23,16 +23,24 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
+    if (argc != 3) {
+        err = LIB_ERR_SHOULD_NOT_GET_HERE;
+        DEBUG_ERR(err, "invalid number of arguments");
+        return err;
+    }
+
+    uint16_t listening_port = atoi(argv[2]);
+
     // start server on port
     debug_printf("Creating socket\n");
     struct aos_udp_socket *sock;
-    err = aos_udp_socket_create(1234, &sock);
+    err = aos_udp_socket_create(listening_port, &sock);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create socket");
         return err;
     }
 
-    debug_printf("Echo server is listening...\n");
+    debug_printf("Echo server is listening on port %d...\n", listening_port);
     while (1) {
         // listen for messages
         char *msg;
@@ -45,7 +53,10 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        DEBUG_PRINTF("got messages: %s\n", msg);
+        if (strlen(msg) == 0) {
+            continue;
+        }
+        DEBUG_PRINTF("got messages: '%s'\n", msg);
 
         // echo them back
         err = aos_udp_socket_send(sock, ip, port, msg, size);
