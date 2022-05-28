@@ -252,6 +252,45 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
     return SYS_ERR_OK;
 }
 
+static int enet_udp_send_hack(void *arg)
+{
+    errval_t err;
+
+    struct enet_driver_state *st = (struct enet_driver_state *)arg;
+
+    // HACK to read packet
+    struct udp_socket *hack_socket = st->udp_sockets;
+    while (hack_socket) {
+        if (hack_socket->port == ENET_STATIC_PORT) {
+            break;
+        }
+        hack_socket = hack_socket->next;
+    }
+    assert(hack_socket);
+
+    struct udp_socket_buf *buf;
+    err = enet_udp_socket_receive(st, hack_socket->port, &buf);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to receive");
+        return err;
+    }
+
+    UDP_DEBUG("from 0x%08x %d\n", buf->ip, buf->port);
+    for (int i = 0; i < buf->len; i++) {
+        UDP_DEBUG("%02d: 0x%02x\n", i, ((char *)buf->data)[i]);
+    }
+
+    // hack send packet
+    err = enet_udp_socket_send(st, ENET_STATIC_PORT, MK_IP(10, 42, 0, 1), 8051, "ciao\n",
+                               5);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send");
+        return err;
+    }
+
+    return 0;
+}
+
 static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_hdr *eth)
 {
     errval_t err;
@@ -310,34 +349,7 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     }
 
 #ifdef UDP_HACK
-    // HACK to read packet
-    struct udp_socket *hack_socket = st->udp_sockets;
-    while (hack_socket) {
-        if (hack_socket->port == ntohs(udp->dest)) {
-            break;
-        }
-        hack_socket = hack_socket->next;
-    }
-    assert(hack_socket);
-
-    struct udp_socket_buf *buf;
-    err = enet_udp_socket_receive(st, hack_socket->port, &buf);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to receive");
-        return err;
-    }
-
-    UDP_DEBUG("from 0x%08x %d\n", buf->ip, buf->port);
-    for (int i = 0; i < buf->len; i++) {
-        UDP_DEBUG("%02d: 0x%02x\n", i, ((char *)buf->data)[i]);
-    }
-
-    // hack send packet
-    err = enet_udp_socket_send(st, ENET_STATIC_PORT, ntohl(ip->src), 8051, "ciao\n", 5);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send");
-        return err;
-    }
+    thread_create(enet_udp_send_hack, st);
 #endif
 
     return SYS_ERR_OK;
