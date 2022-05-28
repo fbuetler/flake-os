@@ -32,15 +32,14 @@ void aos_process_ram_cap_request(struct aos_lmp *lmp)
     errval_t err;
 
     // read ram request properties
-    size_t bytes = ((size_t *)lmp->recv_msg->payload)[0];
-    size_t alignment = ((size_t *)lmp->recv_msg->payload)[1];
+    struct ram_cap_request *req = (struct ram_cap_request*) lmp->recv_msg->payload;
 
     // grading call
-    grading_rpc_handler_ram_cap(bytes, alignment);
+    grading_rpc_handler_ram_cap(req->bytes, req->alignment);
 
     // alloc ram
     struct capref ram_cap;
-    err = ram_alloc_aligned(&ram_cap, bytes, alignment);
+    err = ram_alloc_aligned(&ram_cap, req->bytes, req->alignment);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "ram_alloc in ram cap request failed");
         return;
@@ -577,6 +576,8 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         break;
     }
     // DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
-    //  TODO: free msg
+    
+    aos_lmp_msg_free(lmp);
+
     return SYS_ERR_OK;
 }

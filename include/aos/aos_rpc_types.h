@@ -50,4 +50,9 @@ struct aos_rpc_msg {
     struct capref cap;
 };
 
+struct ram_cap_request {
+    size_t bytes;
+    size_t alignment;
+};
+
 #endif

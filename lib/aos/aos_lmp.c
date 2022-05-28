@@ -49,9 +49,8 @@ void aos_process_number(struct aos_lmp *lmp)
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
     char buf[AOS_LMP_MSG_SIZE(payload_size)];
-    err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcSendNumberResponse,
-                                                   payload_size, NULL, NULL_CAP,
-                                                   (struct aos_lmp_msg *)buf);
+    err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcSendNumberResponse, payload_size,
+                                          NULL, NULL_CAP, (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return;
@@ -95,20 +94,20 @@ void aos_process_string(struct aos_lmp *lmp)
 
 static errval_t aos_rpc_process_lmp_bind(struct aos_lmp *lmp)
 {
-    //DEBUG_PRINTF("Received LMP bind request\n");
+    // DEBUG_PRINTF("Received LMP bind request\n");
     errval_t err;
 
     struct aos_lmp_msg *msg = lmp->recv_msg;
     struct capref client_ep_cap = msg->cap;
 
-    //DEBUG_PRINTF("Allocating new RPC\n");
+    // DEBUG_PRINTF("Allocating new RPC\n");
     struct aos_lmp *new = malloc(sizeof(struct aos_lmp));
     if (new == NULL) {
         DEBUG_PRINTF("Failed to allocate new LMP binding\n");
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    //DEBUG_PRINTF("Initialize LMP endpoint\n");
+    // DEBUG_PRINTF("Initialize LMP endpoint\n");
     err = aos_lmp_init(new, client_ep_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to initialize new LMP binding to client");
@@ -121,7 +120,7 @@ static errval_t aos_rpc_process_lmp_bind(struct aos_lmp *lmp)
         return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
     }
 
-    //DEBUG_PRINTF("Register receive handler\n");
+    // DEBUG_PRINTF("Register receive handler\n");
     err = aos_lmp_register_recv(new, aos_lmp_server_event_handler);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to register receive function for new LMP binding");
@@ -139,6 +138,7 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         aos_process_handshake(lmp->recv_msg);
         break;
     case AosRpcClientRequest: {
+        DEBUG_PRINTF("Handling client request\n")
         struct aos_lmp_msg *msg = lmp->recv_msg;
         struct aos_rpc_msg request = { .type = msg->message_type,
                                        .payload = msg->payload,
@@ -147,6 +147,8 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         struct aos_rpc_msg response;
         response.cap = NULL_CAP;
         aos_rpc_process_client_request(&request, &response);
+
+        DEBUG_PRINTF("Done handling client request\n");
         struct aos_lmp_msg *ret_msg;
         aos_lmp_create_msg(&ret_msg, AosRpcServerResponse, response.bytes,
                            response.payload, response.cap);
@@ -161,13 +163,16 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         break;
     }
 
+    aos_lmp_msg_free(lmp);
+
     return SYS_ERR_OK;
 }
 
 errval_t aos_lmp_event_handler(struct aos_lmp *lmp)
 {
     // should only handle incoming messages not initiated by us
-    aos_rpc_msg_type_t msg_type = lmp->recv_msg->message_type;
+    struct aos_lmp_msg *msg = lmp->recv_msg;
+    aos_rpc_msg_type_t msg_type = msg->message_type;
     switch (msg_type) {
     case AosRpcHandshake:
         aos_process_handshake(lmp->recv_msg);
@@ -185,10 +190,11 @@ errval_t aos_lmp_event_handler(struct aos_lmp *lmp)
         break;
     default:
         DEBUG_PRINTF("received unknown message type %d\n", msg_type);
-        // free(lmp->recv_msg);
         break;
     }
-    // TODO: free msg
+
+    aos_lmp_msg_free(lmp);
+
     return SYS_ERR_OK;
 }
 
@@ -214,9 +220,30 @@ static errval_t aos_lmp_recv_msg_handler(void *args)
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief Helper function to free an LMP message contained in a struct aos_lmp
+ *        This function will set lmp->recv_bytes to 0, in case it uses a
+ *        dynamic buffer, free the lmp->recv_msg, and set the lmp->recv_msg to NULL.
+ *
+ * @param lmp pointer to the LMP channel instance
+ */
+void aos_lmp_msg_free(struct aos_lmp *lmp)
+{
+    lmp->recv_bytes = 0;
+
+    if (lmp->use_dynamic_buf) {
+        free(lmp->recv_msg);
+    }
+
+    lmp->recv_msg = NULL;
+}
+
 __attribute__((unused)) static char STATIC_RPC_RECV_MSG_BUF[4096];
 /**
  * @brief Helper function which extracts the first LMP message
+ *        If the LMP channel uses a dynamic buffer, then the message is malloced
+ *        and needs to be freed. Otherwise, a static buffer is used.
+ *        A message should be freed using aos_lmp_msg_free.
  *
  * @param lmp
  * @param msg_cap
@@ -335,15 +362,6 @@ __attribute__((unused)) static errval_t aos_lmp_recv_msg_blocking(struct aos_lmp
         }
     }
 
-    if (!capref_is_null(msg_cap)) {
-        // allocate new receive slot if we received a cap
-        err = lmp_chan_alloc_recv_slot(&lmp->chan);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Could not allocate receive slot");
-            return err;
-        }
-    }
-
     lmp->is_busy = false;
     return err;
 }
@@ -420,24 +438,23 @@ errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp)
         }
     }
     // we've received the capability;
-
     child_lmp->chan.remote_cap = remote_cap;
 
     size_t payload_size = 0;
     struct aos_lmp_msg *msg;
-    err = aos_lmp_create_msg(&msg, AosRpcHandshake, payload_size, NULL,
-                             child_lmp->chan.local_cap);
+    char buf[AOS_LMP_MSG_SIZE(payload_size)];
+    err = aos_lmp_create_msg_no_pagefault(&msg, AosRpcHandshake, payload_size, NULL,
+                                          child_lmp->chan.local_cap,
+                                          (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
 
     err = aos_lmp_send_msg(child_lmp, msg);
-    free(msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send acknowledgement");
     }
-
     assert(err_is_ok(err));
 
     return SYS_ERR_OK;
@@ -512,16 +529,11 @@ errval_t aos_lmp_init_static(struct aos_lmp *lmp, enum aos_rpc_channel_type chan
 errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap)
 {
     errval_t err;
-
     // initial state
     thread_mutex_init(&lmp->lock);
-    lmp->use_dynamic_buf = true;
     lmp->is_busy = false;
-
-    lmp->buf = malloc(LMP_MSG_LENGTH_BYTES);
-    if (lmp->buf == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
+    lmp->use_dynamic_buf = true;
+    lmp->buf = NULL; // non-static channels do not need the buffer
 
     err = lmp_chan_accept(&lmp->chan, 256, remote_cap);
     if (err_is_fail(err)) {
@@ -552,12 +564,12 @@ errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp)
 
     // allocate receive slot
     err = lmp_chan_alloc_recv_slot(&lmp->chan);
-    if (err_is_fail(err)) { 
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to allocate the receive slot for handshake");
         return err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
     }
 
-    //struct capref remote_cap;
+    // struct capref remote_cap;
     while (1) {
         struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
 
@@ -574,7 +586,7 @@ errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp)
         }
     }
 
-    //DEBUG_PRINTF("Received handshake\n");
+    // DEBUG_PRINTF("Received handshake\n");
 
     return SYS_ERR_OK;
 }
@@ -624,7 +636,7 @@ errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
  * @param payload
  * @param msg_cap
  * @return errval_t
- * 
+ *
  * @note Make sure to free the message after it was used.
  */
 errval_t aos_lmp_create_msg(struct aos_lmp_msg **ret_msg, aos_rpc_msg_type_t msg_type,
@@ -770,13 +782,12 @@ errval_t aos_lmp_reregister_recv(struct aos_lmp *lmp, process_msg_func_t process
     return aos_lmp_register_recv(lmp, process_msg_func);
 }
 
-errval_t aos_lmp_call(struct aos_lmp *lmp, struct aos_lmp_msg *msg, bool use_dynamic_buf)
+errval_t aos_lmp_call(struct aos_lmp *lmp, struct aos_lmp_msg *msg)
 {
     thread_mutex_lock(&lmp->lock);
     errval_t err = SYS_ERR_OK;
 
     // send message
-    lmp->use_dynamic_buf = use_dynamic_buf;
     err = aos_lmp_send_msg(lmp, msg);
 
     if (err_is_fail(err)) {

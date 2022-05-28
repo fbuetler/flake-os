@@ -98,6 +98,11 @@ errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
                                          struct aos_lmp_msg *msg);
 
 /**
+ * @brief Helper function to free an LMP message
+ */
+void aos_lmp_msg_free(struct aos_lmp *lmp);
+
+/**
  * @brief Asynchronously send a message
  */
 errval_t aos_lmp_send_msg(struct aos_lmp *lmp, struct aos_lmp_msg *msg);
@@ -115,7 +120,7 @@ errval_t aos_lmp_reregister_recv(struct aos_lmp *lmp, process_msg_func_t process
 /**
  * @brief Synchronously send a message
  */
-errval_t aos_lmp_call(struct aos_lmp *lmp, struct aos_lmp_msg *msg, bool use_dynamic_buf);
+errval_t aos_lmp_call(struct aos_lmp *lmp, struct aos_lmp_msg *msg);
 
 
 #endif  // _LIB_BARRELFISH_AOS_MESSAGES_H

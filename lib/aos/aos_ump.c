@@ -247,7 +247,7 @@ errval_t aos_ump_bind(struct aos_lmp *lmp, struct aos_ump *ump, coreid_t core,
     }
 
     // inside RPC call: 4. The server’s monitor calls the server, giving it the client’s cframe.
-    err = aos_lmp_call(lmp, msg, false);
+    err = aos_lmp_call(lmp, msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to call aos_lmp_call");
         return err;
