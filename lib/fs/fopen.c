@@ -25,6 +25,7 @@
 #include "fs_internal.h"
 #include <collections/path_list.h>
 #include <aos/nameserver.h>
+#include <collections/path_list.h>
 
 static void *mount;
 
@@ -147,22 +148,15 @@ __attribute__((unused)) static int fs_libc_open(char *path, int flags)
     }
 }
 
-
 static int fat32fs_rpc_libc_open(char *path, int flags)
 {
     struct fat32fs_handle *vh;
     errval_t err = SYS_ERR_OK;
 
-    path = clean_path(path);
-    if(path == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-
     // If O_CREAT was given, we use ramfsfs_create()
     if (flags & O_CREAT) {
         // If O_EXCL was also given, we check whether we can open() first
         if (flags & O_EXCL) {
-            DEBUG_PRINTF("open!!!\n");
             err = aos_rpc_fs_open(fs_chan, path, flags, &vh);
             if (err_is_ok(err)) {
                 aos_rpc_fs_close(fs_chan, vh->fid);
@@ -691,6 +685,7 @@ static errval_t fat32fs_rm_glue(const char *path)
 
 static errval_t fat32fs_readdir_glue(fs_dirhandle_t h, char **name)
 {
+    DEBUG_PRINTF("reading fid %d\n", ((struct fat32fs_handle *)h)->fid);
     return aos_rpc_fs_readdir(fs_chan, ((struct fat32fs_handle *)h)->fid, NULL, name);
 }
 
@@ -709,7 +704,7 @@ void newlib_register_fsops__(fsopen_fn_t *open_fn, fsread_fn_t *read_fn,
                              fswrite_fn_t *write_fn, fsclose_fn_t *close_fn,
                              fslseek_fn_t *lseek_fn);
 
-void fs_libc_init(void *fs_mount)
+void fs_libc_init(void *fsmount)
 {
     newlib_register_fsops__(fat32fs_rpc_libc_open, fat32fs_rpc_libc_read, fat32fs_rpc_libc_write,
                             fat32fs_rpc_libc_close, fat32fs_rpc_libc_lseek);
@@ -718,5 +713,5 @@ void fs_libc_init(void *fs_mount)
     fs_register_dirops(fat32fs_mkdir_glue, fat32fs_rmdir_glue, fat32fs_rm_glue, fat32fs_opendir_glue, fat32fs_readdir_glue,
                        fat32fs_closedir_glue, fat32fs_fstat_glue);
 
-    mount = fs_mount;
+    mount = fsmount;
 }

@@ -52,7 +52,7 @@ void user_panic_fn(const char *file, const char *func, int line, const char *msg
     __attribute__((noreturn));
 
 //#define NDEBUG
-#ifdef NDEBUG
+#ifndef NDEBUG
 #    define DEBUG_PRINTF(fmt...) ((void)0)
 #    define DEBUG_ERR(err, msg...) debug_err(__FILE__, __func__, __LINE__, err, msg)
 #    define HERE ((void)0)

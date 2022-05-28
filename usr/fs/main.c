@@ -43,6 +43,8 @@ int main(int argc, char *argv[])
 {
     fs_init();
 
+    fat32fs_mount(FS_MOUNTPOINT);
+
     errval_t err;
 
     char ccc = 0;
@@ -52,6 +54,7 @@ int main(int argc, char *argv[])
         return err;
     }
 
+    printf("fs running\n");
 
     struct waitset *ws = get_default_waitset();
     while(1) {

@@ -37,7 +37,7 @@ struct fat32fs_handle {
 };
 
 struct fat32fs_mount {
-    struct fs_dirent *root;
+    char *path;
 };
 
 struct handle_list_node{
@@ -56,6 +56,7 @@ struct fs_state {
 struct fs_state fs_state;
 
 nameservice_chan_t fs_chan;
+struct fat32fs_mount fs_mount;
 
 void fat32fs_add_file_handler(domainid_t pid, struct fat32fs_handle *handle);
 
@@ -94,6 +95,8 @@ errval_t fat32fs_dir_read_next(struct fat32fs_handle *h, char **retname,
                                struct fs_fileinfo *info);
 
 void fs_init(void);
+
+void fat32fs_mount(char *path);
 
 
 #endif

@@ -120,7 +120,6 @@ errval_t aos_rpc_fs_create(nameservice_chan_t chan, const char *path, int flags,
 
     err = response->err;
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create file");
         return err;
     }
 
@@ -180,7 +179,7 @@ errval_t aos_rpc_fs_read(nameservice_chan_t chan, fileref_id_t fid, void *buf, s
         }
 
         memcpy(buf, response->buf, read);
-        debug_printf("read %zu bytes of total: %d\n", response->bytes, len);
+        DEBUG_PRINTF("read %zu bytes of total: %d\n", response->bytes, len);
         bytes_read += response->bytes;
         buf += response->bytes;
 
@@ -331,6 +330,7 @@ errval_t aos_rpc_fs_opendir(nameservice_chan_t chan, const char *path,
         return err_push(err, FS_ERR_MKDIR);
     }
 
+    DEBUG_PRINTF("got a handle with fid %d\n", response->handle.fid);
     *rethandle = malloc(sizeof(struct fat32fs_handle));
     **rethandle = response->handle;
 
@@ -352,8 +352,7 @@ errval_t aos_rpc_fs_readdir(nameservice_chan_t chan, fileref_id_t fid,
     }
     err = response->err;
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to read dir");
-        return err_push(err, FS_ERR_READ_DIR);
+        return err;
     }
     if (retfinfo) {
         *retfinfo = response->info;
