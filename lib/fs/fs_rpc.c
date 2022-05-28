@@ -18,7 +18,38 @@
 #include <fs/dirent.h>
 #include <fs/fs_rpc.h>
 #include <aos/nameserver.h>
+#include <collections/path_list.h>
 
+static errval_t skip_mountpoint(char **path){
+    if(strncmp(fs_mount.path, *path, strlen(fs_mount.path)) == 0){
+        *path += strlen(fs_mount.path);
+        return SYS_ERR_OK;
+    }
+    return FS_ERR_INVALID_PATH;
+}
+
+static char* process_path(char *old_path) {
+    char *path;
+    path = clean_path(old_path);
+    if(!path){
+        return NULL;
+    }
+    printf("cleaned: %s\n", path);
+    char *skipped = path;
+    if(err_is_fail(skip_mountpoint(&skipped))){
+        free(path);
+        return NULL;
+    }
+    if(*skipped == 0){
+        skipped = strdup("/");
+    }else{
+        skipped = strdup(skipped);
+    }
+    printf("skipped: %s\n", skipped);
+    free(path);
+
+    return skipped;
+}
 
 static inline errval_t lmp_send(struct aos_lmp *lmp, aos_rpc_msg_type_t type,
                                 char *payload, size_t payload_size, char *msg_buf)
@@ -89,13 +120,20 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         struct fat32fs_handle *rethandle;
         struct rpc_fs_open_response *response = malloc(
             sizeof(struct rpc_fs_open_response));
+        char *path = process_path(args->path);
+        if(!path){
+            response->err = FS_ERR_INVALID_PATH;
+            SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_open_response));
+            return;
+        }
         // TODO security for pathlen
-        err = fat32fs_open(args->pid, NULL, args->path, args->flags, &rethandle);
+        err = fat32fs_open(args->pid, NULL, path, args->flags, &rethandle);
         response->err = err;
         if (err_is_ok(err)) {
             response->handle = *rethandle;
         }
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_open_response));
+        free(path);
         return;
     }
     case AosRpcFsCreate: {
@@ -104,12 +142,19 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         struct rpc_fs_create_response *response = malloc(
             sizeof(struct rpc_fs_create_response));
         // TODO security for pathlen
-        err = fat32fs_create(0, args->path, args->flags, &rethandle);
+        char *path = process_path(args->path);
+        if(!path){
+            response->err = FS_ERR_INVALID_PATH;
+            SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_create_response));
+            return;
+        }
+        err = fat32fs_create(0, path, args->flags, &rethandle);
         response->err = err;
         if (err_is_ok(err)) {
             response->handle = *rethandle;
         }
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_create_response));
+        free(path);
         return;
     }
     case AosRpcFsClose: {
@@ -226,24 +271,45 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         struct rpc_fs_path_request *args = (struct rpc_fs_path_request *)request;
         // check if string is terminated
         struct rpc_fs_err_response *response = malloc(sizeof(struct rpc_fs_err_response));
-        response->err = fat32fs_mkdir(args->path);
+        char *path = process_path(args->path);
+        if(!path){
+            response->err = FS_ERR_INVALID_PATH;
+            SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
+            return;
+        }
+        response->err = fat32fs_mkdir(path);
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
+        free(path);
         return;
     }
     case AosRpcFsRmDir: {
         struct rpc_fs_path_request *args = (struct rpc_fs_path_request *)request;
         // check if string is terminated
         struct rpc_fs_err_response *response = malloc(sizeof(struct rpc_fs_err_response));
-        response->err = fat32fs_rmdir(args->path);
+        char *path = process_path(args->path);
+        if(!path){
+            response->err = FS_ERR_INVALID_PATH;
+            SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
+            return;
+        }
+        response->err = fat32fs_rmdir(path);
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
+        free(path);
         return;
     }
     case AosRpcFsRm: {
         struct rpc_fs_path_request *args = (struct rpc_fs_path_request *)request;
         // check if string is terminated
         struct rpc_fs_err_response *response = malloc(sizeof(struct rpc_fs_err_response));
-        response->err = fat32fs_rm(args->path);
+        char *path = process_path(args->path);
+        if(!path){
+            response->err = FS_ERR_INVALID_PATH;
+            SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
+            return;
+        }
+        response->err = fat32fs_rm(path);
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
+        free(path);
         return;
     }
     case FsOpenDir: {
@@ -252,10 +318,17 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         struct rpc_fs_opendir_response *response = malloc(
             sizeof(struct rpc_fs_opendir_response));
         struct fat32fs_handle *handle;
-        response->err = fat32fs_opendir(0, args->path, &handle);
+        char *path = process_path(args->path);
+        if(!path){
+            response->err = FS_ERR_INVALID_PATH;
+            SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_opendir_response));
+            return;
+        }
+        response->err = fat32fs_opendir(0, path, &handle);
         DEBUG_PRINTF("new fid for dir: %d\n", handle->fid);
         response->handle = *handle;
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_opendir_response));
+        free(path);
         return;
     }
     case AosRpcFsReadDir: {

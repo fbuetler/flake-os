@@ -13,6 +13,7 @@
 
 #include "fs_internal.h"
 
+
 /*
  * Copyright (c) 2016 ETH Zurich.
  * All rights reserved.
@@ -51,7 +52,6 @@ errval_t filesystem_init(void)
 
         barrelfish_usleep(1 * 1000 * 1000);
     }
-    /* TODO: Mount your sdcard at /sdcard */
 
     /* register libc fopen/fread and friends */
     fs_libc_init(st);

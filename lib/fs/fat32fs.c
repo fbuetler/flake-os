@@ -537,14 +537,9 @@ out:
     return err;
 }
 
-errval_t fat32fs_opendir(domainid_t pid, const char *full_path,
+errval_t fat32fs_opendir(domainid_t pid, const char *path,
                          struct fat32fs_handle **rethandle)
 {
-    char *path = clean_path(full_path);
-    if (path == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-
     struct fat32fs_handle *handle;
     errval_t err = resolve_path(pid, path, &handle);
     if (err_is_fail(err)) {
@@ -609,4 +604,8 @@ void fs_init(void)
     }
     hashmap_create(8, &fs_state.path2handle);
     thread_mutex_init(&fs_state.mutex);
+}
+
+void fat32fs_mount(char *path){
+    fs_mount.path = path;
 }

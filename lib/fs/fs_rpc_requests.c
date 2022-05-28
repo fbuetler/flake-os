@@ -352,7 +352,7 @@ errval_t aos_rpc_fs_readdir(nameservice_chan_t chan, fileref_id_t fid,
     }
     err = response->err;
     if (err_is_fail(err)) {
-        return err_push(err, FS_ERR_READ_DIR);
+        return err;
     }
     if (retfinfo) {
         *retfinfo = response->info;

@@ -6,14 +6,14 @@
 #include "proc_mgmt.h"
 
 #define BEGIN_TESTS(name)                                                                \
-    char *tests_name__ = name;                                                           \
+    __attribute__((unused))char *tests_name__ = "hi";                                                           \
     size_t tests_all__, tests_pass__, tests_fail__;                                      \
     tests_all__ = tests_pass__ = tests_fail__ = 0;                                       \
     DEBUG_PRINTF("running tests %s\n", name);
 
 #define END_TESTS                                                                        \
     DEBUG_PRINTF("Summary of tests %s:\n\tpassed: %d of %d\n\tfailed: %d of %d\n",       \
-                 tests_name__, tests_pass__, tests_all__, tests_fail__, tests_all__)
+                 tests_name__, tests_pass__, tests_all__, tests_fail__, tests_all__);
 
 #define TEST(name, expr)                                                                 \
     tests_all__++;                                                                       \
