@@ -22,7 +22,7 @@ errval_t aos_udp_socket_create(uint16_t port, struct aos_udp_socket **socket)
     if (!msg) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    msg->type = AOS_NETWORK_UDP_SEND_REQUEST;
+    msg->type = AOS_NETWORK_UDP_CREATE_REQUEST;
     msg->payload.udp_create_req = (struct aos_socket_msg_udp_create_request) {
         .port_local = port,
     };
