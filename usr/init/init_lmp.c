@@ -19,6 +19,13 @@
 
 #define TERMINAL_SERVER_CORE 1
 
+static void aos_lmp_send_errval_response(struct aos_lmp *lmp, errval_t err)
+{
+    struct aos_rpc rpc;
+    aos_rpc_init_from_lmp(&rpc, lmp);
+    aos_rpc_send_errval(&rpc, err);
+}
+
 
 void aos_process_ram_cap_request(struct aos_lmp *lmp)
 {
@@ -49,7 +56,7 @@ void aos_process_ram_cap_request(struct aos_lmp *lmp)
     // create response with ram cap
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
-    char buf[sizeof(struct aos_lmp_msg)];
+    char buf[AOS_LMP_MSG_SIZE(payload_size)];
     err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcRamCapResponse, payload_size,
                                           NULL, ram_cap, (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
@@ -124,6 +131,7 @@ void aos_process_spawn_request(struct aos_lmp *lmp)
     }
 
     err = aos_lmp_send_msg(lmp, reply);
+    free(reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
         return;
@@ -168,6 +176,7 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
     }
 
     err = aos_lmp_send_msg(lmp, reply);
+    free(reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending serial read char response\n");
         return err;
@@ -223,6 +232,7 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
     }
 
     err = aos_lmp_send_msg(lmp, reply);
+    free(reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending serial read char response\n");
         return err;
@@ -286,6 +296,7 @@ static void aos_process_pid2name_request(struct aos_lmp *lmp)
     }
 
     err = aos_lmp_send_msg(lmp, reply);
+    free(reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
         return;
@@ -320,10 +331,6 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 {
     //DEBUG_PRINTF("received LMP bind request\n");
     errval_t err;
-
-    // for reply
-    struct aos_lmp_msg *reply;
-    char buf[sizeof(struct aos_lmp_msg)];
 
     struct aos_lmp_msg *msg = lmp->recv_msg;
     domainid_t server_pid = *(domainid_t *)msg->payload;
@@ -364,10 +371,7 @@ unwind_relay:
 unwind_si:
     free(server_si);
 ret_msg:
-    aos_lmp_create_msg_no_pagefault(&reply, AosRpcErrvalResponse, sizeof(errval_t),
-                                    (void *)&err, NULL_CAP,
-                                    (struct aos_lmp_msg *)buf);
-    aos_lmp_send_msg(lmp, reply);
+    aos_lmp_send_errval_response(lmp, err);
 }
 
 static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
@@ -479,6 +483,7 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
     }
 
     err = aos_lmp_send_msg(lmp, reply);
+    free(reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending  response\n");
         goto unwind;
@@ -489,13 +494,6 @@ unwind:
     free(pids);
 
     return err;
-}
-
-static void aos_lmp_send_errval_response(struct aos_lmp *lmp, errval_t err)
-{
-    struct aos_rpc rpc;
-    aos_rpc_init_from_lmp(&rpc, lmp);
-    aos_rpc_send_errval(&rpc, err);
 }
 
 
@@ -567,6 +565,7 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         }
 
         aos_lmp_send_msg(lmp, resp);
+        free(resp);
 
         break;
     }
