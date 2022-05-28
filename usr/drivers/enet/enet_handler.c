@@ -252,7 +252,7 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
     return SYS_ERR_OK;
 }
 
-static int enet_udp_send_hack(void *arg)
+__attribute__((unused)) static int enet_udp_send_hack(void *arg)
 {
     errval_t err;
 
@@ -281,8 +281,8 @@ static int enet_udp_send_hack(void *arg)
     }
 
     // hack send packet
-    err = enet_udp_socket_send(st, ENET_STATIC_PORT, MK_IP(10, 42, 0, 1), 8051, "ciao\n",
-                               5);
+    err = enet_udp_socket_send(st, ENET_STATIC_PORT, MK_IP(10, 42, 0, 1), 8051, buf->data,
+                               buf->len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send");
         return err;
