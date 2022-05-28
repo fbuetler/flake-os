@@ -122,5 +122,10 @@ errval_t aos_lmp_reregister_recv(struct aos_lmp *lmp, process_msg_func_t process
  */
 errval_t aos_lmp_call(struct aos_lmp *lmp, struct aos_lmp_msg *msg);
 
+/**
+ * @brief Send a message over a temporary channel
+ */
+errval_t aos_lmp_fire_and_forget(struct capref remote_cap, struct aos_lmp_msg *msg);
+
 
 #endif  // _LIB_BARRELFISH_AOS_MESSAGES_H

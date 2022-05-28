@@ -533,7 +533,7 @@ errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap)
     thread_mutex_init(&lmp->lock);
     lmp->is_busy = false;
     lmp->use_dynamic_buf = true;
-    lmp->buf = NULL; // non-static channels do not need the buffer
+    lmp->buf = NULL;  // non-static channels do not need the buffer
 
     err = lmp_chan_accept(&lmp->chan, 256, remote_cap);
     if (err_is_fail(err)) {
@@ -824,6 +824,44 @@ errval_t aos_lmp_setup_local_chan(struct aos_lmp *lmp, struct capref cap_ep)
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief This helper function sets up an LMP channel to some remote endpoint without
+ * facilities to receive messages. This is useful if we want to send a one off message to
+ * some endpoint that we know is listening.
+ *
+ * @param lmp pointer to the LMP instance to initialize
+ * @param remote_cap capref to the LMP endpoint cap of the recipient (needs to be on the
+ * same core)
+ *
+ * @returns error value
+ */
+static errval_t aos_lmp_init_fire_and_forget(struct aos_lmp *lmp, struct capref remote_cap)
+{
+    struct capability cap;
+    errval_t err = cap_direct_identify(remote_cap, &cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to identify remote cap. Is it really on the same core?");
+        return err_push(err, LIB_ERR_CAP_IDENTIFY);
+    }
+
+    if (cap.type != ObjType_EndPointLMP) {
+        DEBUG_PRINTF("Remote cap is not an LMP endpoint capability\n");
+        return MON_ERR_WRONG_CAP_TYPE;
+    }
+
+    thread_mutex_init(&lmp->lock);
+    lmp->is_busy = false;
+    lmp->use_dynamic_buf = true;
+    lmp->buf = NULL;  // non-static channels do not need the buffer
+
+    // set up the channel without facilities to receive
+    lmp_chan_init(&lmp->chan);
+    lmp->chan.local_cap = NULL_CAP;
+    lmp->chan.remote_cap = remote_cap;
+    lmp->chan.connstate = LMP_CONNECTED;
+
+    return SYS_ERR_OK;
+}
 
 errval_t aos_lmp_parent_init(struct aos_lmp *lmp)
 {
@@ -834,6 +872,37 @@ errval_t aos_lmp_parent_init(struct aos_lmp *lmp)
         return LIB_ERR_MALLOC_FAIL;
     }
     thread_mutex_init(&lmp->lock);
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * @brief Sends an LMP message to the endpoint at the remote capability over a temporary
+ * channel.
+ *
+ * @param remote_cap LMP ndpoint capability to the recipient (needs to be on the same core)
+ * @param msg Message to send
+ *
+ * @returns error value
+ *
+ * @note The message is not freed in this function.
+ */
+errval_t aos_lmp_fire_and_forget(struct capref remote_cap, struct aos_lmp_msg *msg)
+{
+    errval_t err;
+
+    struct aos_lmp lmp;
+    err = aos_lmp_init_fire_and_forget(&lmp, remote_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to set up fire and forget channel");
+        return err_push(err, LIB_ERR_LMP_INIT_FNF);
+    }
+
+    err = aos_lmp_send_msg(&lmp, msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to send message over fire and forget channel");
+        return err_push(err, LIB_ERR_LMP_CHAN_SEND);
+    }
 
     return SYS_ERR_OK;
 }
