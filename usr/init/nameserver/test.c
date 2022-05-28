@@ -6,7 +6,7 @@
 #include "proc_mgmt.h"
 
 #define BEGIN_TESTS(name)                                                                \
-    __attribute__((unused))char *tests_name__ = "hi";                                                           \
+    __attribute__((unused)) char *tests_name__ = "hi";                                   \
     size_t tests_all__, tests_pass__, tests_fail__;                                      \
     tests_all__ = tests_pass__ = tests_fail__ = 0;                                       \
     DEBUG_PRINTF("running tests %s\n", name);
@@ -33,7 +33,7 @@
         DEBUG_ERR(err, "Test %s failed\n", name);                                        \
     }
 
-static void run_name_tests(void)
+__attribute__((unused)) static void run_name_tests(void)
 {
     BEGIN_TESTS("name_validity");
     TEST("a_invalid", !name_is_valid("a"));
@@ -44,7 +44,7 @@ static void run_name_tests(void)
     END_TESTS;
 }
 
-static void run_name_part_tests(void)
+__attribute__((unused)) static void run_name_part_tests(void)
 {
     BEGIN_TESTS("name_parts");
 
@@ -72,7 +72,7 @@ static void run_name_part_tests(void)
     END_TESTS;
 }
 
-static void run_insert_find_test(void)
+__attribute__((unused)) static void run_insert_find_test(void)
 {
     BEGIN_TESTS("insert_find");
 

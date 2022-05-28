@@ -59,7 +59,7 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
         }
 
     } else {
-        if (!capref_is_null (msg.cap)) {
+        if (!capref_is_null(msg.cap)) {
             // TODO-refactor
         }
         return aos_ump_call(&rpc->u.ump, msg.type, msg.payload, msg.bytes, &retmsg->type,
@@ -89,7 +89,7 @@ errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send)
         char buf[AOS_LMP_MSG_SIZE(sizeof(errval_t))];
         struct aos_lmp_msg *lmp_msg;
         aos_lmp_create_msg_no_pagefault(&lmp_msg, msg.type, msg.bytes, msg.payload,
-                                              msg.cap, (struct aos_lmp_msg *)buf);
+                                        msg.cap, (struct aos_lmp_msg *)buf);
         err = aos_lmp_send_msg(&rpc->u.lmp, lmp_msg);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to send lmp message");
@@ -109,7 +109,7 @@ errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send)
 void aos_rpc_process_client_request(struct aos_rpc_msg *request,
                                     struct aos_rpc_msg *response)
 {
-    //DEBUG_PRINTF("Received a message from a client\n");
+    // DEBUG_PRINTF("Received a message from a client\n");
     struct nameservice_rpc_msg *msg = (struct nameservice_rpc_msg *)request->payload;
 
     response->type = AosRpcServerResponse;

@@ -723,14 +723,8 @@ int main(int argc, char *argv[])
     }
 
 #ifdef UDP_ECHO_SERVER
-    struct aos_rpc *init_rpc = aos_rpc_get_init_channel();
-    if (!init_rpc) {
-        DEBUG_ERR(err, "failed to get init channel");
-        return err;
-    }
-
     domainid_t pid;
-    err = aos_rpc_process_spawn(init_rpc, "echoserver", disp_get_current_core_id(), &pid);
+    err = aos_rpc_process_spawn(get_init_rpc(), "echoserver", disp_get_core_id(), &pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn echoserver");
         return err;

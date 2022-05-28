@@ -4,7 +4,7 @@
 #include <aos/aos.h>
 #include <netutil/ip.h>
 
-#define ENET_SERVICE_NAME "enet_service"
+#define ENET_SERVICE_NAME "enetservice"
 
 #define AOS_NETWORK_DEBUG_OPTION 1
 

@@ -49,9 +49,8 @@ void aos_process_number(struct aos_lmp *lmp)
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
     char buf[AOS_LMP_MSG_SIZE(payload_size)];
-    err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcSendNumberResponse,
-                                                   payload_size, NULL, NULL_CAP,
-                                                   (struct aos_lmp_msg *)buf);
+    err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcSendNumberResponse, payload_size,
+                                          NULL, NULL_CAP, (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return;
@@ -95,20 +94,20 @@ void aos_process_string(struct aos_lmp *lmp)
 
 static errval_t aos_rpc_process_lmp_bind(struct aos_lmp *lmp)
 {
-    //DEBUG_PRINTF("Received LMP bind request\n");
+    // DEBUG_PRINTF("Received LMP bind request\n");
     errval_t err;
 
     struct aos_lmp_msg *msg = lmp->recv_msg;
     struct capref client_ep_cap = msg->cap;
 
-    //DEBUG_PRINTF("Allocating new RPC\n");
+    // DEBUG_PRINTF("Allocating new RPC\n");
     struct aos_lmp *new = malloc(sizeof(struct aos_lmp));
     if (new == NULL) {
         DEBUG_PRINTF("Failed to allocate new LMP binding\n");
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    //DEBUG_PRINTF("Initialize LMP endpoint\n");
+    // DEBUG_PRINTF("Initialize LMP endpoint\n");
     err = aos_lmp_init(new, client_ep_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to initialize new LMP binding to client");
@@ -121,7 +120,7 @@ static errval_t aos_rpc_process_lmp_bind(struct aos_lmp *lmp)
         return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
     }
 
-    //DEBUG_PRINTF("Register receive handler\n");
+    // DEBUG_PRINTF("Register receive handler\n");
     err = aos_lmp_register_recv(new, aos_lmp_server_event_handler);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to register receive function for new LMP binding");
@@ -184,7 +183,7 @@ errval_t aos_lmp_event_handler(struct aos_lmp *lmp)
     case AosRpcGetAllPidsResponse:
         break;
     default:
-        DEBUG_PRINTF("received unknown message type %d\n", msg_type);
+        DEBUG_PRINTF("lmp received unknown message type %d\n", msg_type);
         // free(lmp->recv_msg);
         break;
     }
@@ -544,12 +543,12 @@ errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp)
 
     // allocate receive slot
     err = lmp_chan_alloc_recv_slot(&lmp->chan);
-    if (err_is_fail(err)) { 
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to allocate the receive slot for handshake");
         return err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
     }
 
-    //struct capref remote_cap;
+    // struct capref remote_cap;
     while (1) {
         struct lmp_recv_msg recv_msg = LMP_RECV_MSG_INIT;
 
@@ -566,7 +565,7 @@ errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp)
         }
     }
 
-    //DEBUG_PRINTF("Received handshake\n");
+    // DEBUG_PRINTF("Received handshake\n");
 
     return SYS_ERR_OK;
 }
@@ -616,7 +615,7 @@ errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
  * @param payload
  * @param msg_cap
  * @return errval_t
- * 
+ *
  * @note Make sure to free the message after it was used.
  */
 errval_t aos_lmp_create_msg(struct aos_lmp_msg **ret_msg, aos_rpc_msg_type_t msg_type,

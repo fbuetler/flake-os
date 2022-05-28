@@ -573,7 +573,7 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         aos_process_lmp_bind_request(lmp);
         break;
     default:
-        DEBUG_PRINTF("received unknown message type %d\n", msg_type);
+        DEBUG_PRINTF("init received unknown message type %d\n", msg_type);
         break;
     }
     // DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
