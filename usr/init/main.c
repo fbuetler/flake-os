@@ -91,15 +91,17 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
-    struct spawninfo *si;
-    spawn_sdhc_driver(&si);
-
     // run_m5_tests();
     // run_m6_tests();
 
+    // err = spawn_sdhc_driver(NULL);
+    // if (err_is_fail(err)) {
+    //     DEBUG_ERR(err, "failed to spawn sdhc driver");
+    // }
+
     err = spawn_enet_driver(NULL);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to spawn driver");
+        DEBUG_ERR(err, "failed to spawn enet driver");
     }
 
     run_m7_tests();

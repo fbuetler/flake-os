@@ -8,6 +8,7 @@ errval_t aos_udp_socket_create(uint16_t port, struct aos_udp_socket **socket)
 
     // setup channel
     nameservice_chan_t chan;
+    AOS_NETWORK_DEBUG("lookup enet service\n");
     err = nameservice_lookup(ENET_SERVICE_NAME, &chan);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to lookup service");
@@ -15,6 +16,7 @@ errval_t aos_udp_socket_create(uint16_t port, struct aos_udp_socket **socket)
     }
 
     // setup request
+    AOS_NETWORK_DEBUG("setup create socket message\n");
     struct aos_socket_msg *msg = (struct aos_socket_msg *)malloc(
         sizeof(struct aos_socket_msg));
     if (!msg) {
@@ -28,6 +30,7 @@ errval_t aos_udp_socket_create(uint16_t port, struct aos_udp_socket **socket)
     void *request = msg;
     size_t request_bytes = sizeof(*msg);
 
+    AOS_NETWORK_DEBUG("send create socket message\n");
     // get response
     void *response;
     size_t response_bytes;
@@ -38,6 +41,7 @@ errval_t aos_udp_socket_create(uint16_t port, struct aos_udp_socket **socket)
         return err;
     }
 
+    AOS_NETWORK_DEBUG("receive create socket response\n");
     *socket = (struct aos_udp_socket *)malloc(sizeof(struct aos_udp_socket));
     if (!socket) {
         return LIB_ERR_MALLOC_FAIL;

@@ -1049,8 +1049,8 @@ __attribute__((unused)) static void test_large_ping_pong(void)
 void run_m6_tests(void)
 {
     switch (disp_get_current_core_id()) {
-    case 0:{
-        test_spawn_process("demom6"); 
+    case 0: {
+        test_spawn_process("demom6");
         break;
     }
     case 1:
@@ -1065,7 +1065,7 @@ void run_m6_tests(void)
     DEBUG_PRINTF("Completed %s\n", __func__);
 }
 
-static void run_m7_network_tests(void)
+__attribute__((unused)) static void run_echoserver(void)
 {
     errval_t err;
 
@@ -1075,7 +1075,13 @@ static void run_m7_network_tests(void)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn echoserver");
     }
+
     assert(err_is_ok(err));
+}
+
+static void run_m7_network_tests(void)
+{
+    // run_echoserver();
 }
 
 void run_m7_tests(void)

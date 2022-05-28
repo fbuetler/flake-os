@@ -6,6 +6,14 @@
 
 #define ENET_SERVICE_NAME "enet_service"
 
+#define AOS_NETWORK_DEBUG_OPTION 1
+
+#if defined(AOS_NETWORK_DEBUG_OPTION)
+#    define AOS_NETWORK_DEBUG(x...) debug_printf("[network] " x);
+#else
+#    define AOS_NETWORK_DEBUG(fmt, ...) ((void)0)
+#endif
+
 struct aos_udp_socket {
     uint16_t port;
 };

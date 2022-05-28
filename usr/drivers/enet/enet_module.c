@@ -19,6 +19,7 @@
 #include <devif/queue_interface_backend.h>
 #include <devif/backends/net/enet_devif.h>
 #include <aos/aos.h>
+#include <aos/aos_rpc.h>
 #include <aos/deferred.h>
 #include <driverkit/driverkit.h>
 #include <dev/imx8x/enet_dev.h>
@@ -720,6 +721,21 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "failed to init enet service");
         return err;
     }
+
+#ifdef UDP_ECHO_SERVER
+    struct aos_rpc *init_rpc = aos_rpc_get_init_channel();
+    if (!init_rpc) {
+        DEBUG_ERR(err, "failed to get init channel");
+        return err;
+    }
+
+    domainid_t pid;
+    err = aos_rpc_process_spawn(init_rpc, "echoserver", disp_get_current_core_id(), &pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn echoserver");
+        return err;
+    }
+#endif
 
     debug_printf("Ready to accept connections\n");
     struct devq_buf buf;

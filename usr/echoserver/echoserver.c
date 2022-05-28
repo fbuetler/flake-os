@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
     errval_t err;
 
     // start server on port
+    debug_printf("Creating socket\n");
     struct aos_udp_socket *sock;
     err = aos_udp_socket_create(1234, &sock);
     if (err_is_fail(err)) {
@@ -31,6 +32,7 @@ int main(int argc, char *argv[])
         return err;
     }
 
+    debug_printf("Echo server is listening...\n");
     while (1) {
         // listen for messages
         char *msg;
