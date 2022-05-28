@@ -11,6 +11,9 @@
 
 #define NAMESERVER_CORE 0
 
+
+#define NS_FS_NAME "fs"
+
 /**
  * @brief validates a name
  *

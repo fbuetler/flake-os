@@ -91,6 +91,9 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
+    struct spawninfo *si;
+    spawn_sdhc_driver(&si);
+
     // run_m5_tests();
     // run_m6_tests();
 

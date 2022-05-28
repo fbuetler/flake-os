@@ -110,4 +110,6 @@ struct aos_rpc *aos_rpc_get_process_channel(void);
  */
 struct aos_rpc *aos_rpc_get_serial_channel(void);
 
+
+
 #endif

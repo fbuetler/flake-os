@@ -9,6 +9,7 @@
 #include <fs/fs.h>
 #include <fs/dirent.h>
 #include <fs/ramfs.h>
+#include <fs/fat32fs.h>
 
 #include "fs_internal.h"
 
@@ -40,6 +41,17 @@ errval_t filesystem_init(void)
     if (err_is_fail(err)) {
         return err;
     }
+
+    while(1){
+        err = nameservice_lookup(NS_FS_NAME, &fs_chan);
+        if (err_is_fail(err)) {
+        }else{
+            break;
+        }
+
+        barrelfish_usleep(1 * 1000 * 1000);
+    }
+
 
     /* TODO: Mount your sdcard at /sdcard */
 

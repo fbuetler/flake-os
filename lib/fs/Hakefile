@@ -17,7 +17,13 @@
         "fs.c",
         "fopen.c",
         "ramfs.c",
-        "dirent.c"
+        "dirent.c",
+        "fat32.c",
+        "fat32fs.c",
+        "fs_rpc.c",
+        "fat32_parse_name.c",
+        "fs_rpc_requests.c",
+        "sd.c"
     ]
   }
 ]

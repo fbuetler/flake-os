@@ -147,7 +147,6 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
         abort();
     }
 
-
     size_t payload_size = 2 * sizeof(size_t);
     char payload[payload_size];
     ((size_t *)payload)[0] = bytes;

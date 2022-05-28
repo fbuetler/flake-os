@@ -50,4 +50,5 @@ struct aos_rpc_msg {
     struct capref cap;
 };
 
+
 #endif
