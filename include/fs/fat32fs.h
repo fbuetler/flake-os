@@ -72,7 +72,7 @@ errval_t fat32fs_open(domainid_t pid, struct fat32fs_mount *mount, const char *p
 
 errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t offset);
 
-errval_t fat32fs_tell(struct fat32fs_handle *h, size_t *pos);
+errval_t fat32fs_tell(struct fat32fs_handle *h, uint32_t *pos);
 
 errval_t fat32fs_create(domainid_t pid, char *path, int flags,
                         struct fat32fs_handle **rethandle);

@@ -997,6 +997,8 @@ errors fs FS_ERR_ {
     failure LSEEK               "Failure during lseek",
     failure FSTAT               "Failure during fstat",
     failure READ_DIR            "Failure during readdir",
+    failure MKDIR               "Failure during mkdir",
+    failure RMDIR               "Failure during rmdir",
 };
 
 // errors in the vfs library

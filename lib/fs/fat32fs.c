@@ -394,9 +394,10 @@ errval_t fat32fs_seek(struct fat32fs_handle *h, enum fs_seekpos whence, off_t of
     return SYS_ERR_OK;
 }
 
-errval_t fat32fs_tell(struct fat32fs_handle *h, size_t *pos)
+errval_t fat32fs_tell(struct fat32fs_handle *h, uint32_t *pos)
 {
     if (h->dirent->is_dir) {
+        // TODO is this correct?
         *pos = 0;
     } else {
         *pos = h->u.file_offset;
@@ -462,6 +463,7 @@ unwind:
     fat32fs_handle_close(h);
     return err;
 }
+
 
 errval_t fat32fs_mkdir(const char *path)
 {
@@ -530,7 +532,6 @@ out:
     fat32fs_handle_close(handle);
     return err;
 }
-
 
 errval_t fat32fs_opendir(domainid_t pid, const char *full_path,
                          struct fat32fs_handle **rethandle)

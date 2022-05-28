@@ -538,7 +538,8 @@ __attribute__((unused)) static off_t fs_libc_lseek(int fd, off_t offset, int whe
     }
 }
 
-static off_t fat32fs_libc_lseek(int fd, off_t offset, int whence)
+
+static off_t fat32fs_rpc_libc_lseek(int fd, off_t offset, int whence)
 {
     struct fdtab_entry *e = fdtab_get(fd);
     struct fat32fs_handle *fh = e->handle;
@@ -547,6 +548,48 @@ static off_t fat32fs_libc_lseek(int fd, off_t offset, int whence)
         enum fs_seekpos fs_whence;
         errval_t err;
         size_t retpos;
+
+        switch (whence) {
+        case SEEK_SET:
+            fs_whence = FS_SEEK_SET;
+            break;
+
+        case SEEK_CUR:
+            fs_whence = FS_SEEK_CUR;
+            break;
+
+        case SEEK_END:
+            fs_whence = FS_SEEK_END;
+            break;
+
+        default:
+            return -1;
+        }
+
+        err = aos_rpc_fs_lseek(fs_chan, fh->fid, offset, whence, &retpos);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "vfs_seek");
+            return -1;
+        }
+
+        return retpos;
+    } break;
+
+    default:
+        return -1;
+    }
+}
+
+__attribute__((unused))
+static off_t fat32fs_libc_lseek(int fd, off_t offset, int whence)
+{
+    struct fdtab_entry *e = fdtab_get(fd);
+    struct fat32fs_handle *fh = e->handle;
+    switch (e->type) {
+    case FDTAB_TYPE_FILE: {
+        enum fs_seekpos fs_whence;
+        errval_t err;
+        uint32_t retpos;
 
         switch (whence) {
         case SEEK_SET:
@@ -623,17 +666,17 @@ static errval_t fs_fstat(fs_dirhandle_t h, struct fs_fileinfo *b)
 
 static errval_t fat32fs_opendir_glue(const char *path, fs_dirhandle_t *h)
 {
-    return fat32fs_opendir(disp_get_domain_id(), path, (struct fat32fs_handle **)h);
+    return aos_rpc_fs_opendir(fs_chan, path, (struct fat32fs_handle **)h);
 }
 
 static errval_t fat32fs_mkdir_glue(const char *path)
 {
-    return fat32fs_mkdir(path);
+    return aos_rpc_fs_dir_action(fs_chan, path, true);
 }
 
 static errval_t fat32fs_rmdir_glue(const char *path)
 {
-    return fat32fs_rmdir(path);
+    return aos_rpc_fs_dir_action(fs_chan, path, false);
 }
 
 static errval_t fat32fs_fstat_glue(fs_dirhandle_t h, struct fs_fileinfo *b)
@@ -643,20 +686,18 @@ static errval_t fat32fs_fstat_glue(fs_dirhandle_t h, struct fs_fileinfo *b)
 
 static errval_t fat32fs_rm_glue(const char *path)
 {
-    return fat32fs_rm(path);
+    return aos_rpc_fs_rm(fs_chan, path);
 }
 
 static errval_t fat32fs_readdir_glue(fs_dirhandle_t h, char **name)
 {
-    return fat32fs_dir_read_next(h, name, NULL);
+    return aos_rpc_fs_readdir(fs_chan, ((struct fat32fs_handle *)h)->fid, NULL, name);
 }
 
 
 static errval_t fat32fs_closedir_glue(fs_dirhandle_t h)
 {
-    // TODO return types
-    fat32fs_handle_close(h);
-    return SYS_ERR_OK;
+    return aos_rpc_fs_close(fs_chan, ((struct fat32fs_handle *)h)->fid);
 }
 
 typedef int fsopen_fn_t(char *, int);
@@ -671,7 +712,7 @@ void newlib_register_fsops__(fsopen_fn_t *open_fn, fsread_fn_t *read_fn,
 void fs_libc_init(void *fs_mount)
 {
     newlib_register_fsops__(fat32fs_rpc_libc_open, fat32fs_rpc_libc_read, fat32fs_rpc_libc_write,
-                            fat32fs_rpc_libc_close, fat32fs_libc_lseek);
+                            fat32fs_rpc_libc_close, fat32fs_rpc_libc_lseek);
 
     /* register directory operations */
     fs_register_dirops(fat32fs_mkdir_glue, fat32fs_rmdir_glue, fat32fs_rm_glue, fat32fs_opendir_glue, fat32fs_readdir_glue,

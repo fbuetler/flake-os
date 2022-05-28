@@ -42,7 +42,7 @@ static errval_t rpc_fs_call(struct aos_rpc *rpc, aos_rpc_msg_type_t type, void *
 */
 
 
-#define SERIVCE_GLUE_AND_SEND(chan, type, request, payload, payload_size, response,      \
+#define SERVICE_GLUE_AND_SEND(chan, type, request, payload, payload_size, response,      \
                               response_bytes)                                            \
     do {                                                                                 \
         char *ns_request;                                                                \
@@ -69,7 +69,7 @@ static errval_t rpc_fs_call(struct aos_rpc *rpc, aos_rpc_msg_type_t type, void *
     } while (0);
 
 
-errval_t aos_rpc_fs_open(nameservice_chan_t chan, char *path, int flags,
+errval_t aos_rpc_fs_open(nameservice_chan_t chan, const char *path, int flags,
                          struct fat32fs_handle **rethandle)
 {
     errval_t err;
@@ -79,7 +79,7 @@ errval_t aos_rpc_fs_open(nameservice_chan_t chan, char *path, int flags,
     };
 
     struct rpc_fs_open_response *response;
-    SERIVCE_GLUE_AND_SEND(chan, AosRpcFsOpen, open_request, path, strlen(path) + 1,
+    SERVICE_GLUE_AND_SEND(chan, AosRpcFsOpen, open_request, path, strlen(path) + 1,
                           (void **)&response, NULL);
     // TODO need to free response too?
     if (err_is_fail(err)) {
@@ -102,7 +102,7 @@ errval_t aos_rpc_fs_open(nameservice_chan_t chan, char *path, int flags,
 }
 
 
-errval_t aos_rpc_fs_create(nameservice_chan_t chan, char *path, int flags,
+errval_t aos_rpc_fs_create(nameservice_chan_t chan, const char *path, int flags,
                            struct fat32fs_handle **rethandle)
 {
     errval_t err;
@@ -110,7 +110,7 @@ errval_t aos_rpc_fs_create(nameservice_chan_t chan, char *path, int flags,
     struct rpc_fs_create_response *response;
 
     DEBUG_PRINTF("path: %s\n", path);
-    SERIVCE_GLUE_AND_SEND(chan, AosRpcFsCreate, create_request, path, strlen(path) + 1,
+    SERVICE_GLUE_AND_SEND(chan, AosRpcFsCreate, create_request, path, strlen(path) + 1,
                           (void **)&response, NULL);
     // TODO need to free response too?
     if (err_is_fail(err)) {
@@ -211,7 +211,7 @@ errval_t aos_rpc_fs_write(nameservice_chan_t chan, fileref_id_t fid, void *src_b
         };
         struct rpc_fs_write_response *response;
 
-        SERIVCE_GLUE_AND_SEND(fs_chan, AosRpcFsWrite, write_request, buf, write,
+        SERVICE_GLUE_AND_SEND(fs_chan, AosRpcFsWrite, write_request, buf, write,
                               (void **)&response, NULL);
         if (err_is_fail(err)) {
             DEBUG_PRINTF("error in file write via RPC\n");
@@ -232,6 +232,156 @@ errval_t aos_rpc_fs_write(nameservice_chan_t chan, fileref_id_t fid, void *src_b
         *ret_written = bytes_written;
     }
 
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_fs_lseek(nameservice_chan_t chan, fileref_id_t fid, uint64_t offset,
+                          int whence, uint64_t *retpos)
+{
+    errval_t err;
+
+    struct rpc_fs_lseek_request lseek_request = {
+        .fid = fid,
+        .offset = offset,
+        .whence = whence,
+    };
+
+    struct rpc_fs_lseek_response *response;
+    SERVICE_SEND(chan, AosRpcFsLSeek, lseek_request, (void **)&response, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error in file lseek via RPC\n");
+        return err;
+    }
+    err = response->err;
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to lseek file");
+        return err_push(err, FS_ERR_LSEEK);
+    }
+
+    if (retpos) {
+        *retpos = response->new_offset;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_fs_dir_action(nameservice_chan_t chan, const char *path, bool is_mk)
+{
+    errval_t err;
+
+    struct rpc_fs_path_request mkdir_request = {};
+
+    fs_msg_type_t action = (is_mk) ? AosRpcFsMkDir : AosRpcFsRmDir;
+
+    struct rpc_fs_err_response *response;
+    SERVICE_GLUE_AND_SEND(chan, action, mkdir_request, path, strlen(path) + 1,
+                          (void **)&response, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error in file mkdir via RPC\n");
+        return err;
+    }
+
+    err = response->err;
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to mkdir file");
+        return err_push(err, FS_ERR_MKDIR);
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_fs_rm(nameservice_chan_t chan, const char *path)
+{
+    errval_t err;
+    struct rpc_fs_path_request rm_request = {};
+    struct rpc_fs_err_response *response;
+    SERVICE_GLUE_AND_SEND(chan, AosRpcFsMkDir, rm_request, path, strlen(path) + 1,
+                          (void **)&response, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error in file mkdir via RPC\n");
+        return err;
+    }
+
+    err = response->err;
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to mkdir file");
+        return err_push(err, FS_ERR_MKDIR);
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_fs_opendir(nameservice_chan_t chan, const char *path,
+                            struct fat32fs_handle **rethandle)
+{
+    errval_t err;
+    struct rpc_fs_path_request request = {};
+    struct rpc_fs_opendir_response *response;
+    SERVICE_GLUE_AND_SEND(chan, FsOpenDir, request, path, strlen(path) + 1,
+                          (void **)&response, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error in file open dir via RPC\n");
+        return err;
+    }
+
+    err = response->err;
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to open dir");
+        return err_push(err, FS_ERR_MKDIR);
+    }
+
+    *rethandle = malloc(sizeof(struct fat32fs_handle));
+    **rethandle = response->handle;
+
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_fs_readdir(nameservice_chan_t chan, fileref_id_t fid,
+                            struct fs_fileinfo *retfinfo, char **retname)
+{
+    errval_t err;
+    struct rpc_fs_readdir_request readdir_request = {
+        .fid = fid,
+    };
+    struct rpc_fs_readdir_response *response;
+    SERVICE_SEND(chan, AosRpcFsReadDir, readdir_request, (void **)&response, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_PRINTF("error in file readdir via RPC\n");
+        return err;
+    }
+    err = response->err;
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to read dir");
+        return err_push(err, FS_ERR_READ_DIR);
+    }
+    if (retfinfo) {
+        *retfinfo = response->info;
+    }
+    if (retname) {
+        *retname = strdup(response->name);
+    }
+    return SYS_ERR_OK;
+}
+
+errval_t aos_rpc_fs_fstat(nameservice_chan_t chan, fileref_id_t fid,
+                          struct fs_fileinfo *retstat)
+{
+    errval_t err;
+
+    struct rpc_fs_fstat_request fstat_request = {
+        .fid = fid,
+    };
+
+    struct rpc_fs_fstat_response *response;
+    SERVICE_SEND(chan, AosRpcFsFStat, fstat_request, (void **)&response, NULL);
+
+    err = response->err;
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to fstat file");
+        return err_push(err, FS_ERR_FSTAT);
+    }
+    *retstat = response->info;
 
     return SYS_ERR_OK;
 }

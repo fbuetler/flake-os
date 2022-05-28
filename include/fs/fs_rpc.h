@@ -26,7 +26,8 @@ typedef enum fs_msg_type{
     AosRpcFsReadDir,
     AosRpcFsReadDirResponse,
     AosRpcFsCreate,
-    AosRpcFsCreateResponse
+    AosRpcFsCreateResponse,
+    FsOpenDir
 } fs_msg_type_t;
 
 
@@ -40,6 +41,13 @@ struct rpc_fs_open_response{
     errval_t err;
     struct fat32fs_handle handle;
 };
+
+struct rpc_fs_opendir_response{
+    errval_t err;
+    struct fat32fs_handle handle;
+};
+
+
 
 struct rpc_fs_create_request{
     int flags;
@@ -98,7 +106,6 @@ struct rpc_fs_lseek_response{
 struct rpc_fs_err_response{
     errval_t err;
 };
-
 
 struct rpc_fs_fstat_request{
     fileref_id_t fid;
