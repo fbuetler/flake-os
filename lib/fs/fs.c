@@ -51,8 +51,6 @@ errval_t filesystem_init(void)
 
         barrelfish_usleep(1 * 1000 * 1000);
     }
-
-
     /* TODO: Mount your sdcard at /sdcard */
 
     /* register libc fopen/fread and friends */

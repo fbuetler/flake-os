@@ -65,6 +65,7 @@ static void  fat32fs_update_all_handles_to(const char *path, uint32_t max_offset
     assert(!node->handle->dirent->is_dir);
     while (node) {
         struct fat32fs_handle *handle = node->handle;
+        handle->dirent->size = max_offset;
         if (handle->u.file_offset > max_offset) {
             handle->u.file_offset = max_offset;
             // set the current cluster to the last cluster of the file
@@ -76,16 +77,19 @@ static void  fat32fs_update_all_handles_to(const char *path, uint32_t max_offset
 
 __attribute__((unused)) static void fat32fs_truncate(struct fat32fs_handle *h)
 {
+    DEBUG_PRINTF("truncating\n");
     fat32_set_cluster_eof(&fs_state.fat32, h->curr_data_cluster);
     struct fat32_dir_entry dir;
     fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
     dir.FileSize = h->u.file_offset;
     fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
 
+
     // find all open handles to same file and update their offsets if they 
     // are past the truncated point
 
     fat32fs_update_all_handles_to(h->path, h->u.file_offset);
+    DEBUG_PRINTF("new fsize: %u\n", h->dirent->size);
 
 }
 
@@ -99,10 +103,10 @@ void fat32fs_handle_close(struct fat32fs_handle *h)
     }
 
     // write back new size TODO
-    struct fat32_dir_entry dir;
-    fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
-    dir.FileSize = h->u.file_offset;
-    fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
+    //struct fat32_dir_entry dir;
+    //fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
+    //dir.FileSize = MAX(h->u.file_offset, h->dirent->size);
+    //fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
     collections_hash_delete(fs_state.fid2handle, h->fid);
     // TODO return type
 
@@ -292,7 +296,7 @@ errval_t fat32fs_write(struct fat32fs_handle *h, const void *buf, size_t bytes,
     h->u.file_offset += bytes;
 
     if (h->u.file_offset >= h->dirent->size) {
-        h->dirent->size = h->u.file_offset + 1;
+        h->dirent->size = h->u.file_offset;
         struct fat32_dir_entry dir;
         err = fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster,
                                h->dirent->dir_index, &dir);

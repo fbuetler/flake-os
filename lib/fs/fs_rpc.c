@@ -253,8 +253,9 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             sizeof(struct rpc_fs_opendir_response));
         struct fat32fs_handle *handle;
         response->err = fat32fs_opendir(0, args->path, &handle);
+        DEBUG_PRINTF("new fid for dir: %d\n", handle->fid);
         response->handle = *handle;
-        SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
+        SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_opendir_response));
         return;
     }
     case AosRpcFsReadDir: {
@@ -265,6 +266,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
                                                               args->fid);
         if (!handle) {
             // send error
+            DEBUG_PRINTF("didn't find handle for fid: %d\n", args->fid);
             response = malloc(sizeof(struct rpc_fs_readdir_response));
             response->err = FS_ERR_INVALID_FH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_readdir_response));
@@ -273,6 +275,12 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         char *retname;
         struct fs_fileinfo info;
         err = fat32fs_dir_read_next(handle, &retname, &info);
+        if(err_is_fail(err)){
+            response = malloc(sizeof(struct rpc_fs_readdir_response));
+            response->err = err;
+            SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_readdir_response));
+            return;
+        }
         // glue the DYNAMICALLY sized retname to the response
         size_t payload_size = sizeof(struct rpc_fs_readdir_response) + strlen(retname) + 1;
         response = malloc(payload_size);

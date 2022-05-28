@@ -691,6 +691,7 @@ static errval_t fat32fs_rm_glue(const char *path)
 
 static errval_t fat32fs_readdir_glue(fs_dirhandle_t h, char **name)
 {
+    DEBUG_PRINTF("reading fid %d\n", ((struct fat32fs_handle *)h)->fid);
     return aos_rpc_fs_readdir(fs_chan, ((struct fat32fs_handle *)h)->fid, NULL, name);
 }
 
