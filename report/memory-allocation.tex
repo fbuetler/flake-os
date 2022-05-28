@@ -1,30 +1,60 @@
-\section{Memory Allocator}
+\chapter{Memory Allocator}
 
-\subsection{Physical Frame Allocator}
+\section{Physical Frame Allocator}
 
-\subsubsection{Algorithm}
+\subsection{Algorithm}
 
-I first wanted to implement a buddy allocator and implemented a reference implementation for testing purposes outside of barrelfish and then imported that into barrelfish as my memory allocator. Unfortunately, I struggled understanding the concept of how capabilities are split i.e. I got that I get a new capref but it was not clear for me what happens to the rest. Do I get another new capref with that? After some time I figured out that it the original capability is still untouched from the point of view of the memory allocator and the only difference is that when I try to split the same part, I get am error from the underlying capability management system(correct name?).
+I first wanted to implement a buddy allocator and implemented a reference
+implementation for testing purposes outside of barrelfish and then imported that
+into barrelfish as my memory allocator. Unfortunately, I struggled understanding
+the concept of how capabilities are split i.e. I got that I get a new capref but
+it was not clear for me what happens to the rest. Do I get another new capref
+with that? After some time I figured out that it the original capability is
+still untouched from the point of view of the memory allocator and the only
+difference is that when I try to split the same part, I get am error from the
+underlying capability management system(correct name?).
 
-Also havent I decided how to handle the noncontinous memory regions that are handed to the memory allocator nor how to handle memory regions that are not a power of two in size.
+Also havent I decided how to handle the noncontinous memory regions that are
+handed to the memory allocator nor how to handle memory regions that are not a
+power of two in size.
 
-All this then lead me to implement a simple first fit allocator with a doubly linked list to get things started. Later I improved the first fit allocator to a next fit allocator with a circular buffer.
+All this then lead me to implement a simple first fit allocator with a doubly
+linked list to get things started. Later I improved the first fit allocator to a
+next fit allocator with a circular buffer.
 
-There were more obstacles to overcome: I was puzzled first how to allocate an object on the heap .i.e as you do with malloc in normal C programs. I then figured out that this is the purpose of the slab allocator. There I wasnt sure what block size to choose and how much memory the slab allocator needs. So I went over all object I wanted to allocate and choose the biggest object in terms of bytes as the block size and just gave the slab allocator a bunch of bytes.
+There were more obstacles to overcome: I was puzzled first how to allocate an
+object on the heap .i.e as you do with malloc in normal C programs. I then
+figured out that this is the purpose of the slab allocator. There I wasnt sure
+what block size to choose and how much memory the slab allocator needs. So I
+went over all object I wanted to allocate and choose the biggest object in terms
+of bytes as the block size and just gave the slab allocator a bunch of bytes.
 
-As I needed a list implementation for my first attempt of implementing the memory allocator, I added my own to the source tree. Little did I know that there is already an implementation under collections/. However, this one anyways uses malloc so I could use it at this stage, but still useful to know for later. I later changed my memory allocator to natively be implemented with links so I didnt need my list implementation anymore.
+As I needed a list implementation for my first attempt of implementing the
+memory allocator, I added my own to the source tree. Little did I know that
+there is already an implementation under collections/. However, this one anyways
+uses malloc so I could use it at this stage, but still useful to know for later.
+I later changed my memory allocator to natively be implemented with links so I
+didnt need my list implementation anymore.
 
-In the following I am going to discuss my implementation of a next fit memory allocator.
+In the following I am going to discuss my implementation of a next fit memory
+allocator.
 
 (maybe explain the next fit allocator?)
 
-\subsubsection{Datastructure}
+\subsection{Datastructure}
 
-As mentioned above, the datastructure for my next fit allocator is a circular buffer.
-The circular buffer is implemented as a doubly linked link list and the smallest unit is a mmnode (memory manager node).
-Each mmnode represents continous region of memory and is linked to the next node that is represent the next closest region of memory. The memory nodes that represent the start (lowest memory address) and the end (highest memory address) of the memory are linked with each other.
-A node can be split into two nodes to accomodate its size to the size of the requested memory or be merged with one of its neighbours, if they are free.
-A mmnode contains its type, wheter it is free or allocated, pointers to its adjacent neighbours, its memory base address, its size and a capinfo. The capinfo contains the capref and its original memory base address and size:
+As mentioned above, the datastructure for my next fit allocator is a circular
+buffer.  The circular buffer is implemented as a doubly linked link list and the
+smallest unit is a mmnode (memory manager node).  Each mmnode represents
+continous region of memory and is linked to the next node that is represent the
+next closest region of memory. The memory nodes that represent the start (lowest
+memory address) and the end (highest memory address) of the memory are linked
+with each other.  A node can be split into two nodes to accomodate its size to
+the size of the requested memory or be merged with one of its neighbours, if
+they are free.  A mmnode contains its type, wheter it is free or allocated,
+pointers to its adjacent neighbours, its memory base address, its size and a
+capinfo. The capinfo contains the capref and its original memory base address
+and size:
 
 \begin{lstlisting}
 enum nodetype { NodeType_Free, NodeType_Allocated };
@@ -45,7 +75,10 @@ typedef struct mmnode_t {
 } mmnode_t;
 \end{lstlisting}
 
-The datastructure is concluded by storing a pointer to the head of the linked list. As it is a circular buffer, it does not really have a natural head, but this is the pointer to the current position in the circular buffer. The memory allocator has more in it and they will be discussed at a later point.
+The datastructure is concluded by storing a pointer to the head of the linked
+list. As it is a circular buffer, it does not really have a natural head, but
+this is the pointer to the current position in the circular buffer. The memory
+allocator has more in it and they will be discussed at a later point.
 
 \begin{lstlisting}
 struct mm {
@@ -59,69 +92,128 @@ struct mm {
 };
 \end{lstlisting}
 
-\subsubsection{Add memory}
+\subsection{Add memory}
 
-Initially, the memory allocators head is NULL as there is no memory at the moment available. The memory allocator gets hold of new memory from the init process that reads that information from the bootinfo. With each new memory region added we add another node representing this region. The memory region comes in the form of a capref to a RAM capability. By inspecting it, we can read its memory base address and size and create a node for it. As its our first node its next and prev pointer point to it self and the head points to it.
-As more memory regions are added, more nodes are created and inserted before our current head. As it may be clear we mark all these nodes as free memory.
+Initially, the memory allocators head is NULL as there is no memory at the
+moment available. The memory allocator gets hold of new memory from the init
+process that reads that information from the bootinfo. With each new memory
+region added we add another node representing this region. The memory region
+comes in the form of a capref to a RAM capability. By inspecting it, we can read
+its memory base address and size and create a node for it. As its our first node
+its next and prev pointer point to it self and the head points to it.  As more
+memory regions are added, more nodes are created and inserted before our current
+head. As it may be clear we mark all these nodes as free memory.
 
-\subsubsection{Alloc memory}
+\subsection{Alloc memory}
 
-If any other component in barrelfish wants a ram capability, it needs to ask us. After some initial sanity checks of the request, we now need to find a memory region that fits the request. There are multiple parameters such as size of the memory and its alignment i.e. it has to start on a address that is a multiple of the alignment.
-To fullfill these requirements we traverse the circular buffer until we find a node that is marked as free and its size is large enough. If the memory that is represented by the node is not aligned as requested, we check if the aligned version still fits in this node and continue our traversal otherwise.
-If the node is not aligned but is still big enough, we split the node at an aligned position into two nodes with the right one being alinged.
-Splitting just inserts the new node into the circular buffer by pointing the previous node to itself and itself to the next node. Of course we need to update the base addresses and sizes of the nodes.
-As we now have a node that fulfills all requirements we retype the capref to the correct size for both nodes and storing it as the result.
-This is also the node we are going to start our search from for future memory allocation request (i.e. next fit).
+If any other component in barrelfish wants a ram capability, it needs to ask us.
+After some initial sanity checks of the request, we now need to find a memory
+region that fits the request. There are multiple parameters such as size of the
+memory and its alignment i.e. it has to start on a address that is a multiple of
+the alignment.  To fullfill these requirements we traverse the circular buffer
+until we find a node that is marked as free and its size is large enough. If the
+memory that is represented by the node is not aligned as requested, we check if
+the aligned version still fits in this node and continue our traversal
+otherwise.  If the node is not aligned but is still big enough, we split the
+node at an aligned position into two nodes with the right one being alinged.
+Splitting just inserts the new node into the circular buffer by pointing the
+previous node to itself and itself to the next node. Of course we need to update
+the base addresses and sizes of the nodes.  As we now have a node that fulfills
+all requirements we retype the capref to the correct size for both nodes and
+storing it as the result.  This is also the node we are going to start our
+search from for future memory allocation request (i.e. next fit).
 
-\subsubsection{Free memory}
+\subsection{Free memory}
 
-Freeing memory reverses an allocation. We identify the correct node by inspecting the provided capref, that gives us the base address and size.
-If we did not find the node we did not hand out this memory region and ignore the free request.
-If we found the node, we destroy the capref and marke the node as free. Further, we check both neighbours for a possible node merge. In a node merge we check whether they represent also physical adjacent memory regions to our memory region. This is crucial to not try and merge the "first" and "last" node as our data structure is a ciruclar buffer but the memory is still linear. Also the neighbours have to be marked free as well. If that all is the case we merge them by simple pointing the previous node to the next node.
+Freeing memory reverses an allocation. We identify the correct node by
+inspecting the provided capref, that gives us the base address and size.  If we
+did not find the node we did not hand out this memory region and ignore the free
+request.  If we found the node, we destroy the capref and marke the node as
+free. Further, we check both neighbours for a possible node merge. In a node
+merge we check whether they represent also physical adjacent memory regions to
+our memory region. This is crucial to not try and merge the "first" and "last"
+node as our data structure is a ciruclar buffer but the memory is still linear.
+Also the neighbours have to be marked free as well. If that all is the case we
+merge them by simple pointing the previous node to the next node.
 
 This concludes our memory allocator.
 
-\subsubsection{Partially free memory}
+\subsection{Partially free memory}
 
-I have also implemented to free partial memory. We know check the incoming free request, whether its address is represented by a node and if yes and the size is not the whole node, we split the node according to the partial free request. Here we have 3 cases: left aligned, middle aligned and right aligned partial free. For left and right aligned we need to split once and for the middle aligned we need to split the node twice. The rest works as usual afterwards as the normal free, the only difference is that we work on a new node.
+I have also implemented to free partial memory. We know check the incoming free
+request, whether its address is represented by a node and if yes and the size is
+not the whole node, we split the node according to the partial free request.
+Here we have 3 cases: left aligned, middle aligned and right aligned partial
+free. For left and right aligned we need to split once and for the middle
+aligned we need to split the node twice. The rest works as usual afterwards as
+the normal free, the only difference is that we work on a new node.
 
-\subsubsection{Slab memory allocator}
+\subsection{Slab memory allocator}
 
-Our mmnodes need some memory as well store its data. But where to take it from, when the nodes have the be created first before memory is handed out by the memory allocator?
-This is the purpose of the slab allocator. It can hand out memory but only of a certain block size. For the slab allocator instance used in the memory allocator its block size is the size of a mmnode. We initially give the slab allocator some memory from the init process and if that runs out we have to get it from the actual memory allocator that should now be bootstrapped.
-The slab allocator is used in a node split to create a new node and also when we add some memory to the memory allocator. We return a slab on a node merge. We also need to periodically check, whether we need to refill the slab allocator with new memory. We do this after after each memory allocation in our memory allocator.
-Why do we even need to do that?
-Well, once the slab allocator has run out of memory and only then want to allocate more memory to it we need to ask the memory allocator for memory but this one needs a slab to allocate memory. So you see the problem here?
+Our mmnodes need some memory as well store its data. But where to take it from,
+when the nodes have the be created first before memory is handed out by the
+memory allocator?  This is the purpose of the slab allocator. It can hand out
+memory but only of a certain block size. For the slab allocator instance used in
+the memory allocator its block size is the size of a mmnode. We initially give
+the slab allocator some memory from the init process and if that runs out we
+have to get it from the actual memory allocator that should now be bootstrapped.
+The slab allocator is used in a node split to create a new node and also when we
+add some memory to the memory allocator. We return a slab on a node merge. We
+also need to periodically check, whether we need to refill the slab allocator
+with new memory. We do this after after each memory allocation in our memory
+allocator.  Why do we even need to do that?  Well, once the slab allocator has
+run out of memory and only then want to allocate more memory to it we need to
+ask the memory allocator for memory but this one needs a slab to allocate
+memory. So you see the problem here?
 
-\subsubsection{Slot memory allocator}
+\subsection{Slot memory allocator}
 
-To store the capref we hand out for every memory allocations we need some memory as well. Initially it also gets some memory from the init process.
-We allocate a slot for each capref we return for an allocation request and free the slot on a free request (at the moment, however, the slot allocator does no bookkeeping for allocated slots).
-This one also needs to be refilled and we check that before each slot allocation. This one is even more tricky, if we run out of slots. A slot refill needs to allocate memory, that needs a slab for its bookkeeping that may trigger a slab refill and that requires a slot too.
-For this purpose, I also added a function that reports the number of free slots.
+To store the capref we hand out for every memory allocations we need some memory
+as well. Initially it also gets some memory from the init process.  We allocate
+a slot for each capref we return for an allocation request and free the slot on
+a free request (at the moment, however, the slot allocator does no bookkeeping
+for allocated slots).  This one also needs to be refilled and we check that
+before each slot allocation. This one is even more tricky, if we run out of
+slots. A slot refill needs to allocate memory, that needs a slab for its
+bookkeeping that may trigger a slab refill and that requires a slot too.  For
+this purpose, I also added a function that reports the number of free slots.
 
-\subsection{Frame mapping}
+\section{Frame mapping}
 
-\subsubsection{Page table}
+\subsection{Page table}
 
-Next, we need to be able to map a virtual address to a frame capability that was derived from a ram capability that represents a pyhsical memory region.
-For this prupose we need to create a page table that is able to do this mapping.
-We have a 4 level deep page table. The first level (L0) is at a well known location and exists already. So we only need to create the other levels on the fly as we need them i.e. need to store a value in one of its entries.
-Once we reached the last level, we store the frame capref and are done.
-The datastructure here is a tree. Each page table stores pointers to their children.
-The memory to store the datastructure is once again done by a slab allocator (not the same one) with some memory provided by the init process.
+Next, we need to be able to map a virtual address to a frame capability that was
+derived from a ram capability that represents a pyhsical memory region.  For
+this prupose we need to create a page table that is able to do this mapping.  We
+have a 4 level deep page table. The first level (L0) is at a well known location
+and exists already. So we only need to create the other levels on the fly as we
+need them i.e. need to store a value in one of its entries.  Once we reached the
+last level, we store the frame capref and are done.  The datastructure here is a
+tree. Each page table stores pointers to their children.  The memory to store
+the datastructure is once again done by a slab allocator (not the same one) with
+some memory provided by the init process.
 
-\subsubsection{Slab allocator refills}
+\subsection{Slab allocator refills}
 
-Now, we are able to actually refill the slab allocator.
-Here we first allocate a frame capref (derived from a ram capref) and map the frame into the page table for the given virtual address. We can then tell the slab allocator that there is some more memory at the virtual address for its use.
+Now, we are able to actually refill the slab allocator.  Here we first allocate
+a frame capref (derived from a ram capref) and map the frame into the page table
+for the given virtual address. We can then tell the slab allocator that there is
+some more memory at the virtual address for its use.
 
-\subsection{Tests}
+\section{Tests}
 
-To test all the above discussed functionalities I wrote some tests. They include alternating memory allocations and frees of one base page i.e. 4KB (the iterations may vary between 8 and 512 and alignment of 1 or 4KB), consecutive memory allocation and then frees (again different parameters), provoking many node merges by first allocating many regions and then free every second and finally the rest. There are also test for frame mappings, slot and slab allocator refills and a test where the requested size is exponentially increased until there is no memory left to fulfill the request and then freeing all memory.
-During this, there are page tables created that are at the moment not freed.
+To test all the above discussed functionalities I wrote some tests. They include
+alternating memory allocations and frees of one base page i.e. 4KB (the
+iterations may vary between 8 and 512 and alignment of 1 or 4KB), consecutive
+memory allocation and then frees (again different parameters), provoking many
+node merges by first allocating many regions and then free every second and
+finally the rest. There are also test for frame mappings, slot and slab
+allocator refills and a test where the requested size is exponentially increased
+until there is no memory left to fulfill the request and then freeing all
+memory.  During this, there are page tables created that are at the moment not
+freed.
 
-\subsection{Obstacels}
+\section{Obstacels}
 
 \begin{itemize}
 \item Capref retyping
