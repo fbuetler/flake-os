@@ -733,33 +733,37 @@ int main(int argc, char *argv[])
 
     debug_printf("Ready to accept connections\n");
     struct devq_buf buf;
+    struct waitset *ws = get_default_waitset();
     while (true) {
-        err = devq_dequeue((struct devq *)st->rxq, &buf.rid, &buf.offset, &buf.length,
-                           &buf.valid_data, &buf.valid_length, &buf.flags);
-        if (err_is_ok(err)) {
-            ENET_DEBUG("Received Packet of size %lu \n", buf.valid_length);
+        err = event_dispatch_non_block(ws);
+        if (err == LIB_ERR_NO_EVENT) {
+            err = devq_dequeue((struct devq *)st->rxq, &buf.rid, &buf.offset, &buf.length,
+                               &buf.valid_data, &buf.valid_length, &buf.flags);
+            if (err_is_ok(err)) {
+                ENET_DEBUG("Received Packet of size %lu \n", buf.valid_length);
 
-            struct region_entry *region = enet_get_region(st->rxq->regions, buf.rid);
-            if (!region) {
-                err = ENET_ERR_REGION_NOT_FOUND;
-                DEBUG_ERR(err, "failed to find region");
-                return err;
+                struct region_entry *region = enet_get_region(st->rxq->regions, buf.rid);
+                if (!region) {
+                    err = ENET_ERR_REGION_NOT_FOUND;
+                    DEBUG_ERR(err, "failed to find region");
+                    return err;
+                }
+
+                struct eth_hdr *eth = (struct eth_hdr *)((char *)region->mem.vbase
+                                                         + buf.offset + buf.valid_data);
+
+                ENET_BENCHMARK_INIT()
+                ENET_BENCHMARK_START(0, "handle packet")
+                err = enet_handle_packet(st, eth);
+                ENET_BENCHMARK_STOP(0, "handle packet")
+                if (err_is_fail(err)) {
+                    DEBUG_ERR(err, "failed to handle packet");
+                }
+
+                err = devq_enqueue((struct devq *)st->rxq, buf.rid, buf.offset, buf.length,
+                                   buf.valid_data, buf.valid_length, buf.flags);
+                assert(err_is_ok(err));
             }
-
-            struct eth_hdr *eth = (struct eth_hdr *)((char *)region->mem.vbase
-                                                     + buf.offset + buf.valid_data);
-
-            ENET_BENCHMARK_INIT()
-            ENET_BENCHMARK_START(0, "handle packet")
-            err = enet_handle_packet(st, eth);
-            ENET_BENCHMARK_STOP(0, "handle packet")
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to handle packet");
-            }
-
-            err = devq_enqueue((struct devq *)st->rxq, buf.rid, buf.offset, buf.length,
-                               buf.valid_data, buf.valid_length, buf.flags);
-            assert(err_is_ok(err));
         }
     }
 }
