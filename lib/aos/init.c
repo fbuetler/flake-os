@@ -248,12 +248,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
     }
 
-    err = aos_lmp_register_recv(lmp, aos_lmp_event_handler);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to register init channel to event handler");
-        return err_push(err, LIB_ERR_CHAN_REGISTER_RECV);
-    }
-
     set_init_rpc(&rpc);
     
     // reset the RAM allocator to use ram_alloc_remote

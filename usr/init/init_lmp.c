@@ -32,7 +32,7 @@ void aos_process_ram_cap_request(struct aos_lmp *lmp)
     errval_t err;
 
     // read ram request properties
-    struct ram_cap_request *req = (struct ram_cap_request*) lmp->recv_msg->payload;
+    struct ram_cap_request *req = (struct ram_cap_request *)lmp->recv_msg->payload;
 
     // grading call
     grading_rpc_handler_ram_cap(req->bytes, req->alignment);
@@ -328,20 +328,20 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
 
 static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 {
-    //DEBUG_PRINTF("received LMP bind request\n");
+    // DEBUG_PRINTF("received LMP bind request\n");
     errval_t err;
 
     struct aos_lmp_msg *msg = lmp->recv_msg;
-    domainid_t server_pid = *(domainid_t *)msg->payload;
+    struct aos_rpc_bind_request *bind_req = (struct aos_rpc_bind_request *)msg->payload;
 
-    //DEBUG_PRINTF("Looking for server spawninfo with pid %d\n", server_pid);
+    DEBUG_PRINTF("Looking for server spawninfo with pid %d\n", bind_req->pid);
     struct spawninfo *server_si = malloc(sizeof(struct spawninfo));
     if (server_si == NULL) {
         DEBUG_PRINTF("Failed to allocate server spawninfo\n");
         err = LIB_ERR_MALLOC_FAIL;
         goto ret_msg;
     }
-    err = spawn_get_process_by_pid(server_pid, &server_si);
+    err = spawn_get_process_by_pid(bind_req->pid, &server_si);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to obtain server spawninfo\n");
         err = err_push(err, SPAWN_ERR_FIND_PROC);
@@ -356,9 +356,9 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
         goto unwind_si;
     }
 
-    // forward message to server
-    //DEBUG_PRINTF("Forwarding request to server\n");
-    err = aos_lmp_send_msg(&server_si->lmp, relay_msg);
+    // forward bind request to server bind endpoint via fire and forget
+    DEBUG_PRINTF("Forwarding request to server\n");
+    err = aos_lmp_fire_and_forget(bind_req->bind_remote_cap, relay_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to relay LMP bind request to server");
         err = err_push(err, AOS_ERR_LMP_SEND_FAILURE);
@@ -535,6 +535,8 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         aos_process_aos_ump_bind_request(lmp);
         break;
     case AosRpcNsRegister: {
+        // we need to integrate the cap into the service info we received
+        ((service_info_t *)lmp->recv_msg->payload)->bind_remote_cap = lmp->recv_msg->cap;
         errval_t err = aos_process_service_register(lmp->recv_msg->payload,
                                                     lmp->recv_msg->payload_bytes);
         if (err_is_fail(err)) {
@@ -576,7 +578,7 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         break;
     }
     // DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
-    
+
     aos_lmp_msg_free(lmp);
 
     return SYS_ERR_OK;

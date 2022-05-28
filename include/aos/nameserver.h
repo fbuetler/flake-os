@@ -116,17 +116,20 @@ errval_t nameservice_lookup(const char *name, nameservice_chan_t *chan);
 errval_t nameservice_enumerate(char *query, size_t *num, char **result);
 
 typedef struct service_info {
-    coreid_t core;
     nameservice_receive_handler_t *handle;
     void *handler_state;
+    coreid_t core;
     domainid_t pid;
+    ///< LMP endpoint cap where the server expects bind requests
+    struct capref bind_remote_cap;
     size_t name_len;
     ///< Full name of the service
     char name[0];
 } service_info_t;
 
 errval_t service_info_new(coreid_t core, nameservice_receive_handler_t *handle,
-                          void *handler_state, domainid_t pid, const char *name,
+                          void *handler_state, domainid_t pid,
+                          struct capref bind_remote_cap, const char *name,
                           service_info_t **ret);
 size_t service_info_size(service_info_t *info);
 

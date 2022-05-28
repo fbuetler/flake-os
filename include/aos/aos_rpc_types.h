@@ -55,4 +55,9 @@ struct ram_cap_request {
     size_t alignment;
 };
 
+struct aos_rpc_bind_request {
+    domainid_t pid;
+    struct capref bind_remote_cap;
+};
+
 #endif

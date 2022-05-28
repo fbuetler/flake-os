@@ -97,8 +97,7 @@ static errval_t aos_rpc_process_lmp_bind(struct aos_lmp *lmp)
     // DEBUG_PRINTF("Received LMP bind request\n");
     errval_t err;
 
-    struct aos_lmp_msg *msg = lmp->recv_msg;
-    struct capref client_ep_cap = msg->cap;
+    struct capref client_ep_cap = lmp->recv_msg->cap;
 
     // DEBUG_PRINTF("Allocating new RPC\n");
     struct aos_lmp *new = malloc(sizeof(struct aos_lmp));
@@ -137,8 +136,11 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
     case AosRpcHandshake:
         aos_process_handshake(lmp->recv_msg);
         break;
+    case AosRpcLmpBind:
+        aos_rpc_process_lmp_bind(lmp);
+        break;
     case AosRpcClientRequest: {
-        DEBUG_PRINTF("Handling client request\n")
+        // DEBUG_PRINTF("Handling client request\n")
         struct aos_lmp_msg *msg = lmp->recv_msg;
         struct aos_rpc_msg request = { .type = msg->message_type,
                                        .payload = msg->payload,
@@ -148,7 +150,7 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         response.cap = NULL_CAP;
         aos_rpc_process_client_request(&request, &response);
 
-        DEBUG_PRINTF("Done handling client request\n");
+        // DEBUG_PRINTF("Done handling client request\n");
         struct aos_lmp_msg *ret_msg;
         aos_lmp_create_msg(&ret_msg, AosRpcServerResponse, response.bytes,
                            response.payload, response.cap);
@@ -182,9 +184,6 @@ errval_t aos_lmp_event_handler(struct aos_lmp *lmp)
         break;
     case AosRpcSendString:
         aos_process_string(lmp);
-        break;
-    case AosRpcLmpBind:
-        aos_rpc_process_lmp_bind(lmp);
         break;
     case AosRpcGetAllPidsResponse:
         break;
@@ -395,10 +394,6 @@ static errval_t aos_lmp_recv_msg(struct aos_lmp *lmp)
         aos_lmp_recv_followup_msg(lmp, &recv_buf);
     }
 
-    if (lmp->recv_bytes < lmp->recv_msg->payload_bytes + lmp->recv_msg->header_bytes) {
-        goto reregister;
-    }
-
     if (!capref_is_null(msg_cap)) {
         // allocate new receive slot if we received a cap
         err = lmp_chan_alloc_recv_slot(&lmp->chan);
@@ -406,6 +401,10 @@ static errval_t aos_lmp_recv_msg(struct aos_lmp *lmp)
             DEBUG_ERR(err, "Could not allocate receive slot");
             return err;
         }
+    }
+
+    if (lmp->recv_bytes < lmp->recv_msg->payload_bytes + lmp->recv_msg->header_bytes) {
+        goto reregister;
     }
 
     lmp->is_busy = false;
@@ -705,10 +704,11 @@ errval_t aos_lmp_send_msg(struct aos_lmp *lmp, struct aos_lmp_msg *msg)
 
 
     size_t remaining;
-    if (transferred_size >= total_bytes)
+    if (transferred_size >= total_bytes) {
         remaining = 0;
-    else
+    } else {
         remaining = total_bytes - transferred_size;
+    }
 
     err = SYS_ERR_OK;
     do {

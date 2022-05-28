@@ -59,6 +59,7 @@ enum aos_rpc_service {
     AOS_RPC_MEMORY_SERVICE,
 };
 
+
 void aos_process_number(struct aos_lmp *msg);
 void aos_process_string(struct aos_lmp *msg);
 

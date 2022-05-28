@@ -93,7 +93,8 @@ void name_parts_contents_free(struct name_parts *p)
 
 
 errval_t service_info_new(coreid_t core, nameservice_receive_handler_t *handle,
-                          void *handler_state, domainid_t pid, const char *name,
+                          void *handler_state, domainid_t pid,
+                          struct capref bind_remote_cap, const char *name,
                           service_info_t **ret)
 {
     size_t name_len = strlen(name) + 1;
@@ -103,10 +104,11 @@ errval_t service_info_new(coreid_t core, nameservice_receive_handler_t *handle,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    (*ret)->core = core;
     (*ret)->handle = handle;
     (*ret)->handler_state = handler_state;
+    (*ret)->core = core;
     (*ret)->pid = pid;
+    (*ret)->bind_remote_cap = bind_remote_cap;
     (*ret)->name_len = name_len;
     memcpy((*ret)->name, name, name_len);
 
@@ -147,8 +149,9 @@ errval_t nameservice_rpc(nameservice_chan_t chan, void *message, size_t bytes,
 {
     errval_t err;
 
-    struct nameservice_rpc_msg *nsrpcmsg = malloc(sizeof(struct nameservice_rpc_msg) + bytes);
-    if (nsrpcmsg == NULL) { 
+    struct nameservice_rpc_msg *nsrpcmsg = malloc(sizeof(struct nameservice_rpc_msg)
+                                                  + bytes);
+    if (nsrpcmsg == NULL) {
         DEBUG_PRINTF("Failed to allocate nameservice message\n");
         return LIB_ERR_MALLOC_FAIL;
     }
@@ -192,20 +195,35 @@ errval_t nameservice_register(const char *name,
 {
     errval_t err;
 
+    // initialize an LMP channel where we can receive bind requests
+    // this channel uses the same remote cap as the init channel as init only sends
+    // with fire and forget
+    struct aos_lmp *bind_lmp = malloc(sizeof(struct aos_lmp));
+    if (bind_lmp == NULL) {
+        DEBUG_PRINTF("Failed to allocate bind channel\n");
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    err = aos_lmp_init(bind_lmp, cap_initep);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to initialize bind LMP channel");
+        return err_push(err, LIB_ERR_LMP_INIT);
+    }
+
     service_info_t *info;
     err = service_info_new(disp_get_current_core_id(), recv_handler, st,
-                           disp_get_domain_id(), name, &info);
+                           disp_get_domain_id(), NULL_CAP, name, &info);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to create new service info");
         return err_push(err, LIB_ERR_NAMESERVICE_NEW_INFO);
     }
 
-    DEBUG_PRINTF("Registering new service %s with PID %d\n", name, info->pid);
+    // DEBUG_PRINTF("Registering new service %s with PID %d\n", name, info->pid);
 
     struct aos_rpc_msg msg = { .type = AosRpcNsRegister,
                                .payload = (char *)info,
                                sizeof(service_info_t) + info->name_len,
-                               NULL_CAP };
+                               bind_lmp->chan.local_cap };
 
     struct aos_rpc *init_rpc = get_init_rpc();
     struct aos_rpc_msg response;
@@ -215,11 +233,22 @@ errval_t nameservice_register(const char *name,
         return err_push(err, LIB_ERR_RPC_CALL);
     }
 
-    assert(response.type == AosRpcErrvalResponse);
+    if (response.type != AosRpcErrvalResponse) {
+        DEBUG_PRINTF("Expected AosRpcErrvalResponse\n");
+        return LIB_ERR_RPC_UNEXPECTED_MSG_TYPE;
+    }
+
     err = *(errval_t *)response.payload;
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failure registering the service at the nameserver");
         return err;
+    }
+
+    // register the bind channel
+    err = aos_lmp_register_recv(bind_lmp, aos_lmp_server_event_handler);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register the receive handler for the bind channel");
+        return err_push(err, LIB_ERR_LMP_ENDPOINT_REGISTER);
     }
 
     return SYS_ERR_OK;
@@ -262,7 +291,8 @@ errval_t nameservice_lookup(const char *name, nameservice_chan_t *nschan)
     struct aos_rpc *init_rpc = get_init_rpc();
     struct aos_rpc_msg response;
 
-    DEBUG_PRINTF("Looking up service at the nameserver\n");
+    // Obtain service info by looking up the name of the service at the nameserver
+    //DEBUG_PRINTF("Looking up service at the nameserver\n");
     err = aos_rpc_call(init_rpc, request, &response);
     free(name_copy);
     if (err_is_fail(err)) {
@@ -274,27 +304,34 @@ errval_t nameservice_lookup(const char *name, nameservice_chan_t *nschan)
         err = *(errval_t *)response.payload;
         DEBUG_ERR(err, "Failure looking up service at nameservice");
         return err;
+    } else if (response.type != AosRpcNsLookupResponse) {
+        DEBUG_PRINTF("Expected AosRpcNsLookupResponse\n");
+        return LIB_ERR_RPC_UNEXPECTED_MSG_TYPE;
     }
 
     service_info_t *info = (service_info_t *)response.payload;
 
+    // Allocate the nameserver channel we are returning
     *nschan = malloc(sizeof(struct aos_rpc) + 2 * sizeof(void *));
     if (*nschan == NULL) {
         DEBUG_PRINTF("Failed to allocate new nameservice channel\n");
         return LIB_ERR_MALLOC_FAIL;
     }
-    DEBUG_PRINTF("Setting up RPC channel to server with PID %d\n", info->pid);
-
     (*nschan)->handler = info->handle;
     (*nschan)->st = info->handler_state;
+
+    // Send a bind request to the server and set up the RPC channel
+    // DEBUG_PRINTF("Setting up RPC channel to server with PID %d\n", info->pid);
     struct aos_rpc *new_rpc = &(*nschan)->rpc;
+    struct aos_rpc_bind_request bind_req = { .pid = info->pid,
+                                             .bind_remote_cap = info->bind_remote_cap };
 
     if (info->core == disp_get_current_core_id()) {
-        DEBUG_PRINTF("Setting up LMP channel\n");
+        // DEBUG_PRINTF("Setting up LMP channel\n");
         // We can use an LMP channel
         new_rpc->is_lmp = true;
 
-        DEBUG_PRINTF("Initializing LMP channel\n");
+        // DEBUG_PRINTF("Initializing LMP channel\n");
         err = aos_lmp_init(&new_rpc->u.lmp, NULL_CAP);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to initialize LMP channel to server");
@@ -308,27 +345,32 @@ errval_t nameservice_lookup(const char *name, nameservice_chan_t *nschan)
             return err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
         }
 
-        DEBUG_PRINTF("Starting LMP bind request\n");
-        struct aos_rpc_msg bind_req = { .type = AosRpcLmpBind,
+        // DEBUG_PRINTF("Starting LMP bind request\n");
+        struct aos_rpc_msg lmp_bind_req = { .type = AosRpcLmpBind,
                                         .cap = new_rpc->u.lmp.chan.local_cap,
-                                        .payload = (char *)&info->pid,
-                                        .bytes = sizeof(domainid_t) };
+                                        .payload = (char *)&bind_req,
+                                        .bytes = sizeof(struct aos_rpc_bind_request) };
 
-        struct aos_rpc_msg bind_resp;
-        err = aos_rpc_call(init_rpc, bind_req, &bind_resp);
+        struct aos_rpc_msg lmp_bind_resp;
+        err = aos_rpc_call(init_rpc, lmp_bind_req, &lmp_bind_resp);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to send LMP bind request to init");
             return err_push(err, LIB_ERR_BIND_LMP_REQ);
         }
-        DEBUG_PRINTF("Successfully performed LMP bind request\n");
-
-        assert(bind_resp.type == AosRpcErrvalResponse);
-        err = *(errval_t *)bind_resp.payload;
+        // DEBUG_PRINTF("Got an answer\n");
+        if (lmp_bind_resp.type != AosRpcErrvalResponse) {
+            free(lmp_bind_resp.payload);
+            DEBUG_PRINTF("Expected AosRpcErrvalResponse\n");
+            return LIB_ERR_RPC_UNEXPECTED_MSG_TYPE;
+        }
+        err = *(errval_t *)lmp_bind_resp.payload;
+        free(lmp_bind_resp.payload);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to execute LMP bind request in init");
             return err_push(err, LIB_ERR_BIND_LMP_REQ);
         }
-        
+        // DEBUG_PRINTF("Successfully performed LMP bind request\n");
+
         err = aos_lmp_init_handshake_to_child(&new_rpc->u.lmp);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to perform handshake with server");
