@@ -28,7 +28,6 @@ typedef errval_t (*process_msg_func_t)(struct aos_lmp *);
 
 struct aos_lmp {
     struct thread_mutex lock;
-    // TODO(M3): Add state
     struct lmp_chan chan;
     bool is_busy;
     bool use_dynamic_buf;
