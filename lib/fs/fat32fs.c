@@ -142,42 +142,53 @@ static errval_t resolve_path(domainid_t pid, const char *path,
     struct fat32_dir_entry dir;
     uint32_t sector, index, parent_dir_cluster;
 
-    char *path_prefix, *fname;
-    split_path(path, &path_prefix, &fname);
-    err = fat32_move_to_dir(&fs_state.fat32, path_prefix, &parent_dir_cluster);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "fat32_move_to_dir failed");
-        goto unwind_split;
-    }
-
     struct fat32fs_dirent *dirent = calloc(1, sizeof(struct fat32fs_dirent));
-    char fat32_name[11];
-    bool valid = fat32_encode_fname(fname, fat32_name);
+    char *path_prefix, *fname = NULL;
+    if(strncmp(path, "/", 2) == 0){
+        dirent->dir_cluster = fs_state.fat32.FirstRootDirCluster;
+        dirent->dir_index = 0;
 
-    if (!valid) {
-        // TODO better error
-        err = FS_ERR_NOTFOUND;
-        goto unwind;
+        dirent->start_data_cluster = fs_state.fat32.FirstRootDirCluster;
+        fname = strdup(".          ");
+        dirent->name = fname;
+
+        dirent->size = dir.FileSize;
+        dirent->is_dir = true;
+    }else{
+        split_path(path, &path_prefix, &fname);
+        err = fat32_move_to_dir(&fs_state.fat32, path_prefix, &parent_dir_cluster);
+
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "fat32_move_to_dir failed");
+            goto unwind_split;
+        }
+
+        char fat32_name[11];
+        bool valid = fat32_encode_fname(fname, fat32_name);
+
+        if (!valid) {
+            // TODO better error
+            err = FS_ERR_NOTFOUND;
+            goto unwind;
+        }
+
+        err = fat32_load_dir_entry_from_name(&fs_state.fat32, parent_dir_cluster, fat32_name,
+                                            &dir, &sector, &index);
+
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "fat32_load_dir_entry_from_name failed");
+            goto unwind;
+        }
+
+        dirent->dir_cluster = parent_dir_cluster;
+        dirent->dir_index = index;
+
+        dirent->start_data_cluster = dir.FstClusHI << 16 | dir.FstClusLO;
+        dirent->name = fname;
+
+        dirent->size = dir.FileSize;
+        dirent->is_dir = (dir.Attr == FAT32_FATTR_DIRECTORY);
     }
-
-    err = fat32_load_dir_entry_from_name(&fs_state.fat32, parent_dir_cluster, fat32_name,
-                                         &dir, &sector, &index);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "fat32_load_dir_entry_from_name failed");
-        goto unwind;
-    }
-
-    dirent->dir_cluster = parent_dir_cluster;
-    dirent->dir_index = index;
-
-    dirent->start_data_cluster = dir.FstClusHI << 16 | dir.FstClusLO;
-    dirent->name = fname;
-
-    dirent->size = dir.FileSize;
-    dirent->is_dir = (dir.Attr == FAT32_FATTR_DIRECTORY);
-
 
     if (ret_fh) {
         struct fat32fs_handle *fh = handle_open(pid, dirent, path);
