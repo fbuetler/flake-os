@@ -28,6 +28,7 @@ errval_t enet_get_mac_by_ip(struct enet_driver_state *st, ip_addr_t ip_dest,
     errval_t err;
 
     // get from cache if available
+    enet_debug_print_ip(ip_dest);
     enet_debug_print_arp_table(st->arp_table);
     uint64_t *mac = (uint64_t *)collections_hash_find(st->arp_table, ip_dest);
     if (mac) {
@@ -57,20 +58,19 @@ errval_t enet_get_mac_by_ip(struct enet_driver_state *st, ip_addr_t ip_dest,
         return err;
     }
 
-#if 0
     // wait until response is here
     size_t retries = 0;
     size_t max_retries = 512;
     while (retries < max_retries) {
+        enet_debug_print_arp_table(st->arp_table);
         mac = (uint64_t *)collections_hash_find(st->arp_table, ip_dest);
         if (mac) {
             *retmac = enet_split_mac(*mac);
             return SYS_ERR_OK;
         }
         retries++;
-        thread_yield();
+        barrelfish_usleep(10 * 1000);
     }
-#endif
 
     return ENET_ERR_ARP_RESOLUTION;
 }
