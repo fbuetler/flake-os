@@ -1,3 +1,48 @@
 \section{User-level Message Passing}
 
-TODO
+Communication between cores happens over shared memory. When a core is booted, the parent core allocates some memory, maps it into its own address space and provides its physical memory address and size to the child core. The child core also maps this memory region into its address space, and now both core can access the same memory region.
+
+With this shared memory, both core, need to settle on a common communication protocol such that they understand each other.
+
+\subsection{Communication Protocol}
+
+Each core can acts as a server or a client, that means it may react on incoming messages or initiate messages to other cores.
+We decided on having a consumer-producer queue mechanism to exchange messages between two cores, with the shared memory having the size of two base pages. 
+
+We first implemented the communication protocol with a shared memory size of one base page, but it turned out that messages, that are sent to a core as a response to a request and messages that are sent to a core as a request, may interleave. So we settled to have a shared memory of the size of two base pages such that one base page can be used for server communication and one for client communication. 
+
+However, the communication protocol for both server and client is the same. We will now explain, how two cores can communicate with each other over shared memory of the size of one base page.
+
+As already mentioned, the communication protocol is based on a producer/consumer queue implemented with as a circular ring buffer. We need exactly two ring buffers to communicate, as one ring buffer is for sending a message from on core, and receiving on the other core. The second ring buffer is the same but vice-versa, such that both cores can both send and receive messages. 
+
+That means we need to split the base page once again into two equals parts. The parent core will use the first half of the base page for sending messages and the second half of the base page for receiving messages. The child core does the same, but receiving on the first half and sending on the second half. Both cores keep a pointer to an offset in the ring buffer to know where they should expect the next message.
+
+\subsection{Message Format}
+
+Each message in our communication protocol is exactly 64 bytes, i.e. the size of a cache line. That is important, such that we don't need to flush e message to the memory, but it is enough to have the message in the cache, for the other core to see it. This gives us a huge performance gain.
+
+Each message has a header and a payload. The header contains metadata such as the message type, the message state, payload size and if it is the last messages in a chain of fragmented messages. The latter is important for sending messages that are larger than 64 bytes, but more on that later. The header has the size of exactly 3 bytes, and therefore there is space for 61 bytes of payload for each message.
+
+The most interesting header parameter is the message state. A message can have three different states: created, sent or received. When a message is initially created, it is marked as sent. When a message is sent from the sender's perspective it is marked as sent, and it is marked as received from the receiver, when it consumed the whole message.
+
+\subsection{Sending and Receiving Messages}
+
+To send a message, we need to get our current offset into the ring buffer, i.e. a particular cache line. First, we check if the previously sent message over that cache line is marked as sent in its header. If that is not the case, then we filled the circular ring buffer completely and cannot send another messages until the receiver has consumed some messages. However, if the message is not marked as sent, but as received, then we can use this cache line to transmit another message. We copy the message into the cache line, mark it in its header as sent, and update our offset into the ring buffer to point to the next cache line. The tricky part here is to deal with ARM's weak memory model. A weak memory model does not guarantee that stores from one core are observer by another core in the same order, that they are stored by the former. Luckily, there are barriers to enforce, exactly that.
+
+We need a barrier between checking for the message state and copying the message in the cache line to ensure that we first check the state being received before we overwrite possibly not yet consumed messages. And we also need a barrier after copying the message into the cache line and marking the message as sent, such that the message is actually written to memory before logically marked as sent and consumed by the receiver.
+
+To receive a message, it computes the current offset into the ring buffer to know in which cache line the receiver should expect the next message. It  checks repeatedly the message stored in this cache line for its message state. Once, the message state is marked as sent, the receiver got a new message to be consumed. To consume it, it is copying the content from the cache line, marks the message as received and updates its offset into the ring buffer.
+
+Again, we need barriers to make the whole receiving process work. Similarly, to the sender, we need to insert a barrier before consuming a message such, that we are sure that we first check the message state to be marked as sent before actually reading its content. Also, we need another barrier between copying the message content from the cache line and marking the message as received. The same reasoning as above applies here.
+
+\subsection{Sending large messages}
+
+At this point, two core are capable of communicating with each other. But only if the message, they would like to send, fit into a single cache line. We went the extra mile and implemented the extra challenge fragmentation and reassembly. For this we need to split the payload, that should be sent, into chunks fitting into a cache line and reassemble them on the receiver side. Sending chunked messages is pretty straight forward, but one point to mention here is the case when we send many chunked messages and completely fill the ring buffer and hence fail sending the remaining message. In this case, we implemented a linear back off functionality that retries send the messages up to 32 times, such that the receiver has time to consume messages and give space for sending the remaining messages.
+
+We decided to limit the maximal allowed size of messages sent over UMP to two base page sizes. This way, we can allocate a temporary buffer on the receiver side, that is guaranteed to contain the whole message after reassembling. The receiver then simply needs to read all chunked message and reassemble them.
+
+\subsection{Synchronous communication}
+
+To provide synchronous communication over UMP we also added a function to our interface that, sends a message and immediately tries to receive one, such that we could offload this functionality directly into the library.
+
+% maybe talk about server/client and binding
