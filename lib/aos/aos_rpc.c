@@ -159,9 +159,7 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
 
     struct aos_rpc_msg response;
 
-    DEBUG_PRINTF("before\n");
     err = aos_rpc_call(rpc, request, &response, false);
-    DEBUG_PRINTF("after call\n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;

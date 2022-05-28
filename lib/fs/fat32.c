@@ -694,10 +694,8 @@ errval_t fat32_read_data(struct fat32 *fs, uint32_t start_cluster,
     while (bytes_read < bytes) {
         uint32_t bytes_to_read = MIN(bytes - bytes_read,
                                      BYTES_PER_CLUS(fs) - cluster_offset);
-        DEBUG_PRINTF("before process_cluster\n");
         err = fat32_process_cluster(fs, curr_cluster, cluster_offset, dest_buffer,
                                     bytes_to_read, true);
-        DEBUG_PRINTF("after process_cluster\n");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to read cluster\n");
             return err;
@@ -714,7 +712,6 @@ errval_t fat32_read_data(struct fat32 *fs, uint32_t start_cluster,
     }
     *ret_last_cluster_read = curr_cluster;
 
-    DEBUG_PRINTF("done\n");
     return SYS_ERR_OK;
 }
 

@@ -101,7 +101,6 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     // * disallowing any mapping outside the ranges that you defined as valid for heap, stack
     // * add a guard page to the process’ stack
     struct paging_state *st = get_current_paging_state();
-    DEBUG_PRINTF("pfault\n ");
     thread_mutex_lock_nested(&st->paging_mutex);
 
     lvaddr_t vaddr = (lvaddr_t)addr;

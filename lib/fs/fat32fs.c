@@ -258,8 +258,6 @@ errval_t fat32fs_read(struct fat32fs_handle *h, void *buffer, size_t bytes,
     h->u.file_offset += bytes;
     *bytes_read = bytes;
 
-    DEBUG_PRINTF("done 22\n");
-
     return SYS_ERR_OK;
 }
 

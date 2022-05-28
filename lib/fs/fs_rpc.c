@@ -173,10 +173,8 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         uint32_t current_offset = handle->u.file_offset;
         size_t bytes_read;
         err = fat32fs_read(handle, buf, read, &bytes_read);
-        DEBUG_PRINTF("done 33\n");
         if (err_is_fail(err)) {
             // send error
-            DEBUG_PRINTF("done44\n");
             response = malloc(sizeof(struct rpc_fs_write_response));
             response->err = FS_ERR_INVALID_FH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_write_response));

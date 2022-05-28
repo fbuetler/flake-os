@@ -178,7 +178,6 @@ errval_t nameservice_rpc(nameservice_chan_t chan, void *message, size_t bytes,
         *rx_cap = ret_msg.cap;
     }
 
-    DEBUG_PRINTF("oh boy\n");
     return SYS_ERR_OK;
 }
 
