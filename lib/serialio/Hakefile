@@ -17,6 +17,6 @@
         target = "serialio",
         cFiles = (find withSuffices [".c"]),
         architectures = ["armv8"],
-        addLibraries = ["gic_dist", "pl011"]
+        addLibraries = ["gic_dist", "pl011", "lpuart"]
     }
 ]

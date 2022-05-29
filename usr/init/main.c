@@ -79,14 +79,29 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
-    err = init_serial_server(UART_QEMU);
+    /* obtain the platform information */
+    err = invoke_kernel_get_platform_info(cap_kernel, &platform_info);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to obtain the platform info from the kernel\n");
+    }
+
+    switch (platform_info.platform) {
+    case PI_PLATFORM_QEMU:
+        err = init_serial_server(UART_QEMU);
+        break;
+    case PI_PLATFORM_IMX8X:
+        err = init_serial_server(UART_TORADEX);
+        break;
+    default:
+        break;
+    }
 
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "Could not launch serial server! \n");
     }
 
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
-    spawn_lpuart_driver(&si);
+    spawn_lpuart_driver(&si); // todo: rename this, it's the shell
 
     /*
     struct spawninfo *si2 = malloc(sizeof(struct spawninfo));

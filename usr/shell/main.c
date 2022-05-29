@@ -106,7 +106,7 @@ static void handle_input(void) {
                 // Backspace. Note that on macos, pressing "backspace" actually sends "DEL"
                 if(shell_state.buffer_count > 0) {
                     shell_state.buffer_count -= 1;
-                    write_str("\e[D\e[K");
+                    write_str("\e[D\e[K"); // move cursor to the left, clear until EOL
                 }
             }
             else {
