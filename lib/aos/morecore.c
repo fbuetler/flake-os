@@ -99,36 +99,42 @@ errval_t morecore_reinit(void)
  * be smaller than bytes if we were able to allocate a smaller memory
  * region than requested for.
  */
+
+// since we only reserve page-aligned, cache last allocation for later use
+void *last_base = NULL;
+size_t last_rem_size = 0;
 static void *morecore_alloc(size_t bytes, size_t *retbytes)
 {
     errval_t err;
 
-    size_t curr = MAX(bytes, BASE_PAGE_SIZE);
     struct morecore_state *st = get_morecore_state();
 
-    while(curr >= bytes){
-        // reserve a region of virtual memory for the heap
-        size_t aligned_bytes = ROUND_UP(curr, sizeof(Header));
-        if (aligned_bytes % sizeof(Header) != 0) {
-            DEBUG_PRINTF("bytes: 0x%lx, aligned_bytes: 0x%lx, sizeof(Header): 0x%lx\n", curr, aligned_bytes, sizeof(Header));
-        }
-        void *buf;
-        err = paging_alloc_region(st->paging_state, VREGION_TYPE_HEAP, &buf, aligned_bytes, 1);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to allocate a virtual memory for heap");
-            if(curr == bytes){
-                break;
-            }
-            curr = MAX(bytes, curr/2);
-            continue;
-        }
-        *retbytes = aligned_bytes;
-        return buf;
+    // reserve a region of virtual memory for the heap
+    size_t aligned_bytes = ROUND_UP(bytes, sizeof(Header));
+    if (aligned_bytes % sizeof(Header) != 0) {
+        DEBUG_PRINTF("bytes: 0x%lx, aligned_bytes: 0x%lx, sizeof(Header): 0x%lx\n", bytes, aligned_bytes, sizeof(Header));
     }
 
-    *retbytes = 0;
-    return NULL;
+    if(last_base && last_rem_size >= aligned_bytes){
+        void *ret_base = last_base;
+        last_base += aligned_bytes;
+        last_rem_size -= aligned_bytes;
+        *retbytes = aligned_bytes;
+        return ret_base;
+    }
 
+    void *buf;
+    err = paging_alloc_region(st->paging_state, VREGION_TYPE_HEAP, &buf, aligned_bytes, BASE_PAGE_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate a virtual memory for heap");
+        return NULL;
+    }
+    last_base = buf + aligned_bytes;
+    last_rem_size = ROUND_UP(aligned_bytes, BASE_PAGE_SIZE) - aligned_bytes;
+    *retbytes = aligned_bytes;
+
+    // mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
+    return buf;
 }
 
 static void morecore_free(void *base, size_t bytes)
@@ -136,6 +142,7 @@ static void morecore_free(void *base, size_t bytes)
     errval_t err;
 
     struct morecore_state *st = get_morecore_state();
+    DEBUG_PRINTF("Inside morecore_free\n");
 
     err = paging_unmap(st->paging_state, (char *)base - 0x20);
     if (err_is_fail(err)) {
