@@ -786,8 +786,8 @@ errval_t fat32_create_empty_file(struct fat32 *fs, const char *path, bool is_dir
     char fat32_short_name[11];
     bool valid = fat32_encode_fname(fname, fat32_short_name);
     if (!valid) {
-        DEBUG_PRINTF("Couldn't convert filename to short name: %s\n", fname);
-        return err;
+        DEBUG_PRINTF("Couldn't convert filename to short name: '%s'\n", fname);
+        return FS_ERR_INVALID_PATH;
     }
 
     struct fat32_file file = { .name = fat32_short_name,

@@ -11,6 +11,9 @@
 #define FS_PATH_SEP '/'
 #define FS_MOUNTPOINT "/sdcard"
 
+
+typedef uint32_t fileref_id_t;
+
 /// Enum defining interpretation of offset argument to #vfs_seek
 enum fs_seekpos {
     FS_SEEK_SET,   ///< Offset relative to start of file
