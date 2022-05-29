@@ -57,7 +57,7 @@ struct fat32fs_handle *handle_open(domainid_t pid, struct fat32fs_dirent *d,
     return h;
 }
 
-static void  fat32fs_update_all_handles_to(const char *path, uint32_t max_offset){
+void  fat32fs_update_all_handles_to(const char *path, uint32_t max_offset){
     // get head of all handles with this path and iterate through them
     // whenever a handle has a offset that's too high, update it
     struct handle_list_node *node = hashmap_get(&fs_state.path2handle, path, strlen(path));

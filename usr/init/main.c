@@ -36,6 +36,8 @@
 #include <barrelfish_kpi/startup_arm.h>
 #include <aos/deferred.h>
 
+#include <serialio/serialio.h>
+
 #include "mem_alloc.h"
 #include "custom_tests.h"
 #include "nameserver/name_tree.h"
@@ -83,7 +85,7 @@ static int bsp_main(int argc, char *argv[])
     // run_m4_tests();
 
     // TODO: Spawn system processes, boot second core etc. here
-    uint8_t number_of_cores_to_boot = 0;
+    uint8_t number_of_cores_to_boot = 1;
     for (int i = 1; i <= number_of_cores_to_boot; i++) {
         err = boot_core(i);
         if (err_is_fail(err)) {
@@ -91,8 +93,28 @@ static int bsp_main(int argc, char *argv[])
         }
     }
 
+    /* obtain the platform information */
+    err = invoke_kernel_get_platform_info(cap_kernel, &platform_info);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to obtain the platform info from the kernel\n");
+    }
+
     // run_m5_tests();
     // run_m6_tests();
+
+    switch (platform_info.platform) {
+    case PI_PLATFORM_QEMU:
+        err = init_serial_server(UART_QEMU);
+        break;
+    case PI_PLATFORM_IMX8X:
+        err = init_serial_server(UART_TORADEX);
+        break;
+    default:
+        break;
+    }
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not launch serial server! \n");
+    }
 
     // err = spawn_sdhc_driver(NULL);
     // if (err_is_fail(err)) {
@@ -104,7 +126,16 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "failed to spawn enet driver");
     }
 
-    run_m7_tests();
+    //run_m7_tests();
+
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    spawn_lpuart_driver(&si); // todo: rename this, it's the shell
+
+    /*
+    struct spawninfo *si2 = malloc(sizeof(struct spawninfo));
+    spawn_lpuart_driver(&si2);
+     */
 
     // Grading
     grading_test_late();

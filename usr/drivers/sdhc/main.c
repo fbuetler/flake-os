@@ -30,6 +30,7 @@
 #include <aos/aos.h>
 #include <drivers/sdhc.h>
 #include <aos/deferred.h>
+#include <aos/systime.h>
 #include <dev/imx8x/sdhc_dev.h>
 
 //#define DEBUG_ON
@@ -100,6 +101,29 @@
 #define OCR_BUSY        0x80000000
 #define OCR_HCS         0x40000000
 #define OCR_S18R        0x1000000
+
+//#define SDHC_BENCHMARK
+//#define SDHC_WAITING_FOR_DEV
+//#define SDHC_BENCH_DMA
+
+#ifdef SDHC_BENCHMARK
+size_t bench_total = 0;
+int bench_iter = 0;
+int bench_started = 0;
+#endif
+
+#define BENCH_START int start = systime_now()
+
+#define BENCH_END do{ \
+        int duration = systime_now() - start; \
+        if(bench_started){ \
+            bench_total += duration; \
+            bench_iter++; \
+            if(bench_iter == 100){ \
+                printf("%d\n", systime_to_us(bench_total)); }\
+        } \
+    }while(0)
+
 
 struct sdhc_s {
     sdhc_t dev;
@@ -215,6 +239,10 @@ static sdhc_cmd_xfr_typ_t xfr_typ_for_cmd(struct cmd *cmd){
 static errval_t sdhc_send_cmd(struct sdhc_s * sd, struct cmd * cmd) {
     DEBUG("sdhc_send_cmd: cmdidx=%d,cmdarg=%d\n", cmd->cmdidx, cmd->cmdarg);
 
+#ifdef SDHC_WAITING_FOR_DEV
+    BENCH_START;
+#endif
+
     uint32_t mask; // TODO: in some cases we don't need to wait for all
     if(cmd->cmdidx == MMC_CMD_STOP_TRANSMISSION) {
        mask = 1;
@@ -224,6 +252,9 @@ static errval_t sdhc_send_cmd(struct sdhc_s * sd, struct cmd * cmd) {
     while(sdhc_pres_state_rawrd(&sd->dev) & mask){
         DEBUG("Card busy!\n");
     }
+
+
+
     DEBUG("Card ready (data & cmd inhibit are clear)!\n");
     barrelfish_usleep(10000);
 
@@ -256,6 +287,14 @@ static errval_t sdhc_send_cmd(struct sdhc_s * sd, struct cmd * cmd) {
 
     sdhc_cmd_xfr_typ_t c = xfr_typ_for_cmd(cmd);
     sdhc_cmd_xfr_typ_wr(&sd->dev, c);
+
+#ifdef SDHC_WAITING_FOR_DEV
+    BENCH_END;
+#endif
+
+#ifdef SDHC_BENCH_DMA
+    BENCH_START;
+#endif
 
     //DEBUG("%s:%d: Wait until irq_stat.tc || irq_stat.cc \n", __FUNCTION__, __LINE__);
     uint32_t tc = 0;
@@ -300,6 +339,9 @@ static errval_t sdhc_send_cmd(struct sdhc_s * sd, struct cmd * cmd) {
     } else {
         cmd->response[0] = sdhc_cmd_rsp0_rd(&sd->dev);
     }
+#ifdef SDHC_BENCH_DMA
+    BENCH_END;
+#endif
     return SYS_ERR_OK;
 }
 
@@ -471,17 +513,9 @@ errval_t sdhc_read_block(struct sdhc_s* sd, int index, lpaddr_t dest)
 {
     errval_t err;
 
-    struct cmd set_blocklen = {
-        .cmdidx = MMC_CMD_SET_BLOCKLEN,
-        .cmdarg = SDHC_BLOCK_SIZE,
-        .resp_type = MMC_RSP_R1
-    };
-    err = sdhc_send_cmd(sd, &set_blocklen);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "set_blocklen");
-        return err;
-    }
-
+#ifdef SDHC_BENCHMARK 
+    bench_started = 1;
+#endif
     struct cmd read_block = {
         .cmdidx = MMC_CMD_READ_SINGLE_BLOCK,
         .cmdarg = index,
@@ -501,17 +535,9 @@ errval_t sdhc_read_block(struct sdhc_s* sd, int index, lpaddr_t dest)
 errval_t sdhc_write_block(struct sdhc_s* sd, int index, lpaddr_t source){
     errval_t err;
 
-    struct cmd set_blocklen = {
-        .cmdidx = MMC_CMD_SET_BLOCKLEN,
-        .cmdarg = SDHC_BLOCK_SIZE,
-        .resp_type = MMC_RSP_R1
-    };
-    err = sdhc_send_cmd(sd, &set_blocklen);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "set_blocklen");
-        return err;
-    }
-
+#ifdef SDHC_BENCHMARK 
+    bench_started = 1;
+#endif
     struct cmd write_block = {
         .cmdidx = MMC_CMD_WRITE_SINGLE_BLOCK,
         .cmdarg = index,
@@ -609,6 +635,16 @@ errval_t sdhc_init(struct sdhc_s** sd_ret, void *base)
        return err;
     }
 
+    struct cmd set_blocklen = {
+        .cmdidx = MMC_CMD_SET_BLOCKLEN,
+        .cmdarg = SDHC_BLOCK_SIZE,
+        .resp_type = MMC_RSP_R1
+    };
+    err = sdhc_send_cmd(sd, &set_blocklen);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "set_blocklen");
+        return err;
+    }
     return SYS_ERR_OK;
 }
 

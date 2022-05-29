@@ -29,6 +29,7 @@
 #include <fs/fat32fs.h>
 #include <fs/dirent.h>
 #include <fs/fs_rpc.h>
+#include <aos/systime.h>
 #include <aos/nameserver.h>
 
 __attribute__((unused))
@@ -37,6 +38,90 @@ static void test_encode_decode(char *src){
     fat32_encode_fname(src, encoded);
     fat32_decode_fname(encoded, result);
     printf("'%.11s' -> '%s'\n", encoded, result);
+}
+
+__attribute__((unused))
+static void benchmark_read_total(struct fat32 *fat){
+    printf("meature start\n");
+    size_t start = systime_now();
+
+    int iter = 50;
+    for(int i = 0; i < iter; i++){
+        //fat32_read_sector(fat, 100+i, &fat->data_scratch);
+        sdhc_read_block(fat->sd, 100 + i, fat->data_scratch.phys);
+    }
+    size_t duration = systime_now() - start;
+
+    printf("duration: %zu\n", systime_to_us(duration));
+
+}
+
+__attribute__((unused))
+static void benchmark_read_no_flush(struct fat32 *fat){
+    printf("meature start\n");
+    size_t start = systime_now();
+
+    int iter = 50;
+    for(int i = 0; i < iter; i++){
+        //fat32_read_sector(fat, 100+i, &fat->data_scratch);
+        sdhc_read_block(fat->sd, 100 + i, fat->data_scratch.phys);
+    }
+    size_t duration = systime_now() - start;
+
+    printf("duration: %zu\n", systime_to_us(duration));
+}
+
+__attribute__((unused))
+static void benchmark_read(struct fat32 *fat){
+    printf("meature start\n");
+
+    int iter = 50;
+    for(int i = 0; i < iter; i++){
+        //fat32_read_sector(fat, 100+i, &fat->data_scratch);
+        sdhc_read_block(fat->sd, 100 + i, fat->data_scratch.phys);
+    }
+}
+
+__attribute__((unused))
+static void benchmark_write_total(struct fat32 *fat){
+    printf("meature start\n");
+    size_t start = systime_now();
+
+    int iter = 50;
+    for(int i = 0; i < iter; i++){
+        //fat32_read_sector(fat, 100+i, &fat->data_scratch);
+        fat32_write_sector(fat, 100 + i, &fat->data_scratch);
+    }
+    size_t duration = systime_now() - start;
+
+    printf("duration: %zu\n", systime_to_us(duration));
+
+}
+
+__attribute__((unused))
+static void benchmark_write_no_flush(struct fat32 *fat){
+    printf("meature start\n");
+    size_t start = systime_now();
+
+    int iter = 50;
+    for(int i = 0; i < iter; i++){
+        //fat32_read_sector(fat, 100+i, &fat->data_scratch);
+        sdhc_write_block(fat->sd, 100 + i, fat->data_scratch.phys);
+    }
+    size_t duration = systime_now() - start;
+
+    printf("duration: %zu\n", systime_to_us(duration));
+}
+
+__attribute__((unused))
+static void benchmark_write(struct fat32 *fat){
+    printf("meature start\n");
+
+    int iter = 50;
+    for(int i = 0; i < iter; i++){
+        //fat32_read_sector(fat, 100+i, &fat->data_scratch);
+        sdhc_write_block(fat->sd, 100 + i, fat->data_scratch.phys);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -65,72 +150,5 @@ int main(int argc, char *argv[])
         }
     }
 
-    return 0;
-
-    /*
-    struct fat32fs_handle *h;
-    DEBUG_ERR(mkdir("xyh"), "mkdir res\n");
-    DEBUG_ERR(mkdir("xyh/a"), "mkdir res\n");
-    DEBUG_ERR(mkdir("xyh/b"), "mkdir res\n");
-    DEBUG_ERR(mkdir("xyh/c"), "mkdir res\n");
-    */
-
-
-   /*
-
-    DEBUG_ERR(rmdir("xyh"), "rmdir res\n");
-    
-    
-    err = opendir("xyh", (fs_dirhandle_t *)&h);
-    assert(err_is_ok(err));
-
-    while(1){
-        char *name;
-        err = readdir(h, &name);
-        if(err_is_fail(err)){
-            break;
-        }
-        DEBUG_PRINTF("name: %s\n", name);
-    }
-
-    return 0;
-
-    err = rm("/testdir2/test8.txt");
-    assert(err_is_ok(err));
-
-    err = rm("testdir2/test8.txt");
-    DEBUG_ERR(err, "rm result");
-
-    return 0;
-
-    */
-
-    FILE *f = fopen("/testdir2/test8.txt", "w");
-    if (f == NULL) {
-        return FS_ERR_OPEN;
-    }
-    __attribute__((unused))
-    const char *inspirational_quote = "xx"; //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-    
-    size_t written = fwrite(inspirational_quote, 1, strlen(inspirational_quote), f);
-    printf("wrote %zu bytes\n", written);
-
-    fclose(f);
-
-    DEBUG_PRINTF("READING\n");
-
-    f = fopen("/testdir2/test8.txt",  "r");
-    if (f == NULL) {
-        return FS_ERR_OPEN;
-    }
-    int c;
-    while(1){
-        c = fgetc(f);
-        if (c == EOF) {
-            break;
-        }
-        printf("%c", c);
-    }
-    printf("\n");
     return 0;
 }

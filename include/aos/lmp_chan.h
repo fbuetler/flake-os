@@ -28,25 +28,25 @@ struct event_queue_node;
 
 /// A bidirectional LMP channel
 struct lmp_chan {
-    struct waitset_chanstate send_waitset; ///< State belonging to waitset (for send)
-    struct lmp_chan *next, *prev; ///< Next/prev in list of channels with send events
-    struct capref local_cap, remote_cap;   ///< Capabilities to local/remote endpoints
-    struct lmp_endpoint *endpoint;         ///< Incoming LMP endpoint (in dispatcher)
+    struct waitset_chanstate send_waitset;  ///< State belonging to waitset (for send)
+    struct lmp_chan *next, *prev;  ///< Next/prev in list of channels with send events
+    struct capref local_cap, remote_cap;  ///< Capabilities to local/remote endpoints
+    struct lmp_endpoint *endpoint;        ///< Incoming LMP endpoint (in dispatcher)
 
     /// connection state
-    enum {LMP_DISCONNECTED,     ///< Disconnected
-          LMP_BIND_WAIT,        ///< Waiting for bind reply
-          LMP_MONITOR_ACCEPT,   ///< Special case for monitor binding: waiting for cap
-          LMP_CONNECTED,        ///< Connection established
+    enum {
+        LMP_DISCONNECTED,    ///< Disconnected
+        LMP_BIND_WAIT,       ///< Waiting for bind reply
+        LMP_MONITOR_ACCEPT,  ///< Special case for monitor binding: waiting for cap
+        LMP_CONNECTED,       ///< Connection established
     } connstate;
 
-    size_t buflen_words;    ///< requested LMP buffer length, in words
+    size_t buflen_words;  ///< requested LMP buffer length, in words
 };
 
 void lmp_chan_init(struct lmp_chan *lc);
 void lmp_chan_destroy(struct lmp_chan *lc);
-errval_t lmp_chan_accept(struct lmp_chan *lc, size_t buflen_words,
-                         struct capref endpoint);
+errval_t lmp_chan_accept(struct lmp_chan *lc, size_t buflen_words, struct capref endpoint);
 errval_t lmp_chan_register_send(struct lmp_chan *lc, struct waitset *ws,
                                 struct event_closure closure);
 errval_t lmp_chan_deregister_send(struct lmp_chan *lc);
@@ -65,8 +65,7 @@ void lmp_channels_retry_send_disabled(dispatcher_handle_t handle);
  * \param ws Waitset
  * \param closure Event handler
  */
-static inline errval_t lmp_chan_register_recv(struct lmp_chan *lc,
-                                              struct waitset *ws,
+static inline errval_t lmp_chan_register_recv(struct lmp_chan *lc, struct waitset *ws,
                                               struct event_closure closure)
 {
     return lmp_endpoint_register(lc->endpoint, ws, closure);
@@ -89,8 +88,7 @@ static inline errval_t lmp_chan_deregister_recv(struct lmp_chan *lc)
  * \param lc LMP channel
  * \param ws New waitset
  */
-static inline void lmp_chan_migrate_recv(struct lmp_chan *lc,
-                                         struct waitset *ws)
+static inline void lmp_chan_migrate_recv(struct lmp_chan *lc, struct waitset *ws)
 {
     lmp_endpoint_migrate(lc->endpoint, ws);
 }
@@ -104,8 +102,7 @@ static inline void lmp_chan_migrate_recv(struct lmp_chan *lc,
  * \param msg LMP message buffer, to be filled-in
  * \param cap If non-NULL, filled-in with location of received capability, if any
  */
-static inline errval_t lmp_chan_recv(struct lmp_chan *lc,
-                                     struct lmp_recv_msg *msg,
+static inline errval_t lmp_chan_recv(struct lmp_chan *lc, struct lmp_recv_msg *msg,
                                      struct capref *cap)
 {
     assert(msg != NULL);
@@ -130,8 +127,7 @@ static inline bool lmp_chan_can_recv(struct lmp_chan *lc)
  * \param lc LMP channel
  * \param slot Receive slot
  */
-static inline void lmp_chan_set_recv_slot(struct lmp_chan *lc,
-                                              struct capref slot)
+static inline void lmp_chan_set_recv_slot(struct lmp_chan *lc, struct capref slot)
 {
     lmp_endpoint_set_recv_slot(lc->endpoint, slot);
 }
@@ -155,7 +151,8 @@ static inline bool lmp_err_is_transient(errval_t err)
 /**
  * \brief Get a receiving chanstate of LMP channel
  */
-static inline struct waitset_chanstate * lmp_chan_get_receiving_channel(struct lmp_chan *chan)
+static inline struct waitset_chanstate *
+lmp_chan_get_receiving_channel(struct lmp_chan *chan)
 {
     assert(chan->endpoint);
     return &chan->endpoint->waitset_state;
@@ -165,4 +162,4 @@ static inline struct waitset_chanstate * lmp_chan_get_receiving_channel(struct l
 
 __END_DECLS
 
-#endif // BARRELFISH_LMP_CHAN_H
+#endif  // BARRELFISH_LMP_CHAN_H

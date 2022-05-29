@@ -115,6 +115,7 @@
 
 /* Arg CNode */
 #define ARGCN_SLOT_DEVFRAME 0  // ///< Dev Frame cap
+#define ARGCN_SLOT_DEVFRAME_IRQ 1
 
 /* Page CNode */
 #define PAGECN_SLOT_VROOT 0  ///< First slot of page cnode is root page table

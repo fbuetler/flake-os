@@ -28,7 +28,7 @@
                         "custom_tests.c"
                       ],
                       addLinkFlags = [ "-e _start_init"], -- this is only needed for init
-                      addLibraries = [ "mm", "getopt", "elf", "grading", "spawn", "regex" ],
+                      addLibraries = [ "mm", "getopt", "elf", "grading", "spawn", "regex", "serialio" ],
                       architectures = allArchitectures
                     }
 ]

@@ -6,8 +6,7 @@
 #include <fs/dirent.h>
 #include <collections/str_hashmap.h>
 #include <aos/nameserver.h>
-
-typedef uint32_t fileref_id_t;
+#include <fs/fat32fs.h>
 
 #define RPC_FS_RW_CHUNK_SIZE 512
 
@@ -98,5 +97,6 @@ void fs_init(void);
 
 void fat32fs_mount(char *path);
 
+void  fat32fs_update_all_handles_to(const char *path, uint32_t max_offset);
 
 #endif

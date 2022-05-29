@@ -68,14 +68,21 @@ static errval_t register_receive_handlers(struct spawninfo *si)
     errval_t err;
 
     // setup handler for the process
-    err = aos_lmp_register_recv(&si->lmp, init_process_msg);
+    // We register the channel that the process uses to send requests to init as a client
+    err = aos_lmp_register_recv(&si->client_lmp, init_process_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to register receive handler");
         return err;
     }
     err = aos_lmp_register_recv(&si->mem_lmp, init_process_msg);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to register receive handler");
+        DEBUG_ERR(err, "Failed to register memory receive handler");
+        return err;
+    }
+
+    err = aos_lmp_register_recv(&si->serial_lmp, init_process_msg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register serial receive handler");
         return err;
     }
 
@@ -178,7 +185,7 @@ errval_t process_read_char_request(char *c)
 }
 
 static errval_t setup_driver_devframe(struct spawninfo *si, gensize_t register_base,
-                                      gensize_t register_size)
+                                      gensize_t register_size, cslot_t slot)
 {
     errval_t err;
     struct capref device_cap = (struct capref) {
@@ -188,7 +195,7 @@ static errval_t setup_driver_devframe(struct spawninfo *si, gensize_t register_b
 
     struct capref devframe_cap = (struct capref) {
         .cnode = si->argcn,
-        .slot = ARGCN_SLOT_DEVFRAME,
+        .slot = slot,
     };
 
     genpaddr_t dev_addr;
@@ -212,20 +219,28 @@ errval_t spawn_lpuart_driver(struct spawninfo **retsi)
 
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     domainid_t *pid = malloc(sizeof(domainid_t));
-    err = setup_process("shell", si,
-                        pid);  // TODO thierry: change to correct binary name
+    err = setup_process("shell", si, pid);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to spawn shell driver");
+        DEBUG_ERR(err, "failed to spawn shell");
     }
 
-    // TODO thierry check if thats everything you need
+    /*
     // NOTE: will only run with IMX8X
     // use to run with board: IMX8X_UART0_BASE, IMX8X_UART_SIZE
-    err = setup_driver_devframe(si, QEMU_UART_BASE, QEMU_UART_SIZE);
+    // map capability to access UART device
+    err = setup_driver_devframe(si, QEMU_UART_BASE, QEMU_UART_SIZE, ARGCN_SLOT_DEVFRAME);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup driver dev frame");
+        DEBUG_ERR(err, "failed to setup driver for (qemu) UART \n");
         return err;
     }
+
+    // map capability to access interrupt handler in user space, which is abstracted as device
+    err = setup_driver_devframe(si, QEMU_GIC_DIST_BASE, QEMU_GIC_DIST_SIZE, ARGCN_SLOT_DEVFRAME_IRQ);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to setup driver for (qemu) UART GIC \n");
+        return err;
+    }
+    */
 
     err = dispatch_process(si);
     if (err_is_fail(err)) {
@@ -253,7 +268,7 @@ errval_t spawn_sdhc_driver(struct spawninfo **retsi)
 
     // TODO altin check if thats everything you need
     // NOTE: will only run with IMX8X
-    err = setup_driver_devframe(si, IMX8X_SDHC2_BASE, IMX8X_SDHC_SIZE);
+    err = setup_driver_devframe(si, IMX8X_SDHC1_BASE, IMX8X_SDHC_SIZE, ARGCN_SLOT_DEVFRAME);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup driver dev frame");
         return err;
@@ -284,7 +299,7 @@ errval_t spawn_enet_driver(struct spawninfo **retsi)
     }
 
     // NOTE: will only run with IMX8X
-    err = setup_driver_devframe(si, IMX8X_ENET_BASE, IMX8X_ENET_SIZE);
+    err = setup_driver_devframe(si, IMX8X_ENET_BASE, IMX8X_ENET_SIZE, ARGCN_SLOT_DEVFRAME);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup driver dev frame");
         return err;

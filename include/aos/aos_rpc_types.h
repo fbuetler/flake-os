@@ -13,6 +13,8 @@ typedef enum aos_rpc_msg_type {
     AosRpcRamCapResponse,
     AosRpcSpawnRequest,
     AosRpcSpawnResponse,
+    AosRpcKillRequest,
+    AosRpcKillResponse,
     AosRpcSerialWriteChar,
     AosRpcSerialReadChar,
     AosRpcSerialReadCharResponse,
@@ -50,5 +52,9 @@ struct aos_rpc_msg {
     struct capref cap;
 };
 
+struct ram_cap_request {
+    size_t bytes;
+    size_t alignment;
+};
 
 #endif

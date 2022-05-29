@@ -12,7 +12,7 @@
 
 let
     -- Default list of modules to build/install
-    modules_common = [ "/sbin/" ++ f | f <- [ "init", "hello", "infinite_print", "memeater", "demom5", "demom6", "selfpaging", "selfpaging_already_handled", "enet", "echoserver", "ping", "nameservicetest", "nameservicetestclient", "fs", "remotelogin"  ] ]
+    modules_common = [ "/sbin/" ++ f | f <- [ "init", "fs", "hello", "infinite_print", "filereader", "memeater", "demom5", "demom6", "demofs", "selfpaging", "selfpaging_already_handled", "enet", "echoserver", "ping", "nameservicetest", "nameservicetestclient", "shell" , "remotelogin"  ] ]
   in
   [
     --

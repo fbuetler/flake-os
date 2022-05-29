@@ -1049,8 +1049,8 @@ __attribute__((unused)) static void test_large_ping_pong(void)
 void run_m6_tests(void)
 {
     switch (disp_get_current_core_id()) {
-    case 0: {
-        test_spawn_process("demom6");
+    case 0:{
+        test_spawn_process("filereader"); 
         break;
     }
     case 1:

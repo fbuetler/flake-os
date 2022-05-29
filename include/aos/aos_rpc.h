@@ -17,7 +17,7 @@ void aos_rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan);
 void aos_rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan);
 
 errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
-                      struct aos_rpc_msg *retmsg, bool is_dynamic);
+                      struct aos_rpc_msg *retmsg);
 
 errval_t aos_rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
                       enum aos_rpc_service service);
@@ -51,6 +51,8 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc);
  * \brief Send one character to the serial port
  */
 errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c);
+
+errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t *pid);
 
 /**
  * \brief Handles a request from a client bound to the server

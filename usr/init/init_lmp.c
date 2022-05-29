@@ -6,6 +6,7 @@
 #include "proc_mgmt.h"
 #include "init_ump.h"
 #include "nameserver/server.h"
+#include "serialio/serialio.h"
 
 #include <aos/aos.h>
 #include <aos/core_state.h>
@@ -17,7 +18,7 @@
 #include <spawn/spawn.h>
 #include <grading.h>
 
-#define TERMINAL_SERVER_CORE 1
+#define TERMINAL_SERVER_CORE 0
 
 static void aos_lmp_send_errval_response(struct aos_lmp *lmp, errval_t err)
 {
@@ -32,15 +33,14 @@ void aos_process_ram_cap_request(struct aos_lmp *lmp)
     errval_t err;
 
     // read ram request properties
-    size_t bytes = ((size_t *)lmp->recv_msg->payload)[0];
-    size_t alignment = ((size_t *)lmp->recv_msg->payload)[1];
+    struct ram_cap_request *req = (struct ram_cap_request *)lmp->recv_msg->payload;
 
     // grading call
-    grading_rpc_handler_ram_cap(bytes, alignment);
+    grading_rpc_handler_ram_cap(req->bytes, req->alignment);
 
     // alloc ram
     struct capref ram_cap;
-    err = ram_alloc_aligned(&ram_cap, bytes, alignment);
+    err = ram_alloc_aligned(&ram_cap, req->bytes, req->alignment);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "ram_alloc in ram cap request failed");
         return;
@@ -57,7 +57,7 @@ void aos_process_ram_cap_request(struct aos_lmp *lmp)
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
     char buf[AOS_LMP_MSG_SIZE(payload_size)];
-    err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcRamCapResponse, payload_size,
+    err = aos_lmp_create_msg_no_pagefault(lmp, &reply, AosRpcRamCapResponse, payload_size,
                                           NULL, ram_cap, (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -123,8 +123,8 @@ void aos_process_spawn_request(struct aos_lmp *lmp)
     *((domainid_t *)payload) = pid;
 
     struct aos_lmp_msg *reply;
-    err = aos_lmp_create_msg(&reply, AosRpcSpawnResponse, payload_size, (void *)payload,
-                             NULL_CAP);
+    err = aos_lmp_create_msg(lmp, &reply, AosRpcSpawnResponse, payload_size,
+                             (void *)payload, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return;
@@ -142,6 +142,7 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 {
     errval_t err;
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
+        assert(false);
         // send to serial driver on the terminal server core
         aos_rpc_msg_type_t rtype;
         char *rpayload;
@@ -157,7 +158,8 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 
         assert(rtype == AosRpcSerialWriteCharResponse);
     } else {
-        err = process_write_char_request(lmp->recv_msg->payload);
+        // err = process_write_char_request(lmp->recv_msg->payload);
+        err = serial_put_char(lmp, lmp->recv_msg->payload);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to writechar");
             return err;
@@ -168,32 +170,35 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
-    err = aos_lmp_create_msg(&reply, AosRpcSerialWriteCharResponse, payload_size, NULL,
-                             NULL_CAP);
+    err = aos_lmp_create_msg_no_pagefault(lmp, &reply, AosRpcSerialWriteCharResponse,
+                                          payload_size, NULL, NULL_CAP,
+                                          (struct aos_lmp_msg *)lmp->buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return err;
     }
 
     err = aos_lmp_send_msg(lmp, reply);
-    free(reply);
     if (err_is_fail(err)) {
-        DEBUG_PRINTF("error sending serial read char response\n");
+        DEBUG_PRINTF("error sending serial write char response\n");
         return err;
     }
-
     return SYS_ERR_OK;
 }
 
 errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
 {
-    // grading
+    // DEBUG_PRINTF("process serial read char request \n");
+    //  grading
     grading_rpc_handler_serial_getchar();
 
     errval_t err;
 
-    char c;
+
+    // char c;
+    struct serialio_response serial_response = { 0 };
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
+        assert(false);
         // Do the thing, but on the core where the terminal server is located
         aos_rpc_msg_type_t rtype;
         char *rpayload;
@@ -208,35 +213,38 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
         }
         assert(rtype == AosRpcSerialReadCharResponse);
 
-        c = *rpayload;
+        // c = *rpayload;
 
     } else {
-        err = process_read_char_request(&c);
+        // err = process_read_char_request(&c);
+        err = serial_get_char(lmp, &serial_response);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to read char over LMP\n");
             return err;
         }
     }
 
-
-    size_t payload_size = sizeof(char);
+    size_t payload_size = sizeof(struct serialio_response);
     void *payload = malloc(payload_size);
-    *((char *)payload) = c;
+    // memcpy(payload, serial_response, )
+    *((struct serialio_response *)payload) = serial_response;
 
     struct aos_lmp_msg *reply;
-    err = aos_lmp_create_msg(&reply, AosRpcSerialReadCharResponse, payload_size, payload,
-                             NULL_CAP);
+    err = aos_lmp_create_msg_no_pagefault(lmp, &reply, AosRpcSerialReadCharResponse,
+                                          payload_size, payload, NULL_CAP,
+                                          (struct aos_lmp_msg *)lmp->buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
-        return err;
+        return err_push(err, LIB_ERR_LMP_MSG_CREATE);
     }
 
     err = aos_lmp_send_msg(lmp, reply);
-    free(reply);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending serial read char response\n");
         return err;
     }
+
+    free(payload);
 
     return SYS_ERR_OK;
 }
@@ -287,11 +295,10 @@ static void aos_process_pid2name_request(struct aos_lmp *lmp)
     size_t payload_size = strlen(name) + 1;
 
     struct aos_lmp_msg *reply;
-    err = aos_lmp_create_msg(&reply, AosRpcPid2NameResponse, payload_size, (void *)name,
-                             NULL_CAP);
+    err = aos_lmp_create_msg(lmp, &reply, AosRpcPid2NameResponse, payload_size,
+                             (void *)name, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
-        assert(0);
         return;
     }
 
@@ -329,13 +336,13 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
 
 static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 {
-    //DEBUG_PRINTF("received LMP bind request\n");
+    // DEBUG_PRINTF("received LMP bind request\n");
     errval_t err;
 
     struct aos_lmp_msg *msg = lmp->recv_msg;
     domainid_t server_pid = *(domainid_t *)msg->payload;
 
-    //DEBUG_PRINTF("Looking for server spawninfo with pid %d\n", server_pid);
+    // DEBUG_PRINTF("Looking for server spawninfo with pid %d\n", server_pid);
     struct spawninfo *server_si = malloc(sizeof(struct spawninfo));
     if (server_si == NULL) {
         DEBUG_PRINTF("Failed to allocate server spawninfo\n");
@@ -350,24 +357,22 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
     }
 
     struct aos_lmp_msg *relay_msg;
-    err = aos_lmp_create_msg(&relay_msg, AosRpcLmpBind, msg->payload_bytes, msg->payload,
-                             msg->cap);
+    err = aos_lmp_create_msg_no_pagefault(lmp, &relay_msg, AosRpcLmpBind,
+                                          msg->payload_bytes, msg->payload, msg->cap,
+                                          (struct aos_lmp_msg *)lmp->buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to create relay message for server");
         goto unwind_si;
     }
 
     // forward message to server
-    //DEBUG_PRINTF("Forwarding request to server\n");
-    err = aos_lmp_send_msg(&server_si->lmp, relay_msg);
+    // DEBUG_PRINTF("Forwarding request to server\n");
+    err = aos_lmp_send_msg(&server_si->server_lmp, relay_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to relay LMP bind request to server");
         err = err_push(err, AOS_ERR_LMP_SEND_FAILURE);
-        goto unwind_relay;
     }
 
-unwind_relay:
-    free(relay_msg);
 unwind_si:
     free(server_si);
 ret_msg:
@@ -422,7 +427,7 @@ static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
 
     struct aos_lmp_msg *reply;
     char buf[AOS_LMP_MSG_SIZE(0)];
-    err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcUmpBindResponse, 0, NULL,
+    err = aos_lmp_create_msg_no_pagefault(lmp, &reply, AosRpcUmpBindResponse, 0, NULL,
                                           NULL_CAP, (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -433,6 +438,31 @@ static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error sending ump cap response\n");
     }
+    return SYS_ERR_OK;
+}
+
+static errval_t aos_process_kill_request(struct aos_lmp *lmp)
+{
+    domainid_t *pid = (domainid_t *)lmp->recv_msg->payload;
+    errval_t err;
+
+    spawn_kill_process(*pid);
+
+    struct aos_lmp_msg *reply;
+
+    char buf[sizeof(struct aos_lmp_msg)];
+    err = aos_lmp_create_msg_no_pagefault(lmp, &reply, AosRpcKillResponse, 0, NULL,
+                                          NULL_CAP, (struct aos_lmp_msg *)buf);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create message");
+    }
+
+    err = aos_lmp_send_msg(lmp, reply);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error sending  response\n");
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -453,12 +483,17 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
 
     // get remote pids
     size_t remote_nr_of_pids;
-    domainid_t *remote_pids;
+    domainid_t remote_pids[0];
+
+    /*
     err = aos_get_remote_pids(&remote_nr_of_pids, &remote_pids);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not get the remote PIDs\n");
         return err;
     }
+     */
+
+    remote_nr_of_pids = 0;
 
     size_t payload_size = sizeof(size_t) + nr_of_pids * sizeof(domainid_t)
                           + remote_nr_of_pids * sizeof(domainid_t);
@@ -475,7 +510,7 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
            remote_nr_of_pids * sizeof(domainid_t));
 
     struct aos_lmp_msg *reply;
-    err = aos_lmp_create_msg(&reply, AosRpcGetAllPidsResponse, payload_size,
+    err = aos_lmp_create_msg(lmp, &reply, AosRpcGetAllPidsResponse, payload_size,
                              (void *)payload, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
@@ -535,6 +570,9 @@ errval_t init_process_msg(struct aos_lmp *lmp)
     case AosRpcUmpBindRequest:
         aos_process_aos_ump_bind_request(lmp);
         break;
+    case AosRpcKillRequest:
+        aos_process_kill_request(lmp);
+        break;
     case AosRpcNsRegister: {
         errval_t err = aos_process_service_register(lmp->recv_msg->payload,
                                                     lmp->recv_msg->payload_bytes);
@@ -556,8 +594,8 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         }
 
         struct aos_lmp_msg *resp;
-        err = aos_lmp_create_msg(&resp, AosRpcNsLookupResponse, service_info_size(info),
-                                 (void *)info, NULL_CAP);
+        err = aos_lmp_create_msg(lmp, &resp, AosRpcNsLookupResponse,
+                                 service_info_size(info), (void *)info, NULL_CAP);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to create lookup response");
             aos_lmp_send_errval_response(lmp, err);
@@ -577,6 +615,8 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         break;
     }
     // DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
-    //  TODO: free msg
+
+    aos_lmp_msg_free(lmp);
+
     return SYS_ERR_OK;
 }

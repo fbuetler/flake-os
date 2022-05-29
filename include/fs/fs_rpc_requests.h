@@ -1,6 +1,11 @@
 #ifndef __FS_RPC_REQUESTS_H
 #define __FS_RPC_REQUESTS_H
 
+#include <aos/aos.h>
+#include <aos/nameserver.h>
+#include <fs/fs.h>
+#include <fs/fat32fs.h>
+
 errval_t aos_rpc_fs_open(nameservice_chan_t chan, const char *path, int flags,
                          struct fat32fs_handle **rethandle);
 

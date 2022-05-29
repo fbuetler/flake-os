@@ -284,7 +284,7 @@ errval_t aos_rpc_fs_dir_action(nameservice_chan_t chan, const char *path, bool i
     err = response->err;
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to mkdir file");
-        return err_push(err, FS_ERR_MKDIR);
+        return err;
     }
 
     return SYS_ERR_OK;
@@ -295,7 +295,7 @@ errval_t aos_rpc_fs_rm(nameservice_chan_t chan, const char *path)
     errval_t err;
     struct rpc_fs_path_request rm_request = {};
     struct rpc_fs_err_response *response;
-    SERVICE_GLUE_AND_SEND(chan, AosRpcFsMkDir, rm_request, path, strlen(path) + 1,
+    SERVICE_GLUE_AND_SEND(chan, AosRpcFsRm, rm_request, path, strlen(path) + 1,
                           (void **)&response, NULL);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error in file mkdir via RPC\n");
@@ -384,150 +384,3 @@ errval_t aos_rpc_fs_fstat(nameservice_chan_t chan, fileref_id_t fid,
 
     return SYS_ERR_OK;
 }
-
-/*
-errval_t aos_rpc_fs_rm(struct aos_rpc *aos_rpc, char *path){
-    errval_t err;
-
-    struct rpc_fs_path_request rm_request = {
-    };
-
-    struct aos_rpc_msg response;
-    rpc_fs_call(aos_rpc, AosRpcFsRm, &rm_request, sizeof(rm_request), true, path,
-                strlen(path) + 1, &response);
-
-    struct rpc_fs_err_response *rm_response
-        = (struct rpc_fs_err_response *)response.payload;
-
-    err = rm_response->err;
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to remove file");
-        return err_push(err, FS_ERR_RM);
-    }
-
-    return SYS_ERR_OK;
-}
-
-errval_t aos_rpc_fs_lseek(struct aos_rpc *aos_rpc, fileref_id_t fid, uint64_t offset, int
-whence, uint64_t *retpos){ errval_t err;
-
-    struct rpc_fs_lseek_request lseek_request = {
-        .fid = fid,
-        .offset = offset,
-        .whence = whence,
-    };
-
-    struct aos_rpc_msg response;
-    rpc_fs_call(aos_rpc, AosRpcFsLSeek, &lseek_request, sizeof(lseek_request), false,
-NULL, 0, &response);
-
-    struct rpc_fs_lseek_response *lseek_response
-        = (struct rpc_fs_lseek_response *)response.payload;
-
-    err = lseek_response->err;
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to lseek file");
-        return err_push(err, FS_ERR_LSEEK);
-    }
-
-    if(retpos){
-        *retpos = lseek_response->new_offset;
-    }
-
-    return SYS_ERR_OK;
-}
-
-
-errval_t aos_rpc_fs_fstat(struct aos_rpc *rpc, fileref_id_t fid, struct fs_fileinfo
-*retstat){ errval_t err;
-
-    struct rpc_fs_fstat_request fstat_request = {
-        .fid = fid,
-    };
-
-    struct aos_rpc_msg response;
-    rpc_fs_call(rpc, AosRpcFsFStat, &fstat_request, sizeof(fstat_request), false, NULL, 0,
-&response);
-
-    struct rpc_fs_fstat_response *fstat_response
-        = (struct rpc_fs_fstat_response *)response.payload;
-
-    err = fstat_response->err;
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to fstat file");
-        return err_push(err, FS_ERR_FSTAT);
-    }
-    *retstat = fstat_response->info;
-
-    return SYS_ERR_OK;
-}
-
-errval_t aos_rpc_fs_mkdir(struct aos_rpc *rpc, char *path){
-    errval_t err;
-
-    struct rpc_fs_path_request mkdir_request = {
-    };
-
-    struct aos_rpc_msg response;
-    rpc_fs_call(rpc, AosRpcFsMkdir, &mkdir_request, sizeof(mkdir_request), true, path,
-                strlen(path) + 1, &response);
-
-    struct rpc_fs_err_response *mkdir_response
-        = (struct rpc_fs_err_response *)response.payload;
-
-    err = mkdir_response->err;
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to mkdir file");
-        return err_push(err, FS_ERR_MKDIR);
-    }
-
-    return SYS_ERR_OK;
-}
-
-errval_t aos_rpc_rmdir(struct aos_rpc *rpc, char *path){
-    errval_t err;
-
-    struct rpc_fs_path_request rmdir_request = {
-    };
-
-    struct aos_rpc_msg response;
-    rpc_fs_call(rpc, AosRpcFsRmdir, &rmdir_request, sizeof(rmdir_request), true, path,
-                strlen(path) + 1, &response);
-
-    struct rpc_fs_err_response *rmdir_response
-        = (struct rpc_fs_err_response *)response.payload;
-
-    err = rmdir_response->err;
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to rmdir file");
-        return err_push(err, FS_ERR_RMDIR);
-    }
-
-    return SYS_ERR_OK;
-}
-
-errval_t aos_rpc_readdir(struct aos_rpc *rpc, fileref_id_t fid, struct fs_fileinfo
-*retfinfo, char **retname){ errval_t err;
-
-    struct rpc_fs_readdir_request readdir_request = {
-        .fid = fid,
-    };
-
-    struct aos_rpc_msg response;
-    rpc_fs_call(rpc, AosRpcFsReadDir, &readdir_request, sizeof(readdir_request), false,
-NULL, 0, &response);
-
-    struct rpc_fs_readdir_response *read_dir_response
-        = (struct rpc_fs_readdir_response *)response.payload;
-
-    err = read_dir_response->err;
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to read dir");
-        return err_push(err, FS_ERR_READ_DIR);
-    }
-    *retfinfo = read_dir_response->info;
-    *retname = strdup(read_dir_response->name);
-
-    return SYS_ERR_OK;
-}
-*/
