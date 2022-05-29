@@ -201,6 +201,8 @@ static void enet_recv_handle(void *st_raw, void *message_raw, size_t bytes,
     }
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to handle network message");
+        *response = NULL;
+        *response_bytes = 0;
     }
 }
 

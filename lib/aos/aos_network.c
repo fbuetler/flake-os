@@ -192,6 +192,10 @@ errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, ip_addr_t *ip, uint1
         return err;
     }
 
+    if (response_bytes == 0) {
+        return LIB_ERR_RPC_SEND;
+    }
+
     struct aos_socket_msg *msg_resp = (struct aos_socket_msg *)response;
     struct aos_socket_msg_udp_recv_response payload = msg_resp->payload.udp_recv_resp;
 
