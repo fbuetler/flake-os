@@ -526,8 +526,9 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si, genvaddr_t entry,
 
     // core id of the child process
     disp_gen->core_id = disp_get_core_id();
-    disp_gen->pid = pid;
 
+    // domain id (PID) of the child process
+    disp_gen->domain_id = si->pid;
     // virtual addres of the dispatcher frame in the childs vspace
     disp->udisp = (dispatcher_handle_t)dispatcher_frame_addr_child;
     // start child process in disabled mode
@@ -682,16 +683,15 @@ errval_t spawn_invoke_dispatcher(struct spawninfo *si)
     }
 
     // perform handshakes with child process for both rpc channels
-    err = aos_lmp_init_handshake_to_child(&init_spawninfo.lmp, &si->lmp, base_recv_ep_cap);
+    err = aos_lmp_init_handshake_to_child(&si->mem_lmp);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup rpc channel to child");
+        DEBUG_ERR(err, "failed to setup mem rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
-    err = aos_lmp_init_handshake_to_child(&init_spawninfo.mem_lmp, &si->mem_lmp,
-                                          memory_recv_ep_cap);
+    err = aos_lmp_init_handshake_to_child(&si->lmp);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to setup mem rpc channel to child");
+        DEBUG_ERR(err, "failed to setup rpc channel to child");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
@@ -770,7 +770,7 @@ errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid
         DEBUG_ERR(err, "failed to find free PID");
         return LIB_ERR_SHOULD_NOT_GET_HERE;
     }
-
+    si->pid = *pid;
 
     DEBUG_TRACEF("Setup dispatcher\n");
     // setup dispatcher
@@ -953,7 +953,7 @@ void spawn_add_process(struct spawninfo *new_process)
     assert(new_process);
     struct spawninfo *current = &init_spawninfo;
 
-    DEBUG_PRINTF("spawn_add_process: new process: %s\n", new_process->binary_name);
+    // DEBUG_PRINTF("spawn_add_process: new process: %s\n", new_process->binary_name);
     DEBUG_TRACEF("&init_spawninfo: %p\n", &init_spawninfo);
     while (current->next) {
         current = current->next;

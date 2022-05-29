@@ -32,6 +32,7 @@ static errval_t ram_alloc_remote(struct capref *ret, size_t size, size_t alignme
     if (!memory_rpc) {
         thread_mutex_unlock(&get_current_paging_state()->paging_mutex);
         DEBUG_PRINTF("ERROR: no memory server found!\n");
+        // TODO
         abort();
     }
 
@@ -144,6 +145,8 @@ void ram_alloc_init(void)
     ram_alloc_state->default_minbase = 0;
     ram_alloc_state->default_maxlimit = 0;
     ram_alloc_state->base_capnum = 0;
+
+    thread_mutex_init(&ram_mutex);
 }
 
 /**

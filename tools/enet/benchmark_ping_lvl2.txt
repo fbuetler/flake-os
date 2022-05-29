@@ -1,0 +1,139 @@
+flat with level 2
+
+ping -c 60 10.42.0.27
+--- 10.42.0.27 ping statistics ---
+60 packets transmitted, 60 received, 0% packet loss, time 59087ms
+rtt min/avg/max/mdev = 12.620/22.613/509.013/63.582 ms
+
+enet.0.1: [bench] start 'assemble arp packet'
+enet.0.1: [bench] stop 'assemble arp packet': 47810 ticks
+enet.0.1: [bench] start 'enqueue arp packet'
+enet.0.1: [bench] stop 'enqueue arp packet': 12679 ticks
+enet.0.1: [bench] start 'update arp table on request'
+enet.0.1: [bench] stop 'update arp table on request': 116419 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 74038 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 107098 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60571 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60695 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60615 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60588 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60254 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60541 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60419 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60569 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60703 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61138 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 60018 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61209 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 159752 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61697 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61541 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61096 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62038 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61496 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62470 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61516 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62289 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62095 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61490 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 77596 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63155 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 109470 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61653 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61689 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61770 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61943 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62152 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62408 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61837 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61605 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63160 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62056 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61688 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62892 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 121416 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63030 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62751 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62924 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62454 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63110 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62361 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62616 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62483 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 61994 ticks
+enet.0.1: [bench] start 'assemble arp packet'
+enet.0.1: [bench] stop 'assemble arp packet': 13071 ticks
+enet.0.1: [bench] start 'enqueue arp packet'
+enet.0.1: [bench] stop 'enqueue arp packet': 50260 ticks
+enet.0.1: [bench] start 'update arp table on request'
+enet.0.1: [bench] stop 'update arp table on request': 3610 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63153 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63082 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 193761 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63019 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 62672 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63286 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63049 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63910 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63917 ticks
+enet.0.1: [bench] start 'handle icmp packet'
+enet.0.1: [bench] stop 'handle icmp packet': 63678 ticks

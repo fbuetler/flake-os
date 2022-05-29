@@ -6,13 +6,22 @@
 #include "core_mgmt.h"
 #include "proc_mgmt.h"
 #include "init_lmp.h"
+#include "nameserver/server.h"
 
 #include <aos/aos.h>
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
 #include <aos/aos_rpc.h>
+#include <aos/nameserver.h>
 #include <spawn/spawn.h>
 #include <aos/kernel_cap_invocations.h>
+
+static void aos_ump_send_errval_response(struct aos_ump *ump, errval_t err)
+{
+    struct aos_rpc rpc;
+    aos_rpc_init_from_ump(&rpc, ump);
+    aos_rpc_send_errval(&rpc, err);
+}
 
 void aos_ump_receive_listener(struct aos_ump *ump)
 {
@@ -169,6 +178,28 @@ void aos_ump_receive_listener(struct aos_ump *ump)
                 continue;
             }
             aos_ump_send(ump, AosRpcSerialReadCharResponse, retpayload, 1);
+            continue;
+        }
+        case AosRpcNsRegister: {
+            err = aos_process_service_register(payload, len);
+            free(payload);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "Could not register service\n");
+            }
+
+            continue;
+        }
+        case AosRpcNsLookup: {
+            service_info_t *info;
+            err = aos_process_service_lookup(payload, len, &info);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "Failed to process the service lookup message.");
+                aos_ump_send_errval_response(ump,
+                                             err_push(err, LIB_ERR_NAMESERVICE_REGISTER));
+                continue;;
+            }
+
+            aos_ump_send(ump, AosRpcNsLookupResponse, (char *)info, service_info_size(info));
             continue;
         }
         default: {

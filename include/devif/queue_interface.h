@@ -24,13 +24,13 @@ struct devq;
 struct region_pool;
 
 // For convinience reason buffer descritpion in one struct
-struct devq_buf{
-    genoffset_t offset; // 8
-    genoffset_t length; // 16
-    genoffset_t valid_data; // 24
-    genoffset_t valid_length; // 32
-    uint64_t flags; // 40
-    regionid_t rid; // 44
+struct devq_buf {
+    genoffset_t offset;        // 8
+    genoffset_t length;        // 16
+    genoffset_t valid_data;    // 24
+    genoffset_t valid_length;  // 32
+    uint64_t flags;            // 40
+    regionid_t rid;            // 44
 };
 
 /*
@@ -55,13 +55,9 @@ struct devq_buf{
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-errval_t devq_enqueue(struct devq *q,
-                      regionid_t region_id,
-                      genoffset_t offset,
-                      genoffset_t lenght,
-                      genoffset_t valid_data,
-                      genoffset_t valid_lenght,
-                      uint64_t misc_flags);
+errval_t devq_enqueue(struct devq *q, regionid_t region_id, genoffset_t offset,
+                      genoffset_t lenght, genoffset_t valid_data,
+                      genoffset_t valid_lenght, uint64_t misc_flags);
 
 /**
  * @brief dequeue a buffer from the device queue
@@ -81,13 +77,9 @@ errval_t devq_enqueue(struct devq *q,
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-errval_t devq_dequeue(struct devq *q,
-                      regionid_t* region_id,
-                      genoffset_t* offset,
-                      genoffset_t* langht,
-                      genoffset_t* valid_data,
-                      genoffset_t* valid_length,
-                      uint64_t* misc_flags);
+errval_t devq_dequeue(struct devq *q, regionid_t *region_id, genoffset_t *offset,
+                      genoffset_t *langht, genoffset_t *valid_data,
+                      genoffset_t *valid_length, uint64_t *misc_flags);
 
 /*
  * ===========================================================================
@@ -107,9 +99,7 @@ errval_t devq_dequeue(struct devq *q,
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-errval_t devq_register(struct devq *q,
-                       struct capref cap,
-                       regionid_t* region_id);
+errval_t devq_register(struct devq *q, struct capref cap, regionid_t *region_id);
 
 /**
  * @brief Remove a memory region
@@ -122,9 +112,7 @@ errval_t devq_register(struct devq *q,
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-errval_t devq_deregister(struct devq *q,
-                         regionid_t region_id,
-                         struct capref* cap);
+errval_t devq_deregister(struct devq *q, regionid_t region_id, struct capref *cap);
 
 /**
  * @brief Send a notification about new buffers on the queue
@@ -157,35 +145,32 @@ errval_t devq_prepare(struct devq *q);
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-errval_t devq_control(struct devq *q,
-                      uint64_t request,
-                      uint64_t value,
-                      uint64_t *result);
+errval_t devq_control(struct devq *q, uint64_t request, uint64_t value, uint64_t *result);
 
 
- /**
-  * @brief destroys the device queue
-  *
-  * @param q           The queue state to free (and the device queue to be 
-                       shut down)
-  *
-  * @returns error on failure or SYS_ERR_OK on success
-  */
+/**
+ * @brief destroys the device queue
+ *
+ * @param q           The queue state to free (and the device queue to be
+                      shut down)
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
 errval_t devq_destroy(struct devq *q);
 
 void devq_set_state(struct devq *q, void *state);
-void * devq_get_state(struct devq *q);
+void *devq_get_state(struct devq *q);
 
 
- /**
-  * @brief gets iommu client for this device queue so we can allocate
-  *        memory for virtualized devices
-  *
-  * @param q           The queue state to free (and the device queue to be 
-                       shut down)
-  *
-  * @returns error on failure or SYS_ERR_OK on success
-  */
-struct iommu_client * devq_get_iommu_client(struct devq *q);
+/**
+ * @brief gets iommu client for this device queue so we can allocate
+ *        memory for virtualized devices
+ *
+ * @param q           The queue state to free (and the device queue to be
+                      shut down)
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+struct iommu_client *devq_get_iommu_client(struct devq *q);
 
 #endif /* QUEUE_INTERFACE_H_ */

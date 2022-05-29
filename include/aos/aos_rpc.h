@@ -21,6 +21,8 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
 
 errval_t aos_rpc_bind(struct aos_rpc *init_lmp, struct aos_rpc *rpc, coreid_t core,
                       enum aos_rpc_service service);
+errval_t aos_rpc_send_errval(struct aos_rpc *rpc, errval_t err_send);
+
 /**
  * \brief Send a number.
  */
@@ -51,6 +53,16 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc);
 errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c);
 
 errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t *pid);
+
+/**
+ * \brief Handles a request from a client bound to the server
+ *
+ * \arg request aos_rpc_msg containing a nameservice_rpc_msg that contains the handler and
+ * other things to properly handle the request \arg response the response message created
+ * by the handler
+ */
+void aos_rpc_process_client_request(struct aos_rpc_msg *request,
+                                    struct aos_rpc_msg *response);
 
 /**
  * \brief Request that the process manager start a new process
@@ -99,5 +111,7 @@ struct aos_rpc *aos_rpc_get_process_channel(void);
  * \brief Returns the channel to the serial console
  */
 struct aos_rpc *aos_rpc_get_serial_channel(void);
+
+
 
 #endif

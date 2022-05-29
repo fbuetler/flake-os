@@ -9,8 +9,10 @@
 #include <fs/fs.h>
 #include <fs/dirent.h>
 #include <fs/ramfs.h>
+#include <fs/fat32fs.h>
 
 #include "fs_internal.h"
+
 
 /*
  * Copyright (c) 2016 ETH Zurich.
@@ -41,7 +43,15 @@ errval_t filesystem_init(void)
         return err;
     }
 
-    /* TODO: Mount your sdcard at /sdcard */
+    while(1){
+        err = nameservice_lookup(NS_FS_NAME, &fs_chan);
+        if (err_is_fail(err)) {
+        }else{
+            break;
+        }
+
+        barrelfish_usleep(1 * 1000 * 1000);
+    }
 
     /* register libc fopen/fread and friends */
     fs_libc_init(st);

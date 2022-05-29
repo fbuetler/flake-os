@@ -1049,10 +1049,10 @@ __attribute__((unused)) static void test_large_ping_pong(void)
 void run_m6_tests(void)
 {
     switch (disp_get_current_core_id()) {
-    case 0:
-        test_large_ping_pong();
-        // test_spawn_process("demom6");
+    case 0: {
+        test_spawn_process("demom6");
         break;
+    }
     case 1:
         break;
     case 2:
@@ -1063,6 +1063,30 @@ void run_m6_tests(void)
         break;
     }
     DEBUG_PRINTF("Completed %s\n", __func__);
+}
+
+__attribute__((unused)) static void run_echoserver(void)
+{
+    errval_t err;
+
+    struct spawninfo *si = malloc(sizeof(struct spawninfo));
+    domainid_t *pid = malloc(sizeof(domainid_t));
+    err = spawn_process("echoserver", si, pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn echoserver");
+    }
+
+    assert(err_is_ok(err));
+}
+
+static void run_m7_network_tests(void)
+{
+    // run_echoserver();
+}
+
+void run_m7_tests(void)
+{
+    run_m7_network_tests();
 }
 
 void run_tests(void)

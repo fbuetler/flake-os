@@ -1,0 +1,128 @@
+count=1; while echo "foobar" && [ $count -lt 60 ]; do sleep 1; (( count++ )); done | nc -u 10.42.0.27 3027
+
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 9 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 11 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 6 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 5 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 16 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 16 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 17 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 16 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 16 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 9 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 5 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 16 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 16 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 15 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 16 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 12 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 7 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 16 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 16 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 2 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 3 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 18 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks
+enet.0.1: [bench] start 'process udp packet'
+enet.0.1: [bench] stop 'process udp packet': 1 ticks

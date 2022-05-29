@@ -9,6 +9,7 @@
 #include <errors/errno.h>
 
 #define FS_PATH_SEP '/'
+#define FS_MOUNTPOINT "/sdcard"
 
 /// Enum defining interpretation of offset argument to #vfs_seek
 enum fs_seekpos {

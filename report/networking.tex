@@ -1,3 +1,352 @@
-\section{Networking}
+\chapter{Networking}
 
-TODO
+\section{Access the hardware device registers}
+
+The network process runs as a standalone process in user space. Therefore, it
+needs to have access to the Device Frame capability that grants accesses to the
+hardware device register. This was the starting point for this individual
+project. We decided to pass the Device Frame in an arg cnode slot as it is
+proposed in the manual. For this to work, we also needed to change the interface
+of our spawn.h as currently we only could set up and dispatch the whole process
+in once. But by having to provide a capability in a cnode slot we had to cut
+those to parts into two, such that we could set up the process first, include
+the capability in the arg cnode slot and only then dispatch the process.  The
+corresponding part in the network process was significantly easier. We only
+needed to map the capability in the arg cnode slot in to our virtual address
+space.  Once, that was done, we could properly set up the network driver and see
+the first packets arriving at our interface.
+
+
+\section{Safe Send Queue}
+
+For sending and receiving packets, the network driver has to communicate with
+the hardware device.  The network driver works with two queues: the receiver and
+the sender queue. If we want to send a packet, we have to warp it in a buffer
+and then provide it to the sender queue. Those buffers cannot be at any
+arbitrary place in the memory, but have to be in a region that has  been
+registered beforehand with the queue.  As stated in the manual, it is important
+to not enqueue two buffers that are stored at the same location in the region
+twice before dequeueing. This is because,  every buffer has an owner, either the
+network driver or the hardware device, and would result in undefined behaviour.
+With this in mind, we developed a safe queue that provides an interface to place
+some data in the sender queue. The safe queue simply keeps track of free buffers
+in the region registered with the underlying sender queue. That means when we
+want to enqueue a packet in the sender queue, we pass the packet to the safe
+queue, and it will do some sanity checks, get a free buffer, copy the packet
+into the free buffer and then enqueue the buffer into the sender queue, marking
+the buffer as used.  There is no dequeue interface for the safe queue, but
+somehow the buffers, that have been processed by the hardware device and are now
+again owned by the network driver, have to be dequeued and marked as free
+buffers again. This is done on every packet that is sent. While getting a free
+buffer for the sending packet, the safe queue also dequeues all possible buffers
+from the sender queue, such that we don't run out of free buffers.
+
+The receiver queue, on the other hand, is much easier to handle. Here, we simply
+dequeue a buffer that contains an incoming packet, extract the packet, pass the
+packet to the packet handler of our network stack and then enqueue the buffer
+again.
+
+\section{General Receive Flow}
+
+Upon receiving a packet, the packet is passed to a single point of entry, namely
+the packet handler of our network stack.  The packet handler parses the packet,
+determines the type of the packet, and passes it to more specialized handlers.
+We implemented the handling of ARP packets and IP packets and with that
+corresponding handlers.  While the ARP packet is already completely unwrapped,
+the IP packet has to be parsed further, the type has to be determined again and
+then has to be passed to another set of handlers. In this case, it may be an
+ICMP, IGMP, UDP, UDPLITE or TCP packet type. We only implemented handlers for
+ICMP and UDP packets.  Once a packet is completely unwrapped, it may be
+processed correspondingly. That usually includes doing some legitimation checks,
+storing the contained data, and may even trigger an immediate response. We
+discuss this further in the upcoming sections.
+
+\section{General Send Flow}
+
+When we want to send data to another host, we first need to wrap that data into
+a network packet. That may include several layers, depending on the type of data
+we want to send. For this purpose, we implemented a packet assembler that is
+capable of doing exactly that. Our packet assembler support assembling ARP, ICMP
+and UDP packets. The assembled packet can then be enqueued in our safe sender
+queue, ready for transmission.  Creating a convenient implementation for
+assembling packets was a bit challenging. While the layering aspect of a network
+stack is well known and also implemented in our packet handlers, it is a bit
+harder to implement for packets assemblers than we initially thought. For
+example, the final UDP packet has be in a continuous region of memory, starting
+with the Ethernet header, then the IP header, then the UDP header and finally
+the UDP payload.  If we want to follow the layering approach, then we would have
+to first create the UDP packet, wrap it in a IP packet and finally in an
+Ethernet packet. But as we start logically with and UDP packet, the memory
+region starts with an Ethernet packet. So, either we have to allocate space for
+the whole network packet, when we allocate the UDP packet or only allocate space
+for the UDP packet, pass is to the next lower layer, where we allocate space for
+both IP and UDP packet and copy the UDP packet from its previous memory region.
+We even checked out the Linux network stack implementation for inspiration.  In
+the end we chose our own, at the moment, convenient approach.  We provide packet
+assemblers for ARP, ICMP and UDP packets, and each returns the final, completely
+assembled packet. For example, the UDP packet assembler allocates space for the
+whole packet including the Ethernet header, the IP header, the UDP header and
+the UDP payload. It then starts filling the packet with data from the start of
+the packet: first the Ethernet header, then the IP header, then the UDP header
+and finally, its payload. This may not be the most scalable approach and may
+introduce complication, when one wants to extend the network stack with new
+layers or similar, but was at the moment of implementation the simplest way to
+get started, so we kept this style for the all packet assemblers to be
+consistent.
+
+\section{ARP}
+
+The address resolution protocol (ARP) is necessary to resolve a given IP to its
+MAC address. This mapping is then stored in the ARP hash table for future use.
+
+There are two possible types of ARP packets that our network stack may receive:
+ARP requests and ARP responses. 
+
+ARP requests arrive when anyone in the network wants to know the MAC address to
+an IP address. So if the IP address is not our, we simply ignore the packets, as
+we should not answer that request. On the other hand, if it is our IP address,
+then we have to assemble an ARP packet that contains our MAC address and send a
+ARP response to the original sender. At this point, we also store the IP to MAC
+mapping in our ARP table such that we don't have to resolve this IP in the
+future.
+
+But if we don't know the mapping, we have to ask for it. Here, we assemble an
+ARP request packet and broadcast it on the network, so that the owner of the IP
+address may respond. When we receive it, we store the mapping in our ARP table.
+At this point, we have to deal with the asynchronicity of the network. We need
+the MAC address to continue, but also don't know when we will get the response
+from the owner of the IP address.  Here, we tried two different approaches to
+resolve an IP to a MAC address if we don't know the MAC address already. One was
+to send the request and then wait for a given amount of time for the response
+before returning an error. The other was to send the request and then
+immediately return an error, implying that the caller has to handle that case
+and to retry the resolution. We implemented the former approach.
+
+\section{Ethernet}
+
+This layer is relatively easy to implement. When we want to wrap an ARP or IP
+packet into an Ethernet packet, we only have to prepend an Ethernet header
+containing the source and destination MAC address and the type of the contained
+data, i.e. ARP or IP.  Reception is also easy, as we only need the Ethernet type
+to determine whether we have to call the ARP or IP packet handler.
+
+\section{IP}
+
+Assembling an IP header is also pretty straight forward with our assumptions we
+have taken. Those include, we only assemble IPv4 packets, set the TTL to 128
+only send IP packets that should not be fragmented.  Those assumptions also
+simplify the handling of an incoming IP packet. We only process IPv4 packets
+with a valid checksum and at least have the size of an IP header, and drop
+fragmented IP packets. Based on the protocol, we then call the ICMP or UDP
+handler, that we have implemented. All other protocols are not implemented, and
+those packets are dropped.
+
+\section{ICMP}
+
+To successfully ping the Toradex board from another host, we have to reply to
+valid ICMP echo requests with ICMP echo replies. An ICMP packet contains an
+Ethernet header, an IP header, an ICMP header and some payload. With creating
+the Ethernet and IP header as described above, the only part missing is the ICMP
+header. Creating the ICMP header includes setting the ICMP type to echo replies,
+the code to 0, the ID, sequence number and payload to the values that were
+provided in the received ICMP echo packet and finally computing the check over
+the ICMP header and payload. With that, we were able to ping our Toradex board
+from our laptop!
+
+On the other hand, we also wanted to ping other hosts from or Toradex board. So,
+we have to be able to send ICMP echo requests and with that, we had to figure
+out the meaning of the ID, sequence number and payload parameters.  As we know,
+the ICMP serves the purpose of transmitting information and errors about the
+IPv4. We are initially quite puzzled how an application, in this case "ping", is
+able to receive incoming ICMP packets, as ICMP does not know the concept of
+ports, therefore the well known demultiplexing process from UDP and TCP is not
+possible here.  It turns out, that if one runs multiple "ping" instances on a
+host, all "ping" instance get all ICMP responses and have to figure out which
+one are responses to own requests. This is done with the ID parameter. We
+decided to set the ID to our process number to distinguish the responses. We
+also inspected how the real "ping" (i.e. the own installed on my laptop by my
+package manager) chooses its ID and interestingly, it's not the process ID but
+the value of a counter that increments with every "ping" instance. So, somehow,
+every "ping" instance knows how many instances it is.  If you every run the
+"ping" command, you know that per default "ping" periodically send ICMP echo
+packets to the provided host and reports the latency for each one until it is
+terminated. As responses may arrive out of order, "ping" somehow needs to map
+the response to the original request, and that is what the sequence number in
+the ICMP header is used for.  Finally, ICMP packets may contain a payload and
+under the hood "ping" puts random data into an ICMP echo packet and check if the
+corresponding ICMP echo reply packet contains the same data and reports an error
+otherwise.  This was an interesting part of building the network stack, as
+"ping" is such a natural tool to use, one does not really think about its
+internals.
+
+% TODO
+With ICMP not knowing the concept of ports, we were also puzzled how we should
+actually provide a ping instance with incoming ICMP packets. As we see in the
+next section about UDP, every app has its socket with  ...
+
+% Talk about the bug: exactly one socket
+
+\section{UDP}
+
+We approached the implementation of UDP by setting up a UDP echo server directly
+in the network stack. Therefore, if a UDP packet arrives at the UDP handler, we
+immediately assembled a UDP packet and sent it back to the sender contains the
+same payload. This allowed us to focus on assembling a UDP packet and setting up
+the UDP header appropriately. Namely, a UDP packet contains an Ethernet header,
+an IP header, the UDP header and the UDP payload. The UDP header contains the
+source and destination port and the total length of the header and payload.  But
+we had a major drawback here: we could not make the checksum work. Somehow, the
+bytes representing the checksum in a UDP header were different when parsed on
+the board and when inspected in Wireshark in the same packet. All other bytes
+around the checksum matched, i.e. source and destination port, length, payload,
+but not those representing the checksum. We had no idea why this would happen
+and as UDP checksum is not mandatory in IPv4, we simply skipped that part for
+both sending (creating the checksum) and receiving (verifying the checksum).
+Once, we were confident with implementing the UDP correctly, we started
+implementing UDP sockets. This is needed to demultiplex incoming UDP packets
+based on their destination port to the corresponding client application that is
+listening on that port.  A UDP socket is simply a producer/consumer queue. When
+a UDP packet arrive in our network stack, the right socket is found based on the
+port and its payload along with some needed meta information such as the source
+IP and port is placed at the producer size of the queue. The client application
+is then responsible to repeatedly poll this queue for new packets to consume.
+This polling functionality is provided by the network service, describe in the
+section below.  Other functionalities provided to the client application are of
+course first creating a socket and also sending over the socket. It is now
+allowed to have two UDP sockets listening on the same port, and therefore this
+is checked in the socket creation. All existing UDP sockets form a simply linked
+list and therefore new UDP socket are appended to this linked list. Sending over
+a socket is putting already known parts together, such as getting the MAC for an
+IP, assembling a UDP packet and putting it into our safe sender queue.
+
+\section{Debugging}
+
+The main tool in use to debug our network stack was Wireshark. It gave us
+confident that the packets, our network stack is sending, are correct, as
+Wireshark was able to parse it. Also, the other way around it helped a lot,
+knowing what an incoming packet contains so, we could set up our handlers
+correctly.
+
+Other tools we used to trigger the correct path in our network stack were
+"arping" to send a ARP request to the Toradex board, "arp" to check the ARP
+table on the host to ensure that our network stack provided the correct MAC
+address, "ping" for ICMP echo packets, "nc" both as a UDP client and UDP server
+to test the sending and receiving functionality of UDP packets in our network
+stack.
+
+Further, we implemented debug print functions for every packet type (Ethernet,
+IP, ARP, ICMP and UDP), the ARP table, IP and MAC addresses and also the
+producer/consumer queue in our sockets to have some insights of what is
+happening in our network stack.
+
+\section{UDP Hack}
+
+While implementing the UDP part in the network stack, we had to apply some hacks
+to test the functionality. One was already mentioned above, by echo UDP packets
+directly in the network stack.  Another one, to test the reception of UDP
+packets from the client application's perspective, that means consuming the
+packets that are stored in the producer/consumer queue in a UDP socket, we
+proceeded as follows. Upon reception of a UDP packet in the network stack, we
+stored the UDP packet as described above in a UDP socket, but then immediately
+consumed it over the same interface that would a client application use to
+receive a UDP packet and also send some payload back over the interface. This
+required of course to create a UDP socket statically at the setup of the network
+process, to make the UDP handler not drop the packet.
+
+\section{ICMP Hack}
+
+The UDP hacks described above are quite straight forward. Testing the ICMP part
+is a bit more involved. Responding to ICMP echo requests required no hacks, as
+it can be directly testing by using "ping" on another host.  But issuing own
+ICMP echo requests is trickier. At this point, we have not yet implemented our
+own "ping" and also do not have our nameserver setup yet. So communication
+between any two processes is not yet implemented, hence we had to apply another
+hack to make this work directly in our network stack: Upon handling a ICMP echo
+request, we do not directly return, but send our own ICMP echo request to the
+host, that just pinged us with some dummy ID, sequence number and no payload and
+then try to consume an ICMP echo reply over the ICMP socket like a client
+application. On the first try, consuming the ICMP echo reply will fail, as the
+request has not yet made the whole roundtrip to the host and back. When we send
+another ICMP echo request from the host to the Toradex board, we are going to
+again handle it, issue our own ICMP echo request, but at this consuming from the
+ICMP socket will not fail, because the ICMP echo reply from our previous ICMP
+echo request, will be stored in there. This way, we can then check if the ID,
+sequence number and payload align with our dummy values.
+
+\section{Network Service}
+
+Such that other processes, like multiple UDP servers, can use the network stack,
+we need to expose our network stack as a network service over the nameserver
+that another team member has implemented.  For this, we register the network
+service with a service name and a handler at the nameserver. On the other side,
+we implemented an interface in the aos library that allow other processes to
+communicate with the network stack. The main purpose of the mentioned handler
+and the interface is to marshal and unmarshal message that are transmitted over
+RPC.  Supported operations from a client application's perspective are to create
+and destroy a socket and send and receive over a socket.
+
+\section{Benchmarks}
+
+Finally, we did some extensive benchmarking of the network stack. For this, we
+used the "get\_system\_time()" function provided by "aos/deferred.h" to measure
+the ticks used to execute a specific part of the code. We introduced
+benchmarking levels, such that we were able to have provided drill down results
+without having to deal with overhead of nested benchmarking.  The benchmarking
+results are printed to stdout and collected from there to be analysed by a
+script.
+
+% ICMP
+\begin{table}[]
+    \begin{tabular}{|llllll|l|l|l|l|l|l|}
+    \hline
+    \multicolumn{6}{|l|}{step} & mean & median & std & min & max & n \\ \hline
+    \multicolumn{1}{|l|}{} & \multicolumn{5}{l|}{handle packet} & 69976 & 61746 & 26291 & 59876 & 190546 & 60 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{1}{l|}{} & \multicolumn{4}{l|}{handle ip packet} & 68366 & 61851 & 22964 & 60088 & 191211 & 60 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{3}{l|}{handle icmp packet} & 68827 & 62220 & 23229 & 60018 & 193761 & 60 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{2}{l|}{assemble icmp packet} & 33461 & 30656 & 24713 & 12518 & 142123 & 60 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & malloc response packet & 32653 & 29924 & 23953 & 12302 & 138352 & 60 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & create icmp packet & 13 & 14 & 1 & 10 & 17 & 60 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & create ip packet & 17 & 17 & 1 & 15 & 20 & 60 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & \multicolumn{2}{l|}{enqueue icmp packet} & 35516 & 48775 & 19563 & 12667 & 73014 & 60 \\
+    \hline
+    \end{tabular}
+    \caption{ICMP benchmarks}
+    \label{tab:icmp-benchmarks}
+\end{table}
+
+We benchmarked incoming ICMP echo requests with a ICMP echo reply response and
+receiving UDP packets. All tests are done repeatedly to get meaningful results. 
+The results are shown in table \ref{tab:icmp-benchmarks} and
+\ref{tab:udp-benchmarks} respectively. At first, we thought that ticks in the
+order of magnitude of several thousand is the standart. But as we further
+benchmarked our code, we found that some code secions are executed in a matter
+of a few ticks. This made as curious and we drilled down into the network stack.
+In the end it turned out, that a single mallpc takes aboute 30'000 ticks. That
+means assembling a packet and placing the packet in the safe sender queue, each
+yields a malloc and therefore a total sum om 60 thousand ticks have to accounted
+for malloc calls for sending a single packet.  Hence, the best way to improve
+the perfmance of our network stack would be to optimize the memory management.
+
+We also tried to saturate the network link with packets. For that we sent about
+16 packets, each carrying about one thousand bytes, per second to the Toradex
+board resulting over the half of the packets being dropped.
+
+Under this load the latency also increased up to 22 seconds on average.
+
+Under normal load ICMP echo requests took about 16 miliseconds to be answered
+(min: 7ms, avg: 16ms, max: 482ms, std: 60ms).
+
+% UDP
+\begin{table}[]
+    \begin{tabular}{|llll|l|l|l|l|l|l|}
+    \hline
+    \multicolumn{4}{|l|}{step} & mean & median & std & min & max & n \\ \hline
+    \multicolumn{4}{|l|}{handle packet} & 5385 & 8 & 26458 & 5 & 176355 & 68 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{3}{l|}{handle ip packet} & 8 & 7 & 4 & 3 & 21 & 64 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{1}{l|}{} & \multicolumn{2}{l|}{handle udp packet} & 3 & 3 & 2 & 1 & 17 & 63 \\
+    \multicolumn{1}{|l|}{} & \multicolumn{1}{l|}{} & \multicolumn{1}{l|}{} & process udp packet & 5 & 3 & 5 & 1 & 18 & 63 \\
+    \hline
+    \end{tabular}
+    \caption{UDP benchmarks}
+    \label{tab:udp-benchmarks}
+\end{table}

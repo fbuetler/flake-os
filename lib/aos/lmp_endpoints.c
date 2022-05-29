@@ -51,7 +51,7 @@ errval_t lmp_endpoint_alloc(size_t buflen, struct lmp_endpoint **retep)
     struct dispatcher_generic *dg = get_dispatcher_generic(handle);
     size_t epsize = sizeof(struct lmp_endpoint) + buflen * sizeof(uintptr_t);
     struct lmp_endpoint *ep = heap_alloc(&dg->lmp_endpoint_heap, epsize);
-    if(ep == NULL) {
+    if (ep == NULL) {
         disp_enable(handle);
         return LIB_ERR_NO_ENDPOINT_SPACE;
     }
@@ -114,7 +114,8 @@ errval_t lmp_endpoint_create_in_slot(size_t buflen, struct capref dest,
 
     uintptr_t epoffset = (uintptr_t)&ep->k - (uintptr_t)curdispatcher();
 
-    // DEBUG_PRINTF("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n", __FUNCTION__, epoffset, buflen);
+    // DEBUG_PRINTF("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n",
+    // __FUNCTION__, epoffset, buflen);
 
     // mint new badged cap from our existing reply endpoint
     return cap_mint(dest, cap_selfep, epoffset, buflen);
@@ -169,8 +170,7 @@ static uint32_t lmp_endpoint_words_unseen(struct lmp_endpoint *ep)
  */
 void lmp_endpoints_poll_disabled(dispatcher_handle_t handle)
 {
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(handle);
+    struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
     struct dispatcher_generic *dp = get_dispatcher_generic(handle);
     struct lmp_endpoint *ep, *nextep, *firstep;
     errval_t err;
@@ -183,17 +183,15 @@ void lmp_endpoints_poll_disabled(dispatcher_handle_t handle)
         assert_disabled(disp->lmp_hint < DISPATCHER_FRAME_SIZE);
 
         /* compute endpoint location */
-        ep = (struct lmp_endpoint *)
-            ((char *)handle + disp->lmp_hint - offsetof(struct lmp_endpoint, k));
+        ep = (struct lmp_endpoint *)((char *)handle + disp->lmp_hint
+                                     - offsetof(struct lmp_endpoint, k));
 
         // clear hint now we're about to look at it
         disp->lmp_hint = 0;
 
         // if channel has a message, is registered, and isn't already pending
-        if (lmp_endpoint_can_recv(ep)
-            && waitset_chan_is_registered(&ep->waitset_state)
+        if (lmp_endpoint_can_recv(ep) && waitset_chan_is_registered(&ep->waitset_state)
             && ep->waitset_state.state == CHAN_IDLE) {
-
             // update seen count
             disp->lmp_seen += lmp_endpoint_words_unseen(ep);
 
@@ -232,7 +230,7 @@ void lmp_endpoints_poll_disabled(dispatcher_handle_t handle)
 
         if (lmp_endpoint_can_recv(ep)) {
             err = waitset_chan_trigger_disabled(&ep->waitset_state, handle);
-            assert_disabled(err_is_ok(err)); // can't fail
+            assert_disabled(err_is_ok(err));  // can't fail
 
             // update seen count
             disp->lmp_seen += lmp_endpoint_words_unseen(ep);
@@ -253,7 +251,7 @@ void lmp_endpoints_poll_disabled(dispatcher_handle_t handle)
         }
 
         if (nextep == firstep) {
-            break; // looped
+            break;  // looped
         }
     }
 
@@ -286,9 +284,9 @@ errval_t lmp_endpoint_register(struct lmp_endpoint *ep, struct waitset *ws,
     // update seen count before checking for any new messages
     ep->seen = ep->k.delivered;
 
-    if (lmp_endpoint_can_recv(ep)) { // trigger immediately
-        err = waitset_chan_trigger_closure_disabled(ws, &ep->waitset_state,
-                                                    closure, handle);
+    if (lmp_endpoint_can_recv(ep)) {  // trigger immediately
+        err = waitset_chan_trigger_closure_disabled(ws, &ep->waitset_state, closure,
+                                                    handle);
     } else {
         err = waitset_chan_register_disabled(ws, &ep->waitset_state, closure);
         if (err_is_ok(err)) {
@@ -302,6 +300,8 @@ errval_t lmp_endpoint_register(struct lmp_endpoint *ep, struct waitset *ws,
                 ep->prev->next = ep;
             }
             dp->lmp_poll_list = ep;
+        } else {
+            DEBUG_PRINTF("not stored?\n");
         }
     }
 
@@ -385,20 +385,19 @@ errval_t lmp_endpoint_recv(struct lmp_endpoint *ep, struct lmp_recv_buf *buf,
     buf->msglen = header.x.length;
 
     if (header.x.length >= ep->buflen) {
-        USER_PANIC("lmp_endpoint_recv: insane message (%u words @ %"PRIu32")."
-                   " delivered=%"PRIu32" consumed=%"PRIu32" len=%"PRIu32"\n",
-                   header.x.length, pos, ep->k.delivered, ep->k.consumed,
-                   ep->buflen);
+        USER_PANIC("lmp_endpoint_recv: insane message (%u words @ %" PRIu32 ")."
+                   " delivered=%" PRIu32 " consumed=%" PRIu32 " len=%" PRIu32 "\n",
+                   header.x.length, pos, ep->k.delivered, ep->k.consumed, ep->buflen);
     }
 
     /* check for space in the user's buffer */
     if (header.x.length > buf->buflen) {
         disp_enable(handle);
         DEBUG_PRINTF("lmp_endpoint_recv: recv buf (%zu words @ %p) overflow"
-                     " by pending message (%u words @ %"PRIu32")."
-                     " delivered=%"PRIu32" consumed=%"PRIu32" len=%"PRIu32"\n",
-                     buf->buflen, &buf, header.x.length, pos,
-                     ep->k.delivered, ep->k.consumed, ep->buflen);
+                     " by pending message (%u words @ %" PRIu32 ")."
+                     " delivered=%" PRIu32 " consumed=%" PRIu32 " len=%" PRIu32 "\n",
+                     buf->buflen, &buf, header.x.length, pos, ep->k.delivered,
+                     ep->k.consumed, ep->buflen);
         return LIB_ERR_LMP_RECV_BUF_OVERFLOW;
     }
 
@@ -447,8 +446,8 @@ errval_t lmp_endpoint_recv(struct lmp_endpoint *ep, struct lmp_recv_buf *buf,
  * \param arg4 Message payload
  */
 void lmp_endpoint_store_lrpc_disabled(struct lmp_endpoint *ep, uint32_t bufpos,
-                                      uintptr_t arg1, uintptr_t arg2,
-                                      uintptr_t arg3, uintptr_t arg4)
+                                      uintptr_t arg1, uintptr_t arg2, uintptr_t arg3,
+                                      uintptr_t arg4)
 {
     /* prefabricated LMP header */
     static union lmp_recv_header header = {

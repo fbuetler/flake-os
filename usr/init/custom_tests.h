@@ -32,5 +32,7 @@ void run_m4_tests(void);
 void run_m5_tests(void);
 // M6:
 void run_m6_tests(void);
+// M6:
+void run_m7_tests(void);
 
 #endif /* _INIT_CUSTOM_E2E_TESTS_H_ */

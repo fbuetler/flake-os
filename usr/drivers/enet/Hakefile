@@ -24,10 +24,16 @@
   build application {
     target = "enet",
     cFiles = [ 
-                "enet_module.c"
+                "enet_module.c",
+                "enet_handler.c",
+                "enet_debug.c",
+                "enet_safe_queue.c",
+                "enet_assembler.c",
+                "enet_socket.c",
+                "enet_service.c"
             ],
     mackerelDevices = ["imx8x/enet"],
-    addLibraries = libDeps ["devif_backend_enet", "netutil"],
+    addLibraries = libDeps ["devif_backend_enet", "netutil", "grading" ],
     architectures = ["armv8"]
   }
 ]

@@ -16,6 +16,9 @@
                         "distops/capqueue.c",
                         "distops/deletestep.c",
                         "distops/invocations.c",
+                        "nameserver/name_tree.c",
+                        "nameserver/server.c",
+                        "nameserver/test.c",
                         "main.c",
                         "proc_mgmt.c",
                         "core_mgmt.c",
@@ -25,7 +28,7 @@
                         "custom_tests.c"
                       ],
                       addLinkFlags = [ "-e _start_init"], -- this is only needed for init
-                      addLibraries = [ "mm", "getopt", "elf", "grading", "spawn", "serialio"],
+                      addLibraries = [ "mm", "getopt", "elf", "grading", "spawn", "regex", "serialio" ],
                       architectures = allArchitectures
                     }
 ]

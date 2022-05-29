@@ -1,0 +1,146 @@
+count=1; while echo "foobar" && [ $count -lt 60 ]; do sleep 1; (( count++ )); done | nc -u 10.42.0.27 3027
+
+enet.0.1: [bench] start 'assemble arp packet'
+enet.0.1: [bench] stop 'assemble arp packet': 48126 ticks
+enet.0.1: [bench] start 'enqueue arp packet'
+enet.0.1: [bench] stop 'enqueue arp packet': 12770 ticks
+enet.0.1: [bench] start 'update arp table on request'
+enet.0.1: [bench] stop 'update arp table on request': 116754 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 10 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 5 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 17 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'assemble arp packet'
+enet.0.1: [bench] stop 'assemble arp packet': 12816 ticks
+enet.0.1: [bench] start 'enqueue arp packet'
+enet.0.1: [bench] stop 'enqueue arp packet': 60354 ticks
+enet.0.1: [bench] start 'update arp table on request'
+enet.0.1: [bench] stop 'update arp table on request': 3608 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 9 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 1 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'assemble arp packet'
+enet.0.1: [bench] stop 'assemble arp packet': 48121 ticks
+enet.0.1: [bench] start 'enqueue arp packet'
+enet.0.1: [bench] stop 'enqueue arp packet': 59419 ticks
+enet.0.1: [bench] start 'update arp table on request'
+enet.0.1: [bench] stop 'update arp table on request': 3609 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 8 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 5 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 2 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 3 ticks
+enet.0.1: [bench] start 'handle udp packet'
+enet.0.1: [bench] stop 'handle udp packet': 4 ticks

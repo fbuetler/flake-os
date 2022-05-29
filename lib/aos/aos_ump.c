@@ -22,7 +22,7 @@ void aos_ump_debug_print(struct aos_ump *ump)
         DEBUG_PRINTF("%s\n", send_dump);
     }
 
-    DEBUG_PRINTF("Receive - base: 0x%lx - next: %d\n", ump->recv_base, ump->recv_next)
+    DEBUG_PRINTF("Receive - base: 0x%lx - next: %d\n", ump->recv_base, ump->recv_next);
     for (int i = 0; i < show_cache_lines; i++) {
         char *recv_dump = malloc(1 << 8);
         int c = 0;

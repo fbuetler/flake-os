@@ -52,6 +52,7 @@
                              "threads.c",
                              "aos_ump.c",
                              "aos_rpc.c",
+                             "aos_network.c",
                              "waitset.c" ],
                   assemblyFiles = [
                         "arch/aarch64/context.S",
@@ -59,7 +60,7 @@
                         "arch/aarch64/cache.S"
                   ],
                   addIncludes =   [ "include", "include/arch/aarch64" ],
-                  addLibraries = [ "cap_predicates", "hashtable", "mm", "collections", "serialio"],
+                  addLibraries = [ "cap_predicates", "hashtable", "mm", "collections", "grading", "fs", "serialio" ],
                   addCFlags = ["-DMORECORE_PAGESIZE=BASE_PAGE_SIZE"],
                   addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                 }

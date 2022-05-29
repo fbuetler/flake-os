@@ -36,10 +36,12 @@
 #include <barrelfish_kpi/startup_arm.h>
 #include <aos/deferred.h>
 
-#include <serialio//serialio.h>
+#include <serialio/serialio.h>
 
 #include "mem_alloc.h"
 #include "custom_tests.h"
+#include "nameserver/name_tree.h"
+#include "nameserver/test.h"
 
 
 struct bootinfo *bi;
@@ -62,13 +64,18 @@ static int bsp_main(int argc, char *argv[])
     err = initialize_ram_alloc();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialize_ram_alloc");
+        return EXIT_FAILURE;
     }
 
+    err = initialize_name_tree();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to initialize name tree");
+        return EXIT_FAILURE;
+    }
     // TODO: initialize mem allocator, vspace management here
 
     // Grading
     grading_test_early();
-
 
     // TODO: Spawn system processes, boot second core etc. here
     uint8_t number_of_cores_to_boot = 0;
@@ -95,10 +102,22 @@ static int bsp_main(int argc, char *argv[])
     default:
         break;
     }
-
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "Could not launch serial server! \n");
     }
+
+    // err = spawn_sdhc_driver(NULL);
+    // if (err_is_fail(err)) {
+    //     DEBUG_ERR(err, "failed to spawn sdhc driver");
+    // }
+
+    err = spawn_enet_driver(NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn enet driver");
+    }
+
+    //run_m7_tests();
+
 
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
     spawn_lpuart_driver(&si); // todo: rename this, it's the shell
@@ -110,7 +129,6 @@ static int bsp_main(int argc, char *argv[])
 
     // Grading
     grading_test_late();
-
 
     DEBUG_PRINTF("Message handler loop\n");
     struct waitset *default_ws = get_default_waitset();
