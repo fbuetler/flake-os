@@ -22,6 +22,7 @@
 #include <aos/deferred.h>
 #include <fs/fs.h>
 #include <fs/fs_rpc_requests.h>
+#include <aos/systime.h>
 
 #define ITERS 3
 
@@ -80,6 +81,7 @@ static void check_concurrent_writers(void){
     printf("\n");
 }
 
+__attribute__((unused))
 static void check_rm(void){
     printf("MKDIR testdir2\n");
     assert(err_is_ok(mkdir("/sdcard/testdir2")));
@@ -110,11 +112,43 @@ static void check_rm(void){
 
 }
 
+__attribute__((unused))
+static void benchmark_rw(void){
+    size_t size = 512 * 32;
+
+    char *buf = malloc(size);
+    memset(buf, 'a', size);
+
+    FILE *f = fopen("/sdcard/bench.txt", "w");
+    assert(f);
+
+    printf("writing %zu bytes\n", size);
+    int start = systime_now();
+    size_t written = fwrite(buf, 1, size, f);
+    fflush(f);
+    int duration = systime_now() - start;
+    printf("wrote %zu bytes in %d us\n", written, systime_to_us(duration));
+    fclose(f);
+
+    // read it:
+    f = fopen("/sdcard/bench.txt", "r");
+    assert(f);
+    printf("reading %zu bytes\n", size);
+    start = systime_now();
+    size_t read = fread(buf, 1, size, f);
+    duration = systime_now() - start;
+    printf("%.16384s\n", buf);
+    fclose(f);
+    printf("read %zu bytes in %d us\n", read, systime_to_us(duration));
+    free(buf);
+}
+
+
 int main(int argc, char *argv[])
 {
     filesystem_init();
 
-    check_rm();
+    benchmark_rw();
 
     DEBUG_PRINTF("check_rm done!!\n");
 
