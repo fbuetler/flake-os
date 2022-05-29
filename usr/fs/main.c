@@ -31,7 +31,6 @@
 #include <fs/fs_rpc.h>
 #include <aos/systime.h>
 #include <aos/nameserver.h>
-#include "benchmark.h"
 
 __attribute__((unused))
 static void test_encode_decode(char *src){
