@@ -49,8 +49,8 @@ void libc_exit(int status)
 
     //ToDo: does this get called for each thread, or each process?
     //ToDo: make sure that aos_rpc_kill_process can't be called twice
-    struct dispatcher_generic *disp = get_dispatcher_generic(curdispatcher());
-    aos_rpc_kill_process(get_init_rpc(), &disp->pid);
+    //struct dispatcher_generic *disp = get_dispatcher_generic(curdispatcher());
+    //aos_rpc_kill_process(get_init_rpc(), &disp->pid);
 
     //DEBUG_PRINTF("spawninfo pid in libc_exit: %d \n", init_spawninfo.pid);
     /*
@@ -258,7 +258,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         DEBUG_ERR(err, "failed to init mem rpc");
         return err_push(err, LIB_ERR_LMP_INIT_STATIC);
     }
-
     err = aos_lmp_initiate_handshake(mem_lmp);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to perform handshake over memory channel");

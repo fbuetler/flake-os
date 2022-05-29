@@ -239,11 +239,11 @@ errval_t aos_ump_bind(struct aos_lmp *lmp, struct aos_ump *ump, coreid_t core,
     size_t payload_size = sizeof(coreid_t);
     char msg_buf[AOS_LMP_MSG_SIZE(payload_size)];
     struct aos_lmp_msg *msg;
-    err = aos_lmp_create_msg_no_pagefault(&msg, AosRpcUmpBindRequest, payload_size, &core,
+    err = aos_lmp_create_msg_no_pagefault(lmp, &msg, AosRpcUmpBindRequest, payload_size, &core,
                                           cframe_cap, (struct aos_lmp_msg *)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
-        return err;
+        return err_push(err, LIB_ERR_LMP_MSG_CREATE);
     }
 
     // inside RPC call: 4. The server’s monitor calls the server, giving it the client’s cframe.

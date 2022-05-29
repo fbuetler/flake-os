@@ -29,19 +29,18 @@ typedef errval_t (*process_msg_func_t)(struct aos_lmp *);
 struct aos_lmp {
     struct thread_mutex lock;
     struct lmp_chan chan;
-    bool is_busy;
-    ///< If this is false, use the message buffer and make sure that the LMP code path
-    ///< does not incurr page faults.
-    bool use_dynamic_buf;
-
     size_t serial_channel_id;
-
     struct aos_lmp_msg *recv_msg;
     size_t recv_bytes;
     process_msg_func_t process_msg_func;
-
     ///< Message buffer for static channels
     char *buf;
+    bool is_busy;
+    ///< If this is false, use the message buffer and make sure that the LMP code path
+    ///< does not incurr page faults.
+    bool dynamic_channel;
+    ///< If this is true, do not use the message buffer.
+    bool use_dynamic_buf;
 };
 
 struct aos_lmp_msg {
@@ -79,7 +78,7 @@ errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap);
 errval_t aos_lmp_init_static(struct aos_lmp *lmp, struct capref remote_cap);
 errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp);
 
-errval_t aos_lmp_parent_init(struct aos_lmp *lmp);
+errval_t aos_lmp_parent_init(struct aos_lmp *lmp, bool dynamic);
 
 /**
  * \brief Setup a recv endpoint for rpc
@@ -92,10 +91,10 @@ errval_t aos_lmp_setup_local_chan(struct aos_lmp *lmp, struct capref cap_ep);
 /**
  * @brief Helper function to create a message
  */
-errval_t aos_lmp_create_msg(struct aos_lmp_msg **ret_msg, aos_rpc_msg_type_t msg_type,
+errval_t aos_lmp_create_msg(struct aos_lmp* lmp, struct aos_lmp_msg **ret_msg, aos_rpc_msg_type_t msg_type,
                             size_t payload_size, void *payload, struct capref msg_cap);
 
-errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
+errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp* lmp, struct aos_lmp_msg **ret_msg,
                                          aos_rpc_msg_type_t msg_type, size_t payload_size,
                                          void *payload, struct capref msg_cap,
                                          struct aos_lmp_msg *msg);

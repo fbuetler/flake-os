@@ -831,24 +831,24 @@ errval_t spawn_setup_by_name(char *binary_name, struct spawninfo *si, domainid_t
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    err = aos_lmp_parent_init(&si->client_lmp);
+    err = aos_lmp_parent_init(&si->client_lmp, true);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup client rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
-    err = aos_lmp_parent_init(&si->server_lmp);
+    err = aos_lmp_parent_init(&si->server_lmp, true);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup server rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
-    err = aos_lmp_parent_init(&si->mem_lmp);
+    err = aos_lmp_parent_init(&si->mem_lmp, false);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup mem rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
-    err = aos_lmp_parent_init(&si->serial_lmp);
+    err = aos_lmp_parent_init(&si->serial_lmp, true);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup serial rpc channel of init");
         return err_push(err, SPAWN_ERR_SETUP_RPC);
