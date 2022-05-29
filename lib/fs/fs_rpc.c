@@ -21,29 +21,31 @@
 #include <collections/path_list.h>
 #include <aos/systime.h>
 
-static errval_t skip_mountpoint(char **path){
-    if(strncmp(fs_mount.path, *path, strlen(fs_mount.path)) == 0){
+static errval_t skip_mountpoint(char **path)
+{
+    if (strncmp(fs_mount.path, *path, strlen(fs_mount.path)) == 0) {
         *path += strlen(fs_mount.path);
         return SYS_ERR_OK;
     }
     return FS_ERR_INVALID_PATH;
 }
 
-static char* process_path(char *old_path) {
+static char *process_path(char *old_path)
+{
     char *path;
     path = clean_path(old_path);
-    if(!path){
+    if (!path) {
         return NULL;
     }
     printf("cleaned: %s\n", path);
     char *skipped = path;
-    if(err_is_fail(skip_mountpoint(&skipped))){
+    if (err_is_fail(skip_mountpoint(&skipped))) {
         free(path);
         return NULL;
     }
-    if(*skipped == 0){
+    if (*skipped == 0) {
         skipped = strdup("/");
-    }else{
+    } else {
         skipped = strdup(skipped);
     }
     printf("skipped: %s\n", skipped);
@@ -58,11 +60,11 @@ static inline errval_t lmp_send(struct aos_lmp *lmp, aos_rpc_msg_type_t type,
     errval_t err;
 
     struct aos_lmp_msg *reply;
-    err = aos_lmp_create_msg_no_pagefault(&reply, type, payload_size, payload, NULL_CAP,
-                                          (struct aos_lmp_msg *)msg_buf);
+    err = aos_lmp_create_msg_no_pagefault(lmp, &reply, type, payload_size, payload,
+                                          NULL_CAP, (struct aos_lmp_msg *)msg_buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
-        return err;
+        return err_push(err, LIB_ERR_LMP_MSG_CREATE);
     } else {
         err = aos_lmp_send_msg((lmp), reply);
         if (err_is_fail(err)) {
@@ -125,7 +127,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         struct rpc_fs_open_response *response = malloc(
             sizeof(struct rpc_fs_open_response));
         char *path = process_path(args->path);
-        if(!path){
+        if (!path) {
             response->err = FS_ERR_INVALID_PATH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_open_response));
             return;
@@ -149,7 +151,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             sizeof(struct rpc_fs_create_response));
         // TODO security for pathlen
         char *path = process_path(args->path);
-        if(!path){
+        if (!path) {
             response->err = FS_ERR_INVALID_PATH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_create_response));
             return;
@@ -293,7 +295,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         // check if string is terminated
         struct rpc_fs_err_response *response = malloc(sizeof(struct rpc_fs_err_response));
         char *path = process_path(args->path);
-        if(!path){
+        if (!path) {
             response->err = FS_ERR_INVALID_PATH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
             return;
@@ -310,7 +312,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         // check if string is terminated
         struct rpc_fs_err_response *response = malloc(sizeof(struct rpc_fs_err_response));
         char *path = process_path(args->path);
-        if(!path){
+        if (!path) {
             response->err = FS_ERR_INVALID_PATH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
             return;
@@ -335,7 +337,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         // check if string is terminated
         struct rpc_fs_err_response *response = malloc(sizeof(struct rpc_fs_err_response));
         char *path = process_path(args->path);
-        if(!path){
+        if (!path) {
             response->err = FS_ERR_INVALID_PATH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
             return;
@@ -362,7 +364,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             sizeof(struct rpc_fs_opendir_response));
         struct fat32fs_handle *handle;
         char *path = process_path(args->path);
-        if(!path){
+        if (!path) {
             response->err = FS_ERR_INVALID_PATH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_opendir_response));
             return;
@@ -404,7 +406,8 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         // glue the DYNAMICALLY sized retname to the response
         size_t payload_size = sizeof(struct rpc_fs_readdir_response) + strlen(retname) + 1;
         response = malloc(payload_size);
-        memcpy(response + 1, retname, payload_size - sizeof(struct rpc_fs_readdir_response));
+        memcpy(response + 1, retname,
+               payload_size - sizeof(struct rpc_fs_readdir_response));
         free(retname);
         response->err = err;
         response->info = info;
@@ -413,7 +416,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         return;
     }
 
-    case AosRpcFsFStat:{
+    case AosRpcFsFStat: {
         struct rpc_fs_fstat_request *args = (struct rpc_fs_fstat_request *)request;
         struct rpc_fs_fstat_response *response = malloc(sizeof(struct rpc_fs_fstat_response));
 
@@ -432,7 +435,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         return;
     }
 
-    default:{
+    default: {
         DEBUG_PRINTF("unknown message type received in FS\n");
     }
     }

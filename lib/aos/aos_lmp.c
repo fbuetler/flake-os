@@ -49,8 +49,9 @@ void aos_process_number(struct aos_lmp *lmp)
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
     char buf[AOS_LMP_MSG_SIZE(payload_size)];
-    err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcSendNumberResponse, payload_size,
-                                          NULL, NULL_CAP, (struct aos_lmp_msg *)buf);
+    err = aos_lmp_create_msg_no_pagefault(lmp, &reply, AosRpcSendNumberResponse,
+                                          payload_size, NULL, NULL_CAP,
+                                          (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
         return;
@@ -78,7 +79,7 @@ void aos_process_string(struct aos_lmp *lmp)
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
     char buf[AOS_LMP_MSG_SIZE(payload_size)];
-    errval_t err = aos_lmp_create_msg_no_pagefault(&reply, AosRpcSendStringResponse,
+    errval_t err = aos_lmp_create_msg_no_pagefault(lmp, &reply, AosRpcSendStringResponse,
                                                    payload_size, NULL, NULL_CAP,
                                                    (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
@@ -153,7 +154,7 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
 
         DEBUG_PRINTF("Done handling client request\n");
         struct aos_lmp_msg *ret_msg;
-        aos_lmp_create_msg(&ret_msg, AosRpcServerResponse, response.bytes,
+        aos_lmp_create_msg(lmp, &ret_msg, AosRpcServerResponse, response.bytes,
                            response.payload, response.cap);
         aos_lmp_send_msg(lmp, ret_msg);
         free(ret_msg);
@@ -271,8 +272,8 @@ static errval_t aos_lmp_recv_first_msg(struct aos_lmp *lmp, struct capref msg_ca
 
     // allocate space for return message, copy current message already to it
     // DEBUG_PRINTF("use_dynamic_buf: %d \n", lmp->use_dynamic_buf);
-    lmp->recv_msg = (!lmp->use_dynamic_buf) ? (struct aos_lmp_msg *)lmp->buf
-                                            : malloc(total_bytes);
+    lmp->recv_msg = !lmp->use_dynamic_buf ? (struct aos_lmp_msg *)lmp->buf
+                                          : malloc(total_bytes);
     if (lmp->recv_msg == NULL) {
         DEBUG_PRINTF("Malloc inside aos_lmp_recv_msg_handler for ret_msg failed"
                      "\n");
@@ -400,7 +401,6 @@ static errval_t aos_lmp_recv_msg(struct aos_lmp *lmp)
     }
 
 
-
     if (!lmp->is_busy) {
         aos_lmp_recv_first_msg(lmp, msg_cap, &recv_buf);
     } else {
@@ -456,12 +456,12 @@ errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp)
     size_t payload_size = 0;
     struct aos_lmp_msg *msg;
     char buf[AOS_LMP_MSG_SIZE(payload_size)];
-    err = aos_lmp_create_msg_no_pagefault(&msg, AosRpcHandshake, payload_size, NULL,
-                                          child_lmp->chan.local_cap,
+    err = aos_lmp_create_msg_no_pagefault(child_lmp, &msg, AosRpcHandshake, payload_size,
+                                          NULL, child_lmp->chan.local_cap,
                                           (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
-        return err;
+        return err_push(err, LIB_ERR_LMP_MSG_CREATE);
     }
 
     err = aos_lmp_send_msg(child_lmp, msg);
@@ -500,8 +500,13 @@ errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap)
     // initial state
     thread_mutex_init(&lmp->lock);
     lmp->is_busy = false;
+    lmp->dynamic_channel = true;
     lmp->use_dynamic_buf = true;
-    lmp->buf = NULL;  // non-static channels do not need the buffer
+    lmp->buf = malloc(BASE_PAGE_SIZE);
+    if (lmp->buf == NULL) {
+        DEBUG_PRINTF("Failed to allocate message buffer for static LMP channel\n");
+        return LIB_ERR_MALLOC_FAIL;
+    }
 
     err = lmp_chan_accept(&lmp->chan, 256, remote_cap);
     if (err_is_fail(err)) {
@@ -534,12 +539,8 @@ errval_t aos_lmp_init_static(struct aos_lmp *lmp, struct capref remote_cap)
         return err_push(err, LIB_ERR_LMP_INIT);
     }
 
-    // Make it staic using a message buffer and the appropriate flag
-    lmp->buf = malloc(BASE_PAGE_SIZE);
-    if (lmp->buf == NULL) {
-        DEBUG_PRINTF("Failed to allocate message buffer for static LMP channel\n");
-        return LIB_ERR_MALLOC_FAIL;
-    }
+    // Make it static with the appropriate flags
+    lmp->dynamic_channel = false;
     lmp->use_dynamic_buf = false;
 
     return SYS_ERR_OK;
@@ -596,12 +597,17 @@ errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp)
  * @param msg_cap
  * @return errval_t
  */
-errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
+errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp *lmp, struct aos_lmp_msg **ret_msg,
                                          aos_rpc_msg_type_t msg_type, size_t payload_size,
                                          void *payload, struct capref msg_cap,
                                          struct aos_lmp_msg *msg)
 {
     size_t header_size = sizeof(struct aos_lmp_msg);
+    if (payload_size + header_size >= BASE_PAGE_SIZE) {
+        return ERR_INVALID_ARGS;
+    }
+
+    lmp->use_dynamic_buf = false;
 
     msg->message_type = msg_type;
     msg->header_bytes = header_size;
@@ -632,10 +638,18 @@ errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp_msg **ret_msg,
  *
  * @note Make sure to free the message after it was used.
  */
-errval_t aos_lmp_create_msg(struct aos_lmp_msg **ret_msg, aos_rpc_msg_type_t msg_type,
-                            size_t payload_size, void *payload, struct capref msg_cap)
+errval_t aos_lmp_create_msg(struct aos_lmp *lmp, struct aos_lmp_msg **ret_msg,
+                            aos_rpc_msg_type_t msg_type, size_t payload_size,
+                            void *payload, struct capref msg_cap)
 {
+    if (!lmp->dynamic_channel) {
+        DEBUG_PRINTF("Only dynamic channels can use this method of message creation\n");
+        return ERR_INVALID_ARGS;
+    }
+
+    lmp->use_dynamic_buf = true;
     size_t header_size = sizeof(struct aos_lmp_msg);
+
     struct aos_lmp_msg *msg = malloc(
         ROUND_UP(header_size + payload_size, sizeof(uintptr_t)));
     if (!msg) {
@@ -780,7 +794,6 @@ errval_t aos_lmp_call(struct aos_lmp *lmp, struct aos_lmp_msg *msg)
 
     // send message
     err = aos_lmp_send_msg(lmp, msg);
-
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         goto unwind;
@@ -803,14 +816,12 @@ errval_t aos_lmp_setup_local_chan(struct aos_lmp *lmp, struct capref cap_ep)
 {
     // setup endpoint of init
     lmp_chan_init(&lmp->chan);
-    errval_t err = lmp_endpoint_create_in_slot(512, cap_ep, &lmp->chan.endpoint);
+    lmp->chan.buflen_words = 256;
+    errval_t err = lmp_endpoint_create_in_slot(lmp->chan.buflen_words, cap_ep, &lmp->chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed create endpoint in init process");
         return err;
     }
-
-    // TODO review if this line is necessary
-    lmp->chan.buflen_words = 256;
 
     return SYS_ERR_OK;
 }
@@ -842,6 +853,7 @@ static errval_t aos_lmp_init_fire_and_forget(struct aos_lmp *lmp, struct capref 
 
     thread_mutex_init(&lmp->lock);
     lmp->is_busy = false;
+    lmp->dynamic_channel = true;
     lmp->use_dynamic_buf = true;
     lmp->buf = NULL;  // non-static channels do not need the buffer
 
@@ -854,9 +866,11 @@ static errval_t aos_lmp_init_fire_and_forget(struct aos_lmp *lmp, struct capref 
     return SYS_ERR_OK;
 }
 
-errval_t aos_lmp_parent_init(struct aos_lmp *lmp)
+errval_t aos_lmp_parent_init(struct aos_lmp *lmp, bool dynamic)
 {
     lmp->is_busy = false;
+    lmp->dynamic_channel = dynamic;
+    lmp->use_dynamic_buf = dynamic;
     lmp->buf = malloc(BASE_PAGE_SIZE);
     if (!lmp->buf) {
         DEBUG_PRINTF("failed to allocate lmp buffer\n");
