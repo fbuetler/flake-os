@@ -10,6 +10,7 @@ static errval_t enet_create_eth_packet(struct eth_addr eth_src, struct eth_addr 
     eth->dst = eth_dest;
     eth->type = htons(type);
 
+    ETHARP_DEBUG("Assembled ETH packet\n");
     enet_debug_print_eth_packet(eth);
 
     return SYS_ERR_OK;
@@ -46,6 +47,7 @@ static errval_t enet_create_arp_packet(struct eth_addr eth_src, ip_addr_t ip_src
     // receiver ip
     arp->ip_dst = htonl(ip_dest);
 
+    ETHARP_DEBUG("Assembled ARP packet\n");
     enet_debug_print_arp_packet(arp);
 
     return SYS_ERR_OK;
@@ -88,6 +90,7 @@ static errval_t enet_create_ip_packet(struct eth_addr eth_src, ip_addr_t ip_src,
     ip->chksum = 0;
     ip->chksum = inet_checksum(ip, IP_HLEN);
 
+    IP_DEBUG("Assembled IP packet\n");
     enet_debug_print_ip_packet(ip);
 
     return SYS_ERR_OK;
@@ -113,6 +116,7 @@ static errval_t enet_create_icmp_packet(uint8_t type, uint16_t id, uint16_t seqn
     icmp->chksum = 0;
     icmp->chksum = inet_checksum(icmp, ICMP_HLEN + payload_size);
 
+    ICMP_DEBUG("Assembled ICMP packet\n");
     enet_debug_print_icmp_packet(icmp, payload_size);
 
     return SYS_ERR_OK;
@@ -129,6 +133,9 @@ static errval_t enet_create_udp_packet(uint16_t udp_src, uint16_t udp_dest, char
     udp->chksum = 0;
     // UDP checksum seems to be broken
     // udp->chksum = inet_checksum(udp, UDP_HLEN + payload_size);
+
+    UDP_DEBUG("Assembled UDP packet\n");
+    enet_debug_print_udp_packet(udp);
 
     return SYS_ERR_OK;
 }
