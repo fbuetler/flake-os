@@ -1050,7 +1050,7 @@ void run_m6_tests(void)
 {
     switch (disp_get_current_core_id()) {
     case 0:{
-        test_spawn_process("demom6"); 
+        test_spawn_process("filereader"); 
         break;
     }
     case 1:

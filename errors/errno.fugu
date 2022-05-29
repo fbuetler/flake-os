@@ -999,6 +999,7 @@ errors fs FS_ERR_ {
     failure READ_DIR            "Failure during readdir",
     failure MKDIR               "Failure during mkdir",
     failure RMDIR               "Failure during rmdir",
+    failure IS_OPEN             "The given file/directory is currently open",
 };
 
 // errors in the vfs library

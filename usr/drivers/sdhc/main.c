@@ -501,17 +501,6 @@ errval_t sdhc_read_block(struct sdhc_s* sd, int index, lpaddr_t dest)
 errval_t sdhc_write_block(struct sdhc_s* sd, int index, lpaddr_t source){
     errval_t err;
 
-    struct cmd set_blocklen = {
-        .cmdidx = MMC_CMD_SET_BLOCKLEN,
-        .cmdarg = SDHC_BLOCK_SIZE,
-        .resp_type = MMC_RSP_R1
-    };
-    err = sdhc_send_cmd(sd, &set_blocklen);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "set_blocklen");
-        return err;
-    }
-
     struct cmd write_block = {
         .cmdidx = MMC_CMD_WRITE_SINGLE_BLOCK,
         .cmdarg = index,
@@ -609,6 +598,16 @@ errval_t sdhc_init(struct sdhc_s** sd_ret, void *base)
        return err;
     }
 
+    struct cmd set_blocklen = {
+        .cmdidx = MMC_CMD_SET_BLOCKLEN,
+        .cmdarg = SDHC_BLOCK_SIZE,
+        .resp_type = MMC_RSP_R1
+    };
+    err = sdhc_send_cmd(sd, &set_blocklen);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "set_blocklen");
+        return err;
+    }
     return SYS_ERR_OK;
 }
 

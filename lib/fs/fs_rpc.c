@@ -104,6 +104,9 @@ static inline errval_t lmp_send(struct aos_lmp *lmp, aos_rpc_msg_type_t type,
         free(concat_buf);                                                                \
     } while (0)
 
+#define FS_LOCK thread_mutex_lock(&fs_state.mutex);
+#define FS_UNLOCK thread_mutex_unlock(&fs_state.mutex);
+
 
 void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
                     size_t *msg_response_bytes, struct capref tx_cap,
@@ -126,8 +129,10 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_open_response));
             return;
         }
-        // TODO security for pathlen
+
+        FS_LOCK;
         err = fat32fs_open(args->pid, NULL, path, args->flags, &rethandle);
+        FS_UNLOCK;
         response->err = err;
         if (err_is_ok(err)) {
             response->handle = *rethandle;
@@ -148,7 +153,9 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_create_response));
             return;
         }
+        FS_LOCK;
         err = fat32fs_create(0, path, args->flags, &rethandle);
+        FS_UNLOCK;
         response->err = err;
         if (err_is_ok(err)) {
             response->handle = *rethandle;
@@ -161,16 +168,18 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         struct rpc_fs_close_request *args = request;
         struct rpc_fs_err_response *response = malloc(sizeof(struct rpc_fs_err_response));
 
+        FS_LOCK;
         struct fat32fs_handle *handle = collections_hash_find(fs_state.fid2handle,
                                                               args->fid);
         if (!handle) {
+            FS_UNLOCK;
             response->err = FS_ERR_INVALID_FH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
             return;
         }
 
         fat32fs_handle_close(handle);
-
+        FS_UNLOCK;
         response->err = SYS_ERR_OK;
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
         return;
@@ -179,21 +188,30 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         // currently will assume that it fits into 1024 bytes
         struct rpc_fs_write_request *args = request;
         // get the handle
-        struct fat32fs_handle *handle = collections_hash_find(fs_state.fid2handle,
-                                                              (uint64_t)args->fid);
         struct rpc_fs_write_response *response = malloc(
             sizeof(struct rpc_fs_write_response));
+        // write the data
+        size_t payload_size = MIN(args->bytes, RPC_FS_RW_CHUNK_SIZE);
+        FS_LOCK;
+        struct fat32fs_handle *handle = collections_hash_find(fs_state.fid2handle,
+                                                              (uint64_t)args->fid);
         if (!handle) {
+            FS_UNLOCK;
             // send error
             response->err = FS_ERR_INVALID_FH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_write_response));
             return;
         }
-        // write the data
-        size_t payload_size = MIN(args->bytes, RPC_FS_RW_CHUNK_SIZE);
 
         size_t bytes_written;
+        uint32_t old_fsize = handle->dirent->size;
         response->err = fat32fs_write(handle, args->buf, payload_size, &bytes_written);
+        if(handle->dirent->size > old_fsize){
+            // update any other open handles
+            fat32fs_update_all_handles_to(handle->path, handle->dirent->size);
+        }
+
+        FS_UNLOCK;
         response->bytes = bytes_written;
         // send back response
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_write_response));
@@ -201,24 +219,26 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
     }
     case AosRpcFsRead: {
         struct rpc_fs_read_request *args = (struct rpc_fs_read_request *)request;
+        struct rpc_fs_read_response *response;
+        char buf[RPC_FS_RW_CHUNK_SIZE];
+        size_t read = MIN(args->bytes, sizeof(buf));
+        FS_LOCK;
         // get the handle
         struct fat32fs_handle *handle = collections_hash_find(fs_state.fid2handle,
                                                               args->fid);
-        struct rpc_fs_read_response *response;
         if (!handle) {
+            FS_UNLOCK;
             // send error
             response = malloc(sizeof(struct rpc_fs_read_response));
             response->err = FS_ERR_INVALID_FH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_write_response));
             return;
         }
-
         // read the data
-        char buf[RPC_FS_RW_CHUNK_SIZE];
-        size_t read = MIN(args->bytes, sizeof(buf));
         uint32_t current_offset = handle->u.file_offset;
         size_t bytes_read;
         err = fat32fs_read(handle, buf, read, &bytes_read);
+        FS_UNLOCK;
         if (err_is_fail(err)) {
             // send error
             response = malloc(sizeof(struct rpc_fs_write_response));
@@ -227,8 +247,6 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             return;
         }
         response = malloc(sizeof(struct rpc_fs_read_response) + read);
-        // send back buf
-        DEBUG_PRINTF("bytes read by server: %d\n", bytes_read);
         response->bytes = bytes_read;
         response->offset = current_offset;
         response->err = SYS_ERR_OK;
@@ -238,12 +256,15 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
     }
     case AosRpcFsLSeek: {
         struct rpc_fs_lseek_request *args = (struct rpc_fs_lseek_request *)request;
+        struct rpc_fs_lseek_response *response = malloc(
+            sizeof(struct rpc_fs_lseek_response));
+        
+        FS_LOCK;
         // get the handle
         struct fat32fs_handle *handle = collections_hash_find(fs_state.fid2handle,
                                                               args->fid);
-        struct rpc_fs_lseek_response *response = malloc(
-            sizeof(struct rpc_fs_lseek_response));
         if (!handle) {
+            FS_UNLOCK;
             response->err = FS_ERR_INVALID_FH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_lseek_response));
             return;
@@ -251,12 +272,14 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
 
         err = fat32fs_seek(handle, args->whence, args->offset);
         if (err_is_fail(err)) {
+            FS_UNLOCK;
             response->err = err;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_lseek_response));
             return;
         }
 
         err = fat32fs_tell(handle, &response->new_offset);
+        FS_UNLOCK;
         if (err_is_fail(err)) {
             response->err = err;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_lseek_response));
@@ -277,7 +300,9 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
             return;
         }
+        FS_LOCK;
         response->err = fat32fs_mkdir(path);
+        FS_UNLOCK;
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
         free(path);
         return;
@@ -292,7 +317,17 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
             return;
         }
+        FS_LOCK;
+        // check if dir is opened anywhere. If so, return error
+        if(hashmap_get(&fs_state.path2handle, path, strlen(path))){
+            FS_UNLOCK;
+            response->err = FS_ERR_IS_OPEN;
+            SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
+            free(path);
+            return;
+        }
         response->err = fat32fs_rmdir(path);
+        FS_UNLOCK;
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
         free(path);
         return;
@@ -307,7 +342,17 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
             return;
         }
+        FS_LOCK;
+        // check if dir is opened anywhere. If so, return error
+        if(hashmap_get(&fs_state.path2handle, path, strlen(path))){
+            FS_UNLOCK;
+            response->err = FS_ERR_IS_OPEN;
+            SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
+            free(path);
+            return;
+        }
         response->err = fat32fs_rm(path);
+        FS_UNLOCK;
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
         free(path);
         return;
@@ -324,8 +369,9 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_opendir_response));
             return;
         }
+        FS_LOCK;
         response->err = fat32fs_opendir(0, path, &handle);
-        DEBUG_PRINTF("new fid for dir: %d\n", handle->fid);
+        FS_UNLOCK;
         response->handle = *handle;
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_opendir_response));
         free(path);
@@ -334,12 +380,14 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
     case AosRpcFsReadDir: {
         struct rpc_fs_readdir_request *args = (struct rpc_fs_readdir_request *)request;
         struct rpc_fs_readdir_response *response;
+
+        FS_LOCK;
         // get handle
         struct fat32fs_handle *handle = collections_hash_find(fs_state.fid2handle,
                                                               args->fid);
         if (!handle) {
+            FS_UNLOCK;
             // send error
-            DEBUG_PRINTF("didn't find handle for fid: %d\n", args->fid);
             response = malloc(sizeof(struct rpc_fs_readdir_response));
             response->err = FS_ERR_INVALID_FH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_readdir_response));
@@ -348,6 +396,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         char *retname;
         struct fs_fileinfo info;
         err = fat32fs_dir_read_next(handle, &retname, &info);
+        FS_UNLOCK;
         if(err_is_fail(err)){
             response = malloc(sizeof(struct rpc_fs_readdir_response));
             response->err = err;
@@ -368,15 +417,19 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
 
     case AosRpcFsFStat:{
         struct rpc_fs_fstat_request *args = (struct rpc_fs_fstat_request *)request;
+        struct rpc_fs_fstat_response *response = malloc(sizeof(struct rpc_fs_fstat_response));
+
+        FS_LOCK;
         struct fat32fs_handle *handle = collections_hash_find(fs_state.fid2handle,
                                                               args->fid);
-        struct rpc_fs_fstat_response *response = malloc(sizeof(struct rpc_fs_fstat_response));
         if (!handle) {
+            FS_UNLOCK;
             response->err = FS_ERR_INVALID_FH;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_fstat_response));
             return;
         }
         response->err = fat32fs_fstat(handle, &response->info);
+        FS_UNLOCK;
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_fstat_response));
         return;
     }
