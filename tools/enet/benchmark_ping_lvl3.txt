@@ -1,0 +1,247 @@
+flat with level 3
+
+ping -c 60 10.42.0.27
+--- 10.42.0.27 ping statistics ---
+60 packets transmitted, 60 received, 0% packet loss, time 59096ms
+rtt min/avg/max/mdev = 24.216/32.903/477.625/57.970 ms
+
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12843 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 60672 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 47905 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 59687 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 47890 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12763 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48190 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12979 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48133 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12713 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48197 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12845 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48369 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12667 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 47951 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 13010 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48495 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12715 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48184 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12854 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48286 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12837 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48076 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 13029 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 47791 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 13077 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48274 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12943 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 109435 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49735 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12895 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 48737 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12907 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 48616 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13024 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 48710 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12894 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 48787 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12756 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49158 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12906 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49826 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12919 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 48855 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13153 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 48763 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13179 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49097 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12874 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 48071 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12518 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 64695 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49951 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 13004 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49106 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 60149 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48157 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12832 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49268 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12770 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48674 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12735 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 48758 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12700 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49588 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12963 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49208 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12892 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49294 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 13109 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49097 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12763 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49547 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12780 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49235 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12723 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 50068 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 13047 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49581 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 12896 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 49632 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 73014 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13188 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50031 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13046 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49652 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13048 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50332 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13195 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49515 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12853 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49568 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12848 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49898 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13132 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49889 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13048 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50039 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12871 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49659 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13162 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49776 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 12971 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 49919 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 142123 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50925 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13313 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50016 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13247 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 51073 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13244 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50128 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13265 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50805 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13374 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50986 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13019 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50455 ticks
+enet.0.1: [bench] start 'assemble icmp packet'
+enet.0.1: [bench] stop 'assemble icmp packet': 13521 ticks
+enet.0.1: [bench] start 'enqueue icmp packet'
+enet.0.1: [bench] stop 'enqueue icmp packet': 50127 ticks

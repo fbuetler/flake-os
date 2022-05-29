@@ -1,0 +1,131 @@
+flat with level 1
+
+ping -c 60 10.42.0.2
+--- 10.42.0.27 ping statistics ---
+60 packets transmitted, 60 received, 0% packet loss, time 59105ms
+rtt min/avg/max/mdev = 12.340/21.235/479.092/59.677 ms
+
+enet.0.1: [bench] start 'handle arp packet'
+enet.0.1: [bench] stop 'handle arp packet': 175578 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 73320 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 106076 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60841 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60555 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60773 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60507 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60301 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60305 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60900 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60621 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60590 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60881 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60088 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60909 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 158157 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61325 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61124 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61373 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60716 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60900 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61173 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61350 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62278 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61939 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60802 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 77031 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62961 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 109344 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60978 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 60691 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61740 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61599 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61948 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61917 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61570 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61992 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61383 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61972 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62040 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61860 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 121607 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61809 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61843 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61748 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62014 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62040 ticks
+enet.0.1: [bench] start 'handle arp packet'
+enet.0.1: [bench] stop 'handle arp packet': 66136 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61870 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62695 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62151 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62176 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 61767 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62618 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 191211 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62914 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62992 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62503 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62526 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62967 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62873 ticks
+enet.0.1: [bench] start 'handle ip packet'
+enet.0.1: [bench] stop 'handle ip packet': 62807 ticks7

@@ -46,6 +46,23 @@ __weak_reference(libc_exit, _exit);
 void libc_exit(int status)
 {
     DEBUG_PRINTF("libc exit NYI!\n");
+
+    //ToDo: does this get called for each thread, or each process?
+    //ToDo: make sure that aos_rpc_kill_process can't be called twice
+    struct dispatcher_generic *disp = get_dispatcher_generic(curdispatcher());
+    aos_rpc_kill_process(get_init_rpc(), &disp->pid);
+
+    //DEBUG_PRINTF("spawninfo pid in libc_exit: %d \n", init_spawninfo.pid);
+    /*
+    struct spawninfo *current = &init_spawninfo;
+    while (current) {
+        DEBUG_PRINTF("pid: %d \n", current->pid);
+        current = current->next;
+    }
+    if(init_spawninfo.next->dispatcher_handle ==  curdispatcher()) {
+        DEBUG_PRINTF("working! %d \n", init_spawninfo.pid);
+    } */
+
     thread_exit(status);
     // If we're not dead by now, we wait
     while (1) {
@@ -126,8 +143,7 @@ __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t le
     return 0;
 }
 
-static struct aos_rpc rpc;
-static struct aos_rpc mem_rpc;
+static struct aos_rpc client_rpc, server_rpc, mem_rpc, serial_rpc;
 
 /* Set libc function pointers */
 void barrelfish_libc_glue_init(void)
@@ -137,7 +153,7 @@ void barrelfish_libc_glue_init(void)
     // TODO: change these to use the user-space serial driver if possible
     // TODO: set these functions
     _libc_terminal_read_func = dummy_terminal_read;
-    _libc_terminal_write_func = syscall_terminal_write;
+    _libc_terminal_write_func = terminal_write;
     _libc_exit_func = libc_exit;
     _libc_assert_func = libc_assert;
     /* morecore func is setup by morecore_init() */
@@ -202,25 +218,42 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         }
 
         // setup endpoint of init
-        err = aos_lmp_setup_local_chan(&init_spawninfo.lmp, cap_initep);
+        err = aos_lmp_setup_local_chan(&init_spawninfo.client_lmp, cap_client_initep);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to setup local rpc channel for init");
+            DEBUG_ERR(err, "failed to setup client rpc channel for init");
             return err;
         }
+        err = aos_lmp_setup_local_chan(&init_spawninfo.server_lmp, cap_server_initep);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to setup client rpc channel for init");
+            return err;
+        }
+
+
         // setup endpoint for memory requests
         err = aos_lmp_setup_local_chan(&init_spawninfo.mem_lmp, cap_initmemep);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to setup local mem rpc channel for init");
             return err;
         }
+
+
+        err = aos_lmp_setup_local_chan(&init_spawninfo.serial_lmp, cap_initserialep);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to setup local serial rpc channel for init");
+            return err;
+        }
         return SYS_ERR_OK;
     }
 
-    rpc.is_lmp = mem_rpc.is_lmp = true;
-    struct aos_lmp *lmp = &rpc.u.lmp;
+    server_rpc.is_lmp = client_rpc.is_lmp = mem_rpc.is_lmp = serial_rpc.is_lmp = true;
+    struct aos_lmp *client_lmp = &client_rpc.u.lmp;
+    struct aos_lmp *server_lmp = &server_rpc.u.lmp;
     struct aos_lmp *mem_lmp = &mem_rpc.u.lmp;
+    struct aos_lmp *serial_lmp = &serial_rpc.u.lmp;
 
-    err = aos_lmp_init_static(mem_lmp, AOS_RPC_MEMORY_CHANNEL);
+    // setup memory channel
+    err = aos_lmp_init_static(mem_lmp, cap_initmemep);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init mem rpc");
         return err_push(err, LIB_ERR_LMP_INIT_STATIC);
@@ -231,31 +264,70 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         DEBUG_ERR(err, "Failed to perform handshake over memory channel");
         return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
     }
-    // reset the RAM allocator to use ram_alloc_remote
     set_init_mem_rpc(&mem_rpc);
-    ram_alloc_set(NULL);
 
-    // we do not register an event handler for the memory channel
+    // we do not register an event handler for the memory channel as it is a static client
+    // channel
 
-    err = aos_lmp_init_static(lmp, AOS_RPC_BASE_CHANNEL);
+    // setup client channel
+    err = aos_lmp_init(client_lmp, cap_client_initep);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to init rpc");
+        DEBUG_ERR(err, "failed to init client rpc to init");
         return err_push(err, LIB_ERR_LMP_INIT);
     }
+    err = aos_lmp_initiate_handshake(client_lmp);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to perform handshake over client init channel");
+        return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
+    }
 
-    err = aos_lmp_initiate_handshake(lmp);
+    // When we want to call init we use the client channel.
+    set_init_rpc(&client_rpc);
+
+    // we do not register an event handler for client channels as they are only for
+    // calling init
+
+    // Setup server channel
+    err = aos_lmp_init(server_lmp, cap_server_initep);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to init server rpc to init");
+        return err_push(err, LIB_ERR_LMP_INIT);
+    }
+    err = aos_lmp_initiate_handshake(server_lmp);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to perform handshake over server init channel");
+        return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
+    }
+
+    // server channel is registered to an event handler as it is for recieving requests
+    // from init
+    err = aos_lmp_register_recv(server_lmp, aos_lmp_event_handler);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register server init channel to event handler");
+        return err_push(err, LIB_ERR_CHAN_REGISTER_RECV);
+    }
+
+    // the server channel is not registered as an init channel as we must never use it to
+    // call to init apart from  responding to requests
+
+    // Setup serial channel
+    err = aos_lmp_init(serial_lmp, cap_initserialep);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to init serial rpc");
+        return err;
+    }
+
+    err = aos_lmp_initiate_handshake(serial_lmp);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to perform handshake over init channel");
         return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
     }
+    set_serial_rpc(&serial_rpc);
 
-    err = aos_lmp_register_recv(lmp, aos_lmp_event_handler);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to register init channel to event handler");
-        return err_push(err, LIB_ERR_CHAN_REGISTER_RECV);
-    }
 
-    set_init_rpc(&rpc);
+    // reset the RAM allocator to use ram_alloc_remote
+    // DEBUG_PRINTF("Use remote RAM allocator\n");
+    ram_alloc_set(NULL);
 
     return SYS_ERR_OK;
 }

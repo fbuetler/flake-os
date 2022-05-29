@@ -1,36 +1,35 @@
-\section{Simple shell and Power Management}
+\chapter{Simple shell and Power Management}
 
-\subsection{Ouput}
+\section{Ouput}
 
 When someone want to print a character, we wait until the graphical device is
 ready and then we send it to make it appear on the screen.
 
-\subsection{Input}
+\section{Input}
 
 Input works in a similar fashion. We wait until the device says there is data to
-be read and then we read it into local memory.
-I did first a mistake by confusing 0x4 with 1 << 4 and hence the 3rd bit was
-checked instead of the fourth. This lead to make the program progress even if
-there is no character, resulting in bad performance.
+be read and then we read it into local memory.  I did first a mistake by
+confusing 0x4 with 1 << 4 and hence the 3rd bit was checked instead of the
+fourth. This lead to make the program progress even if there is no character,
+resulting in bad performance.
 
-\subsection{Simple shell}
+\section{Simple shell}
 
 Implementing a simple shell requires to stores every character that is entered
 until the return key is pressed. This is done in a char array. The char array
-allow a max input of 255 characters as a first choice.
-Once the return key is entered, the string (stored in the char array) is
-terminated and evaluated. If it matches an implemented command, it executes it.
-As printf uses the function we implement in **Input**, we can use it to print
-stuff on the console. We provide a 'hello' and 'help' command that just print
-some text back to the user, otherwise the input is ignored.
-I also implemented the functionality of ctrl+c to abort an input. Moreover,
-there is the functionality of backspace implemented as well. This is done by
-moving the curse one character back, printing a space i.e. an empty character
-and then moving the character once back again.
-To make things a bit more aestetic, a '\$' is printed to start an input and a
-newline is started when an input is evaluated.
+allow a max input of 255 characters as a first choice.  Once the return key is
+entered, the string (stored in the char array) is terminated and evaluated. If
+it matches an implemented command, it executes it.  As printf uses the function
+we implement in **Input**, we can use it to print stuff on the console. We
+provide a 'hello' and 'help' command that just print some text back to the user,
+otherwise the input is ignored.  I also implemented the functionality of ctrl+c
+to abort an input. Moreover, there is the functionality of backspace implemented
+as well. This is done by moving the curse one character back, printing a space
+i.e. an empty character and then moving the character once back again.  To make
+things a bit more aestetic, a '\$' is printed to start an input and a newline is
+started when an input is evaluated.
 
-\subsection{Shutdown/Reboot}
+\section{Shutdown/Reboot}
 
 Shutdown and reboot is all about reading the specification. I decided to use the
 SMC32 calling convention and a fast call. First I had trouble understanding what
@@ -38,8 +37,7 @@ the value of the service call range was. But it turned out its the "Owning
 entity number" i.e. 4. I also had a bug that confused me for a while but it
 turned out, I was just so focused on getting the value right that I forgot to
 call the "smc" assembly function, therefore the value in the register was never
-evaluated. 
-The difference of shutdown and reboot is just an offset of 1 of the value stored
-in the register.
-Most challening part of this task was to understand the specification correctly
-and getting the assembly instructions right.
+evaluated.  The difference of shutdown and reboot is just an offset of 1 of the
+value stored in the register.  Most challening part of this task was to
+understand the specification correctly and getting the assembly instructions
+right.

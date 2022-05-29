@@ -217,6 +217,18 @@ struct aos_rpc *get_init_rpc(void)
     return disp->core_state.c.init_rpc;
 }
 
+struct aos_rpc *get_serial_rpc(void) {
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    return disp->core_state.serial_rpc;
+}
+
+void set_serial_rpc(struct aos_rpc *serial_rpc) {
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    disp->core_state.serial_rpc = serial_rpc;
+}
+
 
 /**
  * \brief Set the init mem rpc channel on the domain state

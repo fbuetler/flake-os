@@ -1,3 +1,11 @@
 \section{Shell}
 
-TODO
+The shell is split into two modules, a serial server and the shell itself.
+
+\subsection{Serial Server}
+The serial server can be seen as a rudimentary TTY. It reads and writes through UART and buffers incoming characters.
+With only little modification multiple TTYs could be launched, each using a different UART port.
+
+
+\subsection{Shell}
+

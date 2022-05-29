@@ -1,0 +1,131 @@
+flat with level 0
+
+ping -c 60 10.42.0.27
+--- 10.42.0.27 ping statistics ---
+60 packets transmitted, 60 received, 0% packet loss, time 59099ms
+rtt min/avg/max/mdev = 15.117/24.216/493.183/61.119 ms
+
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 176201 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 72969 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 106991 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60166 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60823 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 59944 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60333 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60497 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60327 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60575 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60680 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 59876 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60417 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60809 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60351 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 157969 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61411 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61527 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61111 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61000 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60921 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60800 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60468 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60647 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61380 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 60988 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 76099 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62538 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 109187 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61409 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61273 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61638 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61211 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61259 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61816 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61379 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61677 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61910 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61935 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 64868 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62168 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 120237 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62554 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62014 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61979 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61645 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61588 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62327 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62101 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62888 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62763 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 61869 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62837 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 63095 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 190546 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62633 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62922 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 63139 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62659 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 63551 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 62216 ticks
+enet.0.1: [bench] start 'handle packet'
+enet.0.1: [bench] stop 'handle packet': 63437 ticks

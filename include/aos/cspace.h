@@ -18,14 +18,16 @@
 #include <barrelfish_kpi/init.h>
 
 /* Root CNode */
-#define ROOTCN_FREE_SLOTS       (ROOTCN_SLOTS_USER+0)   ///< free slots to place EPs
+#define ROOTCN_FREE_SLOTS         (ROOTCN_SLOTS_USER+0)   ///< free slots to place EPs
 
 /* Task CNode */
-#define TASKCN_SLOT_SELFEP      (TASKCN_SLOTS_USER+0)   ///< Endpoint to self
-#define TASKCN_SLOT_INITEP      (TASKCN_SLOTS_USER+1)   ///< End Point to init (for monitor and memserv)
-#define TASKCN_SLOT_MONITOREP   (TASKCN_SLOTS_USER+2)   ///< lrpc endpoint to monitor (for all other domains)
-#define TASKCN_SLOT_INITMEMEP   (TASKCN_SLOTS_USER+3)   ///< End Point to init (for monitor and memserv)
-#define TASKCN_SLOTS_FREE       (TASKCN_SLOTS_USER+4)   ///< first free slot in taskcn
+#define TASKCN_SLOT_SELFEP        (TASKCN_SLOTS_USER+0)   ///< Endpoint to self
+#define TASKCN_SLOT_CLIENT_INITEP (TASKCN_SLOTS_USER+1)   ///< End Point to init (for client requests to init)
+#define TASKCN_SLOT_SERVER_INITEP (TASKCN_SLOTS_USER+2)   ///< End Point to init (for server requeusts from init)
+#define TASKCN_SLOT_MONITOREP     (TASKCN_SLOTS_USER+3)   ///< lrpc endpoint to monitor (for all other domains)
+#define TASKCN_SLOT_INITMEMEP     (TASKCN_SLOTS_USER+4)   ///< End Point to init (for monitor and memserv)
+#define TASKCN_SLOT_INIT_SERIAL_EP   (TASKCN_SLOTS_USER+5)   ///< End Point to serial server
+#define TASKCN_SLOTS_FREE         (TASKCN_SLOTS_USER+6)   ///< first free slot in taskcn
 
 // taskcn appears at the beginning of cspace, so the cptrs match the slot numbers
 #define CPTR_ROOTCN     TASKCN_SLOT_ROOTCN      ///< Cptr to init's root CNode

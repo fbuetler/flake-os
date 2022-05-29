@@ -90,8 +90,7 @@ static void paging_refill(struct paging_state *st)
 static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
-    // DEBUG_PRINTF("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d ,
-    // PC: %lx ===\n", addr, type, subtype, regs->named.pc);
+    //DEBUG_PRINTF("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d , PC: %lx ===\n", addr, type, subtype, regs->named.pc);
     errval_t err;
 
     // DEBUG_PRINTF("page_fault_exception_handler stack: %p\n", regs->named.stack);
@@ -139,7 +138,8 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     if (!is_allocated) {
         // TODO fault?
         DEBUG_PRINTF("unallocated region at %p\n", vaddr);
-        USER_PANIC("Unallocated region in segfault");
+        DEBUG_PRINTF("fault at PC: 0x%lx\n", regs->named.pc);
+        USER_PANIC("Unallocated region in pagefault");
     }
 
     // allocate a frame
