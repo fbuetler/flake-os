@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 
     if (argc != 3) {
         err = LIB_ERR_SHOULD_NOT_GET_HERE;
-        DEBUG_ERR(err, "invalid number of arguments");
+        DEBUG_ERR(err, "Invalid number of arguments. Expected: echoserver -p <port>");
         return err;
     }
 

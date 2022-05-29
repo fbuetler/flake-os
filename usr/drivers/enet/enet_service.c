@@ -4,8 +4,6 @@
 
 #include "enet_service.h"
 
-// TODO send back error message on failure
-
 static errval_t
 enet_service_handle_icmp_send(struct enet_driver_state *st,
                               struct aos_socket_msg_icmp_send_request *icmp_send,

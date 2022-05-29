@@ -226,7 +226,7 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
         }
 
         // HACK to read packet
-        struct icmp_socket *hack_socket = st->icmp_socket;
+        struct icmp_socket *hack_socket = st->icmp_sockets;
         assert(hack_socket);
 
         struct icmp_socket_buf *buf;

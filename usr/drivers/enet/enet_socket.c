@@ -212,18 +212,18 @@ errval_t enet_create_icmp_socket(struct enet_driver_state *st)
     s->inbound_head = NULL;
     s->inbound_tail = NULL;
 
-    st->icmp_socket = s;
+    st->icmp_sockets = s;
 
     return SYS_ERR_OK;
 }
 
 errval_t enet_destroy_icmp_socket(struct enet_driver_state *st)
 {
-    if (!st->icmp_socket) {
+    if (!st->icmp_sockets) {
         return SYS_ERR_OK;
     }
 
-    struct icmp_socket_buf *buf = st->icmp_socket->inbound_head;
+    struct icmp_socket_buf *buf = st->icmp_sockets->inbound_head;
     struct icmp_socket_buf *prev_buf = NULL;
     while (buf) {
         free(buf->data);
@@ -232,7 +232,7 @@ errval_t enet_destroy_icmp_socket(struct enet_driver_state *st)
         free(prev_buf);
     }
 
-    free(st->icmp_socket);
+    free(st->icmp_sockets);
 
     return SYS_ERR_OK;
 }
@@ -259,14 +259,14 @@ errval_t enet_icmp_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t
     memcpy(buf_data, payload, payload_size);
     buf->data = buf_data;
 
-    struct icmp_socket_buf *last = st->icmp_socket->inbound_tail;
+    struct icmp_socket_buf *last = st->icmp_sockets->inbound_tail;
     if (last) {
         last->next = buf;
     } else {
         // empty
-        st->icmp_socket->inbound_head = buf;
+        st->icmp_sockets->inbound_head = buf;
     }
-    st->icmp_socket->inbound_tail = buf;
+    st->icmp_sockets->inbound_tail = buf;
 
     return SYS_ERR_OK;
 }
@@ -274,7 +274,7 @@ errval_t enet_icmp_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t
 errval_t enet_icmp_socket_receive(struct enet_driver_state *st,
                                   struct icmp_socket_buf **retbuf)
 {
-    struct icmp_socket *s = st->icmp_socket;
+    struct icmp_socket *s = st->icmp_sockets;
 
     struct icmp_socket_buf *buf = s->inbound_head;
     if (!buf) {
