@@ -283,7 +283,7 @@ static void enet_parse_link(struct enet_driver_state *st)
     assert(err_is_ok(err));
 
     if (status < 0) {
-        debug_printf("ENET not capable of 1G \n");
+        ENET_DEBUG("ENET not capable of 1G \n");
         return;
     } else {
         err = enet_read_mdio(st, PHY_ID, PHY_CTRL1000_CMD, &status);
@@ -300,9 +300,9 @@ static void enet_parse_link(struct enet_driver_state *st)
             lpa &= lpa2;
             if (lpa & (PHY_LPA_100FULL | PHY_LPA_100HALF)) {
                 if (lpa & PHY_LPA_100FULL) {
-                    debug_printf("LINK 100 Mbit/s FULL duplex \n");
+                    ENET_DEBUG("LINK 100 Mbit/s FULL duplex \n");
                 } else {
-                    debug_printf("LINK 100 Mbit/s half\n");
+                    ENET_DEBUG("LINK 100 Mbit/s half\n");
                 }
             }
         }
@@ -324,7 +324,7 @@ static errval_t enet_phy_startup(struct enet_driver_state *st)
     }
 
     if (!(mii_reg & PHY_STATUS_ANEG_COMP)) {
-        debug_printf("[enet] Starting autonegotiation \n");
+        ENET_DEBUG("Starting autonegotiation \n");
         while (!(mii_reg & PHY_STATUS_ANEG_COMP)) {
             err = enet_read_mdio(st, PHY_ID, PHY_STATUS_CMD, &mii_reg);
             assert(err_is_ok(err));
@@ -621,7 +621,7 @@ int main(int argc, char *argv[])
 
     debug_printf("Enet driver init done \n");
 
-    debug_printf("Creating devqs \n");
+    ENET_DEBUG("Creating devqs \n");
 
     err = enet_rx_queue_create(&st->rxq, st->d);
     if (err_is_fail(err)) {

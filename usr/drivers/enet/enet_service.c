@@ -284,13 +284,13 @@ errval_t enet_service_init(struct enet_driver_state *st)
 {
     errval_t err;
 
-    DEBUG_PRINTF("Registering with nameservice '%s'\n", ENET_SERVICE_NAME);
+    ENET_DEBUG("Registering with nameservice '%s'\n", ENET_SERVICE_NAME);
     err = nameservice_register(ENET_SERVICE_NAME, enet_recv_handle, st);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to register service receive handler");
         return err;
     }
-    DEBUG_PRINTF("Registered with nameservice '%s'\n", ENET_SERVICE_NAME);
+    ENET_DEBUG("Registered with nameservice '%s'\n", ENET_SERVICE_NAME);
 
     return SYS_ERR_OK;
 }
