@@ -14,6 +14,7 @@ module  /armv8/sbin/selfpaging_already_handled
 module  /armv8/sbin/demom5
 module  /armv8/sbin/enet
 module  /armv8/sbin/echoserver -p 1234
+module  /armv8/sbin/remotelogin -p 9999
 module  /armv8/sbin/ping -c 10 10.42.0.1
 module  /armv8/sbin/demom6
 module  /armv8/sbin/nameservicetest
