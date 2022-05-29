@@ -103,24 +103,32 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
 {
     errval_t err;
 
+    size_t curr = MAX(bytes, BASE_PAGE_SIZE);
     struct morecore_state *st = get_morecore_state();
 
-    // reserve a region of virtual memory for the heap
-    size_t aligned_bytes = ROUND_UP(bytes, sizeof(Header));
-    if (aligned_bytes % sizeof(Header) != 0) {
-        DEBUG_PRINTF("bytes: 0x%lx, aligned_bytes: 0x%lx, sizeof(Header): 0x%lx\n", bytes, aligned_bytes, sizeof(Header));
-        assert(!"round_up sucks");
+    while(curr >= bytes){
+        // reserve a region of virtual memory for the heap
+        size_t aligned_bytes = ROUND_UP(curr, sizeof(Header));
+        if (aligned_bytes % sizeof(Header) != 0) {
+            DEBUG_PRINTF("bytes: 0x%lx, aligned_bytes: 0x%lx, sizeof(Header): 0x%lx\n", curr, aligned_bytes, sizeof(Header));
+        }
+        void *buf;
+        err = paging_alloc_region(st->paging_state, VREGION_TYPE_HEAP, &buf, aligned_bytes, 1);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to allocate a virtual memory for heap");
+            if(curr == bytes){
+                break;
+            }
+            curr = MAX(bytes, curr/2);
+            continue;
+        }
+        *retbytes = aligned_bytes;
+        return buf;
     }
-    void *buf;
-    err = paging_alloc_region(st->paging_state, VREGION_TYPE_HEAP, &buf, aligned_bytes, 1);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to allocate a virtual memory for heap");
-        return NULL;
-    }
-    *retbytes = aligned_bytes;
 
-    // mm_tracker_debug_print(&get_current_paging_state()->vheap_tracker);
-    return buf;
+    *retbytes = 0;
+    return NULL;
+
 }
 
 static void morecore_free(void *base, size_t bytes)
@@ -128,7 +136,6 @@ static void morecore_free(void *base, size_t bytes)
     errval_t err;
 
     struct morecore_state *st = get_morecore_state();
-    DEBUG_PRINTF("Inside morecore_free\n");
 
     err = paging_unmap(st->paging_state, (char *)base - 0x20);
     if (err_is_fail(err)) {
