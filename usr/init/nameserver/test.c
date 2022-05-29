@@ -82,7 +82,7 @@ static void run_insert_find_test(void)
     TEST_ERR("init tree", err_is_ok(err));
 
     service_info_t *info1;
-    service_info_new(0, NULL, NULL, 3, NULL_CAP, "name1", &info1);
+    service_info_new(0, NULL, NULL, 3, "name1", &info1);
     err = insert_name("name1", info1);
     TEST_ERR("insert name1", err_is_ok(err));
 
@@ -93,7 +93,7 @@ static void run_insert_find_test(void)
     TEST_ERR("find name1", err_is_ok(err));
 
     service_info_t *info2;
-    service_info_new(0, NULL, NULL, 4, NULL_CAP, "test.name2", &info2);
+    service_info_new(0, NULL, NULL, 4, "test.name2", &info2);
     err = insert_name("test.name2", info2);
     TEST_ERR("insert test.name2", err_is_ok(err));
 
@@ -104,7 +104,7 @@ static void run_insert_find_test(void)
     TEST_ERR("find test.name2", err_is_ok(err));
 
     service_info_t *info3;
-    service_info_new(0, NULL, NULL, 5, NULL_CAP, "test.name3", &info3);
+    service_info_new(0, NULL, NULL, 5, "test.name3", &info3);
     err = insert_name("test.name3", info3);
     TEST_ERR("insert test.name3", err_is_ok(err));
 
@@ -116,6 +116,7 @@ static void run_insert_find_test(void)
 
     err = insert_name("name1", info1);
     TEST_ERR("fail inserting name1 again", err_no(err) == LIB_ERR_NAMESERVICE_NODE_EXISTS);
+
 
     END_TESTS;
 }

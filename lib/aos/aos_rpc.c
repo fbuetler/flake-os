@@ -40,6 +40,8 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
             DEBUG_PRINTF("aos_rpc_call only works for dynamic channels\n");
             return ERR_INVALID_ARGS;
         }
+
+
         struct aos_lmp_msg *lmp_msg;
         err = aos_lmp_create_msg(&lmp_msg, msg.type, msg.bytes, msg.payload, msg.cap);
         if (err_is_fail(err)) {
@@ -375,6 +377,8 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
         DEBUG_ERR(err, "Failed to send and receive spawn request and response");
         return err_push(err, LIB_ERR_RPC_CALL);
     }
+
+    DEBUG_PRINTF("Received spawn response\n");
 
     domainid_t assigned_pid = *((domainid_t *)response.payload);
     *newpid = assigned_pid;
