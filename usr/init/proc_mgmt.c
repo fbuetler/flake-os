@@ -68,7 +68,8 @@ static errval_t register_receive_handlers(struct spawninfo *si)
     errval_t err;
 
     // setup handler for the process
-    err = aos_lmp_register_recv(&si->lmp, init_process_msg);
+    // We register the channel that the process uses to send requests to init as a client
+    err = aos_lmp_register_recv(&si->client_lmp, init_process_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to register receive handler");
         return err;

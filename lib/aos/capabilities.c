@@ -111,8 +111,11 @@ struct capref cap_ipi = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_IPI };
 /// PerfMon CNode
 struct capref cap_perfmon = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_PERF_MON };
 
-/// Capability for endpoint to init (only in monitor/mem_serv)
-struct capref cap_initep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_INITEP };
+/// Capability for client endpoint to init (for client requests to init where init acts as a server)
+struct capref cap_client_initep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_CLIENT_INITEP };
+
+/// Capability for server endpoint to init (for client requests from init where the process acts as a server)
+struct capref cap_server_initep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_SERVER_INITEP };
 
 /// Capability for endpoint to init for mem
 struct capref cap_initmemep = { .cnode = TASK_CNODE_INIT, .slot = TASKCN_SLOT_INITMEMEP };

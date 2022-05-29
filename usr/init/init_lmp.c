@@ -33,15 +33,14 @@ void aos_process_ram_cap_request(struct aos_lmp *lmp)
     errval_t err;
 
     // read ram request properties
-    size_t bytes = ((size_t *)lmp->recv_msg->payload)[0];
-    size_t alignment = ((size_t *)lmp->recv_msg->payload)[1];
+    struct ram_cap_request *req = (struct ram_cap_request*) lmp->recv_msg->payload;
 
     // grading call
-    grading_rpc_handler_ram_cap(bytes, alignment);
+    grading_rpc_handler_ram_cap(req->bytes, req->alignment);
 
     // alloc ram
     struct capref ram_cap;
-    err = ram_alloc_aligned(&ram_cap, bytes, alignment);
+    err = ram_alloc_aligned(&ram_cap, req->bytes, req->alignment);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "ram_alloc in ram cap request failed");
         return;
@@ -369,7 +368,7 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 
     // forward message to server
     //DEBUG_PRINTF("Forwarding request to server\n");
-    err = aos_lmp_send_msg(&server_si->lmp, relay_msg);
+    err = aos_lmp_send_msg(&server_si->server_lmp, relay_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to relay LMP bind request to server");
         err = err_push(err, AOS_ERR_LMP_SEND_FAILURE);
@@ -618,6 +617,8 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         break;
     }
     // DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
-    //  TODO: free msg
+    
+    aos_lmp_msg_free(lmp);
+
     return SYS_ERR_OK;
 }

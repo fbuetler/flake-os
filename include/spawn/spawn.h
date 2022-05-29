@@ -54,7 +54,8 @@ struct spawninfo {
 
     dispatcher_handle_t dispatcher_handle;
 
-    struct aos_lmp lmp;
+    struct aos_lmp server_lmp;
+    struct aos_lmp client_lmp;
     struct aos_lmp mem_lmp;
     struct aos_lmp serial_lmp;
 };

@@ -362,7 +362,9 @@ errors libaos LIB_ERR_ {
     failure CHAN_DEREGISTER_RECV "Failure in *_chan_deregister_recv()",
     failure LMP_INIT_HANDSHAKE  "Failure in lmp_initiate_handshake()",
     failure LMP_INIT_STATIC     "Failure in aos_lmp_init_static()",
+    failure LMP_INIT_FNF        "Failure in aos_lmp_init_fire_and_forget()",
     failure LMP_INIT            "Failure in aos_lmp_init()",
+    failure LMP_SEND_FNF        "Failure in aos_lmp_fire_and_forget()",
     failure LMP_CHAN_INIT       "Failure in lmp_chan_init()",
     failure UMP_CHAN_INIT       "Failure in ump_chan_init()",
     failure LMP_CHAN_RECV       "Failure in lmp_chan_recv()",
@@ -370,6 +372,7 @@ errors libaos LIB_ERR_ {
     failure UMP_RECV            "Failure in aos_ump_receive()",
     failure UMP_SEND            "Failure in aos_ump_send()",
     failure UMP_CALL            "Failure in aos_ump_call()",
+    failure LMP_CALL            "Failure in aos_lmp_call()",
     failure LMP_CHAN_SEND       "Failure in lmp_chan_send()",
     failure LMP_CHAN_BIND       "Failure in lmp_chan_bind()",
     failure UMP_CHAN_BIND       "Failure in ump_chan_bind()",
@@ -391,6 +394,7 @@ errors libaos LIB_ERR_ {
     failure RPC_SEND_STRING     "Failure in aos_rpc_send_string()",
     failure RPC_GET_STRING      "Faulure in aos_rpc_get_string()",
     failure RPC_INIT_BAD_ARGS   "Bad argument in aos_rpc_init()",
+    failure RPC_UNEXPECTED_MSG_TYPE "Received a message of unexpected type",
 
     // IDC binding/export and Monitor client interface
     failure MONITOR_CLIENT_BIND "Error in monitor_client_lmp_bind()",

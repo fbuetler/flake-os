@@ -138,7 +138,8 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     if (!is_allocated) {
         // TODO fault?
         DEBUG_PRINTF("unallocated region at %p\n", vaddr);
-        USER_PANIC("Unallocated region in segfault");
+        DEBUG_PRINTF("fault at PC: 0x%lx\n", regs->named.pc);
+        USER_PANIC("Unallocated region in pagefault");
     }
 
     // allocate a frame
