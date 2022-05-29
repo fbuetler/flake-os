@@ -60,7 +60,7 @@ errval_t enet_get_mac_by_ip(struct enet_driver_state *st, ip_addr_t ip_dest,
 
     // wait until response is here
     size_t retries = 0;
-    size_t max_retries = 512;
+    size_t max_retries = 128;
     while (retries < max_retries) {
         enet_debug_print_arp_table(st->arp_table);
         mac = (uint64_t *)collections_hash_find(st->arp_table, ip_dest);

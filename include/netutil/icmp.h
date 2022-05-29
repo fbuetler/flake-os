@@ -6,6 +6,7 @@
 #include <aos/aos.h>
 
 // #define ICMP_HACK 1
+// #define ICMP_PING 1
 
 // #define ICMP_DEBUG_OPTION 1
 

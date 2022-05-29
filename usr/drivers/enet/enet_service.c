@@ -5,6 +5,43 @@
 #include "enet_service.h"
 
 static errval_t
+enet_service_handle_icmp_create(struct enet_driver_state *st,
+                                struct aos_socket_msg_icmp_create_request *icmp_create,
+                                void **response, size_t *response_bytes)
+{
+    errval_t err;
+
+    err = enet_create_icmp_socket(st, icmp_create->pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create ICMP socket");
+        return err;
+    }
+
+    *response = NULL;
+    *response_bytes = 0;
+
+    return SYS_ERR_OK;
+}
+
+static errval_t
+enet_service_handle_icmp_destroy(struct enet_driver_state *st,
+                                 struct aos_socket_msg_icmp_destroy_request *icmp_destroy,
+                                 void **response, size_t *response_bytes)
+{
+    errval_t err;
+
+    err = enet_destroy_icmp_socket(st, icmp_destroy->pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to destroy ICMP socket");
+        return err;
+    }
+
+    *response = NULL, *response_bytes = 0;
+
+    return SYS_ERR_OK;
+}
+
+static errval_t
 enet_service_handle_icmp_send(struct enet_driver_state *st,
                               struct aos_socket_msg_icmp_send_request *icmp_send,
                               void **response, size_t *response_bytes)
@@ -24,21 +61,48 @@ enet_service_handle_icmp_send(struct enet_driver_state *st,
     return SYS_ERR_OK;
 }
 
-static errval_t enet_service_handle_icmp_recv(struct enet_driver_state *st,
-                                              struct aos_socket_msg_empty *icmp_recv,
-                                              void **response, size_t *response_bytes)
+static errval_t
+enet_service_handle_icmp_recv(struct enet_driver_state *st,
+                              struct aos_socket_msg_icmp_recv_request *icmp_recv,
+                              void **response, size_t *response_bytes)
 {
     errval_t err;
 
     struct icmp_socket_buf *buf;
-    err = enet_icmp_socket_receive(st, &buf);
-    if (err_is_fail(err)) {
+    err = enet_icmp_socket_receive(st, icmp_recv->pid, &buf);
+    if (err != ENET_ERR_SOCKET_EMPTY && err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive from ICMP socket");
         return err;
     }
 
-    *response = (void *)buf->data;
-    *response_bytes = buf->len;
+    int buflen;
+    if (!buf) {
+        buflen = 0;
+    } else {
+        buflen = buf->len;
+    }
+
+    struct aos_socket_msg *msg = (struct aos_socket_msg *)malloc(
+        sizeof(struct aos_socket_msg) + buflen);
+    if (!msg) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg->type = AOS_NETWORK_RESPONSE;
+    msg->payload.icmp_recv_resp = (struct aos_socket_msg_icmp_recv_response) {
+        .bytes = buflen,
+    };
+
+    if (buflen > 0) {
+        msg->payload.icmp_recv_resp.ip_remote = buf->ip;
+        msg->payload.icmp_recv_resp.type = buf->type;
+        msg->payload.icmp_recv_resp.id = buf->id;
+        msg->payload.icmp_recv_resp.seqno = buf->seqno;
+        memcpy(msg + 1, buf->data, buflen);
+    }
+
+    *response = msg;
+    *response_bytes = sizeof(struct aos_socket_msg) + buflen;
 
     return SYS_ERR_OK;
 }
@@ -157,6 +221,18 @@ static void enet_recv_handle(void *st_raw, void *message_raw, size_t bytes,
 
     ENET_BENCHMARK_INIT()
     switch (msg->type) {
+    case AOS_NETWORK_ICMP_CREATE_REQUEST:
+        ENET_BENCHMARK_START(0, "icmp create service")
+        err = enet_service_handle_icmp_create(st, &msg->payload.icmp_create_req, response,
+                                              response_bytes);
+        ENET_BENCHMARK_STOP(0, "icmp create service")
+        break;
+    case AOS_NETWORK_ICMP_DESTROY_REQUEST:
+        ENET_BENCHMARK_START(0, "icmp destroy service")
+        err = enet_service_handle_icmp_destroy(st, &msg->payload.icmp_destroy_req,
+                                               response, response_bytes);
+        ENET_BENCHMARK_STOP(0, "icmp destroy service")
+        break;
     case AOS_NETWORK_ICMP_SEND_REQUEST:
         ENET_BENCHMARK_START(0, "icmp send service")
         err = enet_service_handle_icmp_send(st, &msg->payload.icmp_send_req, response,

@@ -202,28 +202,77 @@ errval_t enet_udp_socket_send(struct enet_driver_state *st, uint16_t port_src,
     return SYS_ERR_OK;
 }
 
-errval_t enet_create_icmp_socket(struct enet_driver_state *st)
+static void enet_icmp_socket_debug_print(struct icmp_socket *sockets)
 {
+    struct icmp_socket *s = sockets;
+
+    ICMP_DEBUG("========== ICMP socket state =====\n");
+    while (s) {
+        ICMP_DEBUG("PID: %d\n", s->pid);
+        struct icmp_socket_buf *buf = s->inbound_head;
+        while (buf) {
+            ICMP_DEBUG("    Packet from %d.%d.%d.%d type %d id %d seqno %d (%d)\n",
+                       (buf->ip >> 24) & 0xFF, (buf->ip >> 16) & 0xFF,
+                       (buf->ip >> 8) & 0xFF, buf->ip & 0xFF, buf->type, buf->id,
+                       buf->seqno, buf->len);
+            buf = buf->next;
+        }
+        s = s->next;
+    }
+    ICMP_DEBUG("==================================\n");
+}
+
+static struct icmp_socket *enet_get_icmp_socket(struct icmp_socket *sockets, uint16_t pid)
+{
+    struct icmp_socket *s = sockets;
+    while (s) {
+        if (s->pid == pid) {
+            return s;
+        }
+        s = s->next;
+    }
+
+    return NULL;
+}
+
+errval_t enet_create_icmp_socket(struct enet_driver_state *st, uint16_t pid)
+{
+    if (enet_get_icmp_socket(st->icmp_sockets, pid)) {
+        return ENET_ERR_SOCKET_EXISTS;
+    }
+
     struct icmp_socket *s = (struct icmp_socket *)malloc(sizeof(struct icmp_socket));
     if (!s) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    s->pid = pid;
     s->inbound_head = NULL;
     s->inbound_tail = NULL;
 
+    s->next = st->icmp_sockets;
     st->icmp_sockets = s;
 
     return SYS_ERR_OK;
 }
 
-errval_t enet_destroy_icmp_socket(struct enet_driver_state *st)
+errval_t enet_destroy_icmp_socket(struct enet_driver_state *st, uint16_t pid)
 {
     if (!st->icmp_sockets) {
         return SYS_ERR_OK;
     }
 
-    struct icmp_socket_buf *buf = st->icmp_sockets->inbound_head;
+    struct icmp_socket *s = st->icmp_sockets;
+    struct icmp_socket *prev_s = NULL;
+    while (s) {
+        if (s->pid == pid) {
+            break;
+        }
+        prev_s = s;
+        s = s->next;
+    }
+
+    struct icmp_socket_buf *buf = s->inbound_head;
     struct icmp_socket_buf *prev_buf = NULL;
     while (buf) {
         free(buf->data);
@@ -232,7 +281,14 @@ errval_t enet_destroy_icmp_socket(struct enet_driver_state *st)
         free(prev_buf);
     }
 
-    free(st->icmp_sockets);
+    if (prev_s) {
+        prev_s->next = s->next;
+    } else {
+        // first
+        st->icmp_sockets = s->next;
+    }
+
+    free(s);
 
     return SYS_ERR_OK;
 }
@@ -241,40 +297,51 @@ errval_t enet_icmp_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t
                                          uint8_t type, uint16_t id, uint16_t seqno,
                                          char *payload, size_t payload_size)
 {
-    struct icmp_socket_buf *buf = (struct icmp_socket_buf *)malloc(
-        sizeof(struct icmp_socket_buf));
-    if (!buf) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
+    struct icmp_socket *s = st->icmp_sockets;
 
-    char *buf_data = (char *)malloc(payload_size);
-    if (!buf_data) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
+    // enqueue message to all ICMP sockets
+    while (s != NULL) {
+        struct icmp_socket_buf *buf = (struct icmp_socket_buf *)malloc(
+            sizeof(struct icmp_socket_buf));
+        if (!buf) {
+            return LIB_ERR_MALLOC_FAIL;
+        }
 
-    buf->ip = ip;
-    buf->id = id;
-    buf->seqno = seqno;
-    buf->len = payload_size;
-    memcpy(buf_data, payload, payload_size);
-    buf->data = buf_data;
+        char *buf_data = (char *)malloc(payload_size);
+        if (!buf_data) {
+            return LIB_ERR_MALLOC_FAIL;
+        }
 
-    struct icmp_socket_buf *last = st->icmp_sockets->inbound_tail;
-    if (last) {
-        last->next = buf;
-    } else {
-        // empty
-        st->icmp_sockets->inbound_head = buf;
+        buf->ip = ip;
+        buf->id = id;
+        buf->seqno = seqno;
+        buf->len = payload_size;
+        memcpy(buf_data, payload, payload_size);
+        buf->data = buf_data;
+
+        struct icmp_socket_buf *last = s->inbound_tail;
+        if (last) {
+            last->next = buf;
+        } else {
+            // empty
+            s->inbound_head = buf;
+        }
+        s->inbound_tail = buf;
+
+        s = s->next;
     }
-    st->icmp_sockets->inbound_tail = buf;
+    enet_icmp_socket_debug_print(st->icmp_sockets);
 
     return SYS_ERR_OK;
 }
 
-errval_t enet_icmp_socket_receive(struct enet_driver_state *st,
+errval_t enet_icmp_socket_receive(struct enet_driver_state *st, uint16_t pid,
                                   struct icmp_socket_buf **retbuf)
 {
-    struct icmp_socket *s = st->icmp_sockets;
+    struct icmp_socket *s = enet_get_icmp_socket(st->icmp_sockets, pid);
+    if (!s) {
+        return ENET_ERR_SOCKET_NOT_FOUND;
+    }
 
     struct icmp_socket_buf *buf = s->inbound_head;
     if (!buf) {

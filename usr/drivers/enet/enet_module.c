@@ -701,12 +701,6 @@ int main(int argc, char *argv[])
 
     collections_hash_create(&st->arp_table, free);
 
-    err = enet_create_icmp_socket(st);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create ICMP socket");
-        return err;
-    }
-
 #if defined UDP_HACK || defined UDP_ECHO
     // HACK to read packet
     err = enet_create_udp_socket(st, ENET_STATIC_PORT);
@@ -727,6 +721,15 @@ int main(int argc, char *argv[])
     err = aos_rpc_process_spawn(get_init_rpc(), "echoserver", disp_get_core_id(), &pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn echoserver");
+        return err;
+    }
+#endif
+
+#ifdef ICMP_PING
+    domainid_t pid;
+    err = aos_rpc_process_spawn(get_init_rpc(), "ping", disp_get_core_id(), &pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn ping");
         return err;
     }
 #endif
