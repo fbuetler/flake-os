@@ -355,12 +355,12 @@ static errval_t aos_lmp_recv_msg(struct aos_lmp *lmp)
     err = lmp_chan_recv(&lmp->chan, &recv_buf, &msg_cap);
     if (err_is_fail(err)
         && (lmp_err_is_transient(err) || err_no(err) == LIB_ERR_NO_LMP_MSG)) {
-    if (err_is_fail(err) && (lmp_err_is_transient(err))) {
         goto reregister;
     } else if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to receive (non-transient error)\n");
         return err_push(err, LIB_ERR_LMP_CHAN_RECV);
     }
+
 
 
     if (!lmp->is_busy) {
@@ -389,6 +389,7 @@ reregister:
                            MKCLOSURE((void (*)(void *))aos_lmp_recv_msg_handler, lmp));
     return SYS_ERR_OK;
 }
+
 
 errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp)
 {
@@ -477,9 +478,9 @@ errval_t aos_lmp_init_static(struct aos_lmp *lmp, enum aos_rpc_channel_type chan
         lmp->buf = STATIC_RPC_MEMSRV_BUF;
         break;
     case AOS_RPC_SERIAL_CHANNEL:
-        aos_lmp->chan.remote_cap = cap_initserialep;
-        aos_lmp->chan.endpoint = &static_init_serial_ep;
-        aos_lmp->buf = STATIC_RPC_SERIALSRV_BUF;
+        lmp->chan.remote_cap = cap_initserialep;
+        lmp->chan.endpoint = &static_init_serial_ep;
+        lmp->buf = STATIC_RPC_SERIALSRV_BUF;
         break;
     default:
         return LIB_ERR_RPC_INIT_BAD_ARGS;

@@ -260,12 +260,8 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         DEBUG_ERR(err, "Failed to perform handshake over memory channel");
         return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
     }
-    // reset the RAM allocator to use ram_alloc_remote
-    set_init_mem_rpc(&mem_rpc);
-    ram_alloc_set(NULL);
 
     // we do not register an event handler for the memory channel
-
     err = aos_lmp_init_static(lmp, AOS_RPC_BASE_CHANNEL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init rpc");
@@ -284,10 +280,17 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return err_push(err, LIB_ERR_CHAN_REGISTER_RECV);
     }
 
-    err = aos_lmp_init(serial_lmp, AOS_RPC_SERIAL_CHANNEL);
+
+    err = aos_lmp_init_static(serial_lmp, AOS_RPC_SERIAL_CHANNEL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init serial rpc");
         return err;
+    }
+
+    err = aos_lmp_initiate_handshake(serial_lmp);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to perform handshake over init channel");
+        return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
     }
 
     set_init_rpc(&rpc);

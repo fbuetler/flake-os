@@ -185,8 +185,6 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
         DEBUG_PRINTF("error sending serial write char response\n");
         return err;
     }
-
-    free(reply);
     return SYS_ERR_OK;
 }
 

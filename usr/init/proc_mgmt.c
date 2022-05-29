@@ -267,7 +267,6 @@ errval_t spawn_sdhc_driver(struct spawninfo **retsi)
 
     // TODO altin check if thats everything you need
     // NOTE: will only run with IMX8X
-    err = setup_driver_devframe(si, IMX8X_SDHC2_BASE, IMX8X_SDHC_SIZE);
     err = setup_driver_devframe(si, IMX8X_SDHC1_BASE, IMX8X_SDHC_SIZE, ARGCN_SLOT_DEVFRAME);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup driver dev frame");
