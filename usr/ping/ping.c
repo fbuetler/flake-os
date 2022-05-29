@@ -20,7 +20,7 @@
 
 int main(int argc, char *argv[])
 {
-    // ping host
+    // TODO ping host
 
     return EXIT_SUCCESS;
 }

@@ -103,8 +103,6 @@ errval_t enet_udp_socket_handle_inbound(struct enet_driver_state *st, ip_addr_t 
         return ENET_ERR_SOCKET_NOT_FOUND;
     }
 
-    // TODO check type
-
     struct udp_socket_buf *buf = (struct udp_socket_buf *)malloc(
         sizeof(struct udp_socket_buf));
     if (!buf) {
