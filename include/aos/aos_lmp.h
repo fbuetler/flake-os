@@ -18,7 +18,7 @@
 #include <aos/aos.h>
 #include <aos/aos_rpc_types.h>
 
-#define AOS_LMP_MSG_SIZE(payload_size) (sizeof(struct aos_lmp_msg) + (payload_size))
+#define AOS_LMP_MSG_SIZE(payload_size) (sizeof(struct aos_lmp_msg) + (payload_size) + 1)
 
 // forward declaration
 struct aos_lmp;
@@ -28,15 +28,17 @@ typedef errval_t (*process_msg_func_t)(struct aos_lmp *);
 
 struct aos_lmp {
     struct thread_mutex lock;
-    // TODO(M3): Add state
     struct lmp_chan chan;
     bool is_busy;
+    ///< If this is false, use the message buffer and make sure that the LMP code path
+    ///< does not incurr page faults.
     bool use_dynamic_buf;
 
     struct aos_lmp_msg *recv_msg;
     size_t recv_bytes;
     process_msg_func_t process_msg_func;
 
+    ///< Message buffer for static channels
     char *buf;
 };
 
@@ -69,11 +71,9 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp);
  * @brief Initialize an aos_lmp struct from parent to child
  */
 errval_t aos_lmp_init_handshake_to_child(struct aos_lmp *child_lmp);
-/**
- * \brief Initialize an aos_lmp struct from child to parent.
- */
-errval_t aos_lmp_init_static(struct aos_lmp *lmp, enum aos_rpc_channel_type);
+
 errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap);
+errval_t aos_lmp_init_static(struct aos_lmp *lmp, struct capref remote_cap);
 errval_t aos_lmp_initiate_handshake(struct aos_lmp *lmp);
 
 errval_t aos_lmp_parent_init(struct aos_lmp *lmp);

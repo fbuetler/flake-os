@@ -358,7 +358,7 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 
     // forward message to server
     //DEBUG_PRINTF("Forwarding request to server\n");
-    err = aos_lmp_send_msg(&server_si->lmp, relay_msg);
+    err = aos_lmp_send_msg(&server_si->server_lmp, relay_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to relay LMP bind request to server");
         err = err_push(err, AOS_ERR_LMP_SEND_FAILURE);

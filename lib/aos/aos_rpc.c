@@ -231,6 +231,11 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
 
     *ret_cap = resp->cap;
 
+    if (capref_is_null(*ret_cap)) {
+        DEBUG_PRINTF("Failed to get a ram cap\n");
+        return LIB_ERR_LMP_CALL;
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -422,22 +427,17 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
     struct aos_rpc_msg response;
 
     err = aos_rpc_call(rpc, request, &response);
-
-
-    // err = aos_aos_rpc_call(lmp, msg, false);  // lmp->recv_msg is malloced. Need to free it
-
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
 
     *pid_count = *((size_t *)response.payload);
-    //*pids = ((domainid_t *)(lmp->recv_msg->payload + sizeof(size_t)));
+    free(response.payload);
 
     *pids = malloc(*pid_count * sizeof(domainid_t));
     memcpy(*pids, response.payload + sizeof(size_t), *pid_count * sizeof(domainid_t));
 
-    // free(lmp->recv_msg);
 
     return SYS_ERR_OK;
 }

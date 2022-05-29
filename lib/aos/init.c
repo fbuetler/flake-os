@@ -126,8 +126,7 @@ __attribute__((__used__)) static size_t dummy_terminal_read(char *buf, size_t le
     return 0;
 }
 
-static struct aos_rpc rpc;
-static struct aos_rpc mem_rpc;
+static struct aos_rpc client_rpc, server_rpc, mem_rpc;
 
 /* Set libc function pointers */
 void barrelfish_libc_glue_init(void)
@@ -202,9 +201,14 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         }
 
         // setup endpoint of init
-        err = aos_lmp_setup_local_chan(&init_spawninfo.lmp, cap_initep);
+        err = aos_lmp_setup_local_chan(&init_spawninfo.client_lmp, cap_client_initep);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to setup local rpc channel for init");
+            DEBUG_ERR(err, "failed to setup client rpc channel for init");
+            return err;
+        }
+        err = aos_lmp_setup_local_chan(&init_spawninfo.server_lmp, cap_server_initep);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to setup client rpc channel for init");
             return err;
         }
         // setup endpoint for memory requests
@@ -216,15 +220,21 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return SYS_ERR_OK;
     }
 
-    rpc.is_lmp = mem_rpc.is_lmp = true;
-    struct aos_lmp *lmp = &rpc.u.lmp;
+    server_rpc.is_lmp = client_rpc.is_lmp = mem_rpc.is_lmp = true;
+    struct aos_lmp *client_lmp = &client_rpc.u.lmp;
+    struct aos_lmp *server_lmp = &server_rpc.u.lmp;
     struct aos_lmp *mem_lmp = &mem_rpc.u.lmp;
 
-    err = aos_lmp_init_static(mem_lmp, AOS_RPC_MEMORY_CHANNEL);
+    err = aos_lmp_init(mem_lmp, cap_initmemep);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to init mem rpc");
         return err_push(err, LIB_ERR_LMP_INIT_STATIC);
     }
+    mem_lmp->buf = malloc(BASE_PAGE_SIZE);
+    if (mem_lmp->buf == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    mem_lmp->use_dynamic_buf = false;
 
     err = aos_lmp_initiate_handshake(mem_lmp);
     if (err_is_fail(err)) {
@@ -233,29 +243,49 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     }
     set_init_mem_rpc(&mem_rpc);
 
-    // we do not register an event handler for the memory channel
+    // we do not register an event handler for the memory channel as it is a static client
+    // channel
 
-    //err = aos_lmp_init_static(lmp, AOS_RPC_BASE_CHANNEL);
-    err = aos_lmp_init(lmp, cap_initep);
+    err = aos_lmp_init(client_lmp, cap_client_initep);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to init rpc");
+        DEBUG_ERR(err, "failed to init client rpc to init");
         return err_push(err, LIB_ERR_LMP_INIT);
     }
-
-    err = aos_lmp_initiate_handshake(lmp);
+    err = aos_lmp_initiate_handshake(client_lmp);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to perform handshake over init channel");
+        DEBUG_ERR(err, "Failed to perform handshake over client init channel");
         return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
     }
 
-    err = aos_lmp_register_recv(lmp, aos_lmp_event_handler);
+    // When we want to call init we use the client channel.
+    set_init_rpc(&client_rpc);
+
+    // we do not register an event handler for client channels as they are only for
+    // calling init
+
+    err = aos_lmp_init(server_lmp, cap_server_initep);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to register init channel to event handler");
+        DEBUG_ERR(err, "failed to init server rpc to init");
+        return err_push(err, LIB_ERR_LMP_INIT);
+    }
+    err = aos_lmp_initiate_handshake(server_lmp);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to perform handshake over server init channel");
+        return err_push(err, LIB_ERR_LMP_INIT_HANDSHAKE);
+    }
+
+    // server channel is registered to an event handler as it is for recieving requests
+    // from init
+    err = aos_lmp_register_recv(server_lmp, aos_lmp_event_handler);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to register server init channel to event handler");
         return err_push(err, LIB_ERR_CHAN_REGISTER_RECV);
     }
 
-    set_init_rpc(&rpc);
-    
+    // the server channel is not registered as an init channel as we must never use it to
+    // call to init apart from  responding to requests
+
+
     // reset the RAM allocator to use ram_alloc_remote
     ram_alloc_set(NULL);
 
