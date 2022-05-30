@@ -77,7 +77,7 @@ errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid
 errval_t spawn_invoke_dispatcher(struct spawninfo *si);
 
 // setup AND invoke a dispatcher for a binary in the bootmodule
-errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid);
+errval_t spawn_load_by_name(char *cmd, struct spawninfo *si, domainid_t *pid);
 
 // setup AND invoke a dispatcher for a binary in the filesystem
 errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_t *pid);

@@ -200,9 +200,9 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
 
     // copy init's endpoints into known location in child
     struct capref child_cap_init_client_endpoint = { .cnode = si->taskcn,
-                                              .slot = TASKCN_SLOT_CLIENT_INITEP };
+                                                     .slot = TASKCN_SLOT_CLIENT_INITEP };
     struct capref child_cap_init_server_endpoint = { .cnode = si->taskcn,
-                                              .slot = TASKCN_SLOT_SERVER_INITEP };
+                                                     .slot = TASKCN_SLOT_SERVER_INITEP };
 
     // copy init's endpoint into known location in child
     struct capref child_cap_init_mem_endpoint = { .cnode = si->taskcn,
@@ -210,7 +210,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
 
 
     struct capref child_cap_serial_endpoint = { .cnode = si->taskcn,
-                                                  .slot = TASKCN_SLOT_INIT_SERIAL_EP};
+                                                .slot = TASKCN_SLOT_INIT_SERIAL_EP };
 
     // creates a new endpoint into local_cap!
     err = lmp_chan_accept(&si->client_lmp.chan, 256, NULL_CAP);
@@ -273,10 +273,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
 
     // map interrupt handler table in child
 
-    struct capref cap_irq_c = {
-        .cnode = si->taskcn,
-        .slot = TASKCN_SLOT_IRQ
-    };
+    struct capref cap_irq_c = { .cnode = si->taskcn, .slot = TASKCN_SLOT_IRQ };
 
     err = cap_copy(cap_irq_c, cap_irq);
     if (err_is_fail(err)) {
@@ -666,7 +663,8 @@ errval_t spawn_invoke_dispatcher(struct spawninfo *si)
     errval_t err;
 
     // setup rpc channels to child process
-    struct capref client_recv_ep_cap, server_recv_ep_cap, memory_recv_ep_cap, serial_recv_ep_cap;
+    struct capref client_recv_ep_cap, server_recv_ep_cap, memory_recv_ep_cap,
+        serial_recv_ep_cap;
     err = aos_lmp_set_recv_endpoint(&si->client_lmp, &client_recv_ep_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to set recv endpoint for client rpc");
@@ -817,19 +815,12 @@ errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid
     return SYS_ERR_OK;
 }
 
-errval_t spawn_setup_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid)
+errval_t spawn_setup_by_name(char *cmd, struct spawninfo *si, domainid_t *pid)
 {
     // - Get the mem_region from the multiboot image
     // - Fill in argc/argv from the multiboot command line
     // - Call spawn_load_argv
     errval_t err;
-
-    // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
-    size_t binary_name_len = strlen(binary_name);
-    si->binary_name = malloc(binary_name_len + 1);
-    if (!si->binary_name) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
 
     err = aos_lmp_parent_init(&si->client_lmp, true);
     if (err_is_fail(err)) {
@@ -854,6 +845,21 @@ errval_t spawn_setup_by_name(char *binary_name, struct spawninfo *si, domainid_t
         return err_push(err, SPAWN_ERR_SETUP_RPC);
     }
 
+    int argc;
+    char *argv_str;  // argv_str stores the raw string of the arguments
+    char **argv = make_argv(cmd, &argc, &argv_str);  // argv stores an array of argument
+    if (argv == NULL || argc < 1) {
+        DEBUG_PRINTF("Spawn dispatcher: failed to make argv\n");
+        return SPAWN_ERR_GET_CMDLINE_ARGS;
+    }
+
+    // Fill in binary name here as it's (probably) not available in spawn_load_argv anymore
+    char *binary_name = argv[0];
+    size_t binary_name_len = strlen(binary_name);
+    si->binary_name = malloc(binary_name_len + 1);
+    if (!si->binary_name) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
     memcpy(si->binary_name, binary_name, binary_name_len + 1);
 
     DEBUG_TRACEF("Load binary from multiboot module\n");
@@ -874,13 +880,14 @@ errval_t spawn_setup_by_name(char *binary_name, struct spawninfo *si, domainid_t
         DEBUG_PRINTF("Spawn dispatcher: failed to load arguments\n");
         return SPAWN_ERR_GET_CMDLINE_ARGS;
     }
-    int argc;
-    char *argv_str;  // argv_str stores the raw string of the arguments
-    // argv stores an array of argument
-    char **argv = make_argv(cmd_opts, &argc, &argv_str);
-    if (argv == NULL) {
-        DEBUG_PRINTF("Spawn dispatcher: failed to make argv\n");
-        return SPAWN_ERR_GET_CMDLINE_ARGS;
+
+    if (argc == 1) {
+        // if there are no args provided, check for default args
+        argv = make_argv(cmd_opts, &argc, &argv_str);
+        if (argv == NULL) {
+            DEBUG_PRINTF("Spawn dispatcher: failed to make argv\n");
+            return SPAWN_ERR_GET_CMDLINE_ARGS;
+        }
     }
 
     DEBUG_TRACEF("Run binary from multiboot module\n");
@@ -937,7 +944,7 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
  * (M2): Implement this function.
  * \brief Spawn a new dispatcher executing 'binary_name'
  *
- * \param binary_name The name of the binary.
+ * \param binary_name The name of the binary, may include arguments.
  * \param si A pointer to a spawninfo struct that will be
  * filled out by spawn_load_by_name. Must not be NULL.
  * \param pid A pointer to a domainid_t that will be
@@ -946,11 +953,11 @@ errval_t spawn_load_argv(int argc, char *argv[], struct spawninfo *si, domainid_
  * \return Either SYS_ERR_OK if no error occured or an error
  * indicating what went wrong otherwise.
  */
-errval_t spawn_load_by_name(char *binary_name, struct spawninfo *si, domainid_t *pid)
+errval_t spawn_load_by_name(char *cmd, struct spawninfo *si, domainid_t *pid)
 {
     errval_t err;
 
-    err = spawn_setup_by_name(binary_name, si, pid);
+    err = spawn_setup_by_name(cmd, si, pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to setup with argv");
         return err;
