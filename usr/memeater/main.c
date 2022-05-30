@@ -189,6 +189,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < pid_count; i++) {
         DEBUG_PRINTF("received pid: 0x%lx\n", pids[i]);
     }
+    free(pids);
 
     return 0;
 

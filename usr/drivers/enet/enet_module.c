@@ -775,6 +775,8 @@ int main(int argc, char *argv[])
                 err = devq_enqueue((struct devq *)st->rxq, buf.rid, buf.offset, buf.length,
                                    buf.valid_data, buf.valid_length, buf.flags);
                 assert(err_is_ok(err));
+            } else {
+                thread_yield();
             }
         }
     }

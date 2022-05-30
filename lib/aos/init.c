@@ -51,7 +51,7 @@ void libc_exit(int status)
     //ToDo: make sure that aos_rpc_kill_process can't be called twice
     aos_rpc_kill_process(get_init_rpc(), disp_get_domain_id());
 
-    //DEBUG_PRINTF("spawninfo pid in libc_exit: %d \n", init_spawninfo.pid);
+    // DEBUG_PRINTF("spawninfo pid in libc_exit: %d \n", init_spawninfo.pid);
     /*
     struct spawninfo *current = &init_spawninfo;
     while (current) {

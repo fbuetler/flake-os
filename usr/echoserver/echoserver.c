@@ -29,11 +29,11 @@ int main(int argc, char *argv[])
         return err;
     }
 
-    // uint16_t listening_port = atoi(argv[2]);
-    uint16_t listening_port = 8000 + disp_get_domain_id();
+    uint16_t listening_port = atoi(argv[2]);
+    // uint16_t listening_port = 8000 + disp_get_domain_id();
 
     // start server on port
-    debug_printf("Creating socket\n");
+    debug_printf("Creating socket on port %d\n", listening_port);
     struct aos_udp_socket *sock;
     err = aos_udp_socket_create(listening_port, &sock);
     if (err_is_fail(err)) {

@@ -427,9 +427,11 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
  * @brief RPC call to get all process pids. pids is malloced and needs to be freed by caller
  *
  * @param lmp
- * @param pids
+ * @param pids 
  * @param pid_count
  * @return errval_t
+ * 
+ * @note The pointer to the buffer containing the pids needs to be freed by the caller.
  */
 errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
                                       size_t *pid_count)

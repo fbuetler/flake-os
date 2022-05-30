@@ -67,10 +67,11 @@ void ps(char *args) {
     domainid_t *pids;
     size_t pid_count;
     aos_rpc_process_get_all_pids(get_init_rpc(), &pids, &pid_count);
-    DEBUG_PRINTF("pids count: %zu \n", pid_count);
+    printf("pids count: %zu \n", pid_count);
     for (int i = 0; i < pid_count; i++) {
-        DEBUG_PRINTF("received pid: 0x%x\n", pids[i]);
+        printf("received pid: 0x%x\n", pids[i]);
     }
+    free(pids);
 }
 
 void shell_exit(char *args) {

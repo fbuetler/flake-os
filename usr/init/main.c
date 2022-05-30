@@ -61,6 +61,7 @@ static int bsp_main(int argc, char *argv[])
     bi = (struct bootinfo *)strtol(argv[1], NULL, 10);
     assert(bi);
 
+    // TODO: initialize mem allocator, vspace management here
     err = initialize_ram_alloc();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialize_ram_alloc");
@@ -72,12 +73,9 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "Failed to initialize name tree");
         return EXIT_FAILURE;
     }
-    // TODO: initialize mem allocator, vspace management here
 
     // Grading
     grading_test_early();
-
-    //run_nameserver_tests();
 
     // run_m1_tests();
     // run_m2_tests();
@@ -91,12 +89,6 @@ static int bsp_main(int argc, char *argv[])
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to boot core");
         }
-    }
-
-    /* obtain the platform information */
-    err = invoke_kernel_get_platform_info(cap_kernel, &platform_info);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to obtain the platform info from the kernel\n");
     }
 
     // run_m5_tests();
@@ -116,26 +108,22 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "Could not launch serial server! \n");
     }
 
+    err = spawn_lpuart_driver(NULL);  // todo: rename this, it's the shell
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn lpuart driver");
+    }
+
     err = spawn_sdhc_driver(NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn sdhc driver");
     }
 
-    /*err = spawn_enet_driver(NULL);
+    err = spawn_enet_driver(NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn enet driver");
     }
-    */
 
-    // run_m7_tests();
-
-    struct spawninfo *si = malloc(sizeof(struct spawninfo));
-    spawn_lpuart_driver(&si);  // todo: rename this, it's the shell
-
-    /*
-    struct spawninfo *si2 = malloc(sizeof(struct spawninfo));
-    spawn_lpuart_driver(&si2);
-     */
+    run_m7_tests();
 
     // Grading
     grading_test_late();
