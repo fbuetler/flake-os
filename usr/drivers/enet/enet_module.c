@@ -758,7 +758,7 @@ int main(int argc, char *argv[])
                 if (!region) {
                     err = ENET_ERR_REGION_NOT_FOUND;
                     DEBUG_ERR(err, "failed to find region");
-                    return err;
+                    continue;
                 }
 
                 struct eth_hdr *eth = (struct eth_hdr *)((char *)region->mem.vbase

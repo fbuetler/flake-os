@@ -86,13 +86,13 @@ int main(int argc, char *argv[])
         systime_t start = get_system_time();
 
         // receive icmp echo reply
-        // debug_printf("Receive ping %d\n", i);
         uint8_t type;
         uint16_t id;
         uint16_t seqno;
         char *msg;
         size_t msg_size;
         do {
+            debug_printf("wait for echo reply icmp_seq=%d\n", i);
             err = aos_icmp_socket_recv(sock, &type, &id, &seqno, &msg, &msg_size);
             if (err_is_fail(err)) {
                 if (err != LIB_ERR_RPC_SEND) {
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
                 thread_yield();
                 continue;
             }
-            // debug_printf("Received ping type: %d id, %d\n", type, id);
+            // debug_printf("Received ping type: %d id: %d\n", type, id);
         } while (type != ICMP_ER || id != pid);
 
         // check if icmp message payload is the same
