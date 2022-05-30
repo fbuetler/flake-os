@@ -7,6 +7,8 @@
 
 // #define ICMP_HACK 1
 // #define ICMP_PING 1
+
+// NETWORK DEMO
 // #define ICMP_DUMP_PING 1
 
 // #define ICMP_DEBUG_OPTION 1

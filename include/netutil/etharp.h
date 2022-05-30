@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <aos/aos.h>
 
+// NETWORK DEMO
 // #define ARP_TABLE_GET 1
 
 // #define ETHARP_DEBUG_OPTION 1
