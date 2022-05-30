@@ -34,6 +34,7 @@
 
 #include "custom_tests.h"
 #include "mem_alloc.h"
+#include "nameserver/test.h"
 
 struct mm aos_mm;
 
@@ -1049,8 +1050,8 @@ __attribute__((unused)) static void test_large_ping_pong(void)
 void run_m6_tests(void)
 {
     switch (disp_get_current_core_id()) {
-    case 0:{
-        test_spawn_process("filereader"); 
+    case 0: {
+        test_spawn_process("filereader");
         break;
     }
     case 1:
@@ -1079,14 +1080,38 @@ __attribute__((unused)) static void run_echoserver(void)
     assert(err_is_ok(err));
 }
 
-static void run_m7_network_tests(void)
+__attribute__((unused)) static void run_m7_shell_tests(void) { }
+
+__attribute__((unused)) static void run_m7_filesystem_tests(void) { }
+
+__attribute__((unused)) static void run_m7_network_tests(void)
 {
-    // run_echoserver();
+    // test_spawn_process("echoserver");
+}
+
+__attribute__((unused)) static void run_m7_nameserver_tests(void)
+{
+    // run_nameserver_tests();
+}
+
+__attribute__((unused)) static void run_m7_usr_tests(void)
+{
+    // test_spawn_process("demom5");
+    // test_spawn_process("demom6");
+    // test_spawn_process("hello");
+    // test_spawn_process("memeater");
+    // test_spawn_process("selfpaging");
+    // test_spawn_process("selfpaging_already_handled");
+    // test_spawn_process("spawnTester");
 }
 
 void run_m7_tests(void)
 {
+    run_m7_shell_tests();
+    run_m7_filesystem_tests();
     run_m7_network_tests();
+    run_m7_nameserver_tests();
+    run_m7_usr_tests();
 }
 
 void run_tests(void)
