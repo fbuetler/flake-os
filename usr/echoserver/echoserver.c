@@ -53,10 +53,12 @@ int main(int argc, char *argv[])
             if (err != LIB_ERR_RPC_SEND) {
                 DEBUG_ERR(err, "failed to receive message");
             }
+            thread_yield();
             continue;
         }
 
         if (strlen(msg) == 0) {
+            thread_yield();
             continue;
         }
         DEBUG_PRINTF("got messages: '%s'\n", msg);
@@ -65,6 +67,7 @@ int main(int argc, char *argv[])
         err = aos_udp_socket_send(sock, ip, port, msg, size);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to echo message");
+            thread_yield();
             continue;
         }
     }

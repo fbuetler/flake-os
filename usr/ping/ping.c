@@ -98,6 +98,7 @@ int main(int argc, char *argv[])
                 if (err != LIB_ERR_RPC_SEND) {
                     DEBUG_ERR(err, "failed to receive ICMP echo reply");
                 }
+                thread_yield();
                 continue;
             }
             // debug_printf("Received ping type: %d id, %d\n", type, id);

@@ -69,6 +69,7 @@ errval_t enet_get_mac_by_ip(struct enet_driver_state *st, ip_addr_t ip_dest,
             return SYS_ERR_OK;
         }
         retries++;
+        thread_yield();
         barrelfish_usleep(10 * 1000);
     }
 
