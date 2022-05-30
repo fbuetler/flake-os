@@ -210,6 +210,42 @@ enet_service_handle_udp_recv(struct enet_driver_state *st,
     return SYS_ERR_OK;
 }
 
+static errval_t
+enet_service_handle_arp_table_request(struct enet_driver_state *st,
+                                      struct aos_socket_msg_empty *arp_table,
+                                      void **response, size_t *response_bytes)
+{
+    errval_t err;
+
+    char *buf;
+    size_t buf_bytes;
+    err = enet_arp_table_get(st, &buf, &buf_bytes);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get ARP table");
+        return err;
+    }
+
+    struct aos_socket_msg *msg = (struct aos_socket_msg *)malloc(
+        sizeof(struct aos_socket_msg) + buf_bytes);
+    if (!msg) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg->type = AOS_NETWORK_RESPONSE;
+    msg->payload.arp_table_resp = (struct aos_socket_msg_arp_table_response) {
+        .bytes = buf_bytes,
+    };
+
+    if (buf_bytes > 0) {
+        memcpy(msg + 1, buf, buf_bytes);
+    }
+
+    *response = msg;
+    *response_bytes = sizeof(struct aos_socket_msg) + buf_bytes;
+
+    return SYS_ERR_OK;
+}
+
 static void enet_recv_handle(void *st_raw, void *message_raw, size_t bytes,
                              void **response, size_t *response_bytes,
                              struct capref rx_cap, struct capref *tx_cap)
@@ -268,6 +304,12 @@ static void enet_recv_handle(void *st_raw, void *message_raw, size_t bytes,
         err = enet_service_handle_udp_recv(st, &msg->payload.udp_recv_req, response,
                                            response_bytes);
         ENET_BENCHMARK_STOP(0, "udp receive service")
+        break;
+    case AOS_NETWORK_ARP_TABLE_REQUEST:
+        ENET_BENCHMARK_START(0, "arp table service")
+        err = enet_service_handle_arp_table_request(st, &msg->payload.arp_table_req,
+                                                    response, response_bytes);
+        ENET_BENCHMARK_STOP(0, "arp table service")
         break;
     default:
         err = LIB_ERR_SHOULD_NOT_GET_HERE;

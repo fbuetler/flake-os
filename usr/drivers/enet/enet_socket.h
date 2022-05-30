@@ -83,5 +83,6 @@ errval_t enet_icmp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
                                uint8_t type, uint16_t id, uint16_t seqno, char *payload,
                                size_t payload_size);
 
+errval_t enet_arp_table_get(struct enet_driver_state *st, char **buf, size_t *buf_bytes);
 
 #endif /* ENET_SOCKET_H_ */

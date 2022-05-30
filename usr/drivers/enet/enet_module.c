@@ -734,6 +734,15 @@ int main(int argc, char *argv[])
     }
 #endif
 
+#ifdef ARP_TABLE_GET
+    domainid_t pid;
+    err = aos_rpc_process_spawn(get_init_rpc(), "arp", disp_get_core_id(), &pid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn arp");
+        return err;
+    }
+#endif
+
     ENET_DEBUG("Ready to accept connections\n");
     struct devq_buf buf;
     struct waitset *ws = get_default_waitset();

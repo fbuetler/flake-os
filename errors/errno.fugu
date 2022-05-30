@@ -1451,6 +1451,7 @@ errors sata ENET_ERR_ {
     failure SOCKET_EMPTY                "Socket has no inbound packets",
     failure UDP_PAYLOAD_SIZE_EXCEEDED   "UDP payload size is too large",
     failure ICMP_PAYLOAD_SIZE_EXCEEDED  "ICMP payload size is too large",
+    failure ARP_TABLE_GET               "Could not read ARP table",
 };
 
 // errors LPUART driver

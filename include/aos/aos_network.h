@@ -32,6 +32,7 @@ enum aos_network_msg_type {
     AOS_NETWORK_UDP_DESTROY_REQUEST = 6,
     AOS_NETWORK_UDP_SEND_REQUEST = 7,
     AOS_NETWORK_UDP_RECV_REQUEST = 8,
+    AOS_NETWORK_ARP_TABLE_REQUEST = 9,
     AOS_NETWORK_RESPONSE
     = 100,  // calls are synchronous, so we already now the response type
 };
@@ -95,6 +96,11 @@ struct aos_socket_msg_icmp_recv_response {
     char data[0];
 };
 
+struct aos_socket_msg_arp_table_response {
+    size_t bytes;
+    char data[0];
+};
+
 union aos_socket_msg_payload {
     struct aos_socket_msg_udp_create_request udp_create_req;
     struct aos_socket_msg_empty udp_create_resp;
@@ -112,6 +118,8 @@ union aos_socket_msg_payload {
     struct aos_socket_msg_empty icmp_send_resp;
     struct aos_socket_msg_icmp_recv_request icmp_recv_req;
     struct aos_socket_msg_icmp_recv_response icmp_recv_resp;
+    struct aos_socket_msg_empty arp_table_req;
+    struct aos_socket_msg_arp_table_response arp_table_resp;
 };
 
 struct aos_socket_msg {
@@ -133,5 +141,7 @@ errval_t aos_icmp_socket_send(struct aos_icmp_socket *socket, ip_addr_t ip, uint
                               size_t message_size);
 errval_t aos_icmp_socket_recv(struct aos_icmp_socket *socket, uint8_t *type, uint16_t *id,
                               uint16_t *seqno, char **message, size_t *message_size);
+
+errval_t aos_arp_table_get(char **message, size_t *message_size);
 
 #endif

@@ -401,3 +401,54 @@ errval_t enet_icmp_socket_send(struct enet_driver_state *st, ip_addr_t ip_dest,
     }
     return SYS_ERR_OK;
 }
+
+errval_t enet_arp_table_get(struct enet_driver_state *st, char **buf, size_t *buf_bytes)
+{
+    collections_hash_table *arp_table = st->arp_table;
+
+    uint32_t arp_table_size = collections_hash_size(arp_table);
+
+    size_t arp_line_size = 40;
+    size_t buf_offset = 0;
+    *buf = (char *)malloc((2 + arp_table_size) * arp_line_size);
+    if (!*buf) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    if (collections_hash_traverse_start(arp_table) == -1) {
+        return ENET_ERR_ARP_TABLE_GET;
+    }
+
+    char *arp_header = ("\n============= ARP table =============\n");
+    memcpy(*buf + buf_offset, arp_header, strlen(arp_header));
+    buf_offset += strlen(arp_header);
+
+    uint64_t ip;
+    uint64_t *eth;
+    do {
+        eth = (uint64_t *)collections_hash_traverse_next(arp_table, &ip);
+        if (!eth) {
+            break;
+        }
+
+        char arp_entry[arp_line_size];
+        sprintf(arp_entry, "%d.%d.%d.%d - %02x:%02x:%02x:%02x:%02x:%02x\n",
+                (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF,
+                ((*eth >> 40) & 0xFF), ((*eth >> 32) & 0xFF), ((*eth >> 24) & 0xFF),
+                ((*eth >> 16) & 0xFF), ((*eth >> 8) & 0xFF), ((*eth >> 0) & 0xFF));
+        memcpy(*buf + buf_offset, arp_entry, strlen(arp_entry));
+        buf_offset += strlen(arp_entry);
+
+    } while (1);
+
+    char *arp_footer = ("=====================================\n");
+    memcpy(*buf + buf_offset, arp_footer, strlen(arp_footer));
+    buf_offset += strlen(arp_footer);
+
+    collections_hash_traverse_end(arp_table);
+
+    *(*buf + buf_offset) = '\0';
+    *buf_bytes = strlen(*buf) + 1;
+
+    return SYS_ERR_OK;
+}

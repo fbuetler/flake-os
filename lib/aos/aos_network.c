@@ -420,3 +420,56 @@ errval_t aos_icmp_socket_recv(struct aos_icmp_socket *socket, uint8_t *type, uin
 
     return SYS_ERR_OK;
 }
+
+errval_t aos_arp_table_get(char **message, size_t *message_size)
+{
+    errval_t err;
+
+    // setup channel
+    if (!network_chan) {
+        err = nameservice_lookup(ENET_SERVICE_NAME, &network_chan);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to lookup service");
+            return err;
+        }
+    }
+
+    // setup request
+    struct aos_socket_msg *msg = (struct aos_socket_msg *)malloc(
+        sizeof(struct aos_socket_msg));
+    if (!msg) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    msg->type = AOS_NETWORK_ARP_TABLE_REQUEST;
+
+    void *request = msg;
+    size_t request_bytes = sizeof(struct aos_socket_msg);
+
+    // get response
+    void *response;
+    size_t response_bytes;
+    err = nameservice_rpc(network_chan, request, request_bytes, &response,
+                          &response_bytes, NULL_CAP, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to send message to network service");
+        return err;
+    }
+
+    struct aos_socket_msg *msg_resp = (struct aos_socket_msg *)response;
+    struct aos_socket_msg_arp_table_response payload = msg_resp->payload.arp_table_resp;
+
+    if (payload.bytes == 0) {
+        return LIB_ERR_RPC_SEND;
+    }
+
+    *message = (char *)malloc(payload.bytes);
+    if (!*message) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    memcpy(*message, msg_resp + 1, payload.bytes);
+    *message_size = payload.bytes;
+
+    // free(msg);
+
+    return SYS_ERR_OK;
+}
