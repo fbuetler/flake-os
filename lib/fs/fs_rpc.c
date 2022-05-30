@@ -54,57 +54,10 @@ static char *process_path(char *old_path)
     return skipped;
 }
 
-static inline errval_t lmp_send(struct aos_lmp *lmp, aos_rpc_msg_type_t type,
-                                char *payload, size_t payload_size, char *msg_buf)
-{
-    errval_t err;
-
-    struct aos_lmp_msg *reply;
-    err = aos_lmp_create_msg_no_pagefault(lmp, &reply, type, payload_size, payload,
-                                          NULL_CAP, (struct aos_lmp_msg *)msg_buf);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create message");
-        return err_push(err, LIB_ERR_LMP_MSG_CREATE);
-    } else {
-        err = aos_lmp_send_msg((lmp), reply);
-        if (err_is_fail(err)) {
-            DEBUG_PRINTF("error sending back lmp msg\n");
-            return err;
-        }
-    }
-    return SYS_ERR_OK;
-}
-
-#define LMP_SEND(lmp, type, payload, bytes)                                              \
-    do {                                                                                 \
-        char send_buf[AOS_LMP_MSG_SIZE(bytes)];                                          \
-        err = lmp_send((lmp), (type), (char *)(payload), (bytes), send_buf);             \
-        if (err_is_fail(err)) {                                                          \
-            DEBUG_ERR(err, "lmp_send failed");                                           \
-            return err;                                                                  \
-        }                                                                                \
-    } while (0)
-
 #define SET_MSG_RESPONSE(payload, payload_size)                                          \
     do {                                                                                 \
         *msg_response = (void *)(payload);                                               \
         *msg_response_bytes = (payload_size);                                            \
-    } while (0)
-
-// TODO needs a malloc here
-#define LMP_GLUE_HEADER_AND_SEND(lmp, type, payload_header, payload, payload_bytes)      \
-    do {                                                                                 \
-        int total_bytes = (payload_bytes) + sizeof(payload_header);                      \
-        char *concat_buf = malloc(AOS_LMP_MSG_SIZE(total_bytes));                        \
-        memcpy(concat_buf, (payload_header), sizeof(payload_header));                    \
-        memcpy(concat_buf + sizeof(payload_header), (payload), (payload_bytes));         \
-        err = lmp_send((lmp), (type), (char *)(payload), (total_bytes), concat_buf);     \
-        if (err_is_fail(err)) {                                                          \
-            DEBUG_ERR(err, "lmp_send failed");                                           \
-            free(concat_buf);                                                            \
-            return err;                                                                  \
-        }                                                                                \
-        free(concat_buf);                                                                \
     } while (0)
 
 #define FS_LOCK thread_mutex_lock(&fs_state.mutex);
