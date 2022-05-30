@@ -142,7 +142,7 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         aos_process_handshake(lmp->recv_msg);
         break;
     case AosRpcClientRequest: {
-        DEBUG_PRINTF("Handling client request\n")
+        // DEBUG_PRINTF("Handling client request\n")
         struct aos_lmp_msg *msg = lmp->recv_msg;
         struct aos_rpc_msg request = { .type = msg->message_type,
                                        .payload = msg->payload,
@@ -152,7 +152,7 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         response.cap = NULL_CAP;
         aos_rpc_process_client_request(&request, &response);
 
-        DEBUG_PRINTF("Done handling client request\n");
+        // DEBUG_PRINTF("Done handling client request\n");
         struct aos_lmp_msg *ret_msg;
         aos_lmp_create_msg(lmp, &ret_msg, AosRpcServerResponse, response.bytes,
                            response.payload, response.cap);
@@ -817,7 +817,8 @@ errval_t aos_lmp_setup_local_chan(struct aos_lmp *lmp, struct capref cap_ep)
     // setup endpoint of init
     lmp_chan_init(&lmp->chan);
     lmp->chan.buflen_words = 256;
-    errval_t err = lmp_endpoint_create_in_slot(lmp->chan.buflen_words, cap_ep, &lmp->chan.endpoint);
+    errval_t err = lmp_endpoint_create_in_slot(lmp->chan.buflen_words, cap_ep,
+                                               &lmp->chan.endpoint);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed create endpoint in init process");
         return err;
