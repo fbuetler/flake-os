@@ -205,7 +205,7 @@ errval_t nameservice_register(const char *name,
         return err_push(err, LIB_ERR_NAMESERVICE_NEW_INFO);
     }
 
-    DEBUG_PRINTF("Registering new service %s with PID %d\n", name, info->pid);
+    // DEBUG_PRINTF("Registering new service %s with PID %d\n", name, info->pid);
 
     struct aos_rpc_msg msg = { .type = AosRpcNsRegister,
                                .payload = (char *)info,

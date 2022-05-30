@@ -319,7 +319,7 @@ static errval_t enet_phy_startup(struct enet_driver_state *st)
     assert(err_is_ok(err));
 
     if (mii_reg & PHY_STATUS_LSTATUS) {
-        debug_printf("LINK already UP\n");
+        ENET_DEBUG("LINK already UP\n");
         return SYS_ERR_OK;
     }
 
@@ -543,7 +543,7 @@ static errval_t enet_probe(struct enet_driver_state *st)
 
     err = enet_init_phy(st);
     if (err_is_fail(err)) {
-        debug_printf("Failed PHY reset\n");
+        ENET_DEBUG("Failed PHY reset\n");
         return err;
     }
 
@@ -573,7 +573,7 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
-    debug_printf("Enet driver started \n");
+    ENET_DEBUG("Enet driver started \n");
     struct enet_driver_state *st = (struct enet_driver_state *)calloc(
         1, sizeof(struct enet_driver_state));
     assert(st != NULL);
@@ -619,19 +619,19 @@ int main(int argc, char *argv[])
         return err;
     }
 
-    debug_printf("Enet driver init done \n");
+    ENET_DEBUG("Enet driver init done \n");
 
     ENET_DEBUG("Creating devqs \n");
 
     err = enet_rx_queue_create(&st->rxq, st->d);
     if (err_is_fail(err)) {
-        debug_printf("Failed creating RX devq \n");
+        DEBUG_ERR(err, "Failed creating RX devq \n");
         return err;
     }
 
     err = enet_tx_queue_create(&st->txq, st->d);
     if (err_is_fail(err)) {
-        debug_printf("Failed creating RX devq \n");
+        DEBUG_ERR(err, "Failed creating RX devq \n");
         return err;
     }
 
@@ -734,7 +734,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    debug_printf("Ready to accept connections\n");
+    ENET_DEBUG("Ready to accept connections\n");
     struct devq_buf buf;
     struct waitset *ws = get_default_waitset();
     while (true) {

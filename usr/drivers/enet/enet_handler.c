@@ -340,7 +340,7 @@ static errval_t enet_handle_udp_packet(struct enet_driver_state *st, struct eth_
     ENET_BENCHMARK_STOP(3, "process udp packet")
     if (err_is_fail(err)) {
         if (err == ENET_ERR_SOCKET_NOT_FOUND) {
-            DEBUG_PRINTF("Destination unreachable (Port unreachable)\n");
+            ENET_DEBUG("Destination unreachable (Port unreachable)\n");
             // TODO send back ICMP_DUR/ICMP_DUR_PORT
             return SYS_ERR_OK;
         }
