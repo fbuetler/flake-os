@@ -1,3 +1,198 @@
-\section{Filesystem}
+\chapter{Filesystem}
 
+\section{Introduction}
+For the filesystem, we support SD-cards running FAT32. The filesystem we've implemented 
+is built as a service, exposing RPC calls for file operations like opening, closing, writing, reading, etc. 
+to user processes, which then can be called by the usual libc functions like \texttt{fopen}, \texttt{fclose}, \texttt{fwrite}.
+
+The alternative, which is building the filesystem as a library, has not be chosen because the filesystem as a service 
+gives in our eyes a better abstraction to the underlying FAT32 operations. Another reason why we chose the filesystem as a service
+is because it does decrease RPC communication, leading to overall better performance.  
+
+\subsection{Operations}
+The operations implemented as a service over RPC calls are:
+\begin{itemize}
+    \item \texttt{aos\_rpc\_fs\_open}: Open a file with given flags
+    \item \texttt{aos\_rpc\_fs\_close}: Close a file
+    \item \texttt{aos\_rpc\_fs\_create}: Create a file
+    \item \texttt{aos\_rpc\_fs\_read}: Read open file contents into buffer
+    \item \texttt{aos\_rpc\_fs\_write}: Write buffer contents to a open file
+    \item \texttt{aos\_rpc\_fs\_lseek}: Seeking in a file
+    \item \texttt{aos\_rpc\_fs\_dir\_action}: Used to perform the two operations \texttt{mkdir}, \texttt{rmdir}
+    \item \texttt{aos\_rpc\_fs\_readdir}: Read directory contents
+    \item \texttt{aos\_rpc\_fs\_fstat}: Get file status
+\end{itemize}
+
+\section{Block Driver}
+After flashing a new filesystem onto the SD-card, we can communicate with it over 
+the block driver over the process \texttt{fs}, which has access to the devframe necessary
+for using the driver. Since it's the only process with access to the SD-card, we don't have to worry 
+about concurrent read/writes in the filesystem.
+
+\subsection{Performance Improvements}
+To improve the block driver, we note that we always only read/write blocks of the 
+same size with it. Thus, it's enough to only set the block-size once in the beginning,
+instead of setting it every time we read/write a block. As we will see during the 
+performance analysis in the next section, this will already give a 2x speedup.
+
+There are many other performance improvements which could be made.
+Very interestingly to me with respect to FAT32 is that reading/writing whole 
+clusters at once could be done much faster. As can be seen in the next section,
+sending commands over the block driver alone will take a lot of time, 
+so reducing the number of commands sent to the block driver can be of essential 
+importance for performance.
+
+It's also possible to read/write specific block-lengths with each write.
+However, this change in block-lengths needs to be communicated to the device,
+thus another command needs to be send to the SD-reader. We immediately see 
+that this constitutes a tradeoff between send-commands and DMA-access time.
+While always reading large blocks has few send-commands, DMA over large memory 
+takes longer than for small blocks. It could have been interesting to also 
+check if or at which point it makes sense to work with variable-sized read/write 
+commands.
+
+As a last possibility for improving performance, it could have been possible 
+to fetch information from the SD-card to obtain more information of frequencies 
+which could be used to allow for faster access speed.
+
+\subsection{Performance Analyis}
+
+\section{FAT32 Implementation}
+
+\subsection{Assumptions}
+We assume we receive a valid FAT32 filesystem. We thus don't do any additional 
+checking/fixing/infering of the filesystem present.
+
+\subsection{Abstractions}
+Wherever possible, we tried to abstract away sectors as much as possible.
+Instead, we focused on clusters and indeces into clusters, so that 
+we wouldn't have to worry too much about cluster traversals in terms of 
+sectors, where in which cluster we are, etc. Seeing FAT32 as a linked-list 
+of clusters is much easier than seeing it as a linked-list of sector-arrays.
+
+For buffers which we use to read/write to, we introduced 
+\begin{lstlisting}[language=C]
+struct phys_virt_addr {
+    // physical address of memory segment
+    lpaddr_t phys;
+    // virtual address of memory segment
+    void *virt;
+    // last sector read/written
+    uint32_t last_sector;
+    // is the buffer dirty?
+    bool dirty;
+};
+\end{lstlisting}
+we use it to keep track of where we read/write to. The last two members 
+are important for caching, which will be explained laster.
+
+
+
+
+\subsection{Caching}
+One file write/read can potentially look at one FAT-sector multiple times,
+or could write to the same data sector multiple times. Since every 
+read/write from/to a sector on the SD-card is very expensive, a big 
+performance increase was the idea of caching reads/writes to the disk.
+
+In a first attempt, we never performed a read from the SD-card if 
+the last read/write to/from the SD-card was to the same sector. This can 
+be pretty easily by just remembering the last sector each time.
+
+A next observation was that there is much locality in a directory-entry 
+as well as a FAT-sector, since many requests looked at closed-by indeces
+of a sector. For that reason, we decided to use a different buffer 
+for storing any read/writes to a data-sector and a different one for 
+FAT sectors (and directory-entry-sectors). 
+A write would still always write, it is write-through.
+
+Using these two different buffer, we benefit from locality.
+To extend this idea even further, an LRU-approach with $N$ different 
+buffer would lead to even fewer reads from the SD-card.
 TODO
+
+\subsection{Limitations}
+Due to time-constraints, no support for timestamps or read-only files is implemented.
+Also, no estimates of free clusters are used.
+\section{Filesystem Implementation}
+To implement the filesystem, we tried to keep the original approach of \texttt{ramfs}
+as much as possible and replaced functions like \texttt{ramfs\_open}, \texttt{ramfs\_close}
+have been replaced by \texttt{aos\_rpc\_fs\_open}, \texttt{aos\_rpc\_fs\_close}.
+
+We store a opened file in a simliar struct as in \texttt{ramfs}:
+\begin{lstlisting}[language=C]
+struct fat32fs_dirent {
+    char *name; 
+    size_t size; 
+    bool is_dir; 
+    // cluster containing the directory-entry
+    uint32_t dir_cluster; 
+    // index into that cluster
+    uint32_t dir_index; 
+    // first data cluster of file
+    uint32_t start_data_cluster; 
+};
+
+struct fat32fs_handle {
+    int flags;
+    // unique id of the opened file
+    fileref_id_t fid;
+    domainid_t pid;
+    char *path;
+    struct fat32fs_dirent *dirent;
+    union {
+        uint32_t dir_offset;
+        uint32_t file_offset;
+    } u;
+    // current data cluster as 
+    // specified by dir_offset/file_offset
+    uint32_t curr_data_cluster;
+};
+\end{lstlisting}
+Of particular importance is the member \texttt{fid}.
+This ID is a unique ID under all the opened files in the filesystem 
+which is used to identify an opened handle. Any RPC request to an opened
+file identifies the handle uniquely by this FID.
+
+In the \texttt{fs} process, the following happens when a new file/dir is opened:
+\begin{itemize}
+    \item Create new handle, store file-info into it.
+    \item Assign new unique FID to handle
+    \item Add into hashmap: FID $\Rightarrow$ Handle 
+    \item Append to hashmap: Path $\Rightarrow$ Handle
+\end{itemize}
+The first of the two hashmaps is used to find the handle of an opened file by FID in constant 
+time. The other stores all FID's which have the same file opened. Using this second hash map,
+we resolve many thread-safety issues, which will be explained later.
+
+\subsection{Service}
+
+\subsection{Thread Safety}
+
+\subsection{Security}
+For a full-blown OS, it makes sense to have a security layer in place which 
+doesn't allow for one process to read/write using FID's of another process.
+This could have been done in multiple ways. One could be to authenticate the RPC channels,
+so that every FID is also linked to a specific channel. That way, requests to foreign 
+FID's could be rejected. This could also have been done with special capabilities to
+any opened file/directory. 
+
+As this feature was of rather low priority given the problems we had mentioned
+during the integration, no additional security feature was implemented.
+
+\section{ELF Loading}
+Due to the problems during integration-phase, we didn't have time to implement
+the ELF loading feature.
+
+However, for the sake of completeness, we now state how this would be achieved.
+Given our existing code, the approach we would follow is to use 
+the file system to load the complete file into memory. After that,
+any arguments to the program would be passed to by the shell.
+To actually load the in-memory program, we can use existing functionality 
+we have in our \texttt{spawn} library, where multiboot programs 
+are also loaded into memory. After this step, we would start the program 
+in the same way as we did for any other program.
+
+\section{Performance Analysis}
+
+\section{Issues}
