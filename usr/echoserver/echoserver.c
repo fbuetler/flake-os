@@ -50,7 +50,9 @@ int main(int argc, char *argv[])
         uint16_t port;
         err = aos_udp_socket_recv(sock, &ip, &port, &msg, &size);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to receive message");
+            if (err != LIB_ERR_RPC_SEND) {
+                DEBUG_ERR(err, "failed to receive message");
+            }
             continue;
         }
 
