@@ -196,6 +196,26 @@ static errval_t enet_handle_icmp_packet(struct enet_driver_state *st, struct eth
         break;
     case ICMP_ECHO:
         ICMP_DEBUG("RECEIVED ICMP ECHO PACKET\n");
+
+#ifdef ICMP_DUMP_PING
+        DEBUG_PRINTF("ICMP type: 0x%02x\n", icmp->type);
+        DEBUG_PRINTF("ICMP code: 0x%02x\n", icmp->code);
+        DEBUG_PRINTF("ICMP chksum: 0x%04x\n", ntohs(icmp->chksum));
+        DEBUG_PRINTF("ICMP id: 0x%04x\n", ntohs(icmp->id));
+        DEBUG_PRINTF("ICMP seqno: 0x%04x\n", ntohs(icmp->seqno));
+        DEBUG_PRINTF("ICMP payload size: 0x%lx\n", icmp_payload_size);
+        for (int i = 0; i < icmp_payload_size; i += 8) {
+            size_t dump_size = 45;  // index (4) + 8 * byte (5) + EOL
+            char dump[dump_size];
+            sprintf(&dump[0], "%02d: ", i);
+            for (int j = 0; j < 8; j++) {
+                sprintf(&dump[4 + 5 * j], "0x%02x ", ((char *)icmp + ICMP_HLEN)[i + j]);
+            }
+            dump[dump_size - 1] = '\0';
+            DEBUG_PRINTF("%s\n", dump);
+        }
+#endif
+
         struct eth_hdr *resp_icmp;
         size_t resp_icmp_size;
         ENET_BENCHMARK_START(3, "assemble icmp packet")

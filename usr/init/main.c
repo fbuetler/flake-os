@@ -112,7 +112,7 @@ static int bsp_main(int argc, char *argv[])
     default:
         break;
     }
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not launch serial server! \n");
     }
 
@@ -126,11 +126,10 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "failed to spawn enet driver");
     }
 
-    //run_m7_tests();
-
+    // run_m7_tests();
 
     struct spawninfo *si = malloc(sizeof(struct spawninfo));
-    spawn_lpuart_driver(&si); // todo: rename this, it's the shell
+    spawn_lpuart_driver(&si);  // todo: rename this, it's the shell
 
     /*
     struct spawninfo *si2 = malloc(sizeof(struct spawninfo));
