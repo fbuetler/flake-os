@@ -190,6 +190,10 @@ errval_t aos_udp_socket_recv(struct aos_udp_socket *socket, ip_addr_t *ip, uint1
         return err;
     }
 
+    if (response_bytes == 0) {
+        return LIB_ERR_RPC_SEND;
+    }
+
     struct aos_socket_msg *msg_resp = (struct aos_socket_msg *)response;
     struct aos_socket_msg_udp_recv_response payload = msg_resp->payload.udp_recv_resp;
 
@@ -399,6 +403,10 @@ errval_t aos_icmp_socket_recv(struct aos_icmp_socket *socket, uint8_t *type, uin
         return err;
     }
 
+    if (response_bytes == 0) {
+        return LIB_ERR_RPC_SEND;
+    }
+
     struct aos_socket_msg *msg_resp = (struct aos_socket_msg *)response;
     struct aos_socket_msg_icmp_recv_response payload = msg_resp->payload.icmp_recv_resp;
 
@@ -453,6 +461,10 @@ errval_t aos_arp_table_get(char **message, size_t *message_size)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message to network service");
         return err;
+    }
+
+    if (response_bytes == 0) {
+        return LIB_ERR_RPC_SEND;
     }
 
     struct aos_socket_msg *msg_resp = (struct aos_socket_msg *)response;

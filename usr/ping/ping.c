@@ -95,7 +95,9 @@ int main(int argc, char *argv[])
         do {
             err = aos_icmp_socket_recv(sock, &type, &id, &seqno, &msg, &msg_size);
             if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to receive ICMP echo reply");
+                if (err != LIB_ERR_RPC_SEND) {
+                    DEBUG_ERR(err, "failed to receive ICMP echo reply");
+                }
                 continue;
             }
             // debug_printf("Received ping type: %d id, %d\n", type, id);

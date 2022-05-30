@@ -30,13 +30,14 @@ enet_service_handle_icmp_destroy(struct enet_driver_state *st,
 {
     errval_t err;
 
+    *response = NULL;
+    *response_bytes = 0;
+
     err = enet_destroy_icmp_socket(st, icmp_destroy->pid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to destroy ICMP socket");
         return err;
     }
-
-    *response = NULL, *response_bytes = 0;
 
     return SYS_ERR_OK;
 }
@@ -48,15 +49,15 @@ enet_service_handle_icmp_send(struct enet_driver_state *st,
 {
     errval_t err;
 
+    *response = NULL;
+    *response_bytes = 0;
+
     err = enet_icmp_socket_send(st, icmp_send->ip_remote, icmp_send->type, icmp_send->id,
                                 icmp_send->seqno, icmp_send->data, icmp_send->bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send over ICMP socket");
         return err;
     }
-
-    *response = NULL;
-    *response_bytes = 0;
 
     return SYS_ERR_OK;
 }
@@ -68,15 +69,17 @@ enet_service_handle_icmp_recv(struct enet_driver_state *st,
 {
     errval_t err;
 
+    *response = NULL;
+    *response_bytes = 0;
+
     struct icmp_socket_buf *buf;
     err = enet_icmp_socket_receive(st, icmp_recv->pid, &buf);
     if (err != ENET_ERR_SOCKET_EMPTY && err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive from ICMP socket");
-        return err;
     }
 
     int buflen;
-    if (!buf) {
+    if (!buf || err_is_fail(err)) {
         buflen = 0;
     } else {
         buflen = buf->len;
@@ -114,14 +117,14 @@ enet_service_handle_udp_create(struct enet_driver_state *st,
 {
     errval_t err;
 
+    *response = NULL;
+    *response_bytes = 0;
+
     err = enet_create_udp_socket(st, udp_create->port_local);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create UDP socket");
         return err;
     }
-
-    *response = NULL;
-    *response_bytes = 0;
 
     return SYS_ERR_OK;
 }
@@ -133,14 +136,14 @@ enet_service_handle_udp_destroy(struct enet_driver_state *st,
 {
     errval_t err;
 
+    *response = NULL;
+    *response_bytes = 0;
+
     err = enet_destroy_udp_socket(st, udp_destroy->port_local);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to destroy UDP socket");
         return err;
     }
-
-    *response = NULL;
-    *response_bytes = 0;
 
     return SYS_ERR_OK;
 }
@@ -152,6 +155,9 @@ enet_service_handle_udp_send(struct enet_driver_state *st,
 {
     errval_t err;
 
+    *response = NULL;
+    *response_bytes = 0;
+
     err = enet_udp_socket_send(st, udp_send->port_local, udp_send->ip_remote,
                                udp_send->port_remote, (char *)(udp_send + 1),
                                udp_send->bytes);
@@ -159,9 +165,6 @@ enet_service_handle_udp_send(struct enet_driver_state *st,
         DEBUG_ERR(err, "failed to send over UDP socket");
         return err;
     }
-
-    *response = NULL;
-    *response_bytes = 0;
 
     return SYS_ERR_OK;
 }
@@ -173,15 +176,17 @@ enet_service_handle_udp_recv(struct enet_driver_state *st,
 {
     errval_t err;
 
+    *response = NULL;
+    *response_bytes = 0;
+
     struct udp_socket_buf *buf = NULL;
     err = enet_udp_socket_receive(st, udp_recv->port_local, &buf);
     if (err != ENET_ERR_SOCKET_EMPTY && err_is_fail(err)) {
         DEBUG_ERR(err, "failed to receive from UDP socket");
-        return err;
     }
 
     int buflen;
-    if (!buf) {
+    if (!buf || err_is_fail(err)) {
         buflen = 0;
     } else {
         buflen = buf->len;
@@ -216,6 +221,9 @@ enet_service_handle_arp_table_request(struct enet_driver_state *st,
                                       void **response, size_t *response_bytes)
 {
     errval_t err;
+
+    *response = NULL;
+    *response_bytes = 0;
 
     char *buf;
     size_t buf_bytes;
