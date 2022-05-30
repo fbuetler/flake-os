@@ -346,7 +346,7 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
     char *assigned_name = response.payload;
 
     if (*assigned_name == 0) {
-        DEBUG_PRINTF("no pid assigned to this!\n");
+        return SPAWN_ERR_PID_NOT_FOUND;
     }
 
     size_t name_len = strlen(assigned_name);
@@ -360,21 +360,13 @@ errval_t aos_rpc_process_get_name(struct aos_rpc *rpc, domainid_t pid, char **na
     return SYS_ERR_OK;
 }
 
-errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t *pid)
+errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t pid)
 {
     errval_t err;
 
-    size_t payload_size = sizeof(domainid_t);
-    char *payload = (char *)malloc(payload_size);
-    *(domainid_t *)payload = *pid;
-
-    if (!payload) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-
     struct aos_rpc_msg request = { .type = AosRpcKillRequest,
-                                   .payload = payload,
-                                   .bytes = payload_size,
+                                   .payload = (void*)&pid,
+                                   .bytes = sizeof(domainid_t),
                                    .cap = NULL_CAP };
 
     struct aos_rpc_msg response;
@@ -382,11 +374,9 @@ errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t *pid)
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not send aos_rpc_kill_process message \n");
-        free(payload);
         return err;
     }
 
-    free(payload);
     return SYS_ERR_OK;
 }
 
@@ -461,22 +451,23 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
     */
 
     struct aos_rpc_msg request
-        = { .type = AosRpcGetAllPids, .payload = NULL, .bytes = 0, .cap = NULL_CAP };
+        = { .type = AosRpcGetAllPids, .payload = "h", .bytes = 1, .cap = NULL_CAP };
 
     struct aos_rpc_msg response;
 
     err = aos_rpc_call(rpc, request, &response);
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send message");
         return err;
     }
 
     *pid_count = *((size_t *)response.payload);
-    free(response.payload);
 
     *pids = malloc(*pid_count * sizeof(domainid_t));
     memcpy(*pids, response.payload + sizeof(size_t), *pid_count * sizeof(domainid_t));
 
+    free(response.payload);
 
     return SYS_ERR_OK;
 }

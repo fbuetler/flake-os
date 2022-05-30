@@ -52,7 +52,7 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *chan, char *retc);
  */
 errval_t aos_rpc_serial_putchar(struct aos_rpc *chan, char c);
 
-errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t *pid);
+errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t pid);
 
 /**
  * \brief Handles a request from a client bound to the server

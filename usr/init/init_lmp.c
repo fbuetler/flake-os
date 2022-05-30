@@ -280,15 +280,18 @@ static void aos_process_pid2name_request(struct aos_lmp *lmp)
 
         if (*payload != 0) {
             name = payload;
+        }else{
+            name = "";
         }
 
     } else {
         err = process_pid2name(pid, &name);
-        if (err_is_fail(err)) {
+        if(err == SPAWN_ERR_PID_NOT_FOUND){
+            name = "";
+        }else if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed pid2name\n");
             assert(!"local pid2name lookup failed");
         }
-        debug_printf("local pid2name returned name for pid 0x%lx: %s\n", pid, name);
     }
 
     // return the name
@@ -505,8 +508,8 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
 
     *(size_t *)payload = nr_of_pids + remote_nr_of_pids;
 
-    memcpy(payload + sizeof(size_t), pids, nr_of_pids * sizeof(domainid_t));
-    memcpy(payload + sizeof(size_t) + nr_of_pids * sizeof(domainid_t), remote_pids,
+    memcpy((char*)payload + sizeof(size_t), pids, nr_of_pids * sizeof(domainid_t));
+    memcpy((char*)payload + sizeof(size_t) + nr_of_pids * sizeof(domainid_t), remote_pids,
            remote_nr_of_pids * sizeof(domainid_t));
 
     struct aos_lmp_msg *reply;
@@ -516,7 +519,6 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
         DEBUG_ERR(err, "failed to create message");
         goto unwind;
     }
-
     err = aos_lmp_send_msg(lmp, reply);
     free(reply);
     if (err_is_fail(err)) {
@@ -524,7 +526,7 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
         goto unwind;
     }
 
-unwind:
+unwind: 
     free(payload);
     free(pids);
 

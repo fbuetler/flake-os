@@ -37,7 +37,6 @@ static char *process_path(char *old_path)
     if (!path) {
         return NULL;
     }
-    printf("cleaned: %s\n", path);
     char *skipped = path;
     if (err_is_fail(skip_mountpoint(&skipped))) {
         free(path);
@@ -48,7 +47,6 @@ static char *process_path(char *old_path)
     } else {
         skipped = strdup(skipped);
     }
-    printf("skipped: %s\n", skipped);
     free(path);
 
     return skipped;

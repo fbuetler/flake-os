@@ -1076,7 +1076,7 @@ errval_t spawn_get_all_pids(size_t *ret_nr_of_pids, domainid_t **retpids)
 
     *ret_nr_of_pids = spawn_number_of_processes;
 
-    *retpids = malloc(spawn_number_of_processes);
+    *retpids = malloc(sizeof(domainid_t) * spawn_number_of_processes);
     if (!*retpids) {
         return LIB_ERR_MALLOC_FAIL;
     }
@@ -1115,7 +1115,6 @@ errval_t spawn_kill_process(domainid_t pid)
         thread_mutex_unlock(&spawn_mutex);
         return SPAWN_ERR_PID_NOT_FOUND;
     }
-
     err = spawn_get_process_by_pid(pid, &process);
     if (err_is_fail(err)) {
         thread_mutex_unlock(&spawn_mutex);
@@ -1126,9 +1125,9 @@ errval_t spawn_kill_process(domainid_t pid)
         thread_mutex_unlock(&spawn_mutex);
         return err_push(err, PROC_MGMT_ERR_KILL);
     }
-
     if (prec) {
         prec->next = process->next;
+        free(process);
     } else {
         // TODO killed init process. What now?
         DEBUG_PRINTF("init process was killed\n");

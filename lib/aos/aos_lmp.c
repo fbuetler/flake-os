@@ -519,9 +519,6 @@ errval_t aos_lmp_init(struct aos_lmp *lmp, struct capref remote_cap)
     /* TODO MILESTONE 3: now we should have a channel with init set up and can
      * use it for the ram allocator */
 
-    // right now we don't have the nameservice & don't need the terminal
-    // and domain spanning, so we return here
-
     return SYS_ERR_OK;
 }
 

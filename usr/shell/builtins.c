@@ -3,6 +3,7 @@
 
 #include <aos/aos_rpc.h>
 #include <aos/aos.h>
+#include <aos/deferred.h>
 
 void help(char *args) {
     write_str("Available commands:\n");
@@ -41,24 +42,17 @@ void run_fg(char *args) {
     domainid_t pid;
     aos_rpc_process_spawn(get_init_rpc(), args, 0, &pid);
 
-    bool pid_still_exists = true;
-
     do{
-        pid_still_exists = false;
-        size_t pid_count;
-        domainid_t *pids;
-        errval_t  err = aos_rpc_process_get_all_pids(shell_state.init_rpc, &pids, &pid_count);
-        if (err_is_fail(err)) {
+        char *rname;
+        errval_t err = aos_rpc_process_get_name(get_init_rpc(), pid, &rname);
+        if (err == SPAWN_ERR_PID_NOT_FOUND) {
+            break;
+        }else if(err_is_fail(err)){
             DEBUG_ERR(err, "Something went wrong \n");
         }
-
-        for (int i = 0; i < pid_count; i++) {
-            if(pid == pids[i]){
-                pid_still_exists = true;
-            }
-        }
         thread_yield();
-    } while (pid_still_exists);
+    } while (1);
+    
 }
 
 /*

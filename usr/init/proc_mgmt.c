@@ -38,7 +38,7 @@ errval_t process_pid2name(domainid_t pid, char **retname)
     if (err_is_fail(err)) {
         if (err == SPAWN_ERR_PID_NOT_FOUND) {
             // doesn't exist!
-            *retname = "";
+            return SPAWN_ERR_PID_NOT_FOUND;
         } else {
             DEBUG_ERR(err, "error when looking for pid in process_pid2name");
             return err;

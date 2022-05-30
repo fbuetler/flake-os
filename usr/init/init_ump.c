@@ -65,7 +65,9 @@ void aos_ump_receive_listener(struct aos_ump *ump)
 
             domainid_t pid = *(domainid_t *)payload;
             err = process_pid2name(pid, &name);
-            if (err_is_fail(err)) {
+            if(err == SPAWN_ERR_PID_NOT_FOUND){
+                name = "";
+            }else if (err_is_fail(err)) {
                 DEBUG_PRINTF("failed to process pid2name request!\n");
                 continue;
             }

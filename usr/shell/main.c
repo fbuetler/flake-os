@@ -32,6 +32,7 @@ int num_builtins(void) {
     return sizeof(builtin_str) / sizeof(char *);
 }
 
+__attribute__((unused))
 static void handle_input(void) {
     errval_t err;
     char c;
@@ -134,9 +135,9 @@ int main(int argc, char *argv[])
     shell_state.exit = false;
 
     DEBUG_PRINTF("shell started \n");
-
     do {
         handle_input();
     } while (!shell_state.exit);
+
 
 }
