@@ -11,4 +11,10 @@ void kill(char *args);
 void run_bg(char *args);
 void run_fg(char *args);
 
+void pwd(char *args);
+void cd(char *args);
+void ls(char *args);
+
+char *curr_fs_path;
+
 #endif

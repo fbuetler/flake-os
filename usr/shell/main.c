@@ -4,6 +4,7 @@
 
 #include <time.h>
 #include <sys/stat.h>
+#include <fs/fs.h>
 
 #include "builtins.h"
 #include "helper.h"
@@ -15,7 +16,10 @@ char *builtin_str[] = {
     "ps",
     "kill",
     "run_bg",
-    "run_fg"
+    "run_fg",
+    "ls",
+    "pwd",
+    "cd"
 };
 
 void (*builtin_func[]) (char *) = {
@@ -25,11 +29,21 @@ void (*builtin_func[]) (char *) = {
     &ps,
     &kill,
     &run_bg,
-    &run_fg
+    &run_fg,
+    &ls,
+    &pwd,
+    &cd
 };
 
 int num_builtins(void) {
     return sizeof(builtin_str) / sizeof(char *);
+}
+
+static void write_shell_prompt(void) {
+    write_str("[\e[32m");
+    write_str(curr_fs_path);
+    write_str("\e[0m]");
+    write_str("$ ");
 }
 
 __attribute__((unused))
@@ -39,7 +53,7 @@ static void handle_input(void) {
     //unsigned long start_time = 0;
     struct timespec start_time, end_time;
 
-    write_str("> ");
+    write_shell_prompt();
     do {
         err = aos_rpc_serial_getchar(shell_state.serial_rpc, &c);
 
@@ -100,7 +114,7 @@ static void handle_input(void) {
                         clock_gettime(CLOCK_MONOTONIC, &end_time);
                         printf("elapsed: %ldus\n", (end_time.tv_sec - start_time.tv_sec) * 1000000 + (end_time.tv_nsec - start_time.tv_nsec) / 1000);
                     }
-                    write_str("> ");
+                    write_shell_prompt();
                 }
 
             } else if(c == 8 || c == 127) {
@@ -114,7 +128,7 @@ static void handle_input(void) {
                 if(shell_state.buffer_count >= RECV_BUFFER_SIZE-1) {
                     write_str("\n");
                     write_str("Command too long!\n");
-                    write_str("> ");
+                    write_shell_prompt();
                     shell_state.buffer_count = 0;
                 } else {
                     shell_state.line_buffer[shell_state.buffer_count++] = c;
@@ -133,6 +147,10 @@ int main(int argc, char *argv[])
     shell_state.init_rpc = aos_rpc_get_init_channel();
     shell_state.buffer_count = 0;
     shell_state.exit = false;
+
+    curr_fs_path = strdup(FS_MOUNTPOINT);
+
+    filesystem_init();
 
     DEBUG_PRINTF("shell started \n");
     do {

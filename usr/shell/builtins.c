@@ -4,6 +4,9 @@
 #include <aos/aos_rpc.h>
 #include <aos/aos.h>
 #include <aos/deferred.h>
+#include <fs/dirent.h>
+#include <collections/path_list.h>
+
 
 void help(char *args) {
     write_str("Available commands:\n");
@@ -14,6 +17,82 @@ void help(char *args) {
     write_str("time: measure the runtime of a command\n");
     write_str("run_fg: run a process in the foreground\n");
     write_str("run_bg: run a process in the background\n");
+}
+
+static bool fs_path_exists(char *clean_path){
+    fs_dirhandle_t dh;
+    errval_t err = opendir(clean_path, &dh);
+    if(err_is_fail(err)){
+        return false;
+    }
+
+    closedir(dh);
+    return true;
+}
+
+static void write_no_such_dir(char *dir_path){
+    write_str("cd: no such directory exists: ");
+    write_str(curr_fs_path);
+    write_str("\n");
+}
+
+void cd(char *args){
+    if(args[0] != '/'){
+        // concat curr_fs_path with args
+        char *new_path = malloc(strlen(curr_fs_path) + 1 + strlen(args) + 1);
+        strcpy(new_path, curr_fs_path);
+        strcat(new_path, "/");
+        strcat(new_path, args);
+
+        char *cleaned_path = clean_path(new_path);
+        free(new_path);
+
+        debug_printf("clean path: %s\n", cleaned_path);
+
+        if(!fs_path_exists(cleaned_path)){
+            write_no_such_dir(cleaned_path);
+            free(cleaned_path);
+        }else{
+            free(curr_fs_path);
+            curr_fs_path = cleaned_path;
+        }
+    }else{
+        // absolute path
+        char *new_path = clean_path(args);
+        
+        // check if path exists
+        if(fs_path_exists(new_path)){
+            free(curr_fs_path);
+            curr_fs_path = new_path;
+        }else{
+            write_no_such_dir(new_path);
+            free(new_path);
+        }
+
+        free(new_path);
+    }
+}
+
+void pwd(char *args){
+    printf("%s\n", curr_fs_path);
+}
+
+void ls(char *args){
+
+    fs_dirhandle_t dh;
+    errval_t err = opendir(curr_fs_path, &dh);
+    do {
+        char *name;
+        err = readdir(dh, &name);
+        if (err_no(err) == FS_ERR_INDEX_BOUNDS) {
+            break;
+        } else if (err_is_fail(err)) {
+            break;
+        }
+        printf("%s\n", name);
+    } while(err_is_ok(err));
+
+    closedir(dh);
 }
 
 void kill(char *args) {

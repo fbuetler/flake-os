@@ -91,7 +91,7 @@ errval_t aos_process_service_lookup(char *payload, size_t bytes, service_info_t 
     //DEBUG_PRINTF("Looking for service %s\n", payload);
     err = find_name(payload, retinfo);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not find service with name %s", payload);
+        //DEBUG_ERR(err, "Could not find service with name %s", payload);
         return err_push(err, LIB_ERR_NAMESERVICE_LOOKUP);
     }
 

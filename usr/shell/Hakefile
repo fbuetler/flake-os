@@ -14,6 +14,6 @@
   {
     target = "shell",
     cFiles = [ "main.c", "builtins.c", "helper.c"],
-    addLibraries = [ "grading", "pl011", "gic_dist", "lpuart"]
+    addLibraries = [ "grading", "pl011", "gic_dist", "lpuart", "fs" ]
   }
 ]

@@ -579,7 +579,7 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         errval_t err = aos_process_service_register(lmp->recv_msg->payload,
                                                     lmp->recv_msg->payload_bytes);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Failed to process the service registration message.");
+            //DEBUG_ERR(err, "Failed to process the service registration message.");
             err = err_push(err, LIB_ERR_NAMESERVICE_REGISTER);
         }
         aos_lmp_send_errval_response(lmp, err);
@@ -590,7 +590,7 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         errval_t err = aos_process_service_lookup(lmp->recv_msg->payload,
                                                   lmp->recv_msg->payload_bytes, &info);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Failed to process the service lookup message.");
+            //DEBUG_ERR(err, "Failed to process the service lookup message.");
             aos_lmp_send_errval_response(lmp, err_push(err, LIB_ERR_NAMESERVICE_REGISTER));
             break;
         }

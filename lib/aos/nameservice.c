@@ -277,7 +277,7 @@ errval_t nameservice_lookup(const char *name, nameservice_chan_t *nschan)
 
     if (response.type == AosRpcErrvalResponse) {
         err = *(errval_t *)response.payload;
-        DEBUG_ERR(err, "Failure looking up service at nameservice");
+        //DEBUG_ERR(err, "Failure looking up service at nameservice");
         return err;
     } else if (response.type != AosRpcNsLookupResponse) {
         DEBUG_PRINTF("Expected message of type AosRpcNsLookupResponse or "

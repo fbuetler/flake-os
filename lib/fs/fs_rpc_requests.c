@@ -326,7 +326,6 @@ errval_t aos_rpc_fs_opendir(nameservice_chan_t chan, const char *path,
 
     err = response->err;
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to open dir");
         return err_push(err, FS_ERR_MKDIR);
     }
 

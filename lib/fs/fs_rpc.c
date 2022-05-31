@@ -323,7 +323,9 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         FS_LOCK;
         response->err = fat32fs_opendir(0, path, &handle);
         FS_UNLOCK;
-        response->handle = *handle;
+        if(handle){
+            response->handle = *handle;
+        }
         SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_opendir_response));
         free(path);
         return;
