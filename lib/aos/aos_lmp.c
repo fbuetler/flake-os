@@ -45,6 +45,8 @@ void aos_process_number(struct aos_lmp *lmp)
     grading_rpc_handle_number(number);
     DEBUG_PRINTF("received number: %d\n", number);
 
+    aos_lmp_recv_msg_free(lmp);
+
     // create response with ram cap
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
@@ -73,8 +75,8 @@ void aos_process_string(struct aos_lmp *lmp)
 {
     grading_rpc_handler_string(lmp->recv_msg->payload);
     DEBUG_PRINTF("received string: %s\n", lmp->recv_msg->payload);
-    // TODO still required?
-    // free(msg);
+
+    aos_lmp_recv_msg_free(lmp);
 
     size_t payload_size = 0;
     struct aos_lmp_msg *reply;
@@ -100,6 +102,8 @@ static errval_t aos_rpc_process_lmp_bind(struct aos_lmp *lmp)
 
     struct aos_lmp_msg *msg = lmp->recv_msg;
     struct capref client_ep_cap = msg->cap;
+
+    aos_lmp_recv_msg_free(lmp);
 
     // DEBUG_PRINTF("Allocating new RPC\n");
     struct aos_lmp *new = malloc(sizeof(struct aos_lmp));
@@ -152,6 +156,8 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         response.cap = NULL_CAP;
         aos_rpc_process_client_request(&request, &response);
 
+        aos_lmp_recv_msg_free(lmp);
+
         // DEBUG_PRINTF("Done handling client request\n");
         struct aos_lmp_msg *ret_msg;
         aos_lmp_create_msg(lmp, &ret_msg, AosRpcServerResponse, response.bytes,
@@ -161,13 +167,12 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         break;
     }
     default:
+        aos_lmp_recv_msg_free(lmp);
         DEBUG_PRINTF("received unknown message type %d, server only handles client "
                      "requests\n",
                      msg_type);
         break;
     }
-
-    aos_lmp_msg_free(lmp);
 
     return SYS_ERR_OK;
 }
@@ -183,6 +188,7 @@ errval_t aos_lmp_event_handler(struct aos_lmp *lmp)
     switch (msg_type) {
     case AosRpcHandshake:
         aos_process_handshake(lmp->recv_msg);
+        aos_lmp_recv_msg_free(lmp);
         break;
     case AosRpcSendNumber:
         aos_process_number(lmp);
@@ -196,11 +202,11 @@ errval_t aos_lmp_event_handler(struct aos_lmp *lmp)
     case AosRpcGetAllPidsResponse:
         break;
     default:
+        aos_lmp_recv_msg_free(lmp);
         DEBUG_PRINTF("message type %d is not handled by init server channel\n", msg_type);
         break;
     }
 
-    aos_lmp_msg_free(lmp);
 
     return SYS_ERR_OK;
 }
@@ -234,23 +240,21 @@ static errval_t aos_lmp_recv_msg_handler(void *args)
  *
  * @param lmp pointer to the LMP channel instance
  */
-void aos_lmp_msg_free(struct aos_lmp *lmp)
+void aos_lmp_recv_msg_free(struct aos_lmp *lmp)
 {
-    lmp->recv_bytes = 0;
-
     if (lmp->use_dynamic_buf) {
         free(lmp->recv_msg);
     }
 
+    lmp->recv_bytes = 0;
     lmp->recv_msg = NULL;
 }
 
-__attribute__((unused)) static char STATIC_RPC_RECV_MSG_BUF[4096];
 /**
  * @brief Helper function which extracts the first LMP message
  *        If the LMP channel uses a dynamic buffer, then the message is malloced
  *        and needs to be freed. Otherwise, a static buffer is used.
- *        A message should be freed using aos_lmp_msg_free.
+ *        A message should be freed using aos_lmp_recv_msg_free.
  *
  * @param lmp
  * @param msg_cap

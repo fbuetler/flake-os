@@ -102,7 +102,7 @@ errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp* lmp, struct aos_lmp_msg
 /**
  * @brief Helper function to free an LMP message
  */
-void aos_lmp_msg_free(struct aos_lmp *lmp);
+void aos_lmp_recv_msg_free(struct aos_lmp *lmp);
 
 /**
  * @brief Asynchronously send a message

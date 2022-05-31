@@ -41,6 +41,7 @@ void aos_process_ram_cap_request(struct aos_lmp *lmp)
     // alloc ram
     struct capref ram_cap;
     err = ram_alloc_aligned(&ram_cap, req->bytes, req->alignment);
+    aos_lmp_recv_msg_free(lmp);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "ram_alloc in ram cap request failed");
         return;
@@ -84,6 +85,7 @@ void aos_process_spawn_request(struct aos_lmp *lmp)
 
     char *module = (char *)(destination_core_ptr + 1);
 
+
     // grading
     grading_rpc_handler_process_spawn(module, destination_core);
 
@@ -101,6 +103,7 @@ void aos_process_spawn_request(struct aos_lmp *lmp)
 
         err = aos_ump_call(ump, AosRpcSpawnRequest, module, strlen(module), &type,
                            &payload, &len);
+        aos_lmp_recv_msg_free(lmp);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "couldn't relay spawn request over UMP!\n");
             return;
@@ -111,6 +114,7 @@ void aos_process_spawn_request(struct aos_lmp *lmp)
         DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
     } else {
         err = process_spawn_request(module, &pid);
+        aos_lmp_recv_msg_free(lmp);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to start spawn process");
             return;
@@ -150,6 +154,7 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
         err = aos_ump_call(&aos_ump_client_chans[TERMINAL_SERVER_CORE],
                            AosRpcSerialWriteChar, lmp->recv_msg->payload, 1, &rtype,
                            &rpayload, &rlen);
+        aos_lmp_recv_msg_free(lmp);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to writechar on core %d over UMP relay\n",
                       TERMINAL_SERVER_CORE);
@@ -158,14 +163,15 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 
         assert(rtype == AosRpcSerialWriteCharResponse);
     } else {
-        // err = process_write_char_request(lmp->recv_msg->payload);
+        // grading
+        grading_rpc_handler_serial_putchar(*lmp->recv_msg->payload);
+
         err = serial_put_char(lmp, lmp->recv_msg->payload);
+        aos_lmp_recv_msg_free(lmp);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to writechar");
             return err;
         }
-        // grading
-        grading_rpc_handler_serial_putchar(*lmp->recv_msg->payload);
     }
 
     size_t payload_size = 0;
@@ -255,6 +261,7 @@ static void aos_process_pid2name_request(struct aos_lmp *lmp)
 
     domainid_t pid = *((domainid_t *)lmp->recv_msg->payload);
 
+
     // grading
     grading_rpc_handler_process_get_name(pid);
 
@@ -273,7 +280,7 @@ static void aos_process_pid2name_request(struct aos_lmp *lmp)
 
         err = aos_ump_call(ump, AosRpcPid2Name, lmp->recv_msg->payload,
                            sizeof(domainid_t), &type, &payload, &retsize);
-
+        aos_lmp_recv_msg_free(lmp);
         if (err_is_fail(err)) {
             assert(!"couldn't relay ump message for pid2name request");
         }
@@ -286,6 +293,7 @@ static void aos_process_pid2name_request(struct aos_lmp *lmp)
 
     } else {
         err = process_pid2name(pid, &name);
+        aos_lmp_recv_msg_free(lmp);
         if (err == SPAWN_ERR_PID_NOT_FOUND) {
             name = "";
         } else if (err_is_fail(err)) {
@@ -354,7 +362,7 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
     }
     err = spawn_get_process_by_pid(server_pid, &server_si);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to obtain server spawninfo\n");
+        DEBUG_ERR(err, "Failed to obtain server (pid %d) spawninfo\n", server_pid);
         err = err_push(err, SPAWN_ERR_FIND_PROC);
         goto unwind_si;
     }
@@ -377,6 +385,7 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
     }
 
 unwind_si:
+    aos_lmp_recv_msg_free(lmp);
     free(server_si);
 ret_msg:
     aos_lmp_send_errval_response(lmp, err);
@@ -390,6 +399,10 @@ static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
     struct aos_lmp_msg *msg = lmp->recv_msg;
     struct capref frame_cap = msg->cap;
 
+    coreid_t destination_core = *((coreid_t *)msg->payload);
+
+    aos_lmp_recv_msg_free(lmp);
+
     // struct capref cframe = msg->cap;
     err = lmp_chan_alloc_recv_slot(&lmp->chan);
     if (err_is_fail(err)) {
@@ -397,8 +410,6 @@ static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
         err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
         abort();
     }
-
-    coreid_t destination_core = *((coreid_t *)msg->payload);
 
     if (disp_get_core_id() == destination_core) {
         // bind to self
@@ -446,10 +457,13 @@ static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
 
 static errval_t aos_process_kill_request(struct aos_lmp *lmp)
 {
-    domainid_t *pid = (domainid_t *)lmp->recv_msg->payload;
     errval_t err;
 
-    spawn_kill_process(*pid);
+    domainid_t pid = *(domainid_t *)lmp->recv_msg->payload;
+
+    aos_lmp_recv_msg_free(lmp);
+
+    spawn_kill_process(pid);
 
     struct aos_lmp_msg *reply;
 
@@ -496,7 +510,8 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
 
     size_t payload_size = AOS_RPC_GET_ALL_PIDS_RESPONSE_LEN(nr_of_pids
                                                             + remote_nr_of_pids);
-    // XXX: somehow the size calculation is not correct but with this extra padding nothing bad happens
+    // XXX: somehow the size calculation is not correct but with this extra padding
+    // nothing bad happens
     struct get_all_pids_response *payload = calloc(0, payload_size + 64);
     if (!payload) {
         free(remote_pids);
@@ -576,8 +591,9 @@ errval_t init_process_msg(struct aos_lmp *lmp)
     case AosRpcNsRegister: {
         errval_t err = aos_process_service_register(lmp->recv_msg->payload,
                                                     lmp->recv_msg->payload_bytes);
+        aos_lmp_recv_msg_free(lmp);
         if (err_is_fail(err)) {
-            //DEBUG_ERR(err, "Failed to process the service registration message.");
+            // DEBUG_ERR(err, "Failed to process the service registration message.");
             err = err_push(err, LIB_ERR_NAMESERVICE_REGISTER);
         }
         aos_lmp_send_errval_response(lmp, err);
@@ -587,8 +603,9 @@ errval_t init_process_msg(struct aos_lmp *lmp)
         service_info_t *info;
         errval_t err = aos_process_service_lookup(lmp->recv_msg->payload,
                                                   lmp->recv_msg->payload_bytes, &info);
+        aos_lmp_recv_msg_free(lmp);
         if (err_is_fail(err)) {
-            //DEBUG_ERR(err, "Failed to process the service lookup message.");
+            // DEBUG_ERR(err, "Failed to process the service lookup message.");
             aos_lmp_send_errval_response(lmp, err_push(err, LIB_ERR_NAMESERVICE_REGISTER));
             break;
         }
@@ -616,7 +633,6 @@ errval_t init_process_msg(struct aos_lmp *lmp)
     }
     // DEBUG_PRINTF("init handled message of type: %d\n", msg_type);
 
-    aos_lmp_msg_free(lmp);
 
     return SYS_ERR_OK;
 }

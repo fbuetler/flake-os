@@ -78,18 +78,19 @@ errval_t aos_rpc_call(struct aos_rpc *rpc, struct aos_rpc_msg msg,
         memcpy(payload_buf, rpc->u.lmp.recv_msg->payload, retmsg->bytes);
         retmsg->payload = payload_buf;
 
-        // Now that we have copied everything we can clean up the received message
-        aos_lmp_msg_free(lmp);
-
         if (!capcmp(retmsg->cap, NULL_CAP)) {
             err = lmp_chan_alloc_recv_slot(&lmp->chan);
             if (err_is_fail(err)) {
+                aos_lmp_recv_msg_free(lmp);
                 free(payload_buf);
                 DEBUG_ERR(err, "failed to allocated receive slot");
                 err = err_push(err, LIB_ERR_LMP_ALLOC_RECV_SLOT);
                 return err;
             }
         }
+
+        // Now that we have copied everything we can clean up the received message
+        aos_lmp_recv_msg_free(lmp);
     } else {
         if (!capref_is_null(msg.cap)) {
             // TODO-refactor

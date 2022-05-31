@@ -90,7 +90,8 @@ static void paging_refill(struct paging_state *st)
 static void page_fault_exception_handler(enum exception_type type, int subtype,
                                          void *addr, arch_registers_state_t *regs)
 {
-    //DEBUG_PRINTF("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d , PC: %lx ===\n", addr, type, subtype, regs->named.pc);
+    // DEBUG_PRINTF("=== in page fault handler for addr: 0x%lx for type: %d, subtype: %d ,
+    // PC: %lx ===\n", addr, type, subtype, regs->named.pc);
     errval_t err;
 
     // DEBUG_PRINTF("page_fault_exception_handler stack: %p\n", regs->named.stack);
@@ -120,8 +121,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     } else {
         err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
 
-        DEBUG_PRINTF("fault at PC: 0x%lx\n", regs->named.pc);
-        USER_PANIC_ERR(err, "vadddr is way off limits");
+        USER_PANIC_ERR(err, "vadddr %p is way off limits, fault at PC: 0x%lx", (void *)vaddr, regs->named.pc);
         goto unlock;
     }
 
@@ -150,7 +150,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         DEBUG_ERR(err, "failed to allocate frame");
         goto unlock;
     }
-    
+
 
     if (allocated_bytes < BASE_PAGE_SIZE) {
         DEBUG_ERR(LIB_ERR_VREGION_PAGEFAULT_HANDLER, "allocated frame is not big "

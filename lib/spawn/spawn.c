@@ -992,7 +992,6 @@ void spawn_add_process(struct spawninfo *new_process)
         current = current->next;
     }
     current->next = new_process;
-    new_process->next = NULL;
     spawn_number_of_processes += 1;
     thread_mutex_unlock(&spawn_mutex);
 }
@@ -1124,6 +1123,7 @@ errval_t spawn_kill_process(domainid_t pid)
     }
     err = spawn_get_process_by_pid(pid, &process);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not find process with PID %d that should be killed", pid);
         thread_mutex_unlock(&spawn_mutex);
         return err;
     }
