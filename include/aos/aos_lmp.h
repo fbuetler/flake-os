@@ -18,7 +18,7 @@
 #include <aos/aos.h>
 #include <aos/aos_rpc_types.h>
 
-#define AOS_LMP_MSG_SIZE(payload_size) (sizeof(struct aos_lmp_msg) + (payload_size) + 1)
+#define AOS_LMP_MSG_SIZE(payload_size) (sizeof(struct aos_lmp_msg) + (payload_size))
 
 // forward declaration
 struct aos_lmp;

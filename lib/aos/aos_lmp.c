@@ -599,15 +599,14 @@ errval_t aos_lmp_create_msg_no_pagefault(struct aos_lmp *lmp, struct aos_lmp_msg
                                          void *payload, struct capref msg_cap,
                                          struct aos_lmp_msg *msg)
 {
-    size_t header_size = sizeof(struct aos_lmp_msg);
-    if (payload_size + header_size >= BASE_PAGE_SIZE) {
+    if (AOS_LMP_MSG_SIZE(payload_size) >= BASE_PAGE_SIZE) {
         return ERR_INVALID_ARGS;
     }
 
     lmp->use_dynamic_buf = false;
 
     msg->message_type = msg_type;
-    msg->header_bytes = header_size;
+    msg->header_bytes = sizeof(struct aos_lmp_msg);
     msg->payload_bytes = payload_size;
     msg->cap = msg_cap;
 
@@ -645,16 +644,15 @@ errval_t aos_lmp_create_msg(struct aos_lmp *lmp, struct aos_lmp_msg **ret_msg,
     }
 
     lmp->use_dynamic_buf = true;
-    size_t header_size = sizeof(struct aos_lmp_msg);
 
     struct aos_lmp_msg *msg = malloc(
-        ROUND_UP(header_size + payload_size, sizeof(uintptr_t)));
+        ROUND_UP(AOS_LMP_MSG_SIZE(payload_size), sizeof(uintptr_t)));
     if (!msg) {
         DEBUG_ERR(LIB_ERR_MALLOC_FAIL, "failed to allocate memory for lmp message");
         return LIB_ERR_MALLOC_FAIL;
     }
     msg->message_type = msg_type;
-    msg->header_bytes = header_size;
+    msg->header_bytes = sizeof(struct aos_lmp_msg);
     msg->payload_bytes = payload_size;
     msg->cap = msg_cap;
     memcpy(msg->payload, payload, payload_size);
