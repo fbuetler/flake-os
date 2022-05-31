@@ -56,8 +56,23 @@ enet_service_handle_icmp_send(struct enet_driver_state *st,
                                 icmp_send->seqno, icmp_send->data, icmp_send->bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send over ICMP socket");
-        return err;
     }
+
+    struct aos_socket_msg *msg = (struct aos_socket_msg *)malloc(
+        sizeof(struct aos_socket_msg));
+    if (!msg) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    DEBUG_PRINTF("ICMP send error: %d\n", err);
+
+    msg->type = AOS_NETWORK_RESPONSE;
+    msg->payload.icmp_send_resp = (struct aos_socket_msg_icmp_send_response) {
+        .err = err,
+    };
+
+    *response = msg;
+    *response_bytes = sizeof(struct aos_socket_msg);
 
     return SYS_ERR_OK;
 }

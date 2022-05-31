@@ -167,7 +167,7 @@ decided to set the ID to our process number to distinguish the responses. We
 also inspected how the real "ping" (i.e. the own installed on my laptop by my
 package manager) chooses its ID and interestingly, it's not the process ID but
 the value of a counter that increments with every "ping" instance. So, somehow,
-every "ping" instance knows how many instances it is.  If you every run the
+every "ping" instance knows how many instances it is.  If you ever run the
 "ping" command, you know that per default "ping" periodically send ICMP echo
 packets to the provided host and reports the latency for each one until it is
 terminated. As responses may arrive out of order, "ping" somehow needs to map
@@ -179,12 +179,20 @@ otherwise.  This was an interesting part of building the network stack, as
 "ping" is such a natural tool to use, one does not really think about its
 internals.
 
-% TODO
 With ICMP not knowing the concept of ports, we were also puzzled how we should
 actually provide a ping instance with incoming ICMP packets. As we see in the
-next section about UDP, every app has its socket with  ...
-
-% Talk about the bug: exactly one socket
+next section about UDP, every app has its socket with its own queue of incoming
+packets. In the case of UDP, it is clear that every process has its own socket
+and therefore it is straight forward on how the demultiplexing happens. In the
+case of ICMP, it was not that clear. First, we had exactly one socket with one
+queue that holds all incoming ICMP packets. But if we have two processes
+consuming from the same socket, then packets intended for one process may be
+consumed by the other, that simply ignores it and vice versa. So, we introduced
+a queue for each process that want to consume ICMP packets and hence every
+process gets every ICMP packet and has to do the demultiplexing in the process
+itself, as it is intended. This of course brings a lot of packet duplication
+with it. In the end we had also ICMP sockets like UDP socket, but here, they are
+not distinguished by port, but by the process ID. 
 
 \section{UDP}
 
