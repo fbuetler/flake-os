@@ -40,6 +40,7 @@ void run_fg(char *args) {
     }
 
     domainid_t pid;
+
     aos_rpc_process_spawn(get_init_rpc(), args, 0, &pid);
 
     do{
@@ -67,9 +68,11 @@ void ps(char *args) {
     domainid_t *pids;
     size_t pid_count;
     aos_rpc_process_get_all_pids(get_init_rpc(), &pids, &pid_count);
-    printf("pids count: %zu \n", pid_count);
+    printf("process count: %zu \n", pid_count);
     for (int i = 0; i < pid_count; i++) {
-        printf("received pid: 0x%x\n", pids[i]);
+        char *pname;
+        aos_rpc_process_get_name(get_init_rpc(), pids[i], &pname);
+        printf("0x%x: %s\n", pids[i], pname);
     }
     free(pids);
 }

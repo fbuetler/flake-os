@@ -320,7 +320,7 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
     DEBUG_PRINTF("getting remote pids...\n");
     struct aos_ump *ump = &aos_ump_client_chans[!disp_get_core_id()];
 
-    debug_printf("awaiting remote pids...\n");
+    DEBUG_PRINTF("awaiting remote pids...\n");
     aos_rpc_msg_type_t type;
     char *payload;
     size_t retsize;
@@ -486,22 +486,21 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
 
     // get remote pids
     size_t remote_nr_of_pids;
-    domainid_t remote_pids[0];
+    domainid_t *remote_pids;
 
-    /*
+    
     err = aos_get_remote_pids(&remote_nr_of_pids, &remote_pids);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not get the remote PIDs\n");
         return err;
     }
-     */
-
-    remote_nr_of_pids = 0;
+     
 
     size_t payload_size = sizeof(size_t) + nr_of_pids * sizeof(domainid_t)
                           + remote_nr_of_pids * sizeof(domainid_t);
     void *payload = malloc(payload_size);
     if (!payload) {
+        free(remote_pids);
         free(pids);
         return LIB_ERR_MALLOC_FAIL;
     }
@@ -527,6 +526,7 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
     }
 
 unwind: 
+    free(remote_pids);
     free(payload);
     free(pids);
 

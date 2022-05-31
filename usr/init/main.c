@@ -222,13 +222,13 @@ int main(int argc, char *argv[])
 
     DEBUG_PRINTF("init domain starting on core %" PRIuCOREID " (%s), invoked as:",
                  my_core_id, platform);
+
     for (int i = 0; i < argc; i++) {
         printf(" %s", argv[i]);
     }
     printf("\n");
 
     spawn_init();
-
     fflush(stdout);
 
     if (my_core_id == 0)

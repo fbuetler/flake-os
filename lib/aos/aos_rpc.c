@@ -440,20 +440,8 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
     //  TODO (M5): implement process id discovery
     errval_t err;
 
-    /*
-    size_t payload_size = 0;
-
-    char msg_buf[AOS_LMP_MSG_SIZE(payload_size)];
-
-    struct aos_lmp_msg *msg;
-    err = aos_lmp_create_msg_no_pagefault(&msg, AosRpcGetAllPids, payload_size, NULL,
-    NULL_CAP, (struct aos_lmp_msg*)msg_buf); if (err_is_fail(err)) { DEBUG_ERR(err,
-    "failed to create message"); return err;
-    }
-    */
-
     struct aos_rpc_msg request
-        = { .type = AosRpcGetAllPids, .payload = "h", .bytes = 1, .cap = NULL_CAP };
+        = { .type = AosRpcGetAllPids, .payload = NULL, .bytes = 0, .cap = NULL_CAP };
 
     struct aos_rpc_msg response;
 

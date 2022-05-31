@@ -51,13 +51,13 @@ void aos_ump_receive_listener(struct aos_ump *ump)
                 continue;
             }
 
-            debug_printf("responded to UmpSpawn\n");
+            DEBUG_PRINTF("responded to UmpSpawn\n");
             continue;
         }
         case AosRpcSpawnResponse: {
             DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
 
-            debug_printf("responded to UmpSpawnResponse\n");
+            DEBUG_PRINTF("responded to UmpSpawnResponse\n");
             continue;
         }
         case AosRpcPid2Name: {
@@ -78,7 +78,7 @@ void aos_ump_receive_listener(struct aos_ump *ump)
                 continue;
             }
 
-            debug_printf("responded to UmpPid2Name\n");
+            DEBUG_PRINTF("responded to UmpPid2Name\n");
             continue;
         }
         case AosRpcGetAllPids: {
@@ -97,7 +97,7 @@ void aos_ump_receive_listener(struct aos_ump *ump)
                 DEBUG_PRINTF("failed to respond to get all pids!\n");
                 continue;
             }
-            debug_printf("responded to UmpGetAllPids\n");
+            DEBUG_PRINTF("responded to UmpGetAllPids\n");
             continue;
         }
         case AosRpcCpuOff: {
@@ -105,22 +105,22 @@ void aos_ump_receive_listener(struct aos_ump *ump)
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to turn cpu of");
             }
-            debug_printf("responded to UmpCpuOff\n");
+            DEBUG_PRINTF("responded to UmpCpuOff\n");
             continue;
         }
         case AosRpcPing: {
-            debug_printf("PING: (%d) %s\n", strlen(payload), payload);
+            DEBUG_PRINTF("PING: (%d) %s\n", strlen(payload), payload);
             payload = "pong";
             err = aos_ump_send(ump, AosRpcPong, payload, strlen(payload));
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to send message");
                 continue;
             }
-            debug_printf("responded to UmpPing\n");
+            DEBUG_PRINTF("responded to UmpPing\n");
             continue;
         }
         case AosRpcPong: {
-            debug_printf("PONG: %s\n", payload);
+            DEBUG_PRINTF("PONG: %s\n", payload);
             continue;
         }
         case AosRpcBind: {
@@ -152,7 +152,7 @@ void aos_ump_receive_listener(struct aos_ump *ump)
             char response_payload[1];
             aos_ump_send(ump, AosRpcBindReponse, response_payload, 1);
 
-            debug_printf("ump response has been sent\n");
+            DEBUG_PRINTF("ump response has been sent\n");
 
             continue;
         }
