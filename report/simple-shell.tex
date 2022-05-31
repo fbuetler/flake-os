@@ -1,8 +1,8 @@
 \chapter{Simple shell and Power Management}
 
-\section{Ouput}
+\section{Output}
 
-When someone want to print a character, we wait until the graphical device is
+When someone wants to print a character, we wait until the graphical device is
 ready and then we send it to make it appear on the screen.
 
 \section{Input}
@@ -15,7 +15,7 @@ resulting in bad performance.
 
 \section{Simple shell}
 
-Implementing a simple shell requires to stores every character that is entered
+Implementing a simple shell requires to store every character that is entered
 until the return key is pressed. This is done in a char array. The char array
 allow a max input of 255 characters as a first choice.  Once the return key is
 entered, the string (stored in the char array) is terminated and evaluated. If
@@ -38,6 +38,6 @@ entity number" i.e. 4. I also had a bug that confused me for a while but it
 turned out, I was just so focused on getting the value right that I forgot to
 call the "smc" assembly function, therefore the value in the register was never
 evaluated.  The difference of shutdown and reboot is just an offset of 1 of the
-value stored in the register.  Most challening part of this task was to
+value stored in the register.  Most challenging part of this task was to
 understand the specification correctly and getting the assembly instructions
 right.
