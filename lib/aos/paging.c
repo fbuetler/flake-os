@@ -108,7 +108,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
     mm_tracker_t *vspace_tracker;
     if (vaddr < VREADONLY_OFFSET) {
         err = LIB_ERR_PAGING_MAP_UNUSABLE_VADDR;
-        DEBUG_PRINTF("fault at PC: 0x%lx\n", regs->named.pc);
+        debug_printf("fault at PC: 0x%lx\n", regs->named.pc);
         USER_PANIC_ERR(err, "vadddr is in the forbidden area: %p", (void *)vaddr);
         return;
     } else if (vaddr < VHEAP_OFFSET) {

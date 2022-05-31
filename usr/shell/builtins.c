@@ -59,7 +59,10 @@ void cd(char *args){
     }else{
         // absolute path
         char *new_path = clean_path(args);
-        
+        if(!new_path){
+            write_no_such_dir(args);
+            return;
+        }
         // check if path exists
         if(fs_path_exists(new_path)){
             free(curr_fs_path);
@@ -69,7 +72,6 @@ void cd(char *args){
             free(new_path);
         }
 
-        free(new_path);
     }
 }
 

@@ -108,6 +108,9 @@ char *clean_path(const char *path)
 {
     struct path_list_node *path_list = get_path_list(path);
     if (path_list == NULL) {
+        if(strcmp(path, "/") == 0){
+            return strdup("/");
+        }
         return NULL;
     }
 
