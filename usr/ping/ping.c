@@ -75,8 +75,16 @@ int main(int argc, char *argv[])
     for (int i = 0; i < count; i++) {
         // send icmp echo
         // debug_printf("Send ping %d\n", i);
-        err = aos_icmp_socket_send(sock, ip, ICMP_ECHO, (uint16_t)pid, i, payload,
-                                   strlen(payload));
+
+        size_t retries = 0;
+        size_t max_retries = 128;
+        do {
+            err = aos_icmp_socket_send(sock, ip, ICMP_ECHO, (uint16_t)pid, i, payload,
+                                       strlen(payload));
+            retries++;
+            thread_yield();
+            barrelfish_usleep(10 * 1000);
+        } while (err == ENET_ERR_ARP_RESOLUTION && retries < max_retries);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to send ICMP echo %d", i);
             continue;

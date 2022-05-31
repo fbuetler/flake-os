@@ -84,6 +84,10 @@ struct aos_socket_msg_icmp_send_request {
     char data[0];
 };
 
+struct aos_socket_msg_icmp_send_response {
+    errval_t err;
+};
+
 struct aos_socket_msg_icmp_recv_request {
     uint16_t pid;
 };
@@ -115,7 +119,7 @@ union aos_socket_msg_payload {
     struct aos_socket_msg_icmp_destroy_request icmp_destroy_req;
     struct aos_socket_msg_empty icmp_destroy_resp;
     struct aos_socket_msg_icmp_send_request icmp_send_req;
-    struct aos_socket_msg_empty icmp_send_resp;
+    struct aos_socket_msg_icmp_send_response icmp_send_resp;
     struct aos_socket_msg_icmp_recv_request icmp_recv_req;
     struct aos_socket_msg_icmp_recv_response icmp_recv_resp;
     struct aos_socket_msg_empty arp_table_req;

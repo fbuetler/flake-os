@@ -358,6 +358,19 @@ errval_t aos_icmp_socket_send(struct aos_icmp_socket *socket, ip_addr_t ip, uint
         return err;
     }
 
+    if (response_bytes == 0) {
+        return LIB_ERR_RPC_SEND;
+    }
+
+    struct aos_socket_msg *msg_resp = (struct aos_socket_msg *)response;
+    struct aos_socket_msg_icmp_send_response payload = msg_resp->payload.icmp_send_resp;
+
+    err = payload.err;
+    if (err_is_fail(err)) {
+        // DEBUG_ERR(err, "failed to send ICMP message");
+        return err;
+    }
+
     // free(payload);
     // free(icmp_send);
     // free(msg);
