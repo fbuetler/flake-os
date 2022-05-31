@@ -256,12 +256,14 @@ errval_t nameservice_lookup(const char *name, nameservice_chan_t *nschan)
 {
     errval_t err = SYS_ERR_OK;
 
-    char *name_copy = malloc(strlen(name) + 1);
-    name_copy = strncpy(name_copy, name, strlen(name));
+    size_t name_len = strlen(name) + 1;
+    char *name_copy = malloc(name_len);
+    name_copy = strncpy(name_copy, name, name_len);
+    assert(name_copy[name_len -1] == '\0');
 
     struct aos_rpc_msg request = { .type = AosRpcNsLookup,
                                    .payload = name_copy,
-                                   .bytes = strlen(name),
+                                   .bytes = name_len,
                                    .cap = NULL_CAP };
 
     struct aos_rpc *init_rpc = get_init_rpc();
