@@ -6,12 +6,12 @@ provides its physical memory address and size to the child core. The child core
 also maps this memory region into its address space, and now both core can
 access the same memory region.
 
-With this shared memory, both core, need to settle on a common communication
+With this shared memory, both cores, need to settle on a common communication
 protocol such that they understand each other.
 
 \section{Communication Protocol}
 
-Each core can acts as a server or a client, that means it may react on incoming
+Each core can acts as a server or a client. That means it may react on incoming
 messages or initiate messages to other cores.  We decided on having a
 consumer-producer queue mechanism to exchange messages between two cores, with
 the shared memory having the size of two base pages. 
@@ -43,7 +43,7 @@ the next message.
 \section{Message Format}
 
 Each message in our communication protocol is exactly 64 bytes, i.e. the size of
-a cache line. That is important, such that we don't need to flush e message to
+a cache line. That is important, such that we don't need to flush the message to
 the memory, but it is enough to have the message in the cache, for the other
 core to see it. This gives us a huge performance gain.
 
@@ -65,7 +65,7 @@ receiver, when it consumed the whole message.
 To send a message, we need to get our current offset into the ring buffer, i.e.
 a particular cache line. First, we check if the previously sent message over
 that cache line is marked as sent in its header. If that is not the case, then
-we filled the circular ring buffer completely and cannot send another messages
+we filled the circular ring buffer completely and cannot send another message
 until the receiver has consumed some messages. However, if the message is not
 marked as sent, but as received, then we can use this cache line to transmit
 another message. We copy the message into the cache line, mark it in its header
@@ -73,7 +73,7 @@ as sent, and update our offset into the ring buffer to point to the next cache
 line. The tricky part here is to deal with ARM's weak memory model. A weak
 memory model does not guarantee that stores from one core are observer by
 another core in the same order, that they are stored by the former. Luckily,
-there are barriers to enforce, exactly that.
+there are barriers to enforce exactly that.
 
 We need a barrier between checking for the message state and copying the message
 in the cache line to ensure that we first check the state being received before
