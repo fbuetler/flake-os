@@ -1,12 +1,56 @@
 \chapter{Virtual Memory}
 
-TODO
+\section{Introduction}
+What should a virual memory system provide? memory, safety, flexibility, efficiency
+The next sections will describe how we achieved these goals.
 
-% virtual memory layout: unusuable, readonly, heap, stacks (stack for each thread)
-% detecting null pointer references, mappings out of range, (guard page)
-% handle page faults from multiple threads
-% reserve a region but dont allocate it
-% dynamic stack allocation for threads
+\section{Memory Layout}
+Central to this milestone was coming up with a useful layout for the virtual memory. To this end
+we divided the virtual memory space available to user space (the lowest $2^48$ addresses on ARMv8)
+into an unusuable, a readonly, a heap, and
+a stack regions. The unusable region is the page with the lowest addresses -- basically everything
+that results in a segfault. Above that we have the readonly section where the code and all the static stuff %TODO: specify static stuff
+is mapped.
 
-% extra:
-% dynamic stack allocation
+The stack region grows down from the highest user space address. We made the design
+choice to reserve a fixed amount of memory for each thread. This allows us not to worry
+about stacks growing into each other and instead having a predictable stack overflow.
+Currently, this value is set at 1 GiB per stack (i.e. thread), which is sufficient for our devboard.
+However, for other platforms it can easily be increased as there is plenty of virtual memory.
+Since the number of threads in Barrelfish is limited (see threads.h, currently 256), we
+reserve the top 256 GiB for the stack region.
+
+The heap region starts after the readonly section, which ends after 512 GiB and stretches all the way
+up to the start (or rather end) of the stack region.
+
+\section{Allocating and Freeing Memory}
+In order to keep track of the address space, we reused our datastructure that we used to track
+RAM after some refactoring to have a common memory tracker interface. For each of the three usable
+regions described above we have a separate memory tracker to track which parts of the address space
+have already been reserved. This allows us to reuse all the implementations for allocating, splitting,
+and freeing of memory regions that we already had implemented for RAM.
+
+By separating the management of virtual addresses for these regions into separate memory trackers,
+we did not have to worry about the heap growing into the stack and vice-versa as the respective 
+memory tracker cannot hand out addresses for other regions than their own (given proper initialization).
+
+It is important to note that requesting memory using paging_alloc would only reserve a free region
+of virtual memory in the appropriate memory trackers. The behavior we settled on was that by default
+paging_alloc would find free virtual addresses in the heap region as a wrapper around
+paging_alloc_region where the caller can select from which memory region the free addresses should come.
+
+These reservations on free virtual addresses are by themselves not backed up by memory. This is only
+done once the memory has been accessed and a compulsory page fault has been taken.
+
+\section{Handling Page Faults}
+Once our system takes a page fault on a virtual address, the first thing the page fault handler does,
+is check which memory region the faulting address belongs to. If it belongs to the unsusable region
+it goes ahead and throws a segfault.
+
+\section{Dynamic Stack Extension}
+
+\section{Challenges}
+
+\section{Improvements}
+
+\section{Summary}
