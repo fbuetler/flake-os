@@ -612,8 +612,10 @@ errval_t waitset_chan_register_disabled(struct waitset *ws,
     chan->token = 0;
 
     // channel must not already be registered!
-    assert_disabled(chan->next == NULL && chan->prev == NULL);
-    assert_disabled(chan->state == CHAN_UNREGISTERED);
+    //assert_disabled(chan->next == NULL && chan->prev == NULL);
+    //assert_disabled(chan->state == CHAN_UNREGISTERED);
+
+
 
     // this is probably insane! :)
     // assert_disabled(closure.handler != NULL);
