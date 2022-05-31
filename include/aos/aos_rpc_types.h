@@ -57,4 +57,10 @@ struct ram_cap_request {
     size_t alignment;
 };
 
+#define AOS_RPC_GET_ALL_PIDS_RESPONSE_LEN(num_pids) (sizeof(struct get_all_pids_response) + sizeof(domainid_t[num_pids]))
+struct get_all_pids_response {
+    size_t num_pids;
+    domainid_t pids[0];
+};
+
 #endif

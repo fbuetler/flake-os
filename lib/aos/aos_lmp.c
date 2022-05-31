@@ -264,7 +264,7 @@ static errval_t aos_lmp_recv_first_msg(struct aos_lmp *lmp, struct capref msg_ca
     size_t total_bytes = tmp_msg->header_bytes + tmp_msg->payload_bytes;
 
     if (!lmp->use_dynamic_buf && total_bytes >= BASE_PAGE_SIZE) {
-        DEBUG_PRINTF("Message too large for static channel\n");
+        DEBUG_PRINTF("Message too large for static buffer\n");
         return ERR_INVALID_ARGS;
     }
 
@@ -402,9 +402,17 @@ static errval_t aos_lmp_recv_msg(struct aos_lmp *lmp)
 
 
     if (!lmp->is_busy) {
-        aos_lmp_recv_first_msg(lmp, msg_cap, &recv_buf);
+        err = aos_lmp_recv_first_msg(lmp, msg_cap, &recv_buf);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to receive first message part");
+            return err;
+        }
     } else {
-        aos_lmp_recv_followup_msg(lmp, &recv_buf);
+        err = aos_lmp_recv_followup_msg(lmp, &recv_buf);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to receive furter messag part");
+            return err;
+        }
     }
 
     if (lmp->recv_bytes < lmp->recv_msg->payload_bytes + lmp->recv_msg->header_bytes) {

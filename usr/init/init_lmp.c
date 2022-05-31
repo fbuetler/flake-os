@@ -280,15 +280,15 @@ static void aos_process_pid2name_request(struct aos_lmp *lmp)
 
         if (*payload != 0) {
             name = payload;
-        }else{
+        } else {
             name = "";
         }
 
     } else {
         err = process_pid2name(pid, &name);
-        if(err == SPAWN_ERR_PID_NOT_FOUND){
+        if (err == SPAWN_ERR_PID_NOT_FOUND) {
             name = "";
-        }else if (err_is_fail(err)) {
+        } else if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed pid2name\n");
             assert(!"local pid2name lookup failed");
         }
@@ -478,7 +478,6 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
     size_t nr_of_pids;
     domainid_t *pids;
     err = process_get_all_pids(&nr_of_pids, &pids);
-
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not get all the PIDs");
         return err;
@@ -487,29 +486,28 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
     // get remote pids
     size_t remote_nr_of_pids;
     domainid_t *remote_pids;
-
-    
     err = aos_get_remote_pids(&remote_nr_of_pids, &remote_pids);
     if (err_is_fail(err)) {
+        free(pids);
         DEBUG_ERR(err, "Could not get the remote PIDs\n");
         return err;
     }
-     
 
-    size_t payload_size = sizeof(size_t) + nr_of_pids * sizeof(domainid_t)
-                          + remote_nr_of_pids * sizeof(domainid_t);
-    void *payload = malloc(payload_size);
+
+    size_t payload_size = AOS_RPC_GET_ALL_PIDS_RESPONSE_LEN(nr_of_pids
+                                                            + remote_nr_of_pids);
+    // XXX: somehow the size calculation is not correct but with this extra padding nothing bad happens
+    struct get_all_pids_response *payload = calloc(0, payload_size + 64);
     if (!payload) {
         free(remote_pids);
         free(pids);
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    *(size_t *)payload = nr_of_pids + remote_nr_of_pids;
+    payload->num_pids = nr_of_pids + remote_nr_of_pids;
 
-    memcpy((char*)payload + sizeof(size_t), pids, nr_of_pids * sizeof(domainid_t));
-    memcpy((char*)payload + sizeof(size_t) + nr_of_pids * sizeof(domainid_t), remote_pids,
-           remote_nr_of_pids * sizeof(domainid_t));
+    memcpy(&payload->pids[0], pids, sizeof(domainid_t[nr_of_pids]));
+    memcpy(&payload->pids[nr_of_pids], remote_pids, sizeof(domainid_t[remote_nr_of_pids]));
 
     struct aos_lmp_msg *reply;
     err = aos_lmp_create_msg(lmp, &reply, AosRpcGetAllPidsResponse, payload_size,
@@ -525,7 +523,7 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
         goto unwind;
     }
 
-unwind: 
+unwind:
     free(remote_pids);
     free(payload);
     free(pids);

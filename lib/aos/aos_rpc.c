@@ -221,8 +221,8 @@ errval_t aos_rpc_get_ram_cap(struct aos_rpc *rpc, size_t bytes, size_t alignment
     char buf[AOS_LMP_MSG_SIZE(payload_size)];
 
     struct aos_lmp_msg *req;
-    err = aos_lmp_create_msg_no_pagefault(&rpc->u.lmp, &req, AosRpcRamCapRequest, payload_size,
-                                          (void *)&payload, NULL_CAP,
+    err = aos_lmp_create_msg_no_pagefault(&rpc->u.lmp, &req, AosRpcRamCapRequest,
+                                          payload_size, (void *)&payload, NULL_CAP,
                                           (struct aos_lmp_msg *)buf);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to create RAM cap request message");
@@ -365,7 +365,7 @@ errval_t aos_rpc_kill_process(struct aos_rpc *rpc, const domainid_t pid)
     errval_t err;
 
     struct aos_rpc_msg request = { .type = AosRpcKillRequest,
-                                   .payload = (void*)&pid,
+                                   .payload = (void *)&pid,
                                    .bytes = sizeof(domainid_t),
                                    .cap = NULL_CAP };
 
@@ -427,10 +427,10 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
  * @brief RPC call to get all process pids. pids is malloced and needs to be freed by caller
  *
  * @param lmp
- * @param pids 
+ * @param pids
  * @param pid_count
  * @return errval_t
- * 
+ *
  * @note The pointer to the buffer containing the pids needs to be freed by the caller.
  */
 errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
@@ -452,10 +452,16 @@ errval_t aos_rpc_process_get_all_pids(struct aos_rpc *rpc, domainid_t **pids,
         return err;
     }
 
-    *pid_count = *((size_t *)response.payload);
+    struct get_all_pids_response *resp = (struct get_all_pids_response *)response.payload;
+    *pid_count = resp->num_pids;
 
-    *pids = malloc(*pid_count * sizeof(domainid_t));
-    memcpy(*pids, response.payload + sizeof(size_t), *pid_count * sizeof(domainid_t));
+    *pids = malloc(sizeof(domainid_t[resp->num_pids]));
+    if (*pids == NULL) {
+        free(response.payload);
+        DEBUG_PRINTF("Failed to allocate buffer for pids\n");
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    memcpy(*pids, resp->pids, sizeof(domainid_t[resp->num_pids]));
 
     free(response.payload);
 
