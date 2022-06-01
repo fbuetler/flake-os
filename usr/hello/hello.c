@@ -33,9 +33,7 @@ int main(int argc, char *argv[])
 
     int *heap_variable = malloc(sizeof(int));
     *heap_variable = 42;
-    printf("heap variable: (%p, %d)\n", &heap_variable, *heap_variable);
-
-    barrelfish_usleep(4000000);
+    printf("heap variable: (%p, %d)\n", heap_variable, *heap_variable);
 
     DEBUG_PRINTF("hello terminated\n");
 
