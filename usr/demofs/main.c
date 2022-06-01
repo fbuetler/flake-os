@@ -30,7 +30,7 @@ char *buf1 = "aa";
 char *buf2 = "aa";
 
 static int thread_writer(void *buf){
-    printf("starting thread_writer\n");
+    debug_printf("starting thread_writer\n");
     FILE *f = fopen("/sdcard/test.txt", "w");
     assert(f);
     for(int i = 0; i < ITERS; i++){
@@ -45,7 +45,7 @@ static int thread_writer(void *buf){
 
 __attribute__((unused))
 static int thread_rm_while_open(void *st){
-    printf("starting thread_rm_while_open\n");
+    debug_printf("starting thread_rm_while_open\n");
     barrelfish_usleep(2 * 1000* 1000);
 
     errval_t err = rm("/sdcard/test.txt");
@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
     DEBUG_PRINTF("check_rm done!!\n");
 
     //check_rm_while_invalid();
-    check_concurrent_writers();
+    //check_concurrent_writers();
 
     
     printf("done\n");
