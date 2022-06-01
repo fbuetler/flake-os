@@ -453,8 +453,6 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
     errval_t err;
 
 
-
-
     DEBUG_TRACEF("load ELF binary\n");
     err = elf_load(EM_AARCH64, elf_allocate, &si->paging_state, binary, binary_size,
                    entry);
@@ -996,7 +994,7 @@ void spawn_add_process(struct spawninfo *new_process)
     }
     new_process->next = NULL;
     current->next = new_process;
-    
+
     spawn_number_of_processes += 1;
     thread_mutex_unlock(&spawn_mutex);
 }
@@ -1006,6 +1004,9 @@ void spawn_add_process(struct spawninfo *new_process)
  *
  * @param pid PID belonging to process to find
  * @param retinfo Store process info into this
+ *
+ * @note Do not free the returned spawninfo. This would corrupt the list of running
+ * processes, which in turn leads to nasty bugs.
  *
  * */
 errval_t spawn_get_process_by_pid(domainid_t pid, struct spawninfo **retinfo)

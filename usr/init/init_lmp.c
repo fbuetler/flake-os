@@ -362,7 +362,7 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
     domainid_t server_pid = *(domainid_t *)msg->payload;
 
     // DEBUG_PRINTF("Looking for server spawninfo with pid %d\n", server_pid);
-    struct spawninfo *server_si = malloc(sizeof(struct spawninfo));
+    struct spawninfo *server_si;
     if (server_si == NULL) {
         DEBUG_PRINTF("Failed to allocate server spawninfo\n");
         err = LIB_ERR_MALLOC_FAIL;
@@ -394,7 +394,6 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 
 unwind_si:
     aos_lmp_recv_msg_free(lmp);
-    // free(server_si);
 ret_msg:
     aos_lmp_send_errval_response(lmp, err);
 }
