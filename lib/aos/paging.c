@@ -166,8 +166,7 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
                                 VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         if (err == LIB_ERR_PMAP_EXISTING_MAPPING) {
-            DEBUG_PRINTF("@@@ handled page fault: was already mapped!\n");
-            goto unlock;
+            USER_PANIC("Cannot handle page fault, page already mapped. Segfault\n");
         }
         DEBUG_ERR(err, "failed to map frame");
         goto unlock;
