@@ -994,7 +994,9 @@ void spawn_add_process(struct spawninfo *new_process)
     while (current->next) {
         current = current->next;
     }
+    new_process->next = NULL;
     current->next = new_process;
+    
     spawn_number_of_processes += 1;
     thread_mutex_unlock(&spawn_mutex);
 }
@@ -1012,6 +1014,7 @@ errval_t spawn_get_process_by_pid(domainid_t pid, struct spawninfo **retinfo)
     struct spawninfo *current = &init_spawninfo;
 
     while (current) {
+        debug_printf("curr pid: %d %p\n", current->pid, current);
         if (current->pid == pid) {
             *retinfo = current;
             thread_mutex_unlock(&spawn_mutex);
