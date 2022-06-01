@@ -52,7 +52,7 @@ errval_t aos_rpc_fs_open(nameservice_chan_t chan, const char *path, int flags,
 
     err = response->err;
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to open file");
+        free(response);
         return err;
     }
 
@@ -60,6 +60,8 @@ errval_t aos_rpc_fs_open(nameservice_chan_t chan, const char *path, int flags,
         *rethandle = malloc(sizeof(struct fat32fs_handle));
         memcpy(*rethandle, &response->handle, sizeof(struct fat32fs_handle));
     }
+
+    free(response);
 
     return SYS_ERR_OK;
 }
@@ -83,6 +85,7 @@ errval_t aos_rpc_fs_create(nameservice_chan_t chan, const char *path, int flags,
 
     err = response->err;
     if (err_is_fail(err)) {
+        free(response);
         return err;
     }
 
@@ -91,6 +94,7 @@ errval_t aos_rpc_fs_create(nameservice_chan_t chan, const char *path, int flags,
         memcpy(*rethandle, &response->handle, sizeof(struct fat32fs_handle));
     }
 
+    free(response);
     return SYS_ERR_OK;
 }
 
@@ -109,8 +113,9 @@ errval_t aos_rpc_fs_close(nameservice_chan_t chan, fileref_id_t fid)
     }
 
     err = response->err;
+    free(response);
+
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to close file");
         return err;
     }
 
@@ -137,10 +142,10 @@ errval_t aos_rpc_fs_read(nameservice_chan_t chan, fileref_id_t fid, void *buf, s
 
         err = response->err;
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to read file");
+            free(response);
             return err;
         }
-
+        
         memcpy(buf, response->buf, read);
         DEBUG_PRINTF("read %zu bytes of total: %d\n", response->bytes, len);
         bytes_read += response->bytes;
@@ -148,8 +153,10 @@ errval_t aos_rpc_fs_read(nameservice_chan_t chan, fileref_id_t fid, void *buf, s
 
         if (response->bytes < read) {
             // EOF reached
+            free(response);
             break;
         }
+        free(response);
     }
 
     *retlen = bytes_read;
@@ -182,12 +189,14 @@ errval_t aos_rpc_fs_write(nameservice_chan_t chan, fileref_id_t fid, void *src_b
 
         err = response->err;
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to write file");
+            free(response);
             return err;
         }
 
         bytes_written += response->bytes;
         buf += response->bytes;
+
+        free(response);
     }
 
     if (ret_written) {
@@ -217,13 +226,15 @@ errval_t aos_rpc_fs_lseek(nameservice_chan_t chan, fileref_id_t fid, uint64_t of
     }
     err = response->err;
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to lseek file");
+        free(response);
         return err;
     }
 
     if (retpos) {
         *retpos = response->new_offset;
     }
+
+    free(response);
 
     return SYS_ERR_OK;
 }
@@ -245,8 +256,8 @@ errval_t aos_rpc_fs_dir_action(nameservice_chan_t chan, const char *path, bool i
     }
 
     err = response->err;
+    free(response);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to mkdir file");
         return err;
     }
 
@@ -261,13 +272,12 @@ errval_t aos_rpc_fs_rm(nameservice_chan_t chan, const char *path)
     SERVICE_GLUE_AND_SEND(chan, AosRpcFsRm, rm_request, path, strlen(path) + 1,
                           (void **)&response, NULL);
     if (err_is_fail(err)) {
-        DEBUG_PRINTF("error in file mkdir via RPC\n");
         return err;
     }
 
     err = response->err;
+    free(response);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to mkdir file");
         return err;
     }
 
@@ -289,13 +299,14 @@ errval_t aos_rpc_fs_opendir(nameservice_chan_t chan, const char *path,
 
     err = response->err;
     if (err_is_fail(err)) {
+        free(response);
         return err;
     }
 
     DEBUG_PRINTF("got a handle with fid %d\n", response->handle.fid);
     *rethandle = malloc(sizeof(struct fat32fs_handle));
     **rethandle = response->handle;
-
+    free(response);
     return SYS_ERR_OK;
 }
 
@@ -309,19 +320,22 @@ errval_t aos_rpc_fs_readdir(nameservice_chan_t chan, fileref_id_t fid,
     struct rpc_fs_readdir_response *response;
     SERVICE_SEND(chan, AosRpcFsReadDir, readdir_request, (void **)&response, NULL);
     if (err_is_fail(err)) {
-        DEBUG_PRINTF("error in file readdir via RPC\n");
         return err;
     }
     err = response->err;
     if (err_is_fail(err)) {
+        free(response);
         return err;
     }
     if (retfinfo) {
         *retfinfo = response->info;
     }
+
     if (retname) {
         *retname = strdup(response->name);
     }
+
+    free(response);
     return SYS_ERR_OK;
 }
 
@@ -339,10 +353,11 @@ errval_t aos_rpc_fs_fstat(nameservice_chan_t chan, fileref_id_t fid,
 
     err = response->err;
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to fstat file");
+        free(response);
         return err;
     }
     *retstat = response->info;
 
+    free(response);
     return SYS_ERR_OK;
 }
