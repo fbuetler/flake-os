@@ -167,11 +167,9 @@ static int fat32fs_rpc_libc_open(char *path, int flags)
             assert(err_no(err) == FS_ERR_NOTFOUND);
         }
 
-        debug_printf("creating new file!\n");
         err = aos_rpc_fs_create(fs_chan, path, flags, &vh);
-        DEBUG_ERR(err, "result for create\n");
         if (err_is_fail(err) && err == FS_ERR_EXISTS) {
-            DEBUG_PRINTF("opeeeen\n");
+            DEBUG_PRINTF("opened file\n");
             err = aos_rpc_fs_open(fs_chan, path, flags, &vh);
         }
 
