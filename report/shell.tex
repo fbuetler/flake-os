@@ -1,11 +1,76 @@
 \section{Shell}
 
 The shell is split into two modules, a serial server and the shell itself.
+The idea is that the shell should only require an interface to read/write and be completely decoupled form any hardware.
+That way, any IO device such as a network socket could be used without major modifications of the shell.
+
+\subsection{Shell}
+The core of the shell is a read, evaluate, execute loop.
+It repeatedly queries the serial server to get the next character and stores them in a list.
+Once a new line is encountered, it extracts the first whitespace separated substring and treats it as a command.
+The rest of the input is used as argument to the function associated with the command.
+The only exception is the \verb|time| command, which measures the time another command takes.
+If this command is encountered, the shell starts a timer, removes \verb|time| from the string, and continues the normal command parsing.
+After the call to the command finishes, the timer stops and the difference is printed.
+
+Commands are stored in an array:
+\begin{lstlisting}
+char *builtin_str[] = {
+    "help",
+    "exit",
+    "echo",
+}
+\end{lstlisting}
+
+The corresponding function must have the following following prototype: \verb|void func(char *arg);| and its function pointer
+is also stored in an array:
+
+\begin{lstlisting}
+void (*builtin_func[]) (char *) = {
+    &help,
+    &shell_exit,
+    &echo,
+};
+\end{lstlisting}
+
+With this setup commands are matched in a simple loop:
+
+\begin{lstlisting}
+for (int i = 0; i < num_builtins(); i++) {
+    if (strcmp(command, builtin_str[i]) == 0) {
+        builtin_func[i](strtok(NULL, ""));
+        command_exists = true;
+    }
+}
+\end{lstlisting}
+
+This system was taken from a blog post by Stephan Brennan \footnote{\url{https://brennan.io/2015/01/16/write-a-shell-in-c/}}.
+
+The state of the shell is stored in a struct and initialized on startup:
+
+\begin{lstlisting}
+#define RECV_BUFFER_SIZE 64
+
+struct shell_state {
+    bool exit; // flag to check if the shell should exit itself
+    char line_buffer[RECV_BUFFER_SIZE];
+    size_t buffer_count;
+    struct aos_rpc *serial_rpc;
+    struct aos_rpc *init_rpc;
+} shell_state;
+\end{lstlisting}
+
+\subsubsection{Improvements}
+There are several possible improvements for the current implementation of the shell.
+
+By changing the command function prototype to \verb|errval_t func(char *arg);|, it is possible to store the last return/error code.
+As we do not have a \emph{shell programming language} which can do work conditional on the return code, we did not implement this feature.
+
+
+
+
 
 \subsection{Serial Server}
 The serial server can be seen as a rudimentary TTY. It reads and writes through UART and buffers incoming characters.
 With only little modification multiple TTYs could be launched, each using a different UART port.
-
-
-\subsection{Shell}
 

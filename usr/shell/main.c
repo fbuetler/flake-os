@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
 
     filesystem_init();
 
-    DEBUG_PRINTF("shell started \n");
+    //DEBUG_PRINTF("shell started \n");
     do {
         handle_input();
     } while (!shell_state.exit);
