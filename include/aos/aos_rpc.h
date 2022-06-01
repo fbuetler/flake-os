@@ -13,7 +13,11 @@ struct aos_rpc {
     bool is_lmp;
 };
 
-errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_cap);
+/**
+ * \brief Initialize an LMP cahnnel
+ */
+errval_t aos_rpc_init(struct aos_rpc* rpc, struct capref remote_cap);
+
 void aos_rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan);
 void aos_rpc_init_from_lmp(struct aos_rpc *rpc, struct aos_lmp *chan);
 
