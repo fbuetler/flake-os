@@ -3,6 +3,7 @@
 #include <aos/aos.h>
 
 errval_t write_str(char *str);
+errval_t spawn_process(char *args, domainid_t *pid);
 
 #define RECV_BUFFER_SIZE 64
 

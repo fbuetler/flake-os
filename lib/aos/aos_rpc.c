@@ -1,6 +1,7 @@
 #include <aos/nameserver.h>
 #include <aos/aos_rpc.h>
 #include <serialio/serialio.h>
+#include <aos/deferred.h>
 
 /**
  * @brief Initializes an LMP channel in the RPC binding
@@ -292,29 +293,30 @@ errval_t aos_rpc_serial_getchar(struct aos_rpc *rpc, char *retc)
 {
     errval_t err;
 
-    struct aos_rpc_msg request
-        = { .type = AosRpcSerialReadChar, .payload = NULL, .bytes = 0, .cap = NULL_CAP };
-    struct aos_rpc_msg response;
+    //DEBUG_PRINTF("aos_rpc_serial_getchar called \n");
+    do {
+        struct aos_rpc_msg request
+            = { .type = AosRpcSerialReadChar, .payload = NULL, .bytes = 0, .cap = NULL_CAP };
+        struct aos_rpc_msg response;
 
-    err = aos_rpc_call(rpc, request, &response);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed serial putchar request");
-        return err;
-    }
+        err = aos_rpc_call(rpc, request, &response);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed serial putchar request");
+            return err;
+        }
 
-    struct serialio_response *serial_response
-        = (struct serialio_response *)response.payload;
+        struct serialio_response *serial_response = (struct serialio_response *)response.payload;
 
-    if (serial_response->response_type == SERIAL_IO_NO_DATA) {
+        if (serial_response->response_type == SERIAL_IO_SUCCESS) {
+            *retc = serial_response->c;
+            //DEBUG_PRINTF("success! %c \n", serial_response->c);
+            free(response.payload);
+            return SYS_ERR_OK;
+        }
+
         free(response.payload);
-        return LPUART_ERR_NO_DATA;
-    } else {
-        *retc = serial_response->c;
-        free(response.payload);
-    }
-
-
-    return err;
+        thread_yield();
+    } while (1);
 }
 
 errval_t aos_rpc_serial_putchar(struct aos_rpc *rpc, char c)
@@ -426,7 +428,7 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
         return err_push(err, LIB_ERR_RPC_CALL);
     }
 
-    DEBUG_PRINTF("Received spawn response\n");
+    //DEBUG_PRINTF("Received spawn response\n");
 
     if (response.type == AosRpcSpawnResponse) {
         domainid_t assigned_pid = *((domainid_t *)response.payload);

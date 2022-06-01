@@ -1153,7 +1153,7 @@ static int bootstrap_thread(struct spawn_domain_params *params)
         main_thread(params);
     } else {
         // Start real thread to run main()
-        DEBUG_PRINTF("running main on dynamic thread!\n");
+        //DEBUG_PRINTF("running main on dynamic thread!\n");
         struct thread *thread = thread_create(main_thread, params);
         assert(thread != NULL);
     }

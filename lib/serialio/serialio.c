@@ -34,24 +34,31 @@ struct serial_state {
 static void serial_interrupt_handler(void *arg) {
     thread_mutex_lock(&serial_state.lock); // buffer shouldn't be modified while it is being read
 
-    // read char, put it into buffer, wrap around if necessary
-    char c;
-    switch (serial_state.uart_type) {
-    case UART_QEMU:
-        pl011_getchar( serial_state.uart.pl011, &c);
-        break;
-    case UART_TORADEX:
-        lpuart_getchar(serial_state.uart.lpuart, &c);
-        break;
-    }
+    errval_t err;
+    // if an interrupt is triggered, it's possible that multiple chars are in the buffer
+    do {
+        // read char, put it into buffer, wrap around if necessary
+        char c;
+        switch (serial_state.uart_type) {
+        case UART_QEMU:
+            err = pl011_getchar(serial_state.uart.pl011, &c);
+            break;
+        case UART_TORADEX:
+            err = lpuart_getchar(serial_state.uart.lpuart, &c);
+            break;
+        }
 
-    if(!serial_state.empty && serial_state.next_read == serial_state.next_write) {
-       serial_state.next_read = (serial_state.next_read+1)%SERIAL_BUFFER_SIZE;
-    }
+        if(err == LPUART_ERR_NO_DATA )
+            break;
 
-    serial_state.buffer[serial_state.next_write++] = c;
-    serial_state.next_write %= SERIAL_BUFFER_SIZE;
-    serial_state.empty = false;
+        if (!serial_state.empty && serial_state.next_read == serial_state.next_write) {
+            serial_state.next_read = (serial_state.next_read + 1) % SERIAL_BUFFER_SIZE;
+        }
+
+        serial_state.buffer[serial_state.next_write++] = c;
+        serial_state.next_write %= SERIAL_BUFFER_SIZE;
+        serial_state.empty = false;
+    } while (1);
 
     thread_mutex_unlock(&serial_state.lock);
 }

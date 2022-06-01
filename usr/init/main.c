@@ -113,11 +113,11 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "failed to spawn lpuart driver");
     }
 
-
+    /*
     err = spawn_sdhc_driver(NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn sdhc driver");
-    }
+    } */
 
 
     err = spawn_enet_driver(NULL);

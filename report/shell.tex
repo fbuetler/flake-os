@@ -61,13 +61,13 @@ struct shell_state {
 \end{lstlisting}
 
 \subsubsection{Improvements}
-There are several possible improvements for the current implementation of the shell.
+There are several possible improvements to the current implementation of the shell.
 
 By changing the command function prototype to \verb|errval_t func(char *arg);|, it is possible to store the last return/error code.
 As we do not have a \emph{shell programming language} which can do work conditional on the return code, we did not implement this feature.
 
-
-
+Instead of pooling new characters from the serial server, an alternative would be to register a callback function from the shell to the serial server.
+This way, the interrupts get propagated to all the subscribers.
 
 
 \subsection{Serial Server}

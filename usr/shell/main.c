@@ -58,16 +58,17 @@ static void write_shell_prompt(void) {
 
 __attribute__((unused))
 static void handle_input(void) {
-    errval_t err;
+    //errval_t err;
     char c;
     //unsigned long start_time = 0;
     struct timespec start_time, end_time;
 
     write_shell_prompt();
     do {
-        err = aos_rpc_serial_getchar(shell_state.serial_rpc, &c);
-
-        if(err == SYS_ERR_OK) {
+        //err = aos_rpc_serial_getchar(shell_state.serial_rpc, &c);
+        c = getchar();
+        //DEBUG_PRINTF("recieved char: %c   %d\n", c, c);
+        if(true) {
             if (c == 4 || c == 10 || c == 13) {
                 // 4: EOT, 10: NL, 13: CR
                 /* Enter is pressed. Parse the line and execute the command */
@@ -146,7 +147,6 @@ static void handle_input(void) {
                 }
             }
         }
-        thread_yield(); // cooperative multitasking. Yield control to let other processes make progress, such as the serial_io library
     } while (!shell_state.exit);
 
 }
@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
 
     curr_fs_path = strdup(FS_MOUNTPOINT);
 
-    filesystem_init();
+    //filesystem_init();
 
     //DEBUG_PRINTF("shell started \n");
     do {
