@@ -148,12 +148,12 @@ int main(int argc, char *argv[])
 {
     filesystem_init();
 
-    benchmark_rw();
+    //benchmark_rw();
 
     DEBUG_PRINTF("check_rm done!!\n");
 
     //check_rm_while_invalid();
-    //check_concurrent_writers();
+    check_concurrent_writers();
 
     
     printf("done\n");
