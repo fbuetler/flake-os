@@ -452,6 +452,9 @@ static errval_t spawn_load_elf_binary(struct spawninfo *si, lvaddr_t binary,
 {
     errval_t err;
 
+
+
+
     DEBUG_TRACEF("load ELF binary\n");
     err = elf_load(EM_AARCH64, elf_allocate, &si->paging_state, binary, binary_size,
                    entry);
