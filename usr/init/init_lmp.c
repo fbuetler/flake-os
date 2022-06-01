@@ -154,7 +154,6 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 {
     errval_t err;
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
-        assert(false);
         // send to serial driver on the terminal server core
         aos_rpc_msg_type_t rtype;
         char *rpayload;

@@ -8,6 +8,8 @@
 #include "init_lmp.h"
 #include "nameserver/server.h"
 
+#include <serialio/serialio.h>
+
 #include <aos/aos.h>
 #include <aos/core_state.h>
 #include <aos/capabilities.h>
@@ -80,11 +82,11 @@ void aos_ump_receive_listener(struct aos_ump *ump)
                 continue;
             }
 
-            DEBUG_PRINTF("responded to UmpPid2Name\n");
+            //DEBUG_PRINTF("responded to UmpPid2Name\n");
             continue;
         }
         case AosRpcGetAllPids: {
-            DEBUG_PRINTF("got a getallpids request\n");
+            //DEBUG_PRINTF("got a getallpids request\n");
             size_t nr_of_pids;
             domainid_t *pids;
             err = process_get_all_pids(&nr_of_pids, &pids);
@@ -165,7 +167,8 @@ void aos_ump_receive_listener(struct aos_ump *ump)
             return;
         }
         case AosRpcSerialWriteChar: {
-            err = process_write_char_request((char *)payload);
+            err = serial_put_char(NULL, payload);
+
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to write char to serial\n");
                 continue;
