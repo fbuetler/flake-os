@@ -386,7 +386,7 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 
 unwind_si:
     aos_lmp_recv_msg_free(lmp);
-    free(server_si);
+    //free(server_si);
 ret_msg:
     aos_lmp_send_errval_response(lmp, err);
 }
@@ -618,7 +618,6 @@ errval_t init_process_msg(struct aos_lmp *lmp)
             aos_lmp_send_errval_response(lmp, err);
             break;
         }
-
         aos_lmp_send_msg(lmp, resp);
         free(resp);
 
