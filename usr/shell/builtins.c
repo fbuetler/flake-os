@@ -19,6 +19,13 @@ void help(char *args)
     write_str("time: measure the runtime of a command\n");
     write_str("run_fg: run a process in the foreground\n");
     write_str("run_bg: run a process in the background\n");
+    write_str("cd: change directory\n");
+    write_str("mkdir: create directory\n");
+    write_str("rm: remove file\n");
+    write_str("rmdir: remove directory\n");
+    write_str("cat: print file content\n");
+    write_str("fwrite [fname] [str]: writes [str] into [fname]\n");
+    write_str("ls: list directory\n");
 }
 
 static bool fs_path_exists(char *clean_path)
@@ -300,6 +307,7 @@ void run_fg(char *args)
         } else if (err_is_fail(err)) {
             DEBUG_ERR(err, "Something went wrong \n");
         }
+        barrelfish_usleep(200 * 1000);
         thread_yield();
     } while (1);
 }
