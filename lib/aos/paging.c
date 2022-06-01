@@ -1152,7 +1152,6 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
             // paging_vspace_lookup_delete_entry(st, paddr);
 
             if (!capcmp(l3_pt->mappings[l3_index], NULL_CAP)) {
-                debug_printf("unmapping here\n");
                 // free the frame slot manually
                 assert(!capcmp(l3_pt->mappings[l3_index], l2_pt->mappings[l2_index]));
 
