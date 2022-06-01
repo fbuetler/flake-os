@@ -214,7 +214,8 @@ static errval_t refill_thread_slabs(struct slab_allocator *slab_allocator)
 
     // allocate for thread slab allocator
     size_t blocksize = sizeof(struct thread) + tls_block_total_len;
-    DEBUG_PRINTF("blocksize: %zu - sizeof thread: %zu \n", blocksize, sizeof(struct thread));
+    DEBUG_PRINTF("blocksize: %zu - sizeof thread: %zu \n", blocksize,
+                 sizeof(struct thread));
 
     void *buf;
     size_t size = SLAB_STATIC_SIZE(16, blocksize);
@@ -342,8 +343,8 @@ static void free_thread(struct thread *thread)
     ldt_free_segment(thread->thread_seg_selector);
 #endif
 
-    //paging_unmap(get_current_paging_state(), thread->stack);
-    //free(thread->stack);
+    // paging_unmap(get_current_paging_state(), thread->stack);
+    // free(thread->stack);
     if (thread->tls_dtv != NULL) {
         free(thread->tls_dtv);
     }
@@ -430,7 +431,8 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     err = paging_alloc_region(get_current_paging_state(), VREGION_TYPE_STACK, &stack,
                               stacksize, BASE_PAGE_SIZE);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to allocate stack");
+        DEBUG_ERR(err, "faileod to allocate stack");
+        free_thread(newthread);
         return NULL;
     }
 
@@ -446,15 +448,39 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     newthread->stack_top = (char *)newthread->stack_top
                            - (lvaddr_t)newthread->stack_top % STACK_ALIGNMENT;
 
-    // set thread's ID
-    newthread->id = threadid++;
+    // map a guard page at the bottom of the stack
+    struct capref guard_ram;
+    size_t guard_bytes;
+    err = frame_alloc(&guard_ram, BASE_PAGE_SIZE, &guard_bytes);
+    if (err_is_fail(err) || guard_bytes != BASE_PAGE_SIZE) {
+        DEBUG_ERR(err, "Failed to allocate frame for stack guard frame");
+        free_thread(newthread);
+        return NULL;
+    }
 
-    paging_init_onthread(newthread);
+    // Ideally we would use the flag VREGION_FLAGS_GUARD, but it is not available, so we
+    // use no flags at all. This still has the desired effect as we will get a segfault
+    // because the page is already mapped.
+    err = paging_map_fixed_attr(get_current_paging_state(), (lvaddr_t)stack, guard_ram,
+                                guard_bytes, 0x0);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to map guard page");
+        free_thread(newthread);
+        return NULL;
+    }
+
+    // adjust the bottom of the stack such that it is above the guard page
+    newthread->stack = (char *)newthread->stack + BASE_PAGE_SIZE;
 
     // init registers
     registers_set_initial(&newthread->regs, newthread, (lvaddr_t)thread_entry,
                           (lvaddr_t)newthread->stack_top, (lvaddr_t)start_func,
                           (lvaddr_t)arg, 0, 0);
+
+    // set thread's ID
+    newthread->id = threadid++;
+
+    paging_init_onthread(newthread);
 
     return newthread;
 }
@@ -494,7 +520,7 @@ struct thread *thread_create_varstack(thread_func_t start_func, void *arg,
 struct thread *thread_create(thread_func_t start_func, void *arg)
 {
     return thread_create_varstack(start_func, arg, VSTACK_SIZE);
-    //return thread_create_varstack(start_func, arg, THREADS_DEFAULT_STACK_BYTES);
+    // return thread_create_varstack(start_func, arg, THREADS_DEFAULT_STACK_BYTES);
 }
 
 /**
@@ -1141,8 +1167,8 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     // Allocate storage region for real threads
     size_t blocksize = sizeof(struct thread) + tls_block_total_len + THREAD_ALIGNMENT;
     slab_init(&thread_slabs, blocksize, refill_thread_slabs);
-    static char sum_bitch[1<<20] = {0};
-    slab_grow(&thread_slabs, sum_bitch, 1<<20);
+    static char sum_bitch[1 << 20] = { 0 };
+    slab_grow(&thread_slabs, sum_bitch, 1 << 20);
 
     if (init_domain_global) {
         // run main() on this thread, since we can't allocate
