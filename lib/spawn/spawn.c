@@ -646,11 +646,11 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     registers_set_param(enabled_area, (uint64_t)args_frame_addr_child);
 
     // unmap frame from parent
-    /*err = paging_unmap(get_current_paging_state(), args_frame_addr_parent);
+    err = paging_unmap(get_current_paging_state(), args_frame_addr_parent);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to unmap frame");
         return err_push(err, ELF_ERR_ALLOCATE);
-    }*/
+    }
 
     return SYS_ERR_OK;
 }
@@ -1014,7 +1014,6 @@ errval_t spawn_get_process_by_pid(domainid_t pid, struct spawninfo **retinfo)
     struct spawninfo *current = &init_spawninfo;
 
     while (current) {
-        debug_printf("curr pid: %d %p\n", current->pid, current);
         if (current->pid == pid) {
             *retinfo = current;
             thread_mutex_unlock(&spawn_mutex);
