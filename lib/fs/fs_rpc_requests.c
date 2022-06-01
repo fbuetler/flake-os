@@ -4,43 +4,6 @@
 #include <aos/nameserver.h>
 #include <fs/fs_rpc_requests.h>
 
-/*
-static char *glue_header(void *header, void *payload, size_t header_len,
-                         size_t payload_len)
-{
-    char *buf = malloc(header_len + payload_len);
-    memcpy(buf, header, header_len);
-    memcpy(buf + header_len, payload, payload_len);
-    return buf;
-}
-static errval_t rpc_fs_call(struct aos_rpc *rpc, aos_rpc_msg_type_t type, void *header,
-                            size_t header_len, bool glue_payload, void *payload,
-                            size_t payload_len, struct aos_rpc_msg *response)
-{
-    void *marshalled_payload;
-    size_t marshalled_payload_size;
-    if (glue_payload) {
-        marshalled_payload = glue_header(header, payload, header_len, payload_len);
-        marshalled_payload = payload_len + header_len;
-    } else {
-        marshalled_payload = payload;
-        marshalled_payload_size = header_len;
-    }
-
-    struct aos_rpc_msg request = { .type = type,
-                                   .payload = (char *)marshalled_payload,
-                                   .bytes = marshalled_payload_size,
-                                   .cap = NULL_CAP };
-
-    errval_t err = aos_rpc_call(rpc, request, &response, glue_payload);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send message");
-        return err_push(err, LIB_ERR_RPC_SEND);
-    }
-}
-*/
-
 
 #define SERVICE_GLUE_AND_SEND(chan, type, request, payload, payload_size, response,      \
                               response_bytes)                                            \
@@ -90,7 +53,7 @@ errval_t aos_rpc_fs_open(nameservice_chan_t chan, const char *path, int flags,
     err = response->err;
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to open file");
-        return err_push(err, FS_ERR_OPEN);
+        return err;
     }
 
     if (rethandle) {
@@ -175,7 +138,7 @@ errval_t aos_rpc_fs_read(nameservice_chan_t chan, fileref_id_t fid, void *buf, s
         err = response->err;
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to read file");
-            return err_push(err, FS_ERR_READ);
+            return err;
         }
 
         memcpy(buf, response->buf, read);
@@ -220,7 +183,7 @@ errval_t aos_rpc_fs_write(nameservice_chan_t chan, fileref_id_t fid, void *src_b
         err = response->err;
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to write file");
-            return err_push(err, FS_ERR_WRITE);
+            return err;
         }
 
         bytes_written += response->bytes;
@@ -255,7 +218,7 @@ errval_t aos_rpc_fs_lseek(nameservice_chan_t chan, fileref_id_t fid, uint64_t of
     err = response->err;
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to lseek file");
-        return err_push(err, FS_ERR_LSEEK);
+        return err;
     }
 
     if (retpos) {
@@ -305,7 +268,7 @@ errval_t aos_rpc_fs_rm(nameservice_chan_t chan, const char *path)
     err = response->err;
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to mkdir file");
-        return err_push(err, FS_ERR_MKDIR);
+        return err;
     }
 
     return SYS_ERR_OK;
@@ -326,7 +289,7 @@ errval_t aos_rpc_fs_opendir(nameservice_chan_t chan, const char *path,
 
     err = response->err;
     if (err_is_fail(err)) {
-        return err_push(err, FS_ERR_MKDIR);
+        return err;
     }
 
     DEBUG_PRINTF("got a handle with fid %d\n", response->handle.fid);
@@ -377,7 +340,7 @@ errval_t aos_rpc_fs_fstat(nameservice_chan_t chan, fileref_id_t fid,
     err = response->err;
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to fstat file");
-        return err_push(err, FS_ERR_FSTAT);
+        return err;
     }
     *retstat = response->info;
 

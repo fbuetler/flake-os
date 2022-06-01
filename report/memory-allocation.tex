@@ -56,7 +56,7 @@ pointers to its adjacent neighbours, its memory base address, its size and a
 capinfo. The capinfo contains the capref and its original memory base address
 and size:
 
-\begin{lstlisting}
+\begin{minted}{c}
 enum nodetype { NodeType_Free, NodeType_Allocated };
 
 struct capinfo {
@@ -73,14 +73,14 @@ typedef struct mmnode_t {
     genpaddr_t base;
     gensize_t size;
 } mmnode_t;
-\end{lstlisting}
+\end{minted}
 
 The datastructure is concluded by storing a pointer to the head of the linked
 list. As it is a circular buffer, it does not really have a natural head, but
 this is the pointer to the current position in the circular buffer. The memory
 allocator has more in it and they will be discussed at a later point.
 
-\begin{lstlisting}
+\begin{minted}{c}
 struct mm {
     struct slab_allocator slab_allocator;
     slot_alloc_t slot_alloc;
@@ -90,7 +90,7 @@ struct mm {
 
     mmnode_t *head;
 };
-\end{lstlisting}
+\end{minted}
 
 \subsection{Add memory}
 

@@ -19,7 +19,12 @@ char *builtin_str[] = {
     "run_fg",
     "ls",
     "pwd",
-    "cd"
+    "cd",
+    "cat",
+    "mkdir",
+    "rmdir",
+    "rm",
+    "fwrite",
 };
 
 void (*builtin_func[]) (char *) = {
@@ -32,7 +37,12 @@ void (*builtin_func[]) (char *) = {
     &run_fg,
     &ls,
     &pwd,
-    &cd
+    &cd,
+    &cat,
+    &shell_mkdir,
+    &shell_rmdir,
+    &shell_rm,
+    &shell_write,
 };
 
 int num_builtins(void) {

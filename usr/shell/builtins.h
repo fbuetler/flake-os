@@ -15,6 +15,13 @@ void pwd(char *args);
 void cd(char *args);
 void ls(char *args);
 
+void cat(char *args);
+void shell_mkdir(char *args);
+
+void shell_rm(char *args);
+void shell_rmdir(char *args);
+void shell_write(char *args);
+
 char *curr_fs_path;
 
 #endif

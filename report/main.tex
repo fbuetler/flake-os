@@ -1,36 +1,80 @@
-\documentclass[10pt,a4paper,titlepage]{report}
+\documentclass[11pt,
+a4paper,
+oneside,
+abstract=true,
+bibliography=notoc,
+numbers=noenddot,
+toc=nolistof
+]{scrreprt}
 \usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{amsmath}
-\usepackage{amsfonts}
-\usepackage{amssymb}
+\usepackage[OT1]{fontenc}
+\usepackage[default,light,bold]{sourceserifpro}
+\usepackage[light,bold]{sourcesanspro}
+\usepackage[regular,bold,scale=0.9]{sourcecodepro}
+\usepackage[american]{babel}
+\usepackage[babel=true]{microtype}
+\usepackage{amsmath,amssymb,amsfonts,amsthm,mathrsfs}
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{hyperref}
+\usepackage[nospace]{varioref}
+\usepackage{caption}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[autostyle=true]{csquotes}
+\usepackage{tikz}
+%\usepackage[backend=biber,bibstyle=ieee,citestyle=numeric-comp]{biblatex}
+\usepackage[outputdir=build,chapter]{minted}
+\setminted{fontsize=\small}
+\setminted{autogobble}
+\setminted{linenos}
 
-% TODO: Replace the title with your own
-\title{Your-OS-Title Report}
-\author{Group 7}
+%% Paragraph control
+\clubpenalty=10000% excludes orphans
+\widowpenalty=10000% excludes orphans
+\displaywidowpenalty=10000% excludes widows
+\setlength{\parindent}{0em} % indent on first line of a paragraph
+\setlength{\parskip}{1em} % vertical distance to preceding paragraph
+\linespread{1.0} % note the strange values: single spacing: 1.0, 1.5 spacing: 1.3, double spacing: 1.6
+
+\usepackage{fancyvrb}
+
+% Make document internal hyperlinks wherever possible. (TOC, references)
+% We load this package last just to be safe. Otherwise it becomes a diva.
+\usepackage[breaklinks,linkcolor=black,colorlinks=true,citecolor=black,filecolor=black]{hyperref}
+\expandafter\def\expandafter\UrlBreaks\expandafter{\UrlBreaks%  save the current one
+   \do\a\do\b\do\c\do\d\do\e\do\f\do\g\do\h\do\i\do\j%
+   \do\k\do\l\do\m\do\n\do\o\do\p\do\q\do\r\do\s\do\t%
+   \do\u\do\v\do\w\do\x\do\y\do\z\do\A\do\B\do\C\do\D%
+   \do\E\do\F\do\G\do\H\do\I\do\J\do\K\do\L\do\M\do\N%
+   \do\O\do\P\do\Q\do\R\do\S\do\T\do\U\do\V\do\W\do\X%
+   \do\Y\do\Z\do\0\do\1\do\2\do\3\do\4\do\5\do\6\do\7\do\8\do\9}
+
+\title{Flakey-OS Report\\\\\large AOS Final Report Group 7}
+\author{Altin Alickaj \and Thierry Backes \and Florian Bütler \and Manuel Hässig}
 
 \begin{document}
-	
-	\maketitle
-	
-	TODO: WRite your report. Please also mention whether you have any limitations
-	(e.g., limit of mapped memory, ...) and/or whether you've done extra challenges.
-	
-	\input{simple-shell.tex}
-	\input{memory-allocation.tex}
-	\input{processes.tex}
-	\input{rpc.tex}
-	\input{self-paging.tex}
-	\input{multicore.tex}
-	\input{urpc.tex}
 
-	\input{shell.tex}	
-	\input{capabilities.tex} 
-	\input{filesystem.tex}
-	\input{nameserver.tex}
-	\input{networking.tex}
-	
+\maketitle
+
+\tableofcontents
+
+TODO: Write your report. Please also mention whether you have any limitations
+(e.g., limit of mapped memory, ...) and/or whether you've done extra challenges.
+
+\input{simple-shell.tex}
+\input{memory-allocation.tex}
+\input{processes.tex}
+\input{rpc.tex}
+\input{self-paging.tex}
+\input{multicore.tex}
+\input{urpc.tex}
+
+\input{shell.tex}
+\input{capabilities.tex}
+\input{filesystem.tex}
+\input{nameserver.tex}
+\input{networking.tex}
+
 \end{document}

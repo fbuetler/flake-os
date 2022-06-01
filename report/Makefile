@@ -1,7 +1,21 @@
+DEPS=Makefile $(wildcard *.sty) $(wildcard *.cls)
+BUILDDIR=build
 
-GROUP=team7
+DOCUMENT=main
+LATEXOPTS=-interaction=nonstopmode -shell-escape -file-line-error
+LATEXMKOPTS=-outdir=${BUILDDIR} -norc -use-make -latexoption=${LATEXOPTS}
 
-$(GROUP)-report.pdf: $(wildcard *.tex)
-	pdflatex main.tex
-	cp main.pdf $@
+all: pdf
+
+pdf: $(DOCUMENT).pdf
+
+$(DOCUMENT).pdf: $(wildcard */*.tex) $(wildcard *.bib) $(DEPS)
+	latexmk -pdf ${LATEXMKOPTS} ${DOCUMENT}.tex
+
+clean:
+	latexmk -c ${LATEXMKOPTS}
+
+dist-clean:
+	latexmk -C ${LATEXMKOPTS}
+	${RM} $(wildcard ${BUILDDIR}/*)
 
