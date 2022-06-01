@@ -155,6 +155,7 @@ void set_current_paging_state(struct paging_state *st)
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic *disp = get_dispatcher_generic(handle);
     disp->core_state.c.paging_state = st;
+    disp->core_state.c.morecore_state.paging_state = st;
 }
 
 /**

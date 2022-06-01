@@ -270,6 +270,14 @@ errval_t paging_init_state(struct paging_state *st, lvaddr_t start_vaddr,
     // store slot allocator
     st->slot_allocator = ca;
 
+    st->root_page_table.filled_slots = 0;
+    for(int i = 0; i < 512; i++){
+        st->root_page_table.entries[i] = 0;
+        st->root_page_table.mappings[i] = NULL_CAP;
+        st->root_page_table.paddrs[i] = 0;
+
+    }
+
     size_t vreadonly_size = VHEAP_OFFSET - start_vaddr;
     // add one node to mmt for whole vspace but stack and heap aka readonly
     err = setup_vspace_tracker(&st->vreadonly_tracker, start_vaddr, vreadonly_size);
