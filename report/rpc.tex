@@ -142,14 +142,14 @@ TODO TODO
 
 \subsection{Message Structure}
 Below, we describe the structure of a whole message of dynamic size.
-\begin{lstlisting}[language=C]
+\begin{minted}{c}
 struct aos_rpc_msg {
     aos_rpc_msg_type_t type;
     char *payload;
     size_t bytes;
     struct capref cap;
 };
-\end{lstlisting}
+\end{minted}
 Every message sent over an LMP channel contains a message type determining 
 the type of request, the actual payload, payload size and optionally, 
 also a capability to be transfered through the channel. 
@@ -208,9 +208,9 @@ TODO not init right?
 \subsection{Init Server}
 % TODO
 The init server registers the following handle-function 
-\begin{lstlisting}[language=C]
+\begin{minted}{c}
     errval_t init_process_msg(struct aos_lmp *lmp)
-\end{lstlisting}
+\end{minted}
 It is responsible for handling spawn-requests, sent strings/numbers, PID lookups to receive 
 the name of a process given its PID, and clients can also request to receive a list of all PIDs.
 
@@ -237,13 +237,13 @@ we currently use packets of 32 bytes. Benchmarking performance with other sizes
 would be a good idea. However, we weren't too concerned with this, since most of the RPC
 messages we send (and crucially, the ones which are sent most frequently) fit into a single packet.
 
-Another improvement would be to look at rewriting blocking receival of RPC messages,
+Another improvement would be to look at rewriting blocking reception of RPC messages,
 which currently uses polling to check if an incoming message exists. As said, we 
 abandoned the idea of using upcalls until a message is received due to race conditions 
 which resulted from failure to abide by our stated invariants. Given more time, 
 this would be a good performance optimization.
 
-Avoiding the idea of message-splitting alltogether, 
+Avoiding the idea of message-splitting altogether, 
 using the shared-memory approach for dynamically sized messages could be 
 analyzed further and performance compared. We suspect that starting from some size, 
 sharing memory will outperform message-splitting substantially.

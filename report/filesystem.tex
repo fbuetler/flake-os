@@ -71,7 +71,7 @@ sectors, where in which cluster we are, etc. Seeing FAT32 as a linked-list
 of clusters is much easier than seeing it as a linked-list of sector-arrays.
 
 For buffers which we use to read/write to, we introduced 
-\begin{lstlisting}[language=C]
+\begin{minted}{c}
 struct phys_virt_addr {
     // physical address of memory segment
     lpaddr_t phys;
@@ -82,7 +82,7 @@ struct phys_virt_addr {
     // is the buffer dirty?
     bool dirty;
 };
-\end{lstlisting}
+\end{minted}
 we use it to keep track of where we read/write to. The last two members 
 are important for caching, which will be explained laster.
 
@@ -120,7 +120,7 @@ as much as possible and replaced functions like \texttt{ramfs\_open}, \texttt{ra
 have been replaced by \texttt{aos\_rpc\_fs\_open}, \texttt{aos\_rpc\_fs\_close}.
 
 We store a opened file in a simliar struct as in \texttt{ramfs}:
-\begin{lstlisting}[language=C]
+\begin{minted}{c}
 struct fat32fs_dirent {
     char *name; 
     size_t size; 
@@ -148,7 +148,7 @@ struct fat32fs_handle {
     // specified by dir_offset/file_offset
     uint32_t curr_data_cluster;
 };
-\end{lstlisting}
+\end{minted}
 Of particular importance is the member \texttt{fid}.
 This ID is a unique ID under all the opened files in the filesystem 
 which is used to identify an opened handle. Any RPC request to an opened

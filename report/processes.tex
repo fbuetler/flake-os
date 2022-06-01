@@ -19,13 +19,13 @@ TODO
 \subsection{Load from multiboot image}
 
 At the moment we can only load binaries that are included in the boot image as
-we dont have a filesystem yet. So we need to find our binary by looking for it
+we don't have a filesystem yet. So we need to find our binary by looking for it
 by its filepath in the boot image first.  Once we found it we start setting up
 our bookkeeping for a spawned process. Here we set the name of the process to
 the binary name and store the module location that holds the binary.  We also
 need to load the binaries arguments from the boot image as they are also
 hardcoded in there. We get them as e raw string and hence they need to be
-parsed. The chosen argument seperator here is a whitespace. If there are
+parsed. The chosen argument separator here is a whitespace. If there are
 multiple whitespaces between the arguments, they are stripped.  As we later want
 to load binaries not only from the boot image but also from the filesystem we
 moved the following part into another api endpoint so the common functionality
@@ -37,10 +37,10 @@ We will now refer to the process that spawns a
 process the parent and the spawned process the child.  To work with the binary
 we need to map it into the parents virtual memory space. For this we map the
 address of the module into our vspace with the help of our paging
-infrastructure.  To check whether we mapped the modulo correctly we can try to
+infrastructure.  To check whether we mapped the module correctly we can try to
 access the first four bytes of the mapped address in the parents virtual memory
-spaces. As we mapped a ELF binary the should be the ELF macig bytes namels
-'0x7f', 'E', 'L' and 'F'.
+spaces. As we mapped a ELF binary the first four bytes should correspond to 
+the ELF magic bytes '0x7f', 'E', 'L' and 'F'.
 
 \subsection{Create intial CSpace} 
 
@@ -134,11 +134,11 @@ its dispatcher and removing from the linked list.
 We had some serious trouble with refills during a page
 mapping. Namely, when we run out of slots/slabs and attempted a refill, it may
 happen that the refill actually used the page we wanted to map, resulting in an
-error. We solved that by ensuring that no refills happended during an ongoing
+error. We solved that by ensuring that no refills happened during an ongoing
 mapping.
 
-Another interesing bug occured during tests of spawning many processes. The
-first four prosses spawned just fine but when trying to spawn the fifth process
+Another interesting bug occurred during tests of spawning many processes. The
+first four processes spawned just fine but when trying to spawn the fifth process
 the whole system collapsed without an obvious error. After some debugging it
 turned out we stored the metadata of a spawning process in the test on the stack
 and with 4 processes the stack was full and the init process terminated. We

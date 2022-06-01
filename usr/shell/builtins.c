@@ -8,7 +8,8 @@
 #include <collections/path_list.h>
 
 
-void help(char *args) {
+void help(char *args)
+{
     write_str("Available commands:\n");
     write_str("help: this message\n");
     write_str("ps: TODO print process status\n");
@@ -19,10 +20,11 @@ void help(char *args) {
     write_str("run_bg: run a process in the background\n");
 }
 
-static bool fs_path_exists(char *clean_path){
+static bool fs_path_exists(char *clean_path)
+{
     fs_dirhandle_t dh;
     errval_t err = opendir(clean_path, &dh);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         return false;
     }
 
@@ -126,7 +128,8 @@ void cat(char *args){
 
 }
 
-void pwd(char *args){
+void pwd(char *args)
+{
     printf("%s\n", curr_fs_path);
 }
 
@@ -235,9 +238,6 @@ void ls(char *args){
         } else if (err_is_fail(err)) {
             break;
         }
-        char *p = format_path(name);
-        stat(p, &fi);
-        free(p);
         write_str(name);
         write_str("\n");
     } while(err_is_ok(err));
@@ -245,44 +245,62 @@ void ls(char *args){
     closedir(dh);
 }
 
-void kill(char *args) {
+void kill(char *args)
+{
     write_str("kill\n");
 }
 
-void run_bg(char *args) {
+void run_bg(char *args)
+{
     // ToDo: add core_id
-    if(args == NULL) {
+    if (args == NULL) {
         printf("run_fg: provide a binary name\n");
         return;
     }
 
     domainid_t pid;
-    aos_rpc_process_spawn(get_init_rpc(), args, 0, &pid);
+    errval_t err = aos_rpc_process_spawn(get_init_rpc(), args, 0, &pid);
+    if (err_pop(err) == SPAWN_ERR_FIND_MODULE) {
+        printf("Could not find binary \"%s%\"\n", args);
+        return;
+    } else if (err_is_fail(err)) {
+        printf("Failed to spawn process \"%s\"\n", args);
+        return;
+    }
 
+    return;
 }
 
-void run_fg(char *args) {
+void run_fg(char *args)
+{
     // ToDo: add core_id
-    if(args == NULL) {
+    if (args == NULL) {
         printf("run_fg: provide a binary name\n");
         return;
     }
 
     domainid_t pid;
 
-    aos_rpc_process_spawn(get_init_rpc(), args, 0, &pid);
+    errval_t err;
+    err = aos_rpc_process_spawn(get_init_rpc(), args, 0, &pid);
+    if (err_pop(err) == SPAWN_ERR_FIND_MODULE) {
+        printf("Could not find binary \"%s%\"\n", args);
+        return;
+    } else if (err_is_fail(err)) {
+        printf("Failed to spawn process \"%s\"\n", args);
+        return;
+    }
 
-    do{
+    do {
         char *rname;
-        errval_t err = aos_rpc_process_get_name(get_init_rpc(), pid, &rname);
+        err = aos_rpc_process_get_name(get_init_rpc(), pid, &rname);
         if (err == SPAWN_ERR_PID_NOT_FOUND) {
             break;
-        }else if(err_is_fail(err)){
+        } else if (err_is_fail(err)) {
             DEBUG_ERR(err, "Something went wrong \n");
         }
         thread_yield();
     } while (1);
-    
 }
 
 /*
@@ -293,7 +311,8 @@ void spawn_hello(char **args) {
 }
 */
 
-void ps(char *args) {
+void ps(char *args)
+{
     domainid_t *pids;
     size_t pid_count;
     aos_rpc_process_get_all_pids(get_init_rpc(), &pids, &pid_count);
@@ -306,10 +325,11 @@ void ps(char *args) {
     free(pids);
 }
 
-void shell_exit(char *args) {
+void shell_exit(char *args)
+{
     shell_state.exit = true;
-    //write_str("exiting shell...\n");
-    //shell_state.exit = true;
+    // write_str("exiting shell...\n");
+    // shell_state.exit = true;
 
     /*
     size_t pid_count;
@@ -325,8 +345,9 @@ void shell_exit(char *args) {
      */
 }
 
-void echo(char *args) {
-    if(args != NULL) {
+void echo(char *args)
+{
+    if (args != NULL) {
         printf("%s\n", args);
     }
 }

@@ -42,12 +42,14 @@ void aos_ump_receive_listener(struct aos_ump *ump)
             err = process_spawn_request(cmd, &pid);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to start process over ump: %s\n", cmd);
+                aos_ump_send_errval_response(ump, err);
                 continue;
             }
 
             err = aos_ump_send(ump, AosRpcSpawnResponse, (char *)&pid, sizeof(domainid_t));
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to respond to spawn request!\n");
+                aos_ump_send_errval_response(ump, err);
                 continue;
             }
 

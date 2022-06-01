@@ -163,6 +163,7 @@ errval_t aos_lmp_server_event_handler(struct aos_lmp *lmp)
         aos_lmp_create_msg(lmp, &ret_msg, AosRpcServerResponse, response.bytes,
                            response.payload, response.cap);
         aos_lmp_send_msg(lmp, ret_msg);
+        free(response.payload);
         free(ret_msg);
         break;
     }

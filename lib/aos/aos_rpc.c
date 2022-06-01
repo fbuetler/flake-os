@@ -4,9 +4,9 @@
 
 /**
  * @brief Initializes an LMP channel in the RPC binding
- * 
+ *
  * This function only exists to satisfy the grading interface as at one point we decided to
- * unify the UMP and LMP bindings into a common RPC interface. 
+ * unify the UMP and LMP bindings into a common RPC interface.
  * This function is a wrapper around aos_lmp_init and UMP channels can be initialized with
  * aos_ump_initialize.
  */
@@ -428,9 +428,22 @@ errval_t aos_rpc_process_spawn(struct aos_rpc *rpc, char *cmdline, coreid_t core
 
     DEBUG_PRINTF("Received spawn response\n");
 
-    domainid_t assigned_pid = *((domainid_t *)response.payload);
-    DEBUG_PRINTF("spawned process with PID 0x%x\n", assigned_pid);
-    *newpid = assigned_pid;
+    if (response.type == AosRpcSpawnResponse) {
+        domainid_t assigned_pid = *((domainid_t *)response.payload);
+        DEBUG_PRINTF("spawned process with PID 0x%x\n", assigned_pid);
+        *newpid = assigned_pid;
+    } else if (response.type == AosRpcErrvalResponse) {
+        err = *(errval_t *)response.payload;
+        DEBUG_ERR(err, "Spawn request failed");
+        free(response.payload);
+        return err;
+    } else {
+        free(response.payload);
+        err = LIB_ERR_RPC_UNEXPECTED_MSG_TYPE;
+        DEBUG_ERR(err, "Expected message of type AosRpcSpawnResponse or "
+                       "AosRpcErrvalResponse");
+        return err;
+    }
 
     free(response.payload);
 
