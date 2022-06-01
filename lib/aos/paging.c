@@ -120,8 +120,8 @@ static void page_fault_exception_handler(enum exception_type type, int subtype,
         vspace_tracker = &st->vstack_tracker;
     } else {
         err = LIB_ERR_PAGING_MAP_INVALID_VADDR;
-
-        USER_PANIC_ERR(err, "vadddr %p is way off limits, fault at PC: 0x%lx", (void *)vaddr, regs->named.pc);
+        //debug_printf("page fault at PC: 0x%lx\n", regs->named.pc);
+        USER_PANIC_ERR(err, "vaddr %p is way off limits, fault at PC: 0x%lx", (void *)vaddr, regs->named.pc);
         goto unlock;
     }
 

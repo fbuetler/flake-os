@@ -512,7 +512,6 @@ static errval_t mm_tracker_find_aquired_node(mm_tracker_t *mmt, genpaddr_t memor
 {
     assert(mmt->head);
 
-    DEBUG_PRINTF("inside mm_tracker_find_allocated node. base: 0x%zx \n", memory_base);
     mmnode_t *curr = mmt->head;
     do {
         // search for node that represent the freed region

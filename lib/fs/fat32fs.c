@@ -107,12 +107,15 @@ void fat32fs_handle_close(struct fat32fs_handle *h)
     //fat32_get_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
     //dir.FileSize = MAX(h->u.file_offset, h->dirent->size);
     //fat32_set_dir_at(&fs_state.fat32, h->dirent->dir_cluster, h->dirent->dir_index, &dir);
-    collections_hash_delete(fs_state.fid2handle, h->fid);
     // TODO return type
 
     struct handle_list_node *head = hashmap_get(&fs_state.path2handle, h->path,
                                                 strlen(h->path));
-    assert(head); 
+
+    if(!head){
+        return;
+    }
+
     if(head->next == NULL){
         // remove all the entries
         hashmap_remove(&fs_state.path2handle, h->path, strlen(h->path));
@@ -129,7 +132,9 @@ void fat32fs_handle_close(struct fat32fs_handle *h)
             curr = curr->next;
         }
     }
-                 
+    
+    collections_hash_delete(fs_state.fid2handle, h->fid);
+
     free(h->path);
     free(h->dirent);
 }

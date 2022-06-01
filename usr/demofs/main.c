@@ -114,7 +114,7 @@ static void check_rm(void){
 
 __attribute__((unused))
 static void benchmark_rw(void){
-    size_t size = 512 * 32;
+    size_t size = 512 * 6;
 
     char *buf = malloc(size);
     memset(buf, 'a', size);
@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
     DEBUG_PRINTF("check_rm done!!\n");
 
     //check_rm_while_invalid();
-    //check_concurrent_writers();
+    check_concurrent_writers();
 
     
     printf("done\n");

@@ -160,7 +160,7 @@ static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct aos_ump_msg *msg
     // DEBUG_PRINTF("receiving in slot %d\n", ump->recv_next);
     while (*state != UmpMessageSent) {
         // spin, cause it's cheap (L1 ftw!)
-        barrelfish_usleep(10);
+        barrelfish_usleep(1000);
     }
 
     // This barrier does not need to be inside the polling loop as the state enum is

@@ -6,7 +6,8 @@
 #include <aos/deferred.h>
 #include <fs/dirent.h>
 #include <collections/path_list.h>
-
+#include <fs/fat32fs.h>
+#include <fs/fs_rpc_requests.h>
 
 void help(char *args)
 {
@@ -145,17 +146,13 @@ void shell_rm(char *args){
         return;
     }
 
-    FILE *f = fopen(path, "r");
-    if(!f){
-        write_str("rm: no such file\n");
-        free(path);
-        return;
-    }
-    fclose(f);
-
     errval_t err = rm(path);
     if(err_is_fail(err)){
-        write_str("rm: failed to remove file\n");
+        if(err == FS_ERR_NOTFILE){
+            write_str("rm: not a file\n");
+        }else{
+            write_str("rm: failed to remove file\n");
+        }
     }
 
     free(path);
@@ -173,15 +170,13 @@ void shell_rmdir(char *args){
         return;
     }
 
-    if(!fs_path_exists(path)){
-        write_no_such_dir(path);
-        free(path);
-        return;
-    }
-
     errval_t err = rmdir(path);
     if(err_is_fail(err)){
-        write_str("rmdir: failed to remove dir\n");
+        if(err == FS_ERR_NOTDIR){
+            write_str("rmdir: not a directory\n");
+        }else{
+            write_str("rmdir: failed to remove dir\n");
+        }
     }
 
     free(path);
@@ -229,16 +224,22 @@ void ls(char *args){
 
     fs_dirhandle_t dh;
     errval_t err = opendir(curr_fs_path, &dh);
-    struct fs_fileinfo fi;
     do {
         char *name;
-        err = readdir(dh, &name);
+        struct fs_fileinfo fi;
+        err = aos_rpc_fs_readdir(fs_chan, ((struct fat32fs_handle *)dh)->fid, &fi, &name);
         if (err_no(err) == FS_ERR_INDEX_BOUNDS) {
             break;
         } else if (err_is_fail(err)) {
             break;
         }
         write_str(name);
+        if(fi.type == FS_DIRECTORY){
+            write_str("/");
+        }
+
+        free(name);
+
         write_str("\n");
     } while(err_is_ok(err));
 
