@@ -106,18 +106,21 @@ void aos_process_spawn_request(struct aos_lmp *lmp)
         aos_lmp_recv_msg_free(lmp);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "couldn't relay spawn request over UMP!\n");
-            return;
+            goto errval_response;
         }
-        assert(type == AosRpcSpawnResponse);
-
-        pid = *(domainid_t *)payload;
-        DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
+        if (type == AosRpcSpawnResponse) {
+            pid = *(domainid_t *)payload;
+            DEBUG_PRINTF("launched process; PID is: 0x%lx\n", *(size_t *)payload);
+        } else if (type == AosRpcErrvalResponse) {
+            err = *(errval_t *)payload;
+            goto errval_response;
+        }
     } else {
         err = process_spawn_request(module, &pid);
         aos_lmp_recv_msg_free(lmp);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to start spawn process");
-            return;
+            goto errval_response;
         }
         DEBUG_PRINTF("spawned process with PID 0x%lx\n", pid);
     }
@@ -131,15 +134,20 @@ void aos_process_spawn_request(struct aos_lmp *lmp)
                              (void *)payload, NULL_CAP);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create message");
-        return;
+        goto errval_response;
     }
 
     err = aos_lmp_send_msg(lmp, reply);
     free(reply);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn response\n");
-        return;
+        goto errval_response;
     }
+
+    return;
+
+errval_response:
+    aos_lmp_send_errval_response(lmp, err);
 }
 
 errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
@@ -386,7 +394,7 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 
 unwind_si:
     aos_lmp_recv_msg_free(lmp);
-    //free(server_si);
+    // free(server_si);
 ret_msg:
     aos_lmp_send_errval_response(lmp, err);
 }
