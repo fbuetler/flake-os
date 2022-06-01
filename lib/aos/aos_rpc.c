@@ -2,6 +2,20 @@
 #include <aos/aos_rpc.h>
 #include <serialio/serialio.h>
 
+/**
+ * @brief Initializes an LMP channel in the RPC binding
+ * 
+ * This function only exists to satisfy the grading interface as at one point we decided to
+ * unify the UMP and LMP bindings into a common RPC interface. 
+ * This function is a wrapper around aos_lmp_init and UMP channels can be initialized with
+ * aos_ump_initialize.
+ */
+errval_t aos_rpc_init(struct aos_rpc *rpc, struct capref remote_cap)
+{
+    rpc->is_lmp = true;
+    return aos_lmp_init(&rpc->u.lmp, remote_cap);
+}
+
 void aos_rpc_init_from_ump(struct aos_rpc *rpc, struct aos_ump *chan)
 {
     rpc->u.ump = *chan;
