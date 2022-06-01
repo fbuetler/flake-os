@@ -30,59 +30,203 @@ static bool fs_path_exists(char *clean_path){
     return true;
 }
 
+
+static char *format_path(char *path){
+    char *new_path;
+    if(path[0] != '/'){
+        new_path = malloc(strlen(curr_fs_path) + 1 + strlen(path) + 1);
+        strcpy(new_path, curr_fs_path);
+        strcat(new_path, "/");
+        strcat(new_path, path);
+        char *cleaned_path = clean_path(new_path);
+        free(new_path);
+        return cleaned_path;
+    }else{
+        new_path = clean_path(path);
+        return new_path;
+    }
+}
+
 static void write_no_such_dir(char *dir_path){
     write_str("cd: no such directory exists: ");
-    write_str(curr_fs_path);
+    write_str(dir_path);
     write_str("\n");
 }
 
 void cd(char *args){
-    if(args[0] != '/'){
-        // concat curr_fs_path with args
-        char *new_path = malloc(strlen(curr_fs_path) + 1 + strlen(args) + 1);
-        strcpy(new_path, curr_fs_path);
-        strcat(new_path, "/");
-        strcat(new_path, args);
-
-        char *cleaned_path = clean_path(new_path);
-        free(new_path);
-
-        debug_printf("clean path: %s\n", cleaned_path);
-
-        if(!fs_path_exists(cleaned_path)){
-            write_no_such_dir(cleaned_path);
-            free(cleaned_path);
-        }else{
-            free(curr_fs_path);
-            curr_fs_path = cleaned_path;
-        }
-    }else{
-        // absolute path
-        char *new_path = clean_path(args);
-        if(!new_path){
-            write_no_such_dir(args);
-            return;
-        }
-        // check if path exists
-        if(fs_path_exists(new_path)){
-            free(curr_fs_path);
-            curr_fs_path = new_path;
-        }else{
-            write_no_such_dir(new_path);
-            free(new_path);
-        }
-
+    if(!args){
+        write_str("cd: no arguments given\n");
+        return;
     }
+
+    char *path = format_path(args);
+    if(!path){
+        write_str("cd: invalid path\n");
+        return;
+    }
+
+    if(!fs_path_exists(path)){
+        write_no_such_dir(path);
+        free(path);
+        return;
+    }
+
+    free(curr_fs_path);
+    curr_fs_path = path;
+}
+
+void shell_mkdir(char *args){
+    if(!args){
+        write_str("mkdir: no name specified\n");
+        return;
+    }
+    char *path = format_path(args);
+    if(!path){
+        write_str("mkdir: invalid path\n");
+        return;
+    }
+
+    errval_t err = mkdir(path);
+    if(err_is_fail(err)){
+        write_str("mkdir: failed to create directory\n");
+    }
+    free(path);
+}
+
+void cat(char *args){
+
+    if(!args){
+        write_str("cat: no file specified\n");
+        return;
+    }
+
+    char *path = format_path(args);
+
+    FILE *f = fopen(path, "r");
+    free(path);
+    if(!f){
+        write_str("cat: failed to open file\n");
+        return;
+    }
+
+    char b[2];
+    b[1] = 0;
+    while(1){
+        int c;
+        c = fgetc(f);
+        if(c == EOF){
+            break;
+        }
+        b[0] = c;
+        write_str(b);
+    }
+    fclose(f);
+
+    write_str("\n");
+
 }
 
 void pwd(char *args){
     printf("%s\n", curr_fs_path);
 }
 
+void shell_rm(char *args){
+    if(!args){
+        write_str("rm: no file specified\n");
+        return;
+    }
+
+    char *path = format_path(args);
+    if(!path){
+        write_str("rm: invalid path\n");
+        return;
+    }
+
+    FILE *f = fopen(path, "r");
+    if(!f){
+        write_str("rm: no such file\n");
+        free(path);
+        return;
+    }
+    fclose(f);
+
+    errval_t err = rm(path);
+    if(err_is_fail(err)){
+        write_str("rm: failed to remove file\n");
+    }
+
+    free(path);
+}
+
+void shell_rmdir(char *args){
+    if(!args){
+        write_str("rmdir: no dir specified\n");
+        return;
+    }
+
+    char *path = format_path(args);
+    if(!path){
+        write_str("rmdir: invalid path\n");
+        return;
+    }
+
+    if(!fs_path_exists(path)){
+        write_no_such_dir(path);
+        free(path);
+        return;
+    }
+
+    errval_t err = rmdir(path);
+    if(err_is_fail(err)){
+        write_str("rmdir: failed to remove dir\n");
+    }
+
+    free(path);
+}
+
+void shell_write(char *args){
+    if(!args){
+        write_str("write: no file specified\n");
+        return;
+    }
+
+    char *buf = strchr(args, ' ');
+    if(!buf){
+        write_str("write: no data specified\n");
+        return;
+    }
+    *buf = 0;
+    buf++;
+
+    char *unformatted_path = args;
+
+    char *path = format_path(unformatted_path);
+    if(!path){
+        write_str("write: invalid path\n");
+        return;
+    }
+
+    FILE *f = fopen(path, "w");
+    if(!f){
+        write_str("write: failed to open file\n");
+        free(path);
+        return;
+    }
+
+    while(*buf){
+        fputc(*buf, f);
+        buf++;
+    }
+
+    fclose(f);
+    free(path); 
+}
+
 void ls(char *args){
 
     fs_dirhandle_t dh;
     errval_t err = opendir(curr_fs_path, &dh);
+    struct fs_fileinfo fi;
     do {
         char *name;
         err = readdir(dh, &name);
@@ -91,7 +235,11 @@ void ls(char *args){
         } else if (err_is_fail(err)) {
             break;
         }
-        printf("%s\n", name);
+        char *p = format_path(name);
+        stat(p, &fi);
+        free(p);
+        write_str(name);
+        write_str("\n");
     } while(err_is_ok(err));
 
     closedir(dh);

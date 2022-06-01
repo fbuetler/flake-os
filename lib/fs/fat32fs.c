@@ -524,8 +524,8 @@ errval_t fat32fs_rmdir(const char *path)
     }
 
     if (!handle->dirent->is_dir) {
-        goto out;
         err = FS_ERR_NOTDIR;
+        goto out;
     }
 
     assert(handle->dirent->is_dir);

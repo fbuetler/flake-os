@@ -247,7 +247,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         struct rpc_fs_err_response *response = malloc(sizeof(struct rpc_fs_err_response));
         char *path = process_path(args->path);
         if (!path) {
-            response->err = FS_ERR_INVALID_PATH;
+            response->err = FS_ERR_NOTFOUND;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
             return;
         }
@@ -264,7 +264,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         struct rpc_fs_err_response *response = malloc(sizeof(struct rpc_fs_err_response));
         char *path = process_path(args->path);
         if (!path) {
-            response->err = FS_ERR_INVALID_PATH;
+            response->err = FS_ERR_NOTFOUND;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_err_response));
             return;
         }
@@ -316,7 +316,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         struct fat32fs_handle *handle;
         char *path = process_path(args->path);
         if (!path) {
-            response->err = FS_ERR_INVALID_PATH;
+            response->err = FS_ERR_NOTFOUND;
             SET_MSG_RESPONSE(response, sizeof(struct rpc_fs_opendir_response));
             return;
         }
