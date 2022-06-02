@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
         return err;
     }
 
-    printf("fs running\n");
+    //printf("fs running\n");
 
     struct waitset *ws = get_default_waitset();
     while(1) {
