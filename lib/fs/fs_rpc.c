@@ -308,7 +308,7 @@ void fs_srv_handler(void *st, void *message, size_t bytes, void **msg_response,
         free(path);
         return;
     }
-    case FsOpenDir: {
+    case AosRpcFsOpenDir: {
         struct rpc_fs_path_request *args = (struct rpc_fs_path_request *)request;
         // check if string is terminated
         struct rpc_fs_opendir_response *response = malloc(

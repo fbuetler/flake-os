@@ -27,7 +27,7 @@ typedef enum fs_msg_type{
     AosRpcFsReadDirResponse,
     AosRpcFsCreate,
     AosRpcFsCreateResponse,
-    FsOpenDir
+    AosRpcFsOpenDir
 } fs_msg_type_t;
 
 

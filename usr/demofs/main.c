@@ -36,8 +36,6 @@ static int thread_writer(void *buf){
     for(int i = 0; i < ITERS; i++){
        fwrite(buf, 1, strlen(buf), f); 
        fflush(f);
-
-       printf("1 iter %d\n", i);
     }
     fclose(f);
     return 0;
@@ -113,8 +111,8 @@ static void check_rm(void){
 }
 
 __attribute__((unused))
-static void benchmark_rw(void){
-    size_t size = 512 * 6;
+static void benchmark_rw(int sectors){
+    int size = 512 * sectors;
 
     char *buf = malloc(size);
     memset(buf, 'a', size);
@@ -127,7 +125,7 @@ static void benchmark_rw(void){
     size_t written = fwrite(buf, 1, size, f);
     fflush(f);
     int duration = systime_now() - start;
-    printf("wrote %zu bytes in %d us\n", written, systime_to_us(duration));
+    printf("wrote %zu bytes in %d us\n", written, systime_to_us(duration)/1000);
     fclose(f);
 
     // read it:
@@ -137,9 +135,8 @@ static void benchmark_rw(void){
     start = systime_now();
     size_t read = fread(buf, 1, size, f);
     duration = systime_now() - start;
-    printf("%.16384s\n", buf);
     fclose(f);
-    printf("read %zu bytes in %d us\n", read, systime_to_us(duration));
+    printf("read %zu bytes in %d us\n", read, systime_to_us(duration)/1000);
     free(buf);
 }
 
@@ -148,12 +145,18 @@ int main(int argc, char *argv[])
 {
     filesystem_init();
 
-    //benchmark_rw();
+    int sectors;
+    printf("%s\n", argv[0]);
+    // read argv[1] as int
+    sscanf(argv[1], "%d", &sectors);
+    printf("sectors: %d\n", sectors);
+
+    benchmark_rw(sectors);
 
     DEBUG_PRINTF("check_rm done!!\n");
 
     //check_rm_while_invalid();
-    check_concurrent_writers();
+    //check_concurrent_writers();
 
     
     printf("done\n");

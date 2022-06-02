@@ -3,6 +3,7 @@
 #include <fs/fat32fs.h>
 #include <aos/nameserver.h>
 #include <fs/fs_rpc_requests.h>
+#include <aos/systime.h>
 
 
 #define SERVICE_GLUE_AND_SEND(chan, type, request, payload, payload_size, response,      \
@@ -135,6 +136,7 @@ errval_t aos_rpc_fs_read(nameservice_chan_t chan, fileref_id_t fid, void *buf, s
         struct rpc_fs_read_response *response;
 
         SERVICE_SEND(chan, AosRpcFsRead, read_request, (void **)&response, NULL);
+
         if (err_is_fail(err)) {
             DEBUG_PRINTF("error in file read via RPC\n");
             return err;
@@ -290,7 +292,7 @@ errval_t aos_rpc_fs_opendir(nameservice_chan_t chan, const char *path,
     errval_t err;
     struct rpc_fs_path_request request = {};
     struct rpc_fs_opendir_response *response;
-    SERVICE_GLUE_AND_SEND(chan, FsOpenDir, request, path, strlen(path) + 1,
+    SERVICE_GLUE_AND_SEND(chan, AosRpcFsOpenDir, request, path, strlen(path) + 1,
                           (void **)&response, NULL);
     if (err_is_fail(err)) {
         DEBUG_PRINTF("error in file open dir via RPC\n");
