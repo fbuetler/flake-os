@@ -503,7 +503,7 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
 
     size_t payload_size = AOS_RPC_GET_ALL_PIDS_RESPONSE_LEN(nr_of_pids
                                                             + remote_nr_of_pids);
-    struct get_all_pids_response *payload = calloc(0, payload_size + 64);
+    struct get_all_pids_response *payload = calloc(1, payload_size + 64);
     if (!payload) {
         free(remote_pids);
         free(pids);
