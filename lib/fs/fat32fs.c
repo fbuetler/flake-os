@@ -542,7 +542,6 @@ errval_t fat32fs_rmdir(const char *path)
 
     if (!is_empty) {
         err = FS_ERR_NOTEMPTY;
-        DEBUG_ERR(err, "couldn't delete non-empty directory\n");
         goto out;
     }
 
