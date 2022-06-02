@@ -16,7 +16,7 @@ DEFAULT_JOBS=4
 JOBS="$DEFAULT_JOBS"
 CACHEDIR="$HOME/.cache/barrelfish"
 HAGFISH_LOCATION="/home/netos/tftpboot/Hagfish.efi"
-DEFAULT_OPT_FLAGS="-O2 -g"
+DEFAULT_OPT_FLAGS="-O2 -g -DNDEBUG"
 
 # Don't override the default toolchain unless asked to.
 TOOLROOT=Nothing
