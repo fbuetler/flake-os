@@ -1128,7 +1128,28 @@ errval_t paging_unmap(struct paging_state *st, const void *region)
         if (l3_index == 511 || l2_index == 511 || l1_index == 511) {
             do_recompute = true;
         } else {
+            do_recompute = false;
+        }
+
+        if(!l1_pt){
+            int skip_slots = 512 - l1_index;
+            current_vaddr += (512 * 512 * BASE_PAGE_SIZE) * skip_slots;
             do_recompute = true;
+            continue;
+        }
+
+        if(!l2_pt){
+            int skip_slots = 512 - l2_index;
+            current_vaddr += (512 * BASE_PAGE_SIZE) * skip_slots;
+            do_recompute = true;
+            continue;
+        }
+
+        if(!l3_pt){
+            int skip_slots = 512 - l3_index;
+            current_vaddr += BASE_PAGE_SIZE * skip_slots;
+            do_recompute = true;
+            continue;
         }
 
         if (l3_pt) {
