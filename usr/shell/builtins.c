@@ -11,28 +11,32 @@
 
 void help(char *args)
 {
-    write_str("Available commands:\n");
-    write_str("help: this message\n");
-    write_str("ps: TODO print process status\n");
-    write_str("kill: TODO terminate a specific process\n");
-
+    write_str("help\n");
+    write_str("\t this message\n");
+    write_str("ps \n");
+    write_str("\t print active processes\n");
     write_str("echo: [argument...]\n");
     write_str("\t write the arguments back to the screen\n");
     write_str("time: command [argument...] \n");
     write_str("\t measure the runtime of a command\n");
     write_str("run_fg [core_id] process [argument...]\n");
-    write_str("\t Run a process in the foreground. The default core is 0.\n");
+    write_str("\t run a process in the foreground. The default core is 0.\n");
     write_str("run_bg: [core_id] process [argument...]\n");
-    write_str("\t Run a process in the background. The default core is 0.\n");
-
-    write_str("cd: change directory\n");
-    write_str("mkdir: create directory\n");
-    write_str("rm: remove file\n");
-    write_str("rmdir: remove directory\n");
-    write_str("cat: print file content\n");
-    write_str("fwrite [fname] [str]: writes [str] into [fname]\n");
-    write_str("ls: list directory\n");
-
+    write_str("\t run a process in the background. The default core is 0.\n");
+    write_str("cd dir\n");
+    write_str("\t change current directory to dir\n");
+    write_str("mkdir dir \n");
+    write_str("\t create directory dir\n");
+    write_str("rm file\n");
+    write_str("\t remove file\n");
+    write_str("rmdir dir\n");
+    write_str("\t remove directory dir\n");
+    write_str("cat file\n");
+    write_str("\t print content of file\n");
+    write_str("fwrite fname str\n");
+    write_str("\t write str into the file fname\n");
+    write_str("ls\n");
+    write_str("\t List files and directories\n");
 }
 
 static bool fs_path_exists(char *clean_path)
@@ -258,11 +262,6 @@ void ls(char *args){
     } while(err_is_ok(err));
 
     closedir(dh);
-}
-
-void kill(char *args)
-{
-    write_str("kill\n");
 }
 
 void run_bg(char *args)
