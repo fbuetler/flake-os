@@ -13,7 +13,7 @@
 [ build application 
   { 
     target = "memeater",
-    cFiles = [ "main.c" ],
-    addLibraries = [ "grading" ]
+    cFiles = [ "main.c" ]
   }
 ]
+

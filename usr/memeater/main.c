@@ -37,15 +37,15 @@ static errval_t request_and_map_memory(void)
 
     size_t bytes;
     struct frame_identity id;
-    DEBUG_PRINTF("testing memory server...\n");
+    debug_printf("testing memory server...\n");
 
     struct paging_state *pstate = get_current_paging_state();
 
-    DEBUG_PRINTF("obtaining cap of %" PRIu32 " bytes...\n", BASE_PAGE_SIZE);
-
+    debug_printf("obtaining cap of %" PRIu32 " bytes...\n", BASE_PAGE_SIZE);
 
     struct capref cap1;
-    err = aos_rpc_get_ram_cap(mem_rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE, &cap1, &bytes);
+    err = aos_rpc_get_ram_cap(mem_rpc, BASE_PAGE_SIZE, BASE_PAGE_SIZE,
+                              &cap1, &bytes);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not get BASE_PAGE_SIZE cap\n");
         return err;
@@ -55,7 +55,7 @@ static errval_t request_and_map_memory(void)
     err = slot_alloc(&cap1_frame);
     assert(err_is_ok(err));
 
-    DEBUG_PRINTF("Retype to frame \n");
+    debug_printf("Retype to frame \n");
 
     err = cap_retype(cap1_frame, cap1, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     if (err_is_fail(err)) {
@@ -66,7 +66,7 @@ static errval_t request_and_map_memory(void)
     err = frame_identify(cap1_frame, &id);
     assert(err_is_ok(err));
 
-    DEBUG_PRINTF("Mapping frame \n");
+    debug_printf("Mapping frame \n");
     void *buf1;
     err = paging_map_frame(pstate, &buf1, BASE_PAGE_SIZE, cap1_frame);
     if (err_is_fail(err)) {
@@ -74,11 +74,14 @@ static errval_t request_and_map_memory(void)
         return err;
     }
 
-    DEBUG_PRINTF("got frame: 0x%" PRIxGENPADDR " mapped at %p\n", id.base, buf1);
+    debug_printf("got frame: 0x%" PRIxGENPADDR " mapped at %p\n", id.base, buf1);
 
+    debug_printf("performing memset.\n");
     memset(buf1, 0x00, BASE_PAGE_SIZE);
 
-    DEBUG_PRINTF("obtaining cap of %" PRIu32 " bytes using frame alloc...\n",
+
+
+    debug_printf("obtaining cap of %" PRIu32 " bytes using frame alloc...\n",
                  LARGE_PAGE_SIZE);
 
     struct capref cap2;
@@ -98,42 +101,43 @@ static errval_t request_and_map_memory(void)
         return err;
     }
 
-    DEBUG_PRINTF("got frame: 0x%" PRIxGENPADDR " mapped at %p\n", id.base, buf1);
+    debug_printf("got frame: 0x%" PRIxGENPADDR " mapped at %p\n", id.base, buf1);
 
-    DEBUG_PRINTF("performing memset.\n");
+    debug_printf("performing memset.\n");
     memset(buf2, 0x00, LARGE_PAGE_SIZE);
 
     return SYS_ERR_OK;
+
 }
 
 static errval_t test_basic_rpc(void)
 {
     errval_t err;
 
-    DEBUG_PRINTF("RPC: testing basic RPCs...\n");
+    debug_printf("RPC: testing basic RPCs...\n");
 
-    DEBUG_PRINTF("RPC: sending number...\n");
-    err = aos_rpc_send_number(init_rpc, 42);
+    debug_printf("RPC: sending number...\n");
+    err =  aos_rpc_send_number(init_rpc, 42);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
 
-    DEBUG_PRINTF("RPC: sending small string...\n");
-    err = aos_rpc_send_string(init_rpc, "Hello init");
+    debug_printf("RPC: sending small string...\n");
+    err =  aos_rpc_send_string(init_rpc, "Hello init");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
 
-    DEBUG_PRINTF("RPC: sending large string...\n");
-    err = aos_rpc_send_string(init_rpc, str);
+    debug_printf("RPC: sending large string...\n");
+    err =  aos_rpc_send_string(init_rpc, str);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not send a string\n");
         return err;
     }
 
-    DEBUG_PRINTF("RPC: testing basic RPCs. SUCCESS\n");
+    debug_printf("RPC: testing basic RPCs. SUCCESS\n");
 
     return SYS_ERR_OK;
 }
@@ -143,7 +147,7 @@ int main(int argc, char *argv[])
 {
     errval_t err = SYS_ERR_OK;
 
-    DEBUG_PRINTF("memeater started....\n");
+    debug_printf("memeater started....\n");
 
     init_rpc = aos_rpc_get_init_channel();
     if (!init_rpc) {
@@ -165,48 +169,13 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "could not request and map memory\n");
     }
 
-    DEBUG_PRINTF("spawning hello\n");
-    domainid_t pid;
-    err = aos_rpc_process_spawn(init_rpc, "hello", !disp_get_current_core_id(), &pid);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not spawn process\n");
-    }
-    /*
-
-        DEBUG_PRINTF("attempting pid2name...\n");
-        char *name;
-        aos_rpc_process_get_name(init_rpc, pid, &name);
-        DEBUG_PRINTF("received pid2name result of pid 0x%lx: %s\n", pid, name);
-    */
-
-
-    size_t pid_count;
-    domainid_t *pids;
-    aos_rpc_process_get_all_pids(init_rpc, &pids, &pid_count);
-
-    DEBUG_PRINTF("PID count: %d\n", pid_count);
-
-    for (int i = 0; i < pid_count; i++) {
-        DEBUG_PRINTF("received pid: 0x%lx\n", pids[i]);
-    }
-    free(pids);
-
-    return 0;
-
-    char c;
-    // aos_rpc_serial_putchar(init_rpc, c);
-    DEBUG_PRINTF("enter a char: \n");
-    err = aos_rpc_serial_getchar(init_rpc, &c);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to get char");
-    }
-    DEBUG_PRINTF("get char: %c\n", c);
 
     /* test printf functionality */
-    DEBUG_PRINTF("testing terminal printf function...\n");
+    debug_printf("testing terminal printf function...\n");
 
     printf("Hello world using terminal service\n");
-    DEBUG_PRINTF("memeater terminated....\n");
+    debug_printf("memeater terminated....\n");
 
     return EXIT_SUCCESS;
 }
+
