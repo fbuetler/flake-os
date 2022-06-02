@@ -15,6 +15,7 @@
 #include <aos/nameserver.h>
 #include <spawn/spawn.h>
 #include <aos/kernel_cap_invocations.h>
+#include <serialio/serialio.h>
 
 static void aos_ump_send_errval_response(struct aos_ump *ump, errval_t err)
 {
@@ -165,13 +166,24 @@ void aos_ump_receive_listener(struct aos_ump *ump)
             return;
         }
         case AosRpcSerialWriteChar: {
-            err = process_write_char_request((char *)payload);
+            // either sends back a response (if payload[1] == 1),
+            // or just prints
+            err = serial_put_char(NULL, payload);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed to write char to serial\n");
                 continue;
             }
-            char retpayload[1];
-            aos_ump_send(ump, AosRpcSerialWriteCharResponse, retpayload, 1);
+            if(len == 1){
+                // if request len is 2, we don't send back a response as to 
+                // this is used to have huge performance gains
+                // however, if len is 1, we send back a response
+                // this is so we don't break the protocol
+                // defined by aos_ump_call
+                char retpayload[1];
+                aos_ump_send(ump, AosRpcSerialWriteCharResponse, retpayload, 1);
+            }else{
+                assert(payload[1] == 1);
+            }
             continue;
         }
         case AosRpcSerialReadChar: {

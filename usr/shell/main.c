@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
 
     curr_fs_path = strdup(FS_MOUNTPOINT);
 
-    //filesystem_init();
+    filesystem_init();
 
     //DEBUG_PRINTF("shell started \n");
     do {

@@ -113,11 +113,11 @@ static int bsp_main(int argc, char *argv[])
         DEBUG_ERR(err, "failed to spawn lpuart driver");
     }
 
-    /*
+    
     err = spawn_sdhc_driver(NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn sdhc driver");
-    } */
+    } 
 
 
     err = spawn_enet_driver(NULL);
@@ -166,6 +166,7 @@ static int app_main(int argc, char *argv[])
     }
 
     grading_setup_app_init(bi);
+
 
     grading_test_early();
 

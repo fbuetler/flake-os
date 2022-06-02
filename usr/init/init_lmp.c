@@ -154,15 +154,16 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 {
     errval_t err;
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
-        assert(false);
         // send to serial driver on the terminal server core
         aos_rpc_msg_type_t rtype;
-        char *rpayload;
-        size_t rlen;
-        err = aos_ump_call(&aos_ump_client_chans[TERMINAL_SERVER_CORE],
-                           AosRpcSerialWriteChar, lmp->recv_msg->payload, 1, &rtype,
-                           &rpayload, &rlen);
+        // semantics of writechar request: if index 1 of request is 1, no
+        // response will be sent back
+        char ump_req[2];
+        ump_req[1] = 1;
+        ump_req[0] = *(char *)lmp->recv_msg->payload; 
+        aos_ump_send(&aos_ump_client_chans[TERMINAL_SERVER_CORE], AosRpcSerialWriteChar, ump_req, 2);
         aos_lmp_recv_msg_free(lmp);
+        err = SYS_ERR_OK;
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to writechar on core %d over UMP relay\n",
                       TERMINAL_SERVER_CORE);

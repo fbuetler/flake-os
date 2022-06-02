@@ -2,6 +2,7 @@
 #include <aos/aos_lmp.h>
 
 #include <aos/deferred.h>
+#include <aos/systime.h>
 
 void aos_ump_debug_print(struct aos_ump *ump)
 {
@@ -80,15 +81,11 @@ static void ump_create_msg(struct aos_ump_msg *msg, enum aos_rpc_msg_type type,
 
 static errval_t aos_ump_send_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
 {
-    errval_t err;
     struct aos_ump_msg *entry = (struct aos_ump_msg *)ump->send_base + ump->send_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
     // DEBUG_PRINTF("sending message in slot %d\n", ump->send_next);
-    if (*state == UmpMessageSent) {
-        err = LIB_ERR_UMP_CHAN_FULL;
-        // DEBUG_ERR(err, "send queue is full");
-        return err;
+    while(*state == UmpMessageSent) {
     }
 
     dmb();  // ensure that we checked the above condition before copying
@@ -98,6 +95,7 @@ static errval_t aos_ump_send_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
     dmb();  // ensure that the message is written to memory before logically mark it as sent
 
     entry->header.msg_state = UmpMessageSent;
+
     ump->send_next = (ump->send_next + 1) % AOS_UMP_MESSAGES_ENTRIES;
 
     // no barrier needed as the receiving side has a memory barrier after the check of the
@@ -133,7 +131,6 @@ errval_t aos_ump_send(struct aos_ump *ump, enum aos_rpc_msg_type type, char *pay
         while (backoff < 1 << 5) {
             err = aos_ump_send_msg(ump, &msg);
             if (err_is_fail(err)) {
-                barrelfish_usleep(backoff * 1000);
                 backoff <<= 1;
             } else {
                 break;
@@ -160,8 +157,9 @@ static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct aos_ump_msg *msg
     // DEBUG_PRINTF("receiving in slot %d\n", ump->recv_next);
     while (*state != UmpMessageSent) {
         // spin, cause it's cheap (L1 ftw!)
-        barrelfish_usleep(1000);
+        thread_yield();
     }
+
 
     // This barrier does not need to be inside the polling loop as the state enum is
     // volatile. Further, the sending side has a data barrier before setting the correct
@@ -191,7 +189,7 @@ errval_t aos_ump_receive(struct aos_ump *ump, aos_rpc_msg_type_t *rettype,
     errval_t err;
 
     size_t offset = 0;
-    char *tmp_payload = malloc(AOS_UMP_MSG_MAX_BYTES);
+    char tmp_payload[AOS_UMP_MSG_MAX_BYTES];
 
     aos_ump_msg_type msg_type;
     bool is_last = false;
@@ -213,7 +211,6 @@ errval_t aos_ump_receive(struct aos_ump *ump, aos_rpc_msg_type_t *rettype,
 
     char *payload = malloc(offset);
     memcpy(payload, tmp_payload, offset);
-    free(tmp_payload);
 
     *rettype = (aos_rpc_msg_type_t)msg_type;
     *retpayload = payload;
@@ -306,7 +303,6 @@ errval_t aos_ump_call(struct aos_ump *ump, aos_rpc_msg_type_t send_type,
     errval_t err = SYS_ERR_OK;
 
     thread_mutex_lock(&ump->chan_lock);
-
     err = aos_ump_send(ump, send_type, send_payload, send_len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to send in aos_ump_call\n");
