@@ -10,13 +10,13 @@
 #include "helper.h"
 
 char *builtin_str[] = {
-    "help", "exit", "echo", "ps",    "kill",  "run_bg", "run_fg", "ls",
-    "pwd",  "cd",   "cat",  "mkdir", "rmdir", "rm",     "fwrite",
+    "help", "exit", "echo", "ps",    "run_bg", "run_fg", "ls",
+    "pwd",  "cd",   "cat","mkdir", "rmdir", "rm", "fwrite",
 };
 
 void (*builtin_func[])(char *) = {
-    &help, &shell_exit, &echo, &ps,          &kill,        &run_bg,   &run_fg,      &ls,
-    &pwd,  &cd,         &cat,  &shell_mkdir, &shell_rmdir, &shell_rm, &shell_write,
+    &help, &shell_exit, &echo, &ps, &run_bg,   &run_fg,&ls,
+    &pwd,  &cd,&cat,  &shell_mkdir, &shell_rmdir, &shell_rm, &shell_write,
 };
 
 int num_builtins(void)
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
     curr_fs_path = strdup(FS_MOUNTPOINT);
 
     filesystem_init();
-  
+
     // Something to cheer you up while debugging
     write_str(" _______ ___     _______ ___   _ _______    _______ _______       \\__  __/  \n");
     write_str("|       |   |   |       |   | | |       |  |       |       |      /_/  \\_\\  \n");
