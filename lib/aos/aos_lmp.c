@@ -325,6 +325,7 @@ static errval_t aos_lmp_chan_recv_blocking(struct aos_lmp *lmp, struct capref *m
 {
     errval_t err;
     while (!lmp_chan_can_recv(&lmp->chan)) {
+        barrelfish_usleep(10);
     }
     while (true) {
         err = lmp_chan_recv(&lmp->chan, recv_buf, msg_cap);
