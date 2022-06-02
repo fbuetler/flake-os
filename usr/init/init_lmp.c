@@ -203,7 +203,6 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
 
 errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
 {
-    // DEBUG_PRINTF("process serial read char request \n");
     //  grading
     grading_rpc_handler_serial_getchar();
 
@@ -227,11 +226,7 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
             return err_push(err, LIB_ERR_UMP_CALL);
         }
         assert(rtype == AosRpcSerialReadCharResponse);
-
-        // c = *rpayload;
-
     } else {
-        // err = process_read_char_request(&c);
         err = serial_get_char(lmp, &serial_response);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to read char over LMP\n");
@@ -241,7 +236,6 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
 
     size_t payload_size = sizeof(struct serialio_response);
     void *payload = malloc(payload_size);
-    // memcpy(payload, serial_response, )
     *((struct serialio_response *)payload) = serial_response;
 
     struct aos_lmp_msg *reply;
@@ -280,7 +274,6 @@ static void aos_process_pid2name_request(struct aos_lmp *lmp)
     char *name = "";
     if (destination_core != disp_get_core_id()) {
         // process via UMP at destination core
-        // TODO here, always 0 or 1 currently
         struct aos_ump *ump = &aos_ump_client_chans[!disp_get_core_id()];
 
         aos_rpc_msg_type_t type;
@@ -356,13 +349,11 @@ __attribute__((unused)) static errval_t aos_get_remote_pids(size_t *num_pids,
 
 static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
 {
-    // DEBUG_PRINTF("received LMP bind request\n");
     errval_t err;
 
     struct aos_lmp_msg *msg = lmp->recv_msg;
     domainid_t server_pid = *(domainid_t *)msg->payload;
 
-    // DEBUG_PRINTF("Looking for server spawninfo with pid %d\n", server_pid);
     struct spawninfo *server_si;
     err = spawn_get_process_by_pid(server_pid, &server_si);
     if (err_is_fail(err)) {
@@ -381,7 +372,6 @@ static void aos_process_lmp_bind_request(struct aos_lmp *lmp)
     }
 
     // forward message to server
-    // DEBUG_PRINTF("Forwarding request to server\n");
     err = aos_lmp_send_msg(&server_si->server_lmp, relay_msg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to relay LMP bind request to server");
@@ -405,7 +395,6 @@ static errval_t aos_process_aos_ump_bind_request(struct aos_lmp *lmp)
 
     aos_lmp_recv_msg_free(lmp);
 
-    // struct capref cframe = msg->cap;
     err = lmp_chan_alloc_recv_slot(&lmp->chan);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to allocated receive slot");
@@ -512,8 +501,6 @@ static errval_t aos_process_get_all_pids_request(struct aos_lmp *lmp)
 
     size_t payload_size = AOS_RPC_GET_ALL_PIDS_RESPONSE_LEN(nr_of_pids
                                                             + remote_nr_of_pids);
-    // XXX: somehow the size calculation is not correct but with this extra padding
-    // nothing bad happens
     struct get_all_pids_response *payload = calloc(0, payload_size + 64);
     if (!payload) {
         free(remote_pids);
