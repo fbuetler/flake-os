@@ -74,7 +74,6 @@ void aos_process_number(struct aos_lmp *lmp)
 void aos_process_string(struct aos_lmp *lmp)
 {
     grading_rpc_handler_string(lmp->recv_msg->payload);
-    DEBUG_PRINTF("received string: %s\n", lmp->recv_msg->payload);
 
     aos_lmp_recv_msg_free(lmp);
 
@@ -88,6 +87,7 @@ void aos_process_string(struct aos_lmp *lmp)
         DEBUG_ERR(err, "failed to create string response message");
         return;
     }
+
 
     err = aos_lmp_send_msg(lmp, reply);
     if (err_is_fail(err)) {
@@ -268,7 +268,7 @@ static errval_t aos_lmp_recv_first_msg(struct aos_lmp *lmp, struct capref msg_ca
     struct aos_lmp_msg *tmp_msg = (struct aos_lmp_msg *)recv_buf->words;
     size_t total_bytes = tmp_msg->header_bytes + tmp_msg->payload_bytes;
 
-    if (!lmp->use_dynamic_buf && total_bytes >= BASE_PAGE_SIZE) {
+    if (!lmp->dynamic_channel && total_bytes >= BASE_PAGE_SIZE) {
         DEBUG_PRINTF("Message too large for static buffer\n");
         return ERR_INVALID_ARGS;
     }
@@ -277,8 +277,13 @@ static errval_t aos_lmp_recv_first_msg(struct aos_lmp *lmp, struct capref msg_ca
 
     // allocate space for return message, copy current message already to it
     // DEBUG_PRINTF("use_dynamic_buf: %d \n", lmp->use_dynamic_buf);
-    lmp->recv_msg = !lmp->use_dynamic_buf ? (struct aos_lmp_msg *)lmp->buf
-                                          : malloc(total_bytes);
+    if (total_bytes < BASE_PAGE_SIZE) {
+        lmp->use_dynamic_buf = false;
+        lmp->recv_msg = (struct aos_lmp_msg *)lmp->buf;
+    } else {
+        lmp->use_dynamic_buf = true;
+        lmp->recv_msg = malloc(total_bytes);
+    }
     if (lmp->recv_msg == NULL) {
         DEBUG_PRINTF("Malloc inside aos_lmp_recv_msg_handler for ret_msg failed"
                      "\n");
