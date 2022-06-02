@@ -642,14 +642,6 @@ static errval_t spawn_setup_env(struct spawninfo *si, int argc, char *argv[])
     arch_registers_state_t *enabled_area = dispatcher_get_enabled_save_area(
         si->dispatcher_handle);
     registers_set_param(enabled_area, (uint64_t)args_frame_addr_child);
-
-    // unmap frame from parent
-    err = paging_unmap(get_current_paging_state(), args_frame_addr_parent);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to unmap frame");
-        return err_push(err, ELF_ERR_ALLOCATE);
-    }
-
     return SYS_ERR_OK;
 }
 
@@ -749,9 +741,6 @@ errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid
         return err;
     }
     // ELF magic number: 0x7f E L F
-    // printf("%x %c %c %c \n", *(char *)binary, *(char *)(binary + 1),
-    //        *(char *)(binary + 2), *(char *)(binary + 3));
-
     assert(*(char *)(binary + 0) == 0x7f);
     assert(*(char *)(binary + 1) == 0x45);
     assert(*(char *)(binary + 2) == 0x4c);
@@ -786,7 +775,6 @@ errval_t spawn_setup_argv(int argc, char *argv[], struct spawninfo *si, domainid
     DEBUG_TRACEF("Get free PID\n");
     err = spawn_get_free_pid(pid);
     if (err_is_fail(err)) {
-        // TODO out of PIDs, maybe kill a process?
         DEBUG_ERR(err, "failed to find free PID");
         return LIB_ERR_SHOULD_NOT_GET_HERE;
     }

@@ -2,7 +2,6 @@
 #include <aos/aos_lmp.h>
 
 #include <aos/deferred.h>
-#include <aos/systime.h>
 
 void aos_ump_debug_print(struct aos_ump *ump)
 {
@@ -84,7 +83,6 @@ static errval_t aos_ump_send_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
     struct aos_ump_msg *entry = (struct aos_ump_msg *)ump->send_base + ump->send_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
-    // DEBUG_PRINTF("sending message in slot %d\n", ump->send_next);
     while(*state == UmpMessageSent) {
     }
 
@@ -148,13 +146,10 @@ errval_t aos_ump_send(struct aos_ump *ump, enum aos_rpc_msg_type type, char *pay
 
 static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
 {
-    // aos_ump_debug_print(ump);
-
 
     struct aos_ump_msg *entry = (struct aos_ump_msg *)ump->recv_base + ump->recv_next;
     volatile ump_msg_state *state = &entry->header.msg_state;
 
-    // DEBUG_PRINTF("receiving in slot %d\n", ump->recv_next);
     while (*state != UmpMessageSent) {
         // spin, cause it's cheap (L1 ftw!)
         thread_yield();
@@ -185,7 +180,6 @@ static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct aos_ump_msg *msg
 errval_t aos_ump_receive(struct aos_ump *ump, aos_rpc_msg_type_t *rettype,
                          char **retpayload, size_t *retlen)
 {
-    // thread_mutex_lock_nested(&ump->chan_lock);
     errval_t err;
 
     size_t offset = 0;
