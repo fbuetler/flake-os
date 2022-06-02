@@ -21,6 +21,9 @@ void shell_rm(char *args);
 void shell_rmdir(char *args);
 void shell_write(char *args);
 
+void nslist(char *args);
+void nslookup(char *args);
+
 char *curr_fs_path;
 
 #endif

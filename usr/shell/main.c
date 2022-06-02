@@ -11,12 +11,12 @@
 
 char *builtin_str[] = {
     "help", "exit", "echo", "ps",    "run_bg", "run_fg", "ls",
-    "pwd",  "cd",   "cat","mkdir", "rmdir", "rm", "fwrite",
+    "pwd",  "cd",   "cat","mkdir", "rmdir", "rm", "fwrite", "nslist", "nslookup"
 };
 
 void (*builtin_func[])(char *) = {
     &help, &shell_exit, &echo, &ps, &run_bg,   &run_fg,&ls,
-    &pwd,  &cd,&cat,  &shell_mkdir, &shell_rmdir, &shell_rm, &shell_write,
+    &pwd,  &cd,&cat,  &shell_mkdir, &shell_rmdir, &shell_rm, &shell_write, &nslist, &nslookup
 };
 
 int num_builtins(void)

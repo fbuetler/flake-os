@@ -9,5 +9,6 @@
 
 errval_t aos_process_service_register(char *payload, size_t bytes);
 errval_t aos_process_service_lookup(char *payload, size_t bytes, service_info_t **retinfo);
+void aos_process_service_list(void);
 
 #endif  // NAMESERVER_SERVER_H

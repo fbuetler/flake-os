@@ -38,6 +38,7 @@ typedef enum aos_rpc_msg_type {
     AosRpcNsRegister,
     AosRpcNsLookup,
     AosRpcNsLookupResponse,
+    AosRpcNsList,
     ///< An LMP bind request consists of a PID corresponding to a domain we would like to
     ///< bind to. The response is an errval response with the cap of the server endpoint.
     AosRpcLmpBind,

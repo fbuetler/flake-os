@@ -37,6 +37,10 @@ void help(char *args)
     write_str("\t write str into the file fname\n");
     write_str("ls\n");
     write_str("\t List files and directories\n");
+    write_str("nslist\n");
+    write_str("\t List all registered services\n");
+    write_str("nslookup name\n");
+    write_str("\t Look up a service and print its pid and core\n");
 }
 
 static bool fs_path_exists(char *clean_path)
@@ -52,9 +56,10 @@ static bool fs_path_exists(char *clean_path)
 }
 
 
-static char *format_path(char *path){
+static char *format_path(char *path)
+{
     char *new_path;
-    if(path[0] != '/'){
+    if (path[0] != '/') {
         new_path = malloc(strlen(curr_fs_path) + 1 + strlen(path) + 1);
         strcpy(new_path, curr_fs_path);
         strcat(new_path, "/");
@@ -62,31 +67,33 @@ static char *format_path(char *path){
         char *cleaned_path = clean_path(new_path);
         free(new_path);
         return cleaned_path;
-    }else{
+    } else {
         new_path = clean_path(path);
         return new_path;
     }
 }
 
-static void write_no_such_dir(char *dir_path){
+static void write_no_such_dir(char *dir_path)
+{
     write_str("cd: no such directory exists: ");
     write_str(dir_path);
     write_str("\n");
 }
 
-void cd(char *args){
-    if(!args){
+void cd(char *args)
+{
+    if (!args) {
         write_str("cd: no arguments given\n");
         return;
     }
 
     char *path = format_path(args);
-    if(!path){
+    if (!path) {
         write_str("cd: invalid path\n");
         return;
     }
 
-    if(!fs_path_exists(path)){
+    if (!fs_path_exists(path)) {
         write_no_such_dir(path);
         free(path);
         return;
@@ -96,27 +103,28 @@ void cd(char *args){
     curr_fs_path = path;
 }
 
-void shell_mkdir(char *args){
-    if(!args){
+void shell_mkdir(char *args)
+{
+    if (!args) {
         write_str("mkdir: no name specified\n");
         return;
     }
     char *path = format_path(args);
-    if(!path){
+    if (!path) {
         write_str("mkdir: invalid path\n");
         return;
     }
 
     errval_t err = mkdir(path);
-    if(err_is_fail(err)){
+    if (err_is_fail(err)) {
         write_str("mkdir: failed to create directory\n");
     }
     free(path);
 }
 
-void cat(char *args){
-
-    if(!args){
+void cat(char *args)
+{
+    if (!args) {
         write_str("cat: no file specified\n");
         return;
     }
@@ -125,17 +133,17 @@ void cat(char *args){
 
     FILE *f = fopen(path, "r");
     free(path);
-    if(!f){
+    if (!f) {
         write_str("cat: failed to open file\n");
         return;
     }
 
     char b[2];
     b[1] = 0;
-    while(1){
+    while (1) {
         int c;
         c = fgetc(f);
-        if(c == EOF){
+        if (c == EOF) {
             break;
         }
         b[0] = c;
@@ -144,7 +152,6 @@ void cat(char *args){
     fclose(f);
 
     write_str("\n");
-
 }
 
 void pwd(char *args)
@@ -152,23 +159,24 @@ void pwd(char *args)
     printf("%s\n", curr_fs_path);
 }
 
-void shell_rm(char *args){
-    if(!args){
+void shell_rm(char *args)
+{
+    if (!args) {
         write_str("rm: no file specified\n");
         return;
     }
 
     char *path = format_path(args);
-    if(!path){
+    if (!path) {
         write_str("rm: invalid path\n");
         return;
     }
 
     errval_t err = rm(path);
-    if(err_is_fail(err)){
-        if(err == FS_ERR_NOTFILE){
+    if (err_is_fail(err)) {
+        if (err == FS_ERR_NOTFILE) {
             write_str("rm: not a file\n");
-        }else{
+        } else {
             write_str("rm: failed to remove file\n");
         }
     }
@@ -176,23 +184,24 @@ void shell_rm(char *args){
     free(path);
 }
 
-void shell_rmdir(char *args){
-    if(!args){
+void shell_rmdir(char *args)
+{
+    if (!args) {
         write_str("rmdir: no dir specified\n");
         return;
     }
 
     char *path = format_path(args);
-    if(!path){
+    if (!path) {
         write_str("rmdir: invalid path\n");
         return;
     }
 
     errval_t err = rmdir(path);
-    if(err_is_fail(err)){
-        if(err == FS_ERR_NOTDIR){
+    if (err_is_fail(err)) {
+        if (err == FS_ERR_NOTDIR) {
             write_str("rmdir: not a directory\n");
-        }else{
+        } else {
             write_str("rmdir: failed to remove dir\n");
         }
     }
@@ -200,14 +209,15 @@ void shell_rmdir(char *args){
     free(path);
 }
 
-void shell_write(char *args){
-    if(!args){
+void shell_write(char *args)
+{
+    if (!args) {
         write_str("write: no file specified\n");
         return;
     }
 
     char *buf = strchr(args, ' ');
-    if(!buf){
+    if (!buf) {
         write_str("write: no data specified\n");
         return;
     }
@@ -217,29 +227,29 @@ void shell_write(char *args){
     char *unformatted_path = args;
 
     char *path = format_path(unformatted_path);
-    if(!path){
+    if (!path) {
         write_str("write: invalid path\n");
         return;
     }
 
     FILE *f = fopen(path, "w");
-    if(!f){
+    if (!f) {
         write_str("write: failed to open file\n");
         free(path);
         return;
     }
 
-    while(*buf){
+    while (*buf) {
         fputc(*buf, f);
         buf++;
     }
 
     fclose(f);
-    free(path); 
+    free(path);
 }
 
-void ls(char *args){
-
+void ls(char *args)
+{
     fs_dirhandle_t dh;
     errval_t err = opendir(curr_fs_path, &dh);
     do {
@@ -252,14 +262,14 @@ void ls(char *args){
             break;
         }
         write_str(name);
-        if(fi.type == FS_DIRECTORY){
+        if (fi.type == FS_DIRECTORY) {
             write_str("/");
         }
 
         free(name);
 
         write_str("\n");
-    } while(err_is_ok(err));
+    } while (err_is_ok(err));
 
     closedir(dh);
 }
@@ -273,8 +283,8 @@ void run_bg(char *args)
 void run_fg(char *args)
 {
     domainid_t pid;
-    errval_t  err = spawn_process(args, &pid);
-    if(err_is_fail(err)) {
+    errval_t err = spawn_process(args, &pid);
+    if (err_is_fail(err)) {
         return;
     }
 
@@ -315,4 +325,56 @@ void echo(char *args)
     if (args != NULL) {
         printf("%s\n", args);
     }
+}
+
+void nslist(char *args)
+{
+    struct aos_rpc_msg msg
+        = { .type = AosRpcNsList, .bytes = 0, .payload = "", .cap = NULL_CAP };
+    struct aos_rpc_msg resp;
+    errval_t err = aos_rpc_call(shell_state.init_rpc, msg, &resp);
+    if (err_is_fail(err)) {
+        printf("There was an error printing the services\n");
+        return;
+    }
+
+    free(resp.payload);
+}
+
+void nslookup(char *args)
+{
+    struct aos_rpc_msg request = {
+        .type = AosRpcNsLookup, .payload = args, .bytes = strlen(args), .cap = NULL_CAP
+    };
+
+    struct aos_rpc_msg response;
+
+    errval_t err = aos_rpc_call(shell_state.init_rpc, request, &response);
+    if (err_is_fail(err)) {
+        printf("There was an error looking up the service %s\n", args);
+        return;
+    }
+
+    if (response.type == AosRpcErrvalResponse) {
+        err = *(errval_t *)response.payload;
+        if (err_no(err) == LIB_ERR_NAMESERVICE_NOT_BOUND) {
+            printf("No service with the name \"%s\" found\n", args);
+            free(response.payload);
+            return;
+        }
+
+        printf("There was an error looking up the service %s\n", args);
+        free(response.payload);
+        return;
+    } else if (response.type != AosRpcNsLookupResponse) {
+        printf("There was an error looking up the service %s\n", args);
+        free(response.payload);
+        return;
+    }
+
+    // freeing info will also free the response payload
+    service_info_t *info = (service_info_t *)response.payload;
+    printf("service \"%s\": pid %d on core %d\n", info->name, info->pid, info->core);
+
+    free(info);
 }

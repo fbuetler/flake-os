@@ -617,8 +617,14 @@ errval_t init_process_msg(struct aos_lmp *lmp)
     case AosRpcLmpBind:
         aos_process_lmp_bind_request(lmp);
         break;
+    case AosRpcNsList:
+        aos_process_service_list();
+        aos_lmp_recv_msg_free(lmp);
+        aos_lmp_send_errval_response(lmp, SYS_ERR_OK);
+        break;
     default:
         DEBUG_PRINTF("init received unknown message type %d\n", msg_type);
+        aos_lmp_recv_msg_free(lmp);
         break;
     }
     // DEBUG_PRINTF("init handled message of type: %d\n", msg_type);

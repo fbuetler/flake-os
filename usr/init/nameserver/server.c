@@ -97,3 +97,8 @@ errval_t aos_process_service_lookup(char *payload, size_t bytes, service_info_t 
 
     return SYS_ERR_OK;
 }
+
+void aos_process_service_list(void) 
+{
+    print_service_names();
+}
