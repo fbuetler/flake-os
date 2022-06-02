@@ -1,54 +1,117 @@
+\chapter{Shell}
+The shell is split into two modules, a serial server and the shell itself. The idea is to decouple the shell from the I/O such that it could work with any read/write function.
+
+\section{Serial Server}
+The serial server interfaces with the UART driver and is not platform agnostic. To start the server, a platform must therefore be specified. The UART driver and interrupts are initialized as explained in the book.
+
+The state of the serial server is a ring buffer which stores the characters, and positions where to read and write next. To avoid running out of memory or crashing if no memory is available, the buffer has a fixed sized defined at compile time.
+
+\begin{minted}{c}
+struct serial_state {
+    char buffer[SERIAL_BUFFER_SIZE]; // ring buffer
+    size_t next_write; /// position in the ring buffer for the next write
+    size_t next_read; /// position in the ring buffer for the next read
+    size_t num_valid_entries; /// count how many entries entries are valid
+    bool empty; /// true if the buffer is empty
+    struct thread_mutex lock;
+} serial_state;
+\end{minted}
+
+There are several ways to handle a new character when the ring buffer is full. We decided that the driver should never block and that new data is more important than old data, and therefore overwrite old content. In addition to overwriting the oldest entry, the \verb|next_read| pointer is also advanced such that it always points to the oldest data.
+
+The driver implements two interfaces to read and write data: 
+\begin{minted}{c}
+errval_t serial_put_char(const char *c)
+\end{minted}
+and
+\begin{minted}{c}
+errval_t serial_get_char(struct serialio_response *serial_response)
+\end{minted}
+
+As the driver is non-blocking, \verb|serial_get_char| always returns even if no data is available. The caller has to repeatedly pool until a character is available.
+
+The serial server is by default started on core $0$. It is better to use the RPC functions \verb|aos_rpc_serial_getchar| and \verb|aos_rpc_serial_putchar| rather than the two above mentioned functions, as they handle communication accross core. Depending on the core, either an LMP or an UMP message is send to core $0$. The location of the serial server is defined as \verb|#define TERMINAL_SERVER_CORE 0| . The \verb|putchar| function simply sends a message to core $0$ which uses \verb|aos_rpc_serial_putchar| to print the char. \verb|aos_rpc_serial_getchar| however is a blocking function and pools the serial server until a new char is available:
+
+\begin{minted}{c}
+    do {
+        struct aos_rpc_msg request = { .type = AosRpcSerialReadChar,... };
+        struct aos_rpc_msg response;
+        err = aos_rpc_call(rpc, request, &response);
+        struct serialio_response *serial_response  = 
+                (struct serialio_response *)response.payload;
+        if (serial_response->response_type == SERIAL_IO_SUCCESS) {
+            *retc = serial_response->c;
+            free(response.payload);
+            return SYS_ERR_OK;
+        }
+        free(response.payload);
+        thread_yield();
+    } while (1);
+\end{minted}
+
+Since pooling in a loop creates many messages, we tried to use cooperative multitasking with \verb|thread_yield()|.
+
+The libc functions \verb|printf|,  \verb|getchr| etc. are also mapped to these RPC function.
+
+Thread safety is guaranteed by the mutex in the serial driver. Only interrupts and reads can change the state and are therefore locking. Since both functions are guaranteed to succeed, no deadlock can occur. 
+
+To guarantee that I/O is always possible independent of other communication, the serial driver has it's own RPC channel on core $0$ which gets initialized on system start and is available with \verb|struct aos_rpc * aos_rpc_get_serial_channel(void)|.
+
+There were two caveats when implementing the serial server. The first is that interrupts are only triggered when the UART queue is empty. Therefore, the interrupt handler needs to read \emph{all} the chars and not just a single one. Failing to do this leads to a frozen serial server as no input triggers an interrupt anymore. The other is that not all the terminals treat the newline character \verb|\n| the same. In our case, \verb|picocom| created a new line, but didn't start writing from the beginning of the line. Instead of changing all the \verb|printfs| in the code to end with \verb|\r\n|, we decided to additionally print \verb|\r| when a write request for \verb|\n| comes in.
+
+\subsection{Improvements}
+It is theoretically possible to starve either the read or the write function because both share the same lock. An improvement would be to use a reader/writer lock, as there might be many readers but only one writer. A better alternative would be to provide an interface for other processes to register themselves. On each interrupt, the serial server could then \emph{forward} the char to all the registered channels. This is similar to the concept of asynchronous functions.
+
+One major limitation is that the serial server is not multi-user compatible. It keeps one global state and each read consumes a character. This means that two shells would both share the same underlying buffer and typing into one could result in a character appearing on the other. A potential solution is to associate identifiers to RPC channels. Each channel has pointers into the global buffer and is therefore isolated from the others. The functions would therefore need to take a channel as argument from which they can extract the ID: 
+\begin{minted}{c}
+errval_t serial_get_char(struct aos_lmp *lmp, 
+                         struct serialio_response *serial_response)
+\end{minted}
+Another advantage of such a system is that read requests only need to lock the state for a specific which would allow concurrent reads. An extension to this would be to use capabilities as identifiers. This way, sharing a capability with another process would mean that it is allowed to read the I/O.
+ 
+The idea about channels can even be extended to use the serial server as a TTY equivalent, which keeps track of communication channels to processes on the one hand, and I/O functions on the other. This way, it'd be possible to replace the input source from UART to e.g. a socket without changing the interface with which a process reads and writes data. Implementing this however would be a major change to the current design.
+
+
 \section{Shell}
-
-The shell is split into two modules, a serial server and the shell itself.
-The idea is that the shell should only require an interface to read/write and be completely decoupled form any hardware.
-That way, any IO device such as a network socket could be used without major modifications of the shell.
-
-\subsection{Shell}
-The core of the shell is a read, evaluate, execute loop.
-It repeatedly queries the serial server to get the next character and stores them in a list.
-Once a new line is encountered, it extracts the first whitespace separated substring and treats it as a command.
-The rest of the input is used as argument to the function associated with the command.
-The only exception is the \verb|time| command, which measures the time another command takes.
-If this command is encountered, the shell starts a timer, removes \verb|time| from the string, and continues the normal command parsing.
-After the call to the command finishes, the timer stops and the difference is printed.
+The core of the shell is a read, evaluate, execute loop. It repeatedly queries the serial server with \verb|getchar()| to get the next character and stores them in a list. Once a new line is encountered, it extracts the first whitespace separated substring and treats it as a command. The rest of the input is used as argument to the function associated with the command. The only exception is the \verb|time| command, which measures the time another command takes. If this command is encountered, the shell starts a timer, removes \verb|time| from the string, and continues the normal command parsing. After the call to the command finishes, the timer stops and the difference is printed.
 
 Commands are stored in an array:
-\begin{lstlisting}
+\begin{minted}{c}
 char *builtin_str[] = {
     "help",
     "exit",
     "echo",
+    ...
 }
-\end{lstlisting}
+\end{minted}
 
-The corresponding function must have the following following prototype: \verb|void func(char *arg);| and its function pointer
-is also stored in an array:
+The corresponding function must have the following following prototype: \verb|void func(char *arg);| and its function pointer is also stored in an array:
 
-\begin{lstlisting}
+\begin{minted}{c}
 void (*builtin_func[]) (char *) = {
     &help,
     &shell_exit,
     &echo,
+    ...
 };
-\end{lstlisting}
+\end{minted}
 
-With this setup commands are matched in a simple loop:
+With this setup commands are matched and executed in a simple loop:
 
-\begin{lstlisting}
+\begin{minted}{c}
 for (int i = 0; i < num_builtins(); i++) {
     if (strcmp(command, builtin_str[i]) == 0) {
         builtin_func[i](strtok(NULL, ""));
         command_exists = true;
     }
 }
-\end{lstlisting}
+\end{minted}
 
-This system was taken from a blog post by Stephan Brennan \footnote{\url{https://brennan.io/2015/01/16/write-a-shell-in-c/}}.
+This implementation was taken from a blog post by Stephan Brennan \footnote{\url{https://brennan.io/2015/01/16/write-a-shell-in-c/}}.
 
 The state of the shell is stored in a struct and initialized on startup:
 
-\begin{lstlisting}
+\begin{minted}{c}
 #define RECV_BUFFER_SIZE 64
 
 struct shell_state {
@@ -58,19 +121,36 @@ struct shell_state {
     struct aos_rpc *serial_rpc;
     struct aos_rpc *init_rpc;
 } shell_state;
-\end{lstlisting}
+\end{minted}
 
-\subsubsection{Improvements}
+The shell implements the following commands:
+
+\begin{description}
+   \item[echo] Write the arguments back to the screen
+   \item[time] Measure the runtime of a command
+   \item[run\_fg] Run a process in the foreground
+   \item[run\_bg] Run a process in the background
+   \item[cd] Change directory
+   \item[mkdir] Create a directory
+   \item[rm] Remove a file
+   \item[rmdir] Remove a directory
+   \item[cat] Print the content of the file
+   \item[fwrite] Write a string into a file
+   \item[ls] List directories
+    \item[ps] List all active processes
+\end{description}
+
+Besides \verb|time|, two other commands are noteworthy. The change directory command \verb|cd| not only changes the state of the filesystem, but also stores the location in the file tree. This way, the shell can print the current location for each new line such that the user always knows where they are in the file system. Running processes in the foreground requires the shell to actively block. This is done by repeatedly calling \verb|aos_rpc_process_get_name()|. Once a process exits, the call returns \\ \verb|SPAWN_ERR_PID_NOT_FOUND| and the shell continues. If we'd implement the previously mentioned improvement of individual channels to the serial server, then foreground processes would need to get the same channel ID as the shell. Otherwise, I/O in the foreground process would not advance the state of the shell and after returning, the shell would receive all input from the process.
+
+If the input exceeds the buffer of the shell, it is discarded and a message is printed. The only special character which the shell treats is the \emph{backspace}, which allows a user to delete written text. It does so by using the ANSI escape codes: \verb|e[De[K| which moves the cursor to the left, and clears the rest of the line.
+
+\subsection{Improvements}
 There are several possible improvements to the current implementation of the shell.
 
-By changing the command function prototype to \verb|errval_t func(char *arg);|, it is possible to store the last return/error code.
-As we do not have a \emph{shell programming language} which can do work conditional on the return code, we did not implement this feature.
+By changing the command function prototype to \verb|errval_t func(char *arg);|, it is possible to store the last return/error code. As we do not have a \emph{shell programming language} which can do work conditional on the return code, we did not implement this feature.
 
-Instead of pooling new characters from the serial server, an alternative would be to register a callback function from the shell to the serial server.
-This way, the interrupts get propagated to all the subscribers.
+Rather than pooling to see if a process still exists when running \verb|run_fg|, an upcall mechanism could be implemented such that the shell sleeps and gets woken from the \verb|libc_exit| function of the terminating process.
 
+Besides starting the shell directly in the read, evaluate, execute loop which relies in data pooling, it might be useful to provide an interface to push data to the shell with a function such as \verb|errval_t execute_command(char *arg)|. This way someone could use the shell in their own code with a custom I/O interface separate from the serial server. One issue which would arise with this method is that processes launched from shell would still implicitly use the serial server. To change this, the OS would need a way to modify the input/output channels of individual processes.
 
-\subsection{Serial Server}
-The serial server can be seen as a rudimentary TTY. It reads and writes through UART and buffers incoming characters.
-With only little modification multiple TTYs could be launched, each using a different UART port.
-
+Currently, all the commands are hardcoded and an arbitrary process can only be launched by \verb|run_bg| or \verb|run_fg|. A possible extension would be to provide an equivalent to \verb|.bashrc| and \verb|$PATH| to specify a location on the file system in which the shell would look for binaries if the command isn't found in the builtin list.

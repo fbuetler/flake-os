@@ -1,3 +1,156 @@
 \chapter{Nameservice}
 
-TODO
+This individual project is a central piece in pulling all the different components we have implemented
+together into one system. With the nameserver components of the system providing a service, the servers,
+can register themselves in the nameserver. This way their services become discoverable to components
+which want to use them. They can now discover these by looking up the service name in the nameserver.
+Using the nameserver they can then bind to the server and consume the services. The nameserver is highly
+integrated with the RPC system as its main job apart from discovery is setting up communication channels
+between processes.
+
+\section{Interface \& Abstraction}
+The interface to the nameserver enables to abstract away the underlying details of the RPC system. Such
+details include which core a program is running on, consequently which RPC method to choose, how to send
+and receive messages over it and how the proper receive handler is called.
+
+The nameserver interface provides a register function where a server can provide its own message handler
+and pointer to its internal state. With this message handler the server can establish its own messages
+and communication protocols on top of the RPC system. Clients can then look up a registered service and
+they receive an opaque channel over which they can send messages to the server and receive a response.
+If servers also provide a library for message creation, the interaction between a client and a server
+becomes fully abstracted from the underlying RPC system.
+
+\section{The Nameserver}
+\subsection{Names}
+Before we get into the innards of the name server, we need to specify what a name is on our system.
+We decided to use a hierarchical naming system where parts of the name are separated by a dot. The
+parts of the name are snake case strings that may contain numbers. Further, a name part must start 
+with a letter and end in a number or a letter. The full regular expressions to validate names is presented in
+listing \ref{lst:name-regex}. Examples of such names are \sytx{net.icmp.ping_service} or \sytx{mem.server_v2}.
+We provide functions to split names into their parts.
+
+\begin{listing}
+\begin{minted}{perl}
+^[a-z][a-z0-9_]*[a-z0-9](\.[a-z][a-z0-9_]*[a-z0-9])*$
+\end{minted}
+\caption{Regular expression matching valid service names in our system}
+\label{lst:name-regex}
+\end{listing}
+
+\subsection{Storing Names and Service Information}
+Due to our choice of hierarchical names a tree was the obvious data structure to store names. Our name tree
+consists of nodes that represent a part of a name. Each node has a pointer to a list of nodes which 
+represent name parts that come later in a name than the part the current node refers to. So every level in
+the node represents another level in the name hierarchy. Leaves that represent the actual names contain a
+pointer to the information of the service with the name represented by the node and its location in the tree.
+The tree has a root node which points to the name part list on the first level. This root node is never
+deleted and does not itself carry a name part. It is simply the state pointer for the nameserver.
+
+The service information contains all the information needed to identify and bind the service to the server providing. It contains the full name for convenience, the core the server runs on, the PID of the server
+process, as well as the information on the handler function and the pointer to the handler state the server
+supplies as it registers itself.
+
+Looking up names is done by splitting up a name into parts and finding the proper node for a given part on
+every level of the tree. If a service exists for a given name, then the node reached at the end of this
+tree walk should contain a service information record. Note that this also allows for a service to be registered
+at an intermediate node, i.e. there is a service with the name \sytx{foo.bar.baz} and another service
+with the name \sytx{foo.bar}.
+
+\subsection{Running the Server}
+As a temporary (though not bad) solution to get the nameserver off the ground, it runs on the
+init process on the bootstrap core. This is a convenient solution as it takes care of almost all bootstrapping
+since all processes have a channel to their core local init process and all init processes on other cores
+have a UMP channel to the bootstrap core. Communication to the nameserver just becomes a question of
+relaying the calls to the proper core or calling init directly.
+
+The only state of the nameserver is its name tree which is managed by the init process on the bootstrap core.
+Running the server is simply init handling the incoming RPC calls and reading and writing the name tree.
+
+\section{Registering a Service}
+The registration of a service is straight forward. The server needs to provide a function pointer to its
+receive handler and a pointer to its internal state if needed. With a call to the \mintinline{c}{nameservice_register}
+function a new service information is created with all the information of the server, which is then sent
+as a request to the nameserver with an RPC message. The nameserver then inserts the service information
+into the name tree at the appropriate location given the service name.
+
+\section{Binding to a Server}
+If a client wants to bind to a server offering a service, it calls the \mintinline{c}{nameservice_lookup}
+function. This function first looks up the service in the nameserver over RPC and gets the corresponding 
+service information as a response if a service was registered under that name. For servers that take some
+time to start up it is sometimes necessary to call the lookup function in a loop until the server is done
+registering its service.
+
+Determined by the core the server is running on, there are two ways to bind the server: over LMP or over UMP.
+In both cases, a new direct RPC channel between the server and the client process is created. These bind
+operations are centered around the init processes on the respective cores. In our system, the respective
+init processes act as the monitor for their cores. Thus, they have all the information about the processes
+running on their core such that they can forward bind requests to the server.
+
+Both binding processes have a similar structure:
+\begin{enumerate}
+    \item The client creates a new endpoint (LMP endpoint or shared memory region for UMP) to set up its side
+        of the channel.
+    \item The client makes a bind request to establish a channel with a process by sending the server PID
+        obtained from the service information and information about its side of the new channel.
+    \item The init process on the core of the server process looks up the PID in its list of spawninfos
+        and forwards the request over its LMP channel to the server.
+    \item The server is able to set up its side of the channel fully based on the information it has received.
+    \item The client receives information about the server's channel endpoint and is able to complete the
+        setup of its side of the channel.
+\end{enumerate}
+
+The client (the caller of \sytx{nameservice_lookup} receives the opaque \sytx{nameservice_chan_t} binding
+that contains the RPC binding, as well as the receive handler of the server and the pointer to the server state.
+
+\subsection{LMP Binding}
+As opposed to all the LMP channels that are created at spawn time of a process, the LMP binding operation
+initializes a new channel in while the system is running. For LMP channels, this boils down to creating
+new endpoints and exchanging the endpoint capabilities. 
+
+Once the client knows it needs to create an LMP channel, it first creates a new LMP endpoint as its side of
+the channel. This uses the same initialization procedure as at spawn time. The local endpoint capability and
+the PID of the server are then sent to init as an LMP bind request. As stated above init forwards this message
+to the server.
+
+The server can fully initialize the channel using the received capability from the client as the channel's
+remote capability. This channel is registered on the default eventset with a message handler that handles
+handshakes and client requests. With this in place, the server initializes a handshake with the client in order to transfer
+its own endpoint capability. The client is at this point already polling its incomplete channel for this message,
+as it is eagerly awaiting the remote capability from the server to complete its side of the channel.
+
+\subsection{UMP Binding}
+As we encountered more and more bugs while integrating the nameserver with LMP binding together with the
+other individual projects, we decided to deprioritize the UMP binding functionality in favor of the rest
+of the system working. Unfortunately, every time work on this component started again, another bug blocking
+progress for the team popped up such that the deprioritization ended up as a sacrifice of this functionality
+for the sake of not introducing more bugs.
+
+\section{Using the Connection}
+Using the binding to the server is as simple as invoking \sytx{nameservice_rpc} with the nameservice channel
+received from the lookup and the proper arguments. The library implements the sending between the client and
+the server. Concretely, the client sends a request containing the message, in case of LMP the capability
+(capability transfers over UMP are not supported as our group has not completed the \enquote{Capabilities Revisited}
+milestone), as well as the receive handler function pointer and the pointer to the server state.
+
+On the server side, the received message is unmarshalled and the received function pointer to the receive handler
+is called with the proper arguments from the receive message and the pointers for the contents of the return message.
+These responses from the handler function are then sent over the channel to the client.
+
+\section{Challenges, Limitations, \& Improvements}
+The most challenging part of implementing the nameserver were latent bugs or bad design decisions in the RPC system.
+Implementing the LMP binding also lead to a significant rewrite of the LMP system (which would have been even
+more significant given more time until the deadline). A common source of bugs was the combination of the
+footguns that the C memory management provides and our twitchy trigger fingers. A particular favorite that comes to
+mind is a buffer overrun that overwrote the function pointer of the handler function in our LMP channels
+leading to heap addresses in the program counter. At this point, I want to acknowledge the good work of some
+voluntary and involuntary rubber ducks that helped significantly in discovering such bugs.
+
+A significant limitation is of course the missing functionality of UMP binding and thus also the ability
+to connect and communicate to servers on a different core. For the same reason the service enumeration is not implemented.
+
+Also on the topic of memory management is the distinct lack of cleanup of the channels between clients and
+servers. Currently, these channels are allocated without any bookkeeping in place to be able to free them at
+some point. Thus, these channels are currently lost to the memory nirvana. Given some more time, however, it
+would be possible to add some state in processes keeping track of channels to servers or clients such that 
+they can be properly cleaned up once they are not needed anymore.
+

@@ -1,37 +1,21 @@
-\chapter{User-level Message Passing}
+\chapter{User-Level Message Passing}
 
+In this chapter, we look at the next part of our RPC infrastructure.
 Communication between cores happens over shared memory. When a core is booted,
-the parent core allocates some memory, maps it into its own address space and
-provides its physical memory address and size to the child core. The child core
-also maps this memory region into its address space, and now both core can
-access the same memory region.
+the parent core allocates some memory, maps it into its own address space and provides the physical memory address and size to the child core. The child core also maps this memory region into its address space, which allows both core to access the same memory region. 
 
-With this shared memory, both cores, need to settle on a common communication
-protocol such that they understand each other.
+With this shared memory as communication channel, both cores need to settle on a common protocol.
 
 \section{Communication Protocol}
+Each core can acts as a server or a client. That means it may react to incoming
+messages or initiate messages to other cores. We decided on having a consumer-producer queue mechanism to exchange messages between two cores, with the shared memory having the size of two base pages.
 
-Each core can acts as a server or a client. That means it may react on incoming
-messages or initiate messages to other cores.  We decided on having a
-consumer-producer queue mechanism to exchange messages between two cores, with
-the shared memory having the size of two base pages. 
+We first implemented the communication protocol with a shared memory size of one base page, but it turned out that messages that are sent to a core as a response to a request and messages that are sent to a core as a request, may interleave. So we settled to have a shared memory of the size of two base pages such that one base page can be used for server communication and one for client
+communication.
 
-We first implemented the communication protocol with a shared memory size of one
-base page, but it turned out that messages, that are sent to a core as a
-response to a request and messages that are sent to a core as a request, may
-interleave. So we settled to have a shared memory of the size of two base pages
-such that one base page can be used for server communication and one for client
-communication. 
+However, the communication protocol for both server and client is the same. We will now explain how two cores can communicate with each other over shared memory of the size of one base page.
 
-However, the communication protocol for both server and client is the same. We
-will now explain, how two cores can communicate with each other over shared
-memory of the size of one base page.
-
-As already mentioned, the communication protocol is based on a producer/consumer
-queue implemented with as a circular ring buffer. We need exactly two ring
-buffers to communicate, as one ring buffer is for sending a message from on
-core, and receiving on the other core. The second ring buffer is the same but
-vice-versa, such that both cores can both send and receive messages. 
+As already mentioned, the communication protocol is based on a producer/consumer queue implemented with as a circular ring buffer. We need exactly two ring buffers to communicate, as one ring buffer is for sending a message from on core, and receiving on the other core. The second ring buffer is the same but vice-versa, such that both cores can both send and receive messages. 
 
 That means we need to split the base page once again into two equals parts. The
 parent core will use the first half of the base page for sending messages and
@@ -70,40 +54,102 @@ until the receiver has consumed some messages. However, if the message is not
 marked as sent, but as received, then we can use this cache line to transmit
 another message. We copy the message into the cache line, mark it in its header
 as sent, and update our offset into the ring buffer to point to the next cache
-line. The tricky part here is to deal with ARM's weak memory model. A weak
-memory model does not guarantee that stores from one core are observer by
+line. The tricky part here is to deal with ARMs weak memory model. A weak
+memory model does not guarantee that stores from one core are observe by
 another core in the same order, that they are stored by the former. Luckily,
 there are barriers to enforce exactly that.
 
-We need a barrier between checking for the message state and copying the message
-in the cache line to ensure that we first check the state being received before
-we overwrite possibly not yet consumed messages. And we also need a barrier
-after copying the message into the cache line and marking the message as sent,
-such that the message is actually written to memory before logically marked as
-sent and consumed by the receiver.
+\section{Barriers}
+Since ARMv8 has a weak memory model (less so than ARMv7, but still) we must ensure
+memory consistency ourselves. We can do this with the help of data memory barriers 
+which the ARMv8 microarchitecture kindly provides in the form of the \mintinline{asm}{dmb}
+assembly instruction. It serializes memory operations by ensuring that all memory
+operations before the barrier complete before any memory operations after the
+barrier start.
 
-To receive a message, it computes the current offset into the ring buffer to
-know in which cache line the receiver should expect the next message. It  checks
-repeatedly the message stored in this cache line for its message state. Once,
-the message state is marked as sent, the receiver got a new message to be
-consumed. To consume it, it is copying the content from the cache line, marks
-the message as received and updates its offset into the ring buffer.
+We need such memory barriers when sending and receiving UMP messages to ensure
+that we do not read before the other core is done writing and vice versa since ARMv8
+does not give us guarantees on the ordering of memory reads as a program observes them.
+Therefore, we use the memory barrier to serialize the memory operations at the right time.
 
-Again, we need barriers to make the whole receiving process work. Similarly, to
-the sender, we need to insert a barrier before consuming a message such, that we
-are sure that we first check the message state to be marked as sent before
-actually reading its content. Also, we need another barrier between copying the
-message content from the cache line and marking the message as received. The
-same reasoning as above applies here.
+In listing \ref{lst:ump-send} you there are two memory barriers. The barrier on
+line 8 is needed because UMP messages are organized in a ring buffer and we need
+to ensure that all messages are received and read by the recipient before we
+start writing another message into it. Similarly, we need to ensure on line 13
+that the message is only marked as sent once the entirety of the message has been
+copied into that buffer.
 
-\section{Sending large messages}
+\begin{listing}[h]
+\begin{minted}{c}
+static errval_t aos_ump_send_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
+{
+    struct aos_ump_msg *entry = (struct aos_ump_msg *)ump->send_base + ump->send_next;
+    volatile ump_msg_state *state = &entry->header.msg_state;
 
-At this point, two core are capable of communicating with each other. But only
-if the message, they would like to send, fit into a single cache line. We went
+    while(*state == UmpMessageSent) { /* busy loop */ }
+
+    dmb();  // ensure that we checked the above condition before copying
+
+    memcpy(entry, msg, AOS_UMP_MSG_BYTES);
+    // ensure that the message is written to memory 
+    // before logically mark it as sent
+    dmb();  
+
+    entry->header.msg_state = UmpMessageSent;
+
+    ump->send_next = (ump->send_next + 1) % AOS_UMP_MESSAGES_ENTRIES;
+
+    return SYS_ERR_OK;
+}
+\end{minted}
+\caption{Function for sending UMP messages}
+\label{lst:ump-send}
+\end{listing}
+
+When receiving a message with the function in listing \ref{lst:ump-recv} we again need two
+memory barriers. One on line 10 to ensure that the message is marked as sent and has
+therefore been fully copied into the buffer before we start reading it. The barrier on
+line 13 ensures that the reading of the message has completed before we mark the message as sent.
+\begin{listing}
+\begin{minted}{c}
+static errval_t aos_ump_receive_msg(struct aos_ump *ump, struct aos_ump_msg *msg)
+{
+    struct aos_ump_msg *entry = (struct aos_ump_msg *)ump->recv_base + ump->recv_next;
+    volatile ump_msg_state *state = &entry->header.msg_state;
+
+    while (*state != UmpMessageSent) {
+        thread_yield(); // make sure other threads can make progress too
+    }
+
+    dmb();  // ensure that we checked the above condition before copying
+
+    memcpy(msg, entry, AOS_UMP_MSG_BYTES);
+
+    dmb();  // ensure that the message is received before we mark it as received
+
+    entry->header.msg_state = UmpMessageReceived;
+    ump->recv_next = (ump->recv_next + 1) % AOS_UMP_MESSAGES_ENTRIES;
+
+    return SYS_ERR_OK;
+}
+\end{minted}
+\caption{Function to receive UMP messages}
+\label{lst:ump-recv}
+\end{listing}
+
+The memory barriers in these two functions ensures the following order of memory operations is not reordered:
+listing \ref{lst:ump-send} line 6, listing \ref{lst:ump-send} line 10, listing \ref{lst:ump-send} line 14,
+listing \ref{lst:ump-recv} line 6, listing \ref{lst:ump-recv} line 12, listing \ref{lst:ump-recv} line 16,
+listing \ref{lst:ump-send} line 6, \dots.
+
+\section{Sending Large Messages}
+
+At this point, two cores are capable of communicating with each other. But only
+if the messages they would like to send, fit into a single cache line. We went
 the extra mile and implemented the extra challenge fragmentation and reassembly.
 For this we need to split the payload, that should be sent, into chunks fitting
 into a cache line and reassemble them on the receiver side. Sending chunked
-messages is pretty straight forward, but one point to mention here is the case
+messages is pretty straight-forward, but one point to mention here is the case
 when we send many chunked messages and completely fill the ring buffer and hence
 fail sending the remaining message. In this case, we implemented a linear back
 off functionality that retries send the messages up to 32 times, such that the
@@ -115,10 +161,56 @@ base page sizes. This way, we can allocate a temporary buffer on the receiver
 side, that is guaranteed to contain the whole message after reassembling. The
 receiver then simply needs to read all chunked message and reassemble them.
 
-\section{Synchronous communication}
+\section{Invariants}
+Similar to LMP, we want to implement suitable guarantees for clients and servers.
+As for LMP, we assume that one side of the channel sends requests, receives responses,
+and the other receives requests, and responds to them. 
+We restate the invariants we had already mentioned on the RPC communication based on LMP, as they
+are exactly the same as for UMP based RPC communication.
 
-To provide synchronous communication over UMP we also added a function to our
-interface that, sends a message and immediately tries to receive one, such that
-we could offload this functionality directly into the library.
+\begin{itemize}
+    \item Client send-receive patterns are atomic with respect to the channel
+    \item Server receive-send patterns are atomic with respect to the channel
+    \item No process uses a channel as a server and client at the same time
+\end{itemize}
 
-% maybe talk about server/client and binding
+\section{Synchronous Communication}
+Remember that UMP will be another building block of our overall RPC abstraction.
+Similarly as with LMP, we added a function to our interface that sends and immediately
+tries to receive a message atomically, such that we could offload this functionality directly into the library.
+
+\section{Registering a Server}
+Other than LMP, we can't receive requests over upcalls (or at least thought so at the time of implementation), asynchronously. Instead, we must poll 
+on a flag at the current entry of the ring buffer contained in the shared page between both sides of the protocol.
+
+We initially found two essential ways this could be done. One would be to have a single thread for every server side of the protocol.
+This thread then runs an endless loop of polling for requests. The upside of this is that UMP handling is guaranteed
+a fair amount of processing time each time a thread is scheduled. This is enforced by the Barrelfish scheduler. Thus, we can assume
+that no UMP channel will suffer from starvation. On the downside, this idea is not scalable at all. If there are many open UMP channels
+in the system, there will be no way to guarantee a steady performance. A further plus is that
+it is very easy to implement.
+
+Another way would be to have one single polling thread for all UMP server sides. This loop would then loop through each channel
+until one of them has a message, process that, and then go back to looping on the other channels (essentially, one thread checks 
+and handles all UMP channels). The upside of this is that it is more scalable than a single thread per channel. However, on the downside,
+if one of the channels happens to have much more traffic than the others, the high-traffic channel will be slower, and the low-traffic 
+channels might starve.
+
+We recently learned about polled waitsets, which would give us a third alternative, which could be scalable and still achieve high performance -
+essentially the best of both worlds. However, as this discovery is only very recent, we did not take this approach.
+At the time, we went along with the first version and didn't move from it. 
+
+\section{Using UMP to Relay Messages}
+By default, there is a UMP channel between both cores. We use this channel to relay requests from user processes on core 0/1 
+to \texttt{init} on core 1/0. That way, we can use the serial driver on core 1, by talking to the serial server on core 0.
+In addition, we can spawn servers, get all pids there are in the system, etc. Relaying connects the system.
+
+\section{Direct Channels}
+As an extra challenge, we took on the task of binding from a user process to the \texttt{init} process on the other core through a direct 
+channel. We did this by sending a bind request over the relay from the on-core \texttt{init} to the \texttt{init} of the other core.
+Along with this bind request, we send a frame which will be the shared frame between the processes. With this frame at hand,
+it is now trivial to start a communication.
+
+The book recommended a binding structure where each side sends the other side one frame. However, we think the requesting process
+should be responsible for providing memory to the destination process. This guarantees that no denial of service of a process
+is possible at the destination process by forcing it to allocate memory.

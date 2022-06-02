@@ -15,8 +15,6 @@ toc=nolistof
 \usepackage[babel=true]{microtype}
 \usepackage{amsmath,amssymb,amsfonts,amsthm,mathrsfs}
 \usepackage{graphicx}
-\usepackage{listings}
-\usepackage{hyperref}
 \usepackage[nospace]{varioref}
 \usepackage{caption}
 \usepackage{array}
@@ -24,8 +22,8 @@ toc=nolistof
 \usepackage{enumitem}
 \usepackage[autostyle=true]{csquotes}
 \usepackage{tikz}
+\usepackage{minted}
 %\usepackage[backend=biber,bibstyle=ieee,citestyle=numeric-comp]{biblatex}
-\usepackage[outputdir=build,chapter]{minted}
 \setminted{fontsize=\small}
 \setminted{autogobble}
 \setminted{linenos}
@@ -50,8 +48,11 @@ toc=nolistof
    \do\E\do\F\do\G\do\H\do\I\do\J\do\K\do\L\do\M\do\N%
    \do\O\do\P\do\Q\do\R\do\S\do\T\do\U\do\V\do\W\do\X%
    \do\Y\do\Z\do\0\do\1\do\2\do\3\do\4\do\5\do\6\do\7\do\8\do\9}
+   
+% Syntax containing underlines and other symbols that LaTeX thinks to be math symbols need to be in a verbatim environment
+\newcommand{\sytx}[1]{\mintinline{text}{#1}} 
 
-\title{Flakey-OS Report\\\\\large AOS Final Report Group 7}
+\title{Flake OS\\\hspace{1em} \large AOS Final Report Group 7}
 \author{Altin Alickaj \and Thierry Backes \and Florian Bütler \and Manuel Hässig}
 
 \begin{document}
@@ -60,21 +61,27 @@ toc=nolistof
 
 \tableofcontents
 
-TODO: Write your report. Please also mention whether you have any limitations
-(e.g., limit of mapped memory, ...) and/or whether you've done extra challenges.
+\chapter{Introduction}
+We present our project report for the operating system we have been building for the last couple of months. 
+In the final submission, we present a system describing our approaches to the milestones M0-M6 as well as the 
+following individual milestones: A file system, networking, a name server and a shell.
+
+Together, these milestones build the operating system we call Flake OS. Why is it called that?
+Well --- sometimes it is a little bit flaky. While the name currently can be seen as a wordplay rather than a serious name, given more time, the system could become more elegant and sophisticated - like a snowflake, perhaps?
 
 \input{simple-shell.tex}
 \input{memory-allocation.tex}
 \input{processes.tex}
-\input{rpc.tex}
+\input{lmp.tex}
 \input{self-paging.tex}
 \input{multicore.tex}
 \input{urpc.tex}
+\input{rpc.tex}
 
 \input{shell.tex}
-\input{capabilities.tex}
 \input{filesystem.tex}
 \input{nameserver.tex}
 \input{networking.tex}
+\input{end.tex}
 
 \end{document}

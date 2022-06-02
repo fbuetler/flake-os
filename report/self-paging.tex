@@ -1,5 +1,4 @@
 \chapter{Virtual Memory}
-
 What should a virtual memory system provide? memory, safety, flexibility, efficiency
 The next sections will describe how we achieved these goals.
 
@@ -22,23 +21,26 @@ reserve the top 256 GiB for the stack region.
 The heap region starts after the read-only section, which ends after 512 GiB and stretches all the way
 up to the start (or rather end) of the stack region.
 
-\section{Allocating and Freeing Memory}
-In order to keep track of the address space, we reused our datastructure that we used to track
-RAM after some refactoring to have a common memory tracker interface. For each of the three usable
+These sections are defined in \texttt{include/aos/paging\_types.h}.
+
+\section{Allocating Memory}
+In order to keep track of the address space, we reused our data structure that we used to track
+RAM after some refactoring to have a common memory tracker interface (see subsection \ref{subsec:mm-tracker}.
+For each of the three usable
 regions described above we have a separate memory tracker to track which parts of the address space
-have already been reserved. This allows us to reuse all the implementations for allocating, splitting,
+have already been allocated. This allows us to reuse all the implementations for allocating, splitting,
 and freeing of memory regions that we already had implemented for RAM.
 
 By separating the management of virtual addresses for these regions into separate memory trackers,
-we did not have to worry about the heap growing into the stack and vice-versa as the respective 
+we did not have to worry about the heap growing into the stack and vice-versa, as the respective 
 memory tracker cannot hand out addresses for other regions than their own (given proper initialization).
 
-It is important to note that requesting memory using \mintinline{c}{paging_alloc} would only reserve a free region
+It is important to note that requesting memory using \mintinline{c}{paging_alloc} would only allocate a free region
 of virtual memory in the appropriate memory trackers. The behavior we settled on was that by default
 \mintinline{c}{paging_alloc} would find free virtual addresses in the heap region as a wrapper around
 \mintinline{c}{paging_alloc_region} where the caller can select from which memory region the free addresses should come.
 
-These reservations on free virtual addresses are by themselves not backed up by memory. This is only
+These allocations of free virtual addresses are by themselves not backed up by memory. This is only
 done once the memory has been accessed and a compulsory page fault has been taken.
 
 \section{Handling Page Faults}
@@ -46,10 +48,93 @@ Once our system takes a page fault on a virtual address, the first thing the pag
 is check which memory region the faulting address belongs to. If it belongs to the unusable region
 it goes ahead and throws a segfault.
 
+Using the appropriate memory tracker we can now verify that the address we took a page fault on is actually
+allocated. If it is not allocated, the handler again throws a segfault as only broken programs would try to
+access memory without allocating some first.
+
+If the faulting address is within an allocated region of virtual memory, the handler backs this address up
+with actual memory by allocating a new frame the size of a page and mapping that fresh page at the appropriate
+address in the page table. With this we are done with the handling of our page fault. Because we only
+back up allocated virtual memory with a physical page once a page fault
+occurs, we always round up the amount of requested memory to the next multiple of a page size. This way
+we know that if we ever want to map a page to for a given virtual address and there is already a page
+present, that the program must be incorrect and we can throw a segfault.
+
+\section{Performance Analysis}
+Throughout the project, we've found that page faults have been quite expensive. To verify this,
+we measured execution times of our page fault handling.
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.65]{PageFaultHandling\_Latency\_Histogram.pdf}
+    \caption{Page Fault Latency in microseconds}
+    \label{fig:pfaults}
+\end{figure}
+Figure \ref{fig:pfaults} counts the frequency of page faults being handled in the given interval specified in the x-axis.
+As can be seen in Figure \ref{fig:pfaults}, most page faults are handled in 2 - 4 milliseconds, while there
+still are a few stragglers taking roughly 10ms. Stragglers can be explained by noting that sometime, 
+slabs and slots need to be refilled, which increases the overall latency.
+
+\section{Freeing Memory}
+To free memory, we first identify the allocated virtual memory region the address belongs to.
+Then we unmap all pages mapped for this virtual memory subspace and also free the allocation in the
+respective memory tracker.
+
+Our \mintinline{c}{paging_unmap} implementation walks all page tables in the identified memory region.
+It unmaps all L3 page table slots in the region and also unmaps all L3, L2, or L1 page tables that might
+be empty due to the unmap operation. Already free L3 slots are just left alone.
+
 \section{Dynamic Stack Extension}
+One extra challenge was the dynamic stack extension. Because of our separate memory trackers and the
+code already in place, we were able to implement this quite easily. Whenever a new thread is started,
+the initialization allocates stack space for that thread. Our implementation makes sure that the same
+amount of memory (currently 1 GiB) is
+allocated in the memory tracker for the stack region of virtual memory for every thread.
+
+The fields \mintinline{c}{stack} and \mintinline{c}{stack_top} in the \mintinline{c}{struct thread} 
+are then initialized to the appropriate boundaries of the allocated part of virtual memory. This allows
+the function \mintinline{c}{thread_check_stack_bounds} to enforce the bounds of the stack at runtime.
+Since this function is only called when a thread resumes, we also map the lowest page in the stack as
+a guard page. Ideally, this guard page would be mapped with the guard flag on the page. Unfortunately,
+it is not available on ARMv8 (at least according to the memory management code in the kernel). Thus,
+we map it without any flag. This still does the job as a guard page as it will trigger a segfault if
+any process faults on the guard page since it is already mapped.
+
+With this setup, the stack is only ever backed by the least number of pages necessary, i.e. the pages
+it already accessed.
 
 \section{Challenges}
+We faced some challenges implementing this milestone. The foremost was the problem of recursive
+page faults, slab- and slot allocator refills. The problem of recursive page faults was fixed by
+ensuring that the code path of handling a page fault does not incur a page fault. One example of such
+a fix is that LMP messages of sufficiently small size (i.e. RAM capability requests) are constructed
+in a static buffer before sending and upon receipt.
 
-\section{Improvements}
+The problem of recursive allocator refills was a bit more tricky as it had a habit of coming back.
+But the solution we ended up with is that all allocators keep a reserve of spare slots or slabs
+such that they can provide resources for the process of refilling themselves. This invariant has to
+be ensured at the proper place. For the slab allocators we do this at every instance before memory is allocated as to prevent 
+the refill to be necessary during the allocation which would lead to recursive allocations. For the
+two-level slot allocator we are using, we modified it to change to the other level when it still has
+ten slots to spare. Because of the spare slots and the refill procedure that does not incur a page fault
+there are no restrictions on the time when this can be done.
 
-\section{Summary}
+Another problem is the thread safety of all methods involved in self-paging. Multiple threads share
+the same paging state and thus can and will cause bad interleaving in the paging methods. We opted
+to curtail this problem by making the functions thread safe using locks. In the paging state, we added
+a reentrant lock that locks at the beginning of functions modifying the paging state and unlocking
+when that function is left again. This prevents any thread other than the thread holding the lock
+from interfering with the progress of changing the paging state.
+
+A small fun challenge was self-inflicted, because we wanted to malloc 1 TiB of memory. It turned
+out that the malloc implementation in the handout still assumed 32-bit virtual addresses. Since
+this is 2022 we changed the implementation to be 64-bitand succeeded in mallocing 1 TiB.
+
+\section{Issues \& Limitations}
+Our unmap implementation is terribly inefficient, since it needs to try and visit all page table
+entries in the virtual memory region that is to be unmapped. When freeing our 1 TiB malloced buffer,
+it took over ten minutes to try and visit all page table entries even though we only wrote three
+bytes in the beginning, the middle, and the end of the buffer. However, we already had problems
+implementing the current implementation. Therefore, we decided to leave it at that. However,
+the page table walk could be sped up significantly by only visiting the pages that are actually mapped.
+

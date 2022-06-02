@@ -1,17 +1,30 @@
-\chapter{Multi-core Support}
+\chapter{Multi-Core Support}
 
 To use another core, we need to boot it, establish a communication channel
 between from the old core to the new core and define how memory management is
-done across cores.
+done across cores. Note that the other core will run it's own init binary,
+however enters through another function (app\_main instead of bsp\_main).
 
-In our system we make the assumption that core 0 is always present and only
-cores 1 to 3 are booted and shut down.
+When we first added Multi-Core Support, we supported all 4 cores. As is known,
+this requires a lot more bookkeeping than 2 cores. After experiencing long-lasting
+problems during the integration of our individual problems, we decided that we
+won't support a quad-core system and instead work only with 2 cores.
 
-\section{Boot another core}
+
+In this chapter, we describe the booting process for the second core,
+as well as initial support for communication between cores via user-level message
+passing (UMP). We also describe the necessary bookkeeping needed to support another core
+and challenges we faced during its operation.
+
+\section{Boot Another Core}
 
 The main part about booting a core is allocating memory for various
-datastructures and passing these memory regions to the new core. Further, we
-need to tell the new core, where some fundamental binaries are such that it can
+data-structures and passing these memory regions to the new core. 
+These data-structures include memory for UMP communication,
+the new CPU-driver, an init process, and spare physical memory so that the new core
+can act as a memory server.
+
+Further, we need to tell the new core where some fundamental binaries are such that it can
 execute them.
 
 \subsection{Create the Kernel Control Block}
@@ -21,7 +34,7 @@ At this moment it worth to be mentioned, that we always have to pass the
 physical memory address as opposed of a virtual one, such that the new core
 actualy know where that memory is. 
 
-\subsection{Load the boot driver}
+\subsection{Load the Boot Driver}
 
 Next, we have to find the boot driver in the multiboot module and map it into
 our address space. As the boot driver is nothing else than a ELF binary we need
@@ -30,69 +43,82 @@ need to map the binary into our address space and get its physical address.
 Moreover, the bootdriver runs with a one-to-one virtual address to physical
 address mapping, so we have to relocate the ELF binary as well.
 
-
 \subsection{Load the CPU driver}
 
-The same has to be done with the CPU driver, but this time it is a different
-binary and with that also a different entry point to be looked for.
+Note that in Barrelfish, every core has its own CPU driver running.
+When starting up a new core, we now have to load the CPU driver, which 
+works similarly as the Boot Driver but is of course now a different binary
+with a different entry point for which we look.
 
-\subsection{Allocate the kernel stack}
+\subsection{Allocate the Kernel Stack}
 
-The kernel needs its own stack, so we allocate 16 countinously aligned base
+The kernel needs its own stack, so we allocate 16 continuously aligned base
 pages and get their physical address.
+At this point remember that the kernel itself will only need a fixed amount of overall memory
+, as the CPU Driver does not use any dynamic memory whatsoever, i.e. it will never run out of memory.
+The only other memory the kernel will need is initial memory to spawn the init binary, as will be
+explained shortly.
 
-\subsection{Loading init}
+\subsection{Loading \texttt{init}}
+The new core does also need to know what initial binary should be executed.
+Usually, that would be the "monitor". Our OS however doesn't have its own monitor.
+Instead, we use init as our monitor. As the new init is running on core 1, it is
+not run the bootstrap main function (\texttt{bsp\_main}), but instead \texttt{app\_main}.
 
-Also does the new core need to know what initial binary should be executed.
-Usually, that would be the "monitor", but as we do not have a "monitor" we use
-"init".
-
-\subsection{Allocate kernel memory}
+\subsection{Allocate Kernel Memory}
 
 To load the init binary, the CPU driver needs some initial memory, that we have
-to allocate for it as well.
+to allocate for it as well. This is the last piece of memory that the CPU driver will need from us.
 
-\subsection{Initialize the core datastructure}
+\subsection{Initialize the Core Datastructure}
 
 At this point, we have all the ingredients to boot a new core. We only have to
 put all these information together in a compact and well know structure. That is
 the purpose of the core datastructure. It contains configuration parameters,
 locations and size of various memory regions we just allocated and the core ID.
 
-\subsection{Flusing the cache}
-
+\subsection{Flusing the Cache}
 To clean things up, we also need to flush the cache to make sure that all data
 we have just written is visible for everyone, including the new core.
 
-\subsection{Spawning the core}
+\subsection{Spawning the Core}
 
-Finally, we can boot a new core by invoking the kernel capability.
+Finally, we can boot a new core by invoking the kernel capability. 
+After that, the kernel will be up and running. The second core is not very useful
+in building a interconnected system without the ability to efficiently communicate with it.
 
-\section{Communicate between cores}
+\section{Communicate between Cores}
 
 The newly booted core needs to fundamental capabilities to work properly. These
 include a ram capability that represent a region of physical memory that it can
 manage for applications on its core, the bootinfo that contains also the
 multiboot module such that the new core can start other processes.  These
 capabilities are send over shared memory that is mapped in both cores. We
-discuss its communication mechanism further in the next chapter.
+discuss its communication mechanism further in the next chapter, when we talk about
+UMP.
 
-\section{Manage memory across cores}
+\section{Manage Memory Across Cores}
 
-We decided that every core should have its own memory that it can manage. For
-this, as we have four cores, a quarter of the memory on core 0 is allocated. The
+We decided that every core should have its own memory that it can manage. 
+Since \texttt{init} already runs its own memory server, the same thing will happen 
+for the new core. Every process in the operating system shall use the \texttt{init}
+on its own core as a memory server over a dedicated RPC channel to it.
+For this, as we have four cores, a quarter of the memory on core 0 is allocated. The
 physical address of the capability representing this memory region is then send
 the new core, forged into a new capability and used to initialize the memory
-allocator.  Every core has a distinct PID range that it can use for spawning
+allocator. Every core has a distinct PID range that it can use for spawning
 processes.
 
-\section{Booting all cores and turning cores off and on}
-
+\section{Booting All Cores and Turning Cores Off and On}
 We also implemented both extra challanges. Booting all cores was pretty straight
-forward, and we could easily reuse the same logic to boot core 2 and 3.  Turing
-a core off and then on again was a bit more involved and neede more digging. But
+forward, and we could easily reuse the same logic to boot core 2 and 3. 
+For communication over LMP, we assigned an array of 4 different channels to the other cores,
+where the other cores would just listen to core 0. However, since we also need communication
+between each other and we had trouble integrating the system after the individual milestones
+with only two cores, we stayed that way. 
+Turing a core off and then on again was a bit more involved and needed more digging. But
 in the end, we implemented a mechanism that allows core 0 to tell another core
-to turn itslef off. Turing a core back on involves the same steps as booting a
+to turn itself off. Turing a core back on involves the same steps as booting a
 core.
 
 % allocate memory

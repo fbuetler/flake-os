@@ -2,45 +2,57 @@
 
 \section{Paging}
 
+For each page table we store the information in the following struct:
+\begin{minted}{c}
+struct page_table {
+    struct capref cap;  ///< cap that represent the memory where this page table is stored
+    struct page_table *entries[PTABLE_ENTRIES];  ///< the entries of the page table
+    struct capref mappings[PTABLE_ENTRIES];      ///< the mapping of the page table
+    genpaddr_t paddrs[PTABLE_ENTRIES];
+    uint16_t filled_slots;  ///< nr of filled slots in this table
+};
+\end{minted}
+
+Since a higher-level entry might point to multiple lower-level ones, each page table entry has a list of possible children \verb|struct page_table *entries[]| and keeps track of the number of filled slots.
+
+This state is stored in the \verb|struct paging_state{}|.
+
 \subsection{Allocate free regions of virtual address space}
-TODO
+Tracking virtual memory is identical to tracking physical memory. Therefore, we reused the \verb|mm_tracker| from the physical memory management. 
+
+A call to \verb|paging_map_frame_attr_region()| first asks the memory manager for a free region of virtual memory, then maps this region into the page table. To map a region, we walk down the page table and create entries on each level if they don't exist.
 
 \subsection{Map large frames}
-TODO
+Mapping large frames is very similar to mapping single frames, since they can span multiple L3 entries but only a single L2 or L1 entry. Therefore, we iterate over the virtual address in increments of \verb|BASE_PAGE_SIZE| to create a new L3 entry for each one and append them to the L2 array.
 
-\subsection{Perform mapping in a different domain}
-TODO
+\subsection{Morecore}
+For allocation in morecore, we simply reserve the specified size using our memory reservation datastructure for the heap.
+One problem we've experienced is that our datastructure can only reserve multiples of page sizes.
+As a result, we've allocated a whole page when even small requests of a few bytes are done. This lead to extremely many
+page faults, slowing down our system noticeably. As a solution, we always keep the last allocated page cached in morecore,
+and if subsequent requests fit into the remaining cached memory region, we return that. If that's not the case, we use
+the reservation datastructure again to reserve new heap space. With this fix, our page fault counts reduced drastically,
+giving our system a more natural speed.
 
 \subsection{Unmapping}
-TODO
+Unmapping a region consists of two parts: The entries in the actual page table need to be removed, and the state of the virtual memory tracker needs to reflect this change. The first step is to acquire the node in our memory tracker responsible for this memory region as it stores the capabilities of the page table.
+
+A region might span multiple L3 entries, but only a single L2 and L1 entry. Therefore we can traverse the region in increments of \verb|BASE_PAGE_SIZE| and remove the corresponding L3 entry on each iteration, and the L2 and L1 entries during the last. After destroying all the capabilities, the region is marked as free in the memory tracker and can be reused.
+However, if a L1 or L2 table doesn't even exist, we don't bother looking any further for L3 tables that need to be mapped and can proceed to the next one.
+Thus, we pay a heavy price only if we land at a sparse L3 table.
+
+Subsequently, we started working on a better version, which included storing mapped regions in a linked list using our memory region tracker we've
+used throughout the previous milestones. That way, we could directly move to the regions of interest. However, due to time constraints, we didn't get
+to use it in code. The implementation of this data structure for tracking mapped region better has been left in the codebase for review if interested.
+
 
 \section{Process Creation}
 
 \subsection{Load from multiboot image}
+ We did not implement the ELF loading from the filesystem due to time constraints. Thus, we're only able to load multiboot binary. So we need to find our binary by looking for it by its filepath in the boot image first.  Once we found it we start setting up our bookkeeping for a spawned process. Here we set the name of the process to the binary name and store the module location that holds the binary.  We also need to load the binaries arguments from the boot image as they are also hardcoded in there. We get them as a raw string and hence they need to be parsed. The chosen argument separator here is a whitespace. If there are multiple whitespaces between the arguments, they are stripped.  As we later want to load binaries not only from the boot image but also from the filesystem, we moved the following part into another API endpoint so the common functionality to actually spawn a process can be shared.
 
-At the moment we can only load binaries that are included in the boot image as
-we don't have a filesystem yet. So we need to find our binary by looking for it
-by its filepath in the boot image first.  Once we found it we start setting up
-our bookkeeping for a spawned process. Here we set the name of the process to
-the binary name and store the module location that holds the binary.  We also
-need to load the binaries arguments from the boot image as they are also
-hardcoded in there. We get them as e raw string and hence they need to be
-parsed. The chosen argument separator here is a whitespace. If there are
-multiple whitespaces between the arguments, they are stripped.  As we later want
-to load binaries not only from the boot image but also from the filesystem we
-moved the following part into another api endpoint so the common functionality
-to actually spawn a process can be shared.
-
-\subsection{Find ELF image} 
-
-We will now refer to the process that spawns a
-process the parent and the spawned process the child.  To work with the binary
-we need to map it into the parents virtual memory space. For this we map the
-address of the module into our vspace with the help of our paging
-infrastructure.  To check whether we mapped the module correctly we can try to
-access the first four bytes of the mapped address in the parents virtual memory
-spaces. As we mapped a ELF binary the first four bytes should correspond to 
-the ELF magic bytes '0x7f', 'E', 'L' and 'F'.
+\subsection{Find ELF image}
+We will now refer to the process that spawns a process as \emph{parent}, and the spawned process as \emph{child}.  To work with the binary we need to map it into the parents virtual memory space. To do this, we map the address of the module into the vspace with the help of our paging infrastructure. To check whether we mapped the module correctly we can try to access the first four bytes of the mapped address in the parents virtual memory spaces. As we mapped an ELF binary the first four bytes should correspond to  the ELF magic bytes \verb|0x7f|, \verb|E|, \verb|L| and \verb|F|.
 
 \subsection{Create intial CSpace} 
 
@@ -53,56 +65,48 @@ capabilities such as the dispacher, dispacher frame, argument page, the endpoint
 to itself (created from the dispatcher capability) and the root cnode from
 above.  At this point we also copy the parents endpoint to a well known location
 in the child cspace such that the child can use it later to setup a channel to
-the parent for inter process communication.  The three slot cnode are empty and
+the parent for inter process communication.  The three slot cnodes are empty and
 contain space for the child's initial slot allocator and more if needed.  Each
 slot of the base page cnode hold a ram capability of the base page size such
-that the child has some initial memory to work with.  Finally the page cnode has
-in the first slot a capability to the top level page table. The other slots can
+that the child has some initial memory to work with.  Finally the page cnode has a capability to the top level page table in the first slot. The other slots can
 be used to store other page tables.
 
 \subsection{Create initial VSpace} 
 
-In the child's virtual memory space we need
-to create a L0 page table and store it in the page cnode. We also need to copy
-the L0 page table to the parent virtual memory space so we can invoke it. This
-is needed to setup the paging infrastructure for the child. If we would not map
-it into the parents vspace we wouldn't have the right to write to it.  As
-already mentioned above, we need to store empty ram caps in the base page cnode,
-therefore we need to allocate them and store them in the corresponding slots.
+In the child's virtual memory space we need to create a L0 page table and store it in the page cnode. We also need to copy the L0 page table to the parent virtual memory space so we can invoke it. This is needed to setup the paging infrastructure for the child. If we would not map it into the parents vspace we wouldn't have the right to write to it.  As already mentioned above, we need to store empty ram caps in the base page cnode, therefore we need to allocate them and store them in the corresponding slots.
 
 \subsection{Load the ELF Image} 
-
 Now that we have a working virtual memory space
 in the child, we can parse the ELF binary and load the segments in the childs
 virtual memory space. This work by defining a callback function that is called
 for each segment that is encountered in the ELF binary.  In the callback
 function we allocate first a frame in the parents vspace and map the segment
-frame the callback function was called for into the frame. We also need to
-tranlsate the access rights from the ELF binary segments to the virtual memory
+frame, for which the callback function was called, into the frame. We also need to
+translate the access rights from the ELF binary segments to the virtual memory
 space as they are be different. We first map it into the parents vspace again to
-be allowed to make operations on it. After the parent is finished the final
-frame is also mapped into the childs vspace.  Finally, the binary is parsed for
+be allowed to perform operations on it. After the parent is finished, the final
+frame is also mapped into the child's vspace.  Finally, the binary is parsed for
 the global offset table header such that we can initialize the child properly.
 
 \subsection{Adding a dispatcher} 
 
 To setup a dispatcher we first need to allocate
 a dispatcher frame. This frame is used by the CPU driver to store information
-about the process.  Here again we map the frame into the parents vspace and the
+about the process. Here, we again map the frame into the parents vspace and the
 childs vspace.  To finish things up, we setup the dispatcher fields and put
-initial information in the dispatcher frame scuh aus core id, virtual address of
-the dispatcher frame in the childs vspace, the process name, the programm
+initial information in the dispatcher frame such aus core id, virtual address of
+the dispatcher frame in the child's vspace, the process name and the program
 counter and tell the child to start in the disabled mode.  Finally, we
 initialize the offset registers and disable the error handling frames.
 
 \subsection{Set up arguments} 
 
 The child process also needs to know with what
-arguments it has been invoked with. For this another frame is allocated and
-mapped into both vspaces.  The frame is expected to have a specific layout
-namely first a struct with some meta information of the frame such as at which
+arguments it has been invoked with. For this, another frame is allocated and
+mapped into both vspaces.  The frame is expected to have a specific layout:
+First, a struct with some meta information of the frame such as at which
 address each argument is located.  This struct is followed by the actual
-arguments until it is finished by a NULL pointer.  The child process expected
+arguments until it is finished by a null pointer.  The child process expected
 its first argument in the enabled save area to contain a pointer to the above
 mentioned struct, so we set that at the end.
 
@@ -118,31 +122,24 @@ calling a sys call with the correct arguments we just set up.
 We chose a simple linked list for storing the
 currently running processes. The head is well known with the init process being
 the first process in the system.  All other later spawned processes are appended
-to the linked list.  Each process gets a PID assigned, after the process was is
-invoked by checking whether the current PID counter is already used or is
-incremented otherwise until a free one is found.
+to the linked list.  Each process gets a PID assigned, after the process was,
+invoked by checking whether the current PID counter is already used and incrementing it until a free one is found.
 
 \subsection{Kill a process} 
+Killing a process identified by its PID now boils down to traversing the linked list until we find the matching process, stopping its dispatcher and removing from the linked list.
 
-Killing a process identified by its PID now boils
-down to traversing the linked list until we found the matching process stoping
-its dispatcher and removing from the linked list.
+When a process terminates the function \verb|void libc_exit(int status)| is called. Before terminating the thread, we are calling the \verb|aos_rpc_kill_process| function to stop the dispatcher and remove the process from our linked list.
 
 
 \section{Pitfalls} 
 
 We had some serious trouble with refills during a page
-mapping. Namely, when we run out of slots/slabs and attempted a refill, it may
-happen that the refill actually used the page we wanted to map, resulting in an
+mapping. Namely, when we ran out of slots/slabs and attempted a refill, it may have 
+happened that the refill actually used the page we wanted to map, resulting in an
 error. We solved that by ensuring that no refills happened during an ongoing
 mapping.
 
-Another interesting bug occurred during tests of spawning many processes. The
-first four processes spawned just fine but when trying to spawn the fifth process
-the whole system collapsed without an obvious error. After some debugging it
-turned out we stored the metadata of a spawning process in the test on the stack
-and with 4 processes the stack was full and the init process terminated. We
-solved that by storing the metadata on the heap instead.
+Another interesting bug occurred during tests of spawning many processes. The first four processes spawned just fine but when trying to spawn the fifth process, the whole system collapsed without an obvious error. After some debugging, it turned out we stored the metadata of a spawning process in the test on the stack and with 4 processes the stack was full and the init process terminated. We solved that by storing the metadata on the heap instead.
 
 % other pitfalls:
 % virtual address starts at 0 instead of VADDR_OFFSET

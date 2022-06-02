@@ -1,0 +1,61 @@
+\chapter{Summary}
+
+\section{Open Points}
+Our Operating System has seen many ups and downs.
+In this chapter we want to re-emphasize again what performance issues and bugs we experienced in our system.
+We also want to address the most important design decisions we have been questioning and reconsidering in hindsight.
+
+We had to deal with many performance issues, most notably:
+\begin{itemize}
+\item Slow RPC due to a UMP channel being polled in a empty while loop, waiting for new messages to arrive. We found out that 
+RPC was slow because the thread which was polling inside of the while loop was scheduled too often, starving the rest of the system
+of execution time. After using \texttt{thread\_yield} in this UMP while loop, things were tens of times faster.
+\item Paging Unmap: While the implementation we do is much better than naively iterating through each page, it can be done much more efficiently.
+This is a problem which persists up until now, as we couldn't allocate the necessary time to replace it with a better solution.
+\item UMP channels currently run inside one thread each, as they need to be polled. We recently heard about polled waitsets, which could be
+used to avoid huge overhead if there were many UMP channels (which in turn would have required many active threads in a process)
+\item While we are quite happy with the speed of the filesystem, there could be huge gains in performance if we had a faster block driver.
+Thinking about modern operating systems and the use of filesystems on such, it has been eye-opening how fast one can do things and how much more 
+complicated they are than one might think.
+\item One thing each process has plenty of are page faults. For most of our paging core, we have huge locks around complete functions.
+While we are not completely sure, we think some finer grained locking might still be possible.
+\end{itemize}
+
+The next thing we also want to address is known bugs:
+\begin{itemize}
+\item  We believe our system contains quite some memory leaks at this point. Unfortunately, addressing these issues was not the highest priority of our system, noting that three days before the submission of this report, the system hasn't been working at all since we integrated our individual milestones together.
+\item Our paging implementation is assumed to have a bug in it. We have experience multiple times that our OS would fail to start 
+new processes over the shell, failing with an error saying we attempted to map a page table entry that is already mapped. We were close enough
+to locate the problem to a single paging unmap call, without which the errors wouldn't re-appear as often. This call was in our spawn library and
+it was supposed to unmap the memory containing a binary to spawn, which was mapped into the init process so that it can 
+pass it into the child vspace. We decided to remove this paging unmap, leaving open a memory leak, but ensuring a much more stable overall system.
+\item A  concrete demonstration to the last point is the binary spawnTester, which doesn't end successfully and runs into a 
+"Vnode already mapped" error. The source of the place where a previous code execution got to map to something preexisting is unknown to us and our debugging
+wasn't successful. However, it seems like there is some place in our code where our virtual memory abstraction was not implemented correctly. In spawnTester,
+this happens after spawning 5 instances have been spawned. 
+\end{itemize}
+
+This list is of course by no means complete, however these are the bugs that have been our main focus up to now.
+
+As a final point, we address some decisions which in hindsight were not good in our eyes.
+\begin{itemize}
+    \item UMP channels using a single thread each to poll for a message. This is not scalable at all and should have been solved in a 
+    different way.
+    \item RPC clients have an interface for sending and receiving messages atomically. The reception of a response from a server
+    is done using polling instead of using upcalls, as it is done for reception of a client request on the server. While this idea
+    made sense at the time, we now don't approve of this design decision at all.
+\end{itemize}
+
+\section{Final Word}
+We have implemented a system with an enjoyable front-end shell, backed by a filesystem and networking abilities, which in turn 
+again are backed by our nameserver. Besides these services we've implemented in the individual projects, a lot more has been created.
+During the course, we implemented and learned what it means to communicate over processes, run and communicate over different cores,
+how sophisticated bulk memory allocation for managing physical memory is. We learned what it means to start a new thread,
+a new process and how to provide these processes with memory and all the resources it needs to be provide a suitable
+environment for custom user processes.
+
+It has been an incredible journey to build this system. Unlike other courses at ETH, we were not forced into a direction
+by a bunch of skeleton code and instructions but instead were free to explode and be creative. Many design decisions had to
+be made. If they were wrong, we had to deal with the consequences. Although it required a vast amount of work each week,
+it has been incredibly rewarding. We think back to Professor Roscoe's first lecture in this course, where he said that 
+building operating systems cannot be learned in a book. Now we know what he meant by that and we must fully agree.

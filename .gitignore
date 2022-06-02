@@ -71,3 +71,5 @@ compile_commands.json
 CMakeLists.txt
 cmake-build-debug
 test-logs
+
+! report/PageFaultHandling_Latency_Histogram.pdf
