@@ -8,7 +8,7 @@
 #include <aos/nameserver.h>
 #include <fs/fat32fs.h>
 
-#define RPC_FS_RW_CHUNK_SIZE 512
+#define RPC_FS_RW_CHUNK_SIZE 1024
 
 struct fat32fs_dirent {
     char *name;
