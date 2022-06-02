@@ -189,13 +189,20 @@ void aos_ump_receive_listener(struct aos_ump *ump)
             continue;
         }
         case AosRpcSerialReadChar: {
+            struct serialio_response serial_response;
+
+            err = serial_get_char(NULL, &serial_response);
+
+
+            /*
             char retpayload[1];
             err = process_read_char_request(retpayload);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "Could not read char in UMP \n");
                 continue;
-            }
-            aos_ump_send(ump, AosRpcSerialReadCharResponse, retpayload, 1);
+            }*/
+
+            aos_ump_send(ump, AosRpcSerialReadCharResponse, ((char *)&serial_response), sizeof(struct serialio_response));
             continue;
         }
         case AosRpcNsRegister: {

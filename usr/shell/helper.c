@@ -27,26 +27,37 @@ errval_t spawn_process(char *args, domainid_t *pid) {
         return SYS_ERR_NOT_IMPLEMENTED; // todo: better error
     }
 
-    char *command = args;
+    DEBUG_PRINTF("args1: %s \n", args);
+    char command[RECV_BUFFER_SIZE];
+    strcpy(command, args); // strtok modifies args
+
+    DEBUG_PRINTF("command after copy: %s \n", command);
     char *core = strtok(args, " ");
     errval_t  err;
 
+    DEBUG_PRINTF("args2: %s \n", command);
     int c = 0;
     if(*core == '0' || *core == '1' || *core == '2' || *core == '3') {
-        command = strtok(NULL, "");
+        //command = strtok(NULL, "");
         c = *core - '0';
-        if(command == NULL) {
+        char * tmp = strtok(NULL, "");
+        if(tmp == NULL) {
             printf("run_fg: provide a binary name\n");
             return SYS_ERR_NOT_IMPLEMENTED; // todo: better error;
         }
+
+        strcpy(command, tmp);
+    } else {
+
     }
 
-    err = aos_rpc_process_spawn(get_init_rpc(), command, c, pid);
+    DEBUG_PRINTF("args3: %s \n", command);
+    err = aos_rpc_process_spawn(shell_state.init_rpc, command, c, pid);
     if (err_pop(err) == SPAWN_ERR_FIND_MODULE) {
-        printf("Could not find binary \"%s\"\n", args);
+        printf("Could not find binary \"%s\"\n", command);
         return err;
     } else if (err_is_fail(err)) {
-        printf("Failed to spawn process \"%s\"\n", args);
+        printf("Failed to spawn process \"%s\"\n", command);
         return err;
     }
 

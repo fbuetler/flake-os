@@ -155,7 +155,8 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
     errval_t err;
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
         // send to serial driver on the terminal server core
-        aos_rpc_msg_type_t rtype;
+        //aos_rpc_msg_type_t rtype;
+
         // semantics of writechar request: if index 1 of request is 1, no
         // response will be sent back
         char ump_req[2];
@@ -170,7 +171,7 @@ errval_t aos_process_serial_write_char(struct aos_lmp *lmp)
             return err_push(err, LIB_ERR_UMP_CALL);
         }
 
-        assert(rtype == AosRpcSerialWriteCharResponse);
+        //assert(rtype == AosRpcSerialWriteCharResponse);
     } else {
         // grading
         grading_rpc_handler_serial_putchar(*lmp->recv_msg->payload);
@@ -213,7 +214,6 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
     // char c;
     struct serialio_response serial_response = { 0 };
     if (disp_get_current_core_id() != TERMINAL_SERVER_CORE) {
-        assert(false);
         // Do the thing, but on the core where the terminal server is located
         aos_rpc_msg_type_t rtype;
         char *rpayload;
@@ -221,6 +221,8 @@ errval_t aos_process_serial_read_char_request(struct aos_lmp *lmp)
         err = aos_ump_call(&aos_ump_client_chans[TERMINAL_SERVER_CORE],
                            AosRpcSerialReadChar, lmp->recv_msg->payload, 1, &rtype,
                            &rpayload, &rlen);
+
+        serial_response = *(struct serialio_response*) rpayload;
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to read char from core %d over UMP\n",
                       TERMINAL_SERVER_CORE);
